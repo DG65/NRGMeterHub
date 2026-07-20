@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0-beta.1 (2026-07-20)
+
+- **Discovery erkennt jetzt mehr Zähler.** Neben PAC2200 und Janitza findet der Netzwerk-
+  Scan nun auch **Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375**
+  und **Eastron SDM72D/SDM630** — je über eine Plausibilitätsprüfung (Spannung/Frequenz) am
+  charakteristischen Register. Dafür liest die Discovery jetzt auch Input-Register (FC 0x04)
+  sowie Int32-CDAB/UInt16 (Carlo Gavazzi). Hinweis: Beim Shelly Pro 3EM muss Modbus TCP am
+  Gerät aktiviert sein. Zähler hinter RTU/TCP-Gateways mit frei wählbarer Unit-ID (Socomec,
+  MBS) werden weiterhin nicht automatisch gefunden — dort die Instanz manuell anlegen.
+
 ## 0.8.0-beta.1 (2026-07-20)
 
 - **Drei experimentelle Zähler ergänzt** (aus Vorlagen/Fremdquellen abgeleitet, noch nicht

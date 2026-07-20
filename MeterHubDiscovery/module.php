@@ -23,12 +23,25 @@ class MeterHubDiscovery extends IPSModule
         'siemens_pac2200' => [1, 247, 126],
         'janitza_umg604'  => [1],
         'janitza_umg800'  => [1],
+        // Native-TCP-Zähler mit charakteristischer Signatur. RTU-Gateway-Zähler
+        // (Socomec, MBS) mit frei wählbarer Unit-ID werden bewusst NICHT
+        // gescannt — dort bitte die Instanz manuell anlegen.
+        'shelly_pro3em'    => [1],
+        'carlo_gavazzi_em' => [1],
+        'whatwatt'         => [1],
+        'phoenix_eem375'   => [255, 1],
+        'eastron_sdm72d'   => [1],
     ];
 
     private const METER_LABELS = [
         'siemens_pac2200' => 'Siemens PAC2200',
         'janitza_umg604'  => 'Janitza UMG (klassische Map)',
         'janitza_umg800'  => 'Janitza UMG 800',
+        'shelly_pro3em'    => 'Shelly Pro 3EM',
+        'carlo_gavazzi_em' => 'Carlo Gavazzi EM24/ET340',
+        'whatwatt'         => 'WhatWatt',
+        'phoenix_eem375'   => 'Phoenix EEM-EM375',
+        'eastron_sdm72d'   => 'Eastron SDM72D/SDM630',
     ];
 
     public function Create()
@@ -147,6 +160,7 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Energiezählern auf Modbus-TCP-Port 502 und erkennt den Zählertyp anhand eines charakteristischen Registers (Frequenz + Spannung als Plausibilitätsprüfung).'],
                         ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Zähler erscheinen unten — Klick auf „Erstellen" legt eine MeterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Zählertyp an.'],
                         ['type' => 'Label', 'caption' => 'Der Scan prüft nur wenige dokumentierte Standard-Unit-IDs je Zähler, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die MeterHub-Instanz manuell anlegen.'],
+                        ['type' => 'Label', 'caption' => 'Erkannt werden: Siemens PAC2200, Janitza UMG (klassisch + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375 und Eastron SDM72D/SDM630. Beim Shelly Pro 3EM muss Modbus TCP am Gerät aktiviert sein. Zähler hinter RTU/TCP-Gateways mit frei wählbarer Unit-ID (z. B. Socomec, MBS) werden nicht automatisch gefunden — dort die Instanz manuell anlegen.'],
                     ],
                 ],
                 [
@@ -438,6 +452,55 @@ class MeterHubDiscovery extends IPSModule
                 }
                 $u = $this->readFloat($ip, $port, $unitId, 19000, 1.0);
                 return ($u !== null && $u >= 30.0 && $u <= 500.0);
+
+            case 'shelly_pro3em':
+                // Shelly Pro 3EM (Modbus muss am Gerät aktiviert sein), FC 0x04,
+                // Float32: Frequenz auf 1033, Spannung Phase A auf 1020.
+                $f = $this->readFloatInput($ip, $port, $unitId, 1033, 1.0);
+                if ($f === null || $f < 45.0 || $f > 65.0) {
+                    return false;
+                }
+                $u = $this->readFloatInput($ip, $port, $unitId, 1020, 1.0);
+                return ($u !== null && $u >= 30.0 && $u <= 500.0);
+
+            case 'carlo_gavazzi_em':
+                // Carlo Gavazzi EM24/ET340, FC 0x04: Spannung als Int32 CDAB
+                // (×0,1) auf 0, Frequenz als UInt16 (×0,1) auf 51.
+                $uraw = $this->readS32swInput($ip, $port, $unitId, 0, 1.0);
+                if ($uraw === null || $uraw * 0.1 < 30.0 || $uraw * 0.1 > 500.0) {
+                    return false;
+                }
+                $fraw = $this->readU16Input($ip, $port, $unitId, 51, 1.0);
+                return ($fraw !== null && $fraw * 0.1 >= 45.0 && $fraw * 0.1 <= 65.0);
+
+            case 'whatwatt':
+                // WhatWatt, FC 0x04, Float32. Keine Frequenz — daher Spannung
+                // L1 (1) und L2 (3) als zwei Plausibilitätskriterien.
+                $u1 = $this->readFloatInput($ip, $port, $unitId, 1, 1.0);
+                if ($u1 === null || $u1 < 30.0 || $u1 > 500.0) {
+                    return false;
+                }
+                $u2 = $this->readFloatInput($ip, $port, $unitId, 3, 1.0);
+                return ($u2 !== null && $u2 >= 30.0 && $u2 <= 500.0);
+
+            case 'phoenix_eem375':
+                // Phoenix EEM-EM375, FC 0x04, Float32 ab 4096 (Spannung L1/L2).
+                $u1 = $this->readFloatInput($ip, $port, $unitId, 4096, 1.0);
+                if ($u1 === null || $u1 < 30.0 || $u1 > 500.0) {
+                    return false;
+                }
+                $u2 = $this->readFloatInput($ip, $port, $unitId, 4098, 1.0);
+                return ($u2 !== null && $u2 >= 30.0 && $u2 <= 500.0);
+
+            case 'eastron_sdm72d':
+                // Eastron SDM72D/SDM630, FC 0x04, Float32: Spannung auf 0,
+                // Frequenz auf 70.
+                $u = $this->readFloatInput($ip, $port, $unitId, 0, 1.0);
+                if ($u === null || $u < 30.0 || $u > 500.0) {
+                    return false;
+                }
+                $f = $this->readFloatInput($ip, $port, $unitId, 70, 1.0);
+                return ($f !== null && $f >= 45.0 && $f <= 65.0);
         }
         return false;
     }
@@ -458,6 +521,48 @@ class MeterHubDiscovery extends IPSModule
 
     private function readHolding($host, $port, $unitId, $startReg, $count, $timeout)
     {
+        return $this->modbusRead($host, $port, $unitId, 0x03, $startReg, $count, $timeout);
+    }
+
+    private function readInput($host, $port, $unitId, $startReg, $count, $timeout)
+    {
+        return $this->modbusRead($host, $port, $unitId, 0x04, $startReg, $count, $timeout);
+    }
+
+    // Einzelnes Float32 (Big-Endian) per FC 0x04 (Input-Register).
+    private function readFloatInput($host, $port, $unitId, $startReg, $timeout)
+    {
+        $regs = $this->readInput($host, $port, $unitId, $startReg, 2, $timeout);
+        if ($regs === null || count($regs) < 2) {
+            return null;
+        }
+        $f = (float)(unpack('G', pack('nn', $regs[0] & 0xFFFF, $regs[1] & 0xFFFF))[1] ?? 0.0);
+        return is_finite($f) ? $f : null;
+    }
+
+    // Int32 mit getauschter Wortreihenfolge (CDAB) per FC 0x04 — Carlo Gavazzi.
+    private function readS32swInput($host, $port, $unitId, $startReg, $timeout)
+    {
+        $regs = $this->readInput($host, $port, $unitId, $startReg, 2, $timeout);
+        if ($regs === null || count($regs) < 2) {
+            return null;
+        }
+        $v = (($regs[1] & 0xFFFF) << 16) | ($regs[0] & 0xFFFF);
+        return $v > 2147483647 ? $v - 4294967296 : $v;
+    }
+
+    // UInt16 per FC 0x04 — Carlo Gavazzi Frequenz.
+    private function readU16Input($host, $port, $unitId, $startReg, $timeout)
+    {
+        $regs = $this->readInput($host, $port, $unitId, $startReg, 1, $timeout);
+        if ($regs === null || count($regs) < 1) {
+            return null;
+        }
+        return $regs[0] & 0xFFFF;
+    }
+
+    private function modbusRead($host, $port, $unitId, $fc, $startReg, $count, $timeout)
+    {
         $sock = @fsockopen($host, $port, $errno, $errstr, $timeout);
         if ($sock === false) {
             return null;
@@ -465,7 +570,7 @@ class MeterHubDiscovery extends IPSModule
         stream_set_timeout($sock, $timeout);
 
         $tid  = mt_rand(1, 65535);
-        $pdu  = pack('Cnn', 0x03, $startReg, $count);
+        $pdu  = pack('Cnn', $fc, $startReg, $count);
         $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($unitId);
 
         fwrite($sock, $mbap . $pdu);
@@ -491,7 +596,7 @@ class MeterHubDiscovery extends IPSModule
             return null;
         }
         $rfc = ord($response[7]);
-        if ($rfc & 0x80 || $rfc !== 0x03) {
+        if ($rfc & 0x80 || $rfc !== $fc) {
             return null;
         }
 
