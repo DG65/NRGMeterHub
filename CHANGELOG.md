@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0-beta.1 (2026-07-20)
+
+- **Eastron SDM630 v2** ergänzt — nutzt dieselbe Registerkarte wie der SDM72D-M v2 (per
+  OpenEMS bestätigt), teilt sich daher den Treiber.
+- **Carlo Gavazzi EM24 / EM300 / ET340** ergänzt — Int32 mit getauschter Wortreihenfolge
+  (CDAB) und Skalierung (U ×0,1 · I ×0,001 · P ×0,1 · f ×0,1 · Energie ×0,1 kWh), FC 0x04.
+  Registerkarte nach OpenEMS. Neue Client-Helfer `u32sw`/`s32sw` für wortgetauschte 32-Bit-
+  Werte (CDAB-Dekodierung per PHP-Test verifiziert).
+
 ## 0.6.0-beta.1 (2026-07-20)
 
 - **Vier weitere Zähler ergänzt** (aus IP-Symcon-Forum-Vorlagen, alle Float32 über

@@ -109,6 +109,19 @@ class ModbusTcpClient
         return $v > 2147483647 ? $v - 4294967296 : $v;
     }
 
+    // 32-Bit mit getauschter Wortreihenfolge (LSWMSW / CDAB — niederwertiges
+    // Wort zuerst). Carlo Gavazzi u. a. legen ihre Doublewords so ab.
+    public function u32sw($regs, $offset)
+    {
+        return (($this->u16($regs, $offset + 1) << 16) | $this->u16($regs, $offset));
+    }
+
+    public function s32sw($regs, $offset)
+    {
+        $v = $this->u32sw($regs, $offset);
+        return $v > 2147483647 ? $v - 4294967296 : $v;
+    }
+
     // Wortreihenfolge tauschen (CDAB statt ABCD). Die meisten Zähler liefern
     // Float/Double big-endian (ABCD); einige Geräte/Gateways drehen die
     // 16-Bit-Wörter (z. B. Phoenix EEM-XM). Per Instanz-Schalter umstellbar.
@@ -1093,6 +1106,118 @@ class PhoenixEemXmDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// CarloGavazziDriver — Carlo Gavazzi EM24 / EM300 / ET340
+// FC 0x04, Int32 mit getauschter Wortreihenfolge (CDAB), Skalierung:
+// U ×0,1 V · I ×0,001 A · P ×0,1 W · f ×0,1 Hz · Energie ×0,1 kWh.
+// Registerkarte nach OpenEMS (io.openems.edge.meter.carlo.gavazzi.em300).
+// ---------------------------------------------------------------------------
+
+class CarloGavazziDriver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 40 (×0,1)'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC4 0/2/4 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 12/14/16 Ø'],
+            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC4 51 (×0,1)'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 52 (×0,1 kWh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC4 78 (×0,1 kWh)'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
+                ['u_l1_n', 'Spannung L1-N', 'F', 'MHB.V', false, 'voltage', 'FC4 0'],
+                ['u_l2_n', 'Spannung L2-N', 'F', 'MHB.V', false, 'voltage', 'FC4 2'],
+                ['u_l3_n', 'Spannung L3-N', 'F', 'MHB.V', false, 'voltage', 'FC4 4'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
+                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC4 12'],
+                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC4 14'],
+                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC4 16'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 18'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 20'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 22'],
+            ]],
+            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
+                ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC4 42'],
+                ['q_total', 'Blindleistung gesamt',  'F', 'MHB.var', false, 'power', 'FC4 44'],
+                ['s_l1', 'Scheinleistung L1', 'F', 'MHB.VA',  false, 'power', 'FC4 24'],
+                ['s_l2', 'Scheinleistung L2', 'F', 'MHB.VA',  false, 'power', 'FC4 26'],
+                ['s_l3', 'Scheinleistung L3', 'F', 'MHB.VA',  false, 'power', 'FC4 28'],
+                ['q_l1', 'Blindleistung L1',  'F', 'MHB.var', false, 'power', 'FC4 30'],
+                ['q_l2', 'Blindleistung L2',  'F', 'MHB.var', false, 'power', 'FC4 32'],
+                ['q_l3', 'Blindleistung L3',  'F', 'MHB.var', false, 'power', 'FC4 34'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    public function readFast($mb, $hub)
+    {
+        $a = $mb->readInput(0, 46);   // 0..45 (U/I/P/S/Q je Phase + Summen)
+        $b = $mb->readInput(51, 3);   // 51 Frequenz (u16)
+        if ($a === null || $b === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $hub->SetVarFloat('power_total', $mb->s32sw($a, 40) * 0.1); // 40
+        $hub->SetVarFloat('voltage_avg',
+            ($mb->s32sw($a, 0) + $mb->s32sw($a, 2) + $mb->s32sw($a, 4)) * 0.1 / 3.0);
+        $hub->SetVarFloat('current_avg',
+            ($mb->s32sw($a, 12) + $mb->s32sw($a, 14) + $mb->s32sw($a, 16)) * 0.001 / 3.0);
+        $hub->SetVarFloat('frequency', $mb->u16($b, 0) * 0.1); // 51
+
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $hub->SetVarFloat('u_l1_n', $mb->s32sw($a, 0) * 0.1);
+            $hub->SetVarFloat('u_l2_n', $mb->s32sw($a, 2) * 0.1);
+            $hub->SetVarFloat('u_l3_n', $mb->s32sw($a, 4) * 0.1);
+        }
+        if ($hub->GroupActive('GroupCurrentPhase')) {
+            $hub->SetVarFloat('i_l1', $mb->s32sw($a, 12) * 0.001);
+            $hub->SetVarFloat('i_l2', $mb->s32sw($a, 14) * 0.001);
+            $hub->SetVarFloat('i_l3', $mb->s32sw($a, 16) * 0.001);
+        }
+        if ($hub->GroupActive('GroupPowerPhase')) {
+            $hub->SetVarFloat('p_l1', $mb->s32sw($a, 18) * 0.1);
+            $hub->SetVarFloat('p_l2', $mb->s32sw($a, 20) * 0.1);
+            $hub->SetVarFloat('p_l3', $mb->s32sw($a, 22) * 0.1);
+        }
+        if ($hub->GroupActive('GroupReactiveApparent')) {
+            $hub->SetVarFloat('s_total', $mb->s32sw($a, 42) * 0.1);
+            $hub->SetVarFloat('q_total', $mb->s32sw($a, 44) * 0.1);
+            $hub->SetVarFloat('s_l1', $mb->s32sw($a, 24) * 0.1);
+            $hub->SetVarFloat('s_l2', $mb->s32sw($a, 26) * 0.1);
+            $hub->SetVarFloat('s_l3', $mb->s32sw($a, 28) * 0.1);
+            $hub->SetVarFloat('q_l1', $mb->s32sw($a, 30) * 0.1);
+            $hub->SetVarFloat('q_l2', $mb->s32sw($a, 32) * 0.1);
+            $hub->SetVarFloat('q_l3', $mb->s32sw($a, 34) * 0.1);
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        $r = $mb->readInput(52, 28); // 52 Bezug, 78 Abgabe (×0,1 kWh)
+        if ($r === null) {
+            return;
+        }
+        $hub->SetVarEnergykWh('energy_import', $mb->s32sw($r, 0)  * 0.1); // 52
+        $hub->SetVarEnergykWh('energy_export', $mb->s32sw($r, 26) * 0.1); // 78
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MeterHub — Hauptmodul, lädt den Treiber laut Meter-Property
 // ---------------------------------------------------------------------------
 
@@ -1109,9 +1234,11 @@ class MeterHub extends IPSModule
         'janitza_umg801'  => 'JanitzaClassicDriver',
         'janitza_umg800'  => 'Umg800Driver',
         'eastron_sdm72d'  => 'EastronSdmDriver',
+        'eastron_sdm630'  => 'EastronSdmDriver',
         'whatwatt'        => 'WhatWattDriver',
         'phoenix_eem375'  => 'PhoenixEem375Driver',
         'phoenix_eemxm'   => 'PhoenixEemXmDriver',
+        'carlo_gavazzi_em' => 'CarloGavazziDriver',
     ];
 
     private const METER_LABELS = [
@@ -1125,9 +1252,11 @@ class MeterHub extends IPSModule
         'janitza_umg801'  => 'Janitza UMG 801',
         'janitza_umg800'  => 'Janitza UMG 800',
         'eastron_sdm72d'  => 'Eastron SDM72D-M v2',
+        'eastron_sdm630'  => 'Eastron SDM630 v2',
         'whatwatt'        => 'WhatWatt',
         'phoenix_eem375'  => 'Phoenix Contact EEM-EM375',
         'phoenix_eemxm'   => 'Phoenix Contact EEM-XM',
+        'carlo_gavazzi_em' => 'Carlo Gavazzi EM24 / EM300 / ET340',
     ];
 
     private $driver = null;
@@ -1262,9 +1391,11 @@ class MeterHub extends IPSModule
                         ['caption' => 'Janitza UMG 801',         'value' => 'janitza_umg801'],
                         ['caption' => 'Janitza UMG 800 (konfigurierbare Map — Werksvorgabe)', 'value' => 'janitza_umg800'],
                         ['caption' => 'Eastron SDM72D-M v2',     'value' => 'eastron_sdm72d'],
+                        ['caption' => 'Eastron SDM630 v2',       'value' => 'eastron_sdm630'],
                         ['caption' => 'WhatWatt',                'value' => 'whatwatt'],
                         ['caption' => 'Phoenix Contact EEM-EM375', 'value' => 'phoenix_eem375'],
                         ['caption' => 'Phoenix Contact EEM-XM',  'value' => 'phoenix_eemxm'],
+                        ['caption' => 'Carlo Gavazzi EM24 / EM300 / ET340', 'value' => 'carlo_gavazzi_em'],
                     ],
                 ],
                 [
