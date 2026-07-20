@@ -1,0 +1,15 @@
+{
+  "id": "{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}",
+  "name": "MeterHub",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "MeterHub",
+    "Energiezähler (Multi-Hersteller)"
+  ],
+  "url": "https://github.com/DG65/MeterHub",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "MHUB"
+}

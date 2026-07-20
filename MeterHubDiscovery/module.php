@@ -1,0 +1,444 @@
+<?php
+
+// ---------------------------------------------------------------------------
+// MeterHubDiscovery — Configurator-Modul: durchsucht einen IP-Bereich nach
+// Energiezählern auf Modbus-TCP-Port 502, erkennt den Zählertyp anhand eines
+// charakteristischen Registers (Frequenz + Spannung als Plausibilitätsprüfung)
+// und legt auf Klick eine MeterHub-Instanz mit vorausgefüllten Werten an.
+// Eigenständige, kompakte Modbus-Hilfsfunktionen (kein Zugriff auf die Klassen
+// aus dem MeterHub-Modulordner — Module sind bewusst getrennt).
+// ---------------------------------------------------------------------------
+
+class MeterHubDiscovery extends IPSModule
+{
+    private const METERHUB_GUID = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
+
+    // Kandidaten je Zählertyp: typische/dokumentierte Standard-Unit-IDs
+    // (kleine Liste statt vollem 1-247-Bereich).
+    private const METER_UNIT_IDS = [
+        'siemens_pac2200' => [1, 247, 126],
+        'janitza_umg604'  => [1],
+    ];
+
+    private const METER_LABELS = [
+        'siemens_pac2200' => 'Siemens PAC2200',
+        'janitza_umg604'  => 'Janitza UMG 604',
+    ];
+
+    public function Create()
+    {
+        parent::Create();
+
+        $prefix = $this->guessLocalSubnetPrefix();
+        $this->RegisterPropertyString('RangeStart', $prefix !== '' ? $prefix . '.1'   : '');
+        $this->RegisterPropertyString('RangeEnd',   $prefix !== '' ? $prefix . '.254' : '');
+        $this->RegisterPropertyInteger('Port', 502);
+        $this->RegisterPropertyString('NameTemplate', '');
+        $this->RegisterPropertyString('IgnoreIPs', '');
+        $this->RegisterAttributeString('ResultsJSON', '[]');
+    }
+
+    // Ermittelt heuristisch die ersten drei Oktette des lokalen Subnetzes
+    // (z. B. „192.168.1"), um Start-/End-IP sinnvoll vorzubelegen.
+    private function guessLocalSubnetPrefix()
+    {
+        $ip = @gethostbyname(gethostname());
+        if ($ip === false || $ip === gethostname()) {
+            return '';
+        }
+        $parts = explode('.', $ip);
+        if (count($parts) !== 4) {
+            return '';
+        }
+        $isPrivate = ($parts[0] === '10')
+            || ($parts[0] === '192' && $parts[1] === '168')
+            || ($parts[0] === '172' && (int)$parts[1] >= 16 && (int)$parts[1] <= 31);
+        if (!$isPrivate) {
+            return '';
+        }
+        return $parts[0] . '.' . $parts[1] . '.' . $parts[2];
+    }
+
+    public function ApplyChanges()
+    {
+        parent::ApplyChanges();
+    }
+
+    public function GetConfigurationForm()
+    {
+        $results = json_decode($this->ReadAttributeString('ResultsJSON'), true);
+        if (!is_array($results)) {
+            $results = [];
+        }
+
+        $existing = $this->findExistingInstances();
+        $template = trim($this->ReadPropertyString('NameTemplate'));
+
+        $meterCounter = [];
+        $values = [];
+        foreach ($results as $r) {
+            $key = $r['ip'] . '|' . $r['unitId'];
+            $meterCounter[$r['meter']] = ($meterCounter[$r['meter']] ?? 0) + 1;
+            $nr = $meterCounter[$r['meter']];
+
+            if ($template !== '') {
+                $instanceName = str_replace(
+                    ['{zaehler}', '{ip}', '{unitid}', '{nr}'],
+                    [$r['label'], $r['ip'], $r['unitId'], $nr],
+                    $template
+                );
+            } else {
+                $instanceName = $r['label'] . ' ' . $nr;
+            }
+
+            $values[] = [
+                'name'       => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ')',
+                'meter'      => $r['label'],
+                'ip'         => $r['ip'],
+                'unitId'     => $r['unitId'],
+                'instanceID' => $existing[$key] ?? 0,
+                'create'     => [
+                    'moduleID'      => self::METERHUB_GUID,
+                    'name'          => $instanceName,
+                    'configuration' => [
+                        'Host'   => $r['ip'],
+                        'Port'   => $this->ReadPropertyInteger('Port'),
+                        'UnitId' => $r['unitId'],
+                        'Meter'  => $r['meter'],
+                    ],
+                ],
+            ];
+        }
+
+        $form = [
+            'elements' => [
+                [
+                    'type'     => 'ExpansionPanel',
+                    'caption'  => '📖  Dokumentation & Hilfe',
+                    'expanded' => false,
+                    'items'    => [
+                        ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Energiezählern auf Modbus-TCP-Port 502 und erkennt den Zählertyp anhand eines charakteristischen Registers (Frequenz + Spannung als Plausibilitätsprüfung).'],
+                        ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Zähler erscheinen unten — Klick auf „Erstellen" legt eine MeterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Zählertyp an.'],
+                        ['type' => 'Label', 'caption' => 'Der Scan prüft nur wenige dokumentierte Standard-Unit-IDs je Zähler, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die MeterHub-Instanz manuell anlegen.'],
+                    ],
+                ],
+                [
+                    'type'    => 'ExpansionPanel',
+                    'caption' => '🔎  Suchbereich',
+                    'expanded' => true,
+                    'items' => [
+                        ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start-IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End-IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+                        ['type' => 'ValidationTextBox', 'name' => 'NameTemplate', 'caption' => 'Name-Vorlage (leer = Zählertyp + lfd. Nr.)'],
+                        ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {zaehler} {ip} {unitid} {nr} — z. B. „{zaehler} Keller ({ip})"'],
+                        ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'IPs ignorieren (Komma-getrennt)'],
+                        ['type' => 'Label', 'caption' => 'Diese Adressen werden beim Scan komplett übersprungen — z. B. andere Modbus-Geräte, die sonst fälschlich erscheinen würden.'],
+                        ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'MHUBD_Discover($id);'],
+                        [
+                            'type'          => 'ProgressBar',
+                            'name'          => 'ScanProgress',
+                            'caption'       => 'Bereit.',
+                            'minimum'       => 0,
+                            'maximum'       => 100,
+                            'current'       => 0,
+                            'indeterminate' => false,
+                            'visible'       => false,
+                        ],
+                    ],
+                ],
+                [
+                    'type'    => 'ExpansionPanel',
+                    'caption' => '🛠️  Erstellen',
+                    'expanded' => true,
+                    'items' => [
+                        [
+                            'type'     => 'Configurator',
+                            'name'     => 'DiscoveryList',
+                            'caption'  => 'Gefundene Zähler',
+                            'rowCount' => 6,
+                            'delete'   => false,
+                            'sort'     => ['column' => 'ip', 'direction' => 'ascending'],
+                            'columns'  => [
+                                ['caption' => 'Zählertyp',  'name' => 'meter',  'width' => '220px'],
+                                ['caption' => 'IP-Adresse', 'name' => 'ip',     'width' => '150px'],
+                                ['caption' => 'Unit ID',    'name' => 'unitId', 'width' => '100px'],
+                            ],
+                            'values' => $values,
+                        ],
+                    ],
+                ],
+            ],
+            'status' => [
+                ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Such-IP-Bereich eintragen.'],
+            ],
+        ];
+
+        return json_encode($form);
+    }
+
+    // -----------------------------------------------------------------------
+    // Discovery
+    // -----------------------------------------------------------------------
+
+    private function ShowProgress($caption, $current, $indeterminate = false)
+    {
+        @$this->UpdateFormField('ScanProgress', 'visible', true);
+        @$this->UpdateFormField('ScanProgress', 'caption', $caption);
+        @$this->UpdateFormField('ScanProgress', 'indeterminate', $indeterminate);
+        @$this->UpdateFormField('ScanProgress', 'current', $current);
+    }
+
+    public function Discover()
+    {
+        $start = $this->ReadPropertyString('RangeStart');
+        $end   = $this->ReadPropertyString('RangeEnd');
+        $port  = $this->ReadPropertyInteger('Port');
+
+        if ($start === '' || $end === '') {
+            $this->SetStatus(104);
+            return;
+        }
+
+        $ips = $this->expandRange($start, $end);
+        if (count($ips) > 1024) {
+            $ips = array_slice($ips, 0, 1024);
+        }
+
+        $this->ShowProgress('Durchsuche ' . count($ips) . ' IP-Adressen auf Port ' . $port . ' …', 0);
+
+        $ignore = $this->ParseIgnoreIPs();
+        if (count($ignore) > 0) {
+            $ips = array_values(array_diff($ips, $ignore));
+        }
+
+        $openIps = $this->scanPortOpen($ips, $port, 3.0);
+
+        $results = [];
+        $total   = count($openIps);
+        $i       = 0;
+        foreach ($openIps as $ip) {
+            $i++;
+            $this->ShowProgress("Prüfe Zählertyp: $ip ($i von $total offenen Ports) …", (int)round(($i / max(1, $total)) * 100));
+            $found = $this->identifyMeter($ip, $port);
+            if ($found !== null) {
+                $results[] = $found;
+            }
+        }
+
+        $this->ShowProgress('Fertig: ' . count($results) . ' Zähler gefunden (von ' . $total . ' offenen Ports).', 100);
+
+        $this->WriteAttributeString('ResultsJSON', json_encode($results));
+        $this->SetStatus(102);
+        $this->ReloadForm();
+    }
+
+    private function findExistingInstances()
+    {
+        $map = [];
+        foreach (IPS_GetInstanceListByModuleID(self::METERHUB_GUID) as $iid) {
+            $host   = @IPS_GetProperty($iid, 'Host');
+            $unitId = @IPS_GetProperty($iid, 'UnitId');
+            if ($host !== false && $host !== null && $host !== '') {
+                $map[$host . '|' . $unitId] = $iid;
+            }
+        }
+        return $map;
+    }
+
+    private function ParseIgnoreIPs()
+    {
+        $raw = (string)$this->ReadPropertyString('IgnoreIPs');
+        $out = [];
+        foreach (preg_split('/[\s,;]+/', $raw) as $part) {
+            $part = trim($part);
+            if ($part !== '' && ip2long($part) !== false) {
+                $out[] = long2ip(ip2long($part));
+            }
+        }
+        return array_unique($out);
+    }
+
+    private function expandRange($startIp, $endIp)
+    {
+        $start = ip2long($startIp);
+        $end   = ip2long($endIp);
+        if ($start === false || $end === false || $start > $end) {
+            return [];
+        }
+        $ips = [];
+        for ($i = $start; $i <= $end; $i++) {
+            $ips[] = long2ip($i);
+        }
+        return $ips;
+    }
+
+    // Nicht-blockierender Parallel-Scan: testet alle IPs gleichzeitig, ob
+    // Port 502 offen ist, statt sie nacheinander abzuklopfen.
+    private function scanPortOpen($ips, $port, $timeoutSec)
+    {
+        $pending = [];
+        foreach ($ips as $ip) {
+            $s = @stream_socket_client(
+                "tcp://$ip:$port",
+                $errno,
+                $errstr,
+                0.01,
+                STREAM_CLIENT_CONNECT | STREAM_CLIENT_ASYNC_CONNECT
+            );
+            if ($s !== false) {
+                stream_set_blocking($s, false);
+                $pending[$ip] = $s;
+            }
+        }
+
+        $open      = [];
+        $totalOpen = count($pending);
+        $startTime = microtime(true);
+        $deadline  = $startTime + $timeoutSec;
+        $lastUi    = 0.0;
+        while (count($pending) > 0 && microtime(true) < $deadline) {
+            $write  = array_values($pending);
+            $read   = [];
+            $except = [];
+            $n = @stream_select($read, $write, $except, 0, 200000);
+            if ($n === false) {
+                break;
+            }
+            foreach ($pending as $ip => $sock) {
+                if (in_array($sock, $write, true)) {
+                    $peer = @stream_socket_get_name($sock, true);
+                    if ($peer !== false) {
+                        $open[] = $ip;
+                    }
+                    fclose($sock);
+                    unset($pending[$ip]);
+                }
+            }
+            $now = microtime(true);
+            if ($now - $lastUi >= 0.3) {
+                $lastUi  = $now;
+                $elapsed = $now - $startTime;
+                $pct     = (int)round(min(95, ($elapsed / $timeoutSec) * 90));
+                $this->ShowProgress(
+                    "Portscan läuft … " . count($open) . " offen, " . count($pending) . " von $totalOpen noch offen",
+                    $pct
+                );
+                $deadline += microtime(true) - $now;
+            }
+        }
+        foreach ($pending as $sock) {
+            @fclose($sock);
+        }
+        return $open;
+    }
+
+    private function identifyMeter($ip, $port)
+    {
+        foreach (self::METER_UNIT_IDS as $meter => $unitIds) {
+            foreach ($unitIds as $unitId) {
+                if ($this->probeMeter($meter, $ip, $port, $unitId)) {
+                    return [
+                        'ip'     => $ip,
+                        'unitId' => $unitId,
+                        'meter'  => $meter,
+                        'label'  => self::METER_LABELS[$meter],
+                    ];
+                }
+            }
+        }
+        return null;
+    }
+
+    // Erkennung über Plausibilität zweier Float32-Register: Netzfrequenz
+    // (45..65 Hz) UND eine Spannung (30..500 V). Beide Zähler liegen in
+    // verschiedenen Adressbereichen (PAC2200 niedrig, UMG604 ab 19000), was sie
+    // zuverlässig unterscheidet — ein falsch angesprochenes Register liefert
+    // entweder einen Modbus-Fehler (null) oder einen unplausiblen Float.
+    private function probeMeter($meter, $ip, $port, $unitId)
+    {
+        switch ($meter) {
+            case 'siemens_pac2200':
+                // Reg 55: Frequenz (Float32), Reg 1: Spannung L1-N (Float32).
+                $f = $this->readFloat($ip, $port, $unitId, 55, 1.0);
+                if ($f === null || $f < 45.0 || $f > 65.0) {
+                    return false;
+                }
+                $u = $this->readFloat($ip, $port, $unitId, 1, 1.0);
+                return ($u !== null && $u >= 30.0 && $u <= 500.0);
+
+            case 'janitza_umg604':
+                // Reg 19050: Frequenz (Float32), Reg 19000: Spannung L1-N.
+                $f = $this->readFloat($ip, $port, $unitId, 19050, 1.0);
+                if ($f === null || $f < 45.0 || $f > 65.0) {
+                    return false;
+                }
+                $u = $this->readFloat($ip, $port, $unitId, 19000, 1.0);
+                return ($u !== null && $u >= 30.0 && $u <= 500.0);
+        }
+        return false;
+    }
+
+    // Liest ein einzelnes Float32 (2 Register, Big-Endian) per FC 0x03.
+    // Rückgabe null bei Fehler/kein Wert.
+    private function readFloat($host, $port, $unitId, $startReg, $timeout)
+    {
+        $regs = $this->readHolding($host, $port, $unitId, $startReg, 2, $timeout);
+        if ($regs === null || count($regs) < 2) {
+            return null;
+        }
+        $raw = pack('nn', $regs[0] & 0xFFFF, $regs[1] & 0xFFFF);
+        $val = unpack('G', $raw);
+        $f = (float)($val[1] ?? 0.0);
+        return is_finite($f) ? $f : null;
+    }
+
+    private function readHolding($host, $port, $unitId, $startReg, $count, $timeout)
+    {
+        $sock = @fsockopen($host, $port, $errno, $errstr, $timeout);
+        if ($sock === false) {
+            return null;
+        }
+        stream_set_timeout($sock, $timeout);
+
+        $tid  = mt_rand(1, 65535);
+        $pdu  = pack('Cnn', 0x03, $startReg, $count);
+        $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($unitId);
+
+        fwrite($sock, $mbap . $pdu);
+
+        $response = '';
+        $deadline = microtime(true) + $timeout;
+        while (microtime(true) < $deadline) {
+            $chunk = @fread($sock, 512);
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+            $response .= $chunk;
+            if (strlen($response) >= 9) {
+                $byteCount = ord($response[8]);
+                if (strlen($response) >= 9 + $byteCount) {
+                    break;
+                }
+            }
+        }
+        fclose($sock);
+
+        if (strlen($response) < 9) {
+            return null;
+        }
+        $rfc = ord($response[7]);
+        if ($rfc & 0x80 || $rfc !== 0x03) {
+            return null;
+        }
+
+        $byteCount = ord($response[8]);
+        $data      = substr($response, 9, $byteCount);
+        $regs      = [];
+        for ($i = 0; $i < $count && ($i * 2 + 1) < strlen($data); $i++) {
+            $regs[$i] = (ord($data[$i * 2]) << 8) | ord($data[$i * 2 + 1]);
+        }
+        return $regs;
+    }
+}

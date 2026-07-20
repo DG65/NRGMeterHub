@@ -1,0 +1,12 @@
+{
+  "id": "{45899717-953F-412B-A1C4-B9A06A7AF3F4}",
+  "author": "DG65",
+  "name": "MeterHub for IP-Symcon",
+  "url": "https://github.com/DG65/MeterHub",
+  "compatibility": {
+    "version": "9.0"
+  },
+  "version": "0.1.0-beta.1",
+  "build": 1,
+  "date": 1784246400
+}

@@ -1,0 +1,15 @@
+{
+  "id": "{196DA9E9-7C40-4128-99DE-85186BF64A8D}",
+  "name": "MeterHubDiscovery",
+  "type": 5,
+  "vendor": "",
+  "aliases": [
+    "MeterHub Suche",
+    "Energiezähler Suche"
+  ],
+  "url": "https://github.com/DG65/MeterHub",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "MHUBD"
+}
