@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0-beta.1 (2026-07-20)
+
+- **Modul MeterHubWebFront wieder entfernt.** Ein Test am realen Siemens PAC2200 hat gezeigt,
+  dass dessen Webserver die Einbettung hart verbietet (`X-Frame-Options: deny` und
+  `Content-Security-Policy: frame-ancestors 'self'`) — kein Browser rendert die Oberfläche
+  dann in einer Kachel. Da Industriezähler diese Sperre typischerweise setzen, wird der
+  iframe-Ansatz nicht weiterverfolgt.
+
 ## 0.4.0-beta.1 (2026-07-20)
 
 - **Neues Modul: MeterHubWebFront (Kachel).** Bettet das Web-Frontend eines Zählers
