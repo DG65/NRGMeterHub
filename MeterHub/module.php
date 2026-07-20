@@ -1385,10 +1385,11 @@ class MbsProfessionalDriver implements MeterDriverInterface
 
 // ---------------------------------------------------------------------------
 // ShellyPro3emDriver — Shelly Pro 3EM
-// FC 0x03 (Holding), Float32, ABSOLUTE Adressen laut offizieller Shelly-Gen2-
-// Doku: EM-Messwerte ab 31011 (Gesamt/Phasen), EMData-Energie ab 31162
-// (Bezug/Einspeisung in Wh). Modbus TCP muss am Gerät aktiviert sein
-// (Einstellungen → Modbus, tcp/502).
+// FC 0x04 (Input Register), Float32 mit GETAUSCHTER Wortreihenfolge (CDAB).
+// Wire-Adresse = Doku-Registernummer − 30000: EM-Messwerte ab 1011
+// (Gesamtleistung 1013, Frequenz 1033, Phasen 1020/40/60 …), EMData-Energie
+// 1162 (Bezug) / 1164 (Einspeisung) in Wh. An echtem Shelly Pro 3EM verifiziert.
+// Modbus TCP muss am Gerät aktiviert sein (Einstellungen → Modbus, tcp/502).
 // ---------------------------------------------------------------------------
 
 class ShellyPro3emDriver implements MeterDriverInterface
@@ -1396,12 +1397,12 @@ class ShellyPro3emDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC3 31013'],
-            ['voltage_avg',   'Spannung Ø',          'F', 'MHB.V',   false, 'total',  'FC3 31020/40/60 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC3 31022/42/62 Ø'],
-            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 31033'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC3 31162 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC3 31164 (Wh)'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 1013'],
+            ['voltage_avg',   'Spannung Ø',          'F', 'MHB.V',   false, 'total',  'FC4 1020/40/60 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 1022/42/62 Ø'],
+            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC4 1033'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 1162 (Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC4 1164 (Wh)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -1410,19 +1411,19 @@ class ShellyPro3emDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC3 31020'],
-                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC3 31040'],
-                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC3 31060'],
+                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC4 1020'],
+                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC4 1040'],
+                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC4 1060'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC3 31022'],
-                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC3 31042'],
-                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC3 31062'],
+                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC4 1022'],
+                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC4 1042'],
+                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC4 1062'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC3 31024'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC3 31044'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC3 31064'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 1024'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 1044'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 1064'],
             ]],
         ];
     }
@@ -1432,47 +1433,50 @@ class ShellyPro3emDriver implements MeterDriverInterface
 
     public function readFast($mb, $hub)
     {
-        $a = $mb->readHolding(31011, 64); // 31011..31074 (Offset = Adresse − 31011)
+        // Shelly liefert Float32 wortgetauscht (CDAB) — für diesen Treiber fest.
+        $mb->setWordSwap(true);
+        $a = $mb->readInput(1011, 64); // 1011..1074 (Offset = Adresse − 1011)
         if ($a === null) {
             $hub->SetVarBool('connected', false);
             return false;
         }
         $hub->SetVarBool('connected', true);
 
-        $hub->SetVarFloat('power_total', $mb->readFloat32($a, 2));  // 31013
-        $hub->SetVarFloat('frequency',   $mb->readFloat32($a, 22)); // 31033
+        $hub->SetVarFloat('power_total', $mb->readFloat32($a, 2));  // 1013
+        $hub->SetVarFloat('frequency',   $mb->readFloat32($a, 22)); // 1033
         $hub->SetVarFloat('voltage_avg',
             ($mb->readFloat32($a, 9) + $mb->readFloat32($a, 29) + $mb->readFloat32($a, 49)) / 3.0);
         $hub->SetVarFloat('current_avg',
             ($mb->readFloat32($a, 11) + $mb->readFloat32($a, 31) + $mb->readFloat32($a, 51)) / 3.0);
 
         if ($hub->GroupActive('GroupVoltagePhase')) {
-            $hub->SetVarFloat('u_l1_n', $mb->readFloat32($a, 9));  // 31020
-            $hub->SetVarFloat('u_l2_n', $mb->readFloat32($a, 29)); // 31040
-            $hub->SetVarFloat('u_l3_n', $mb->readFloat32($a, 49)); // 31060
+            $hub->SetVarFloat('u_l1_n', $mb->readFloat32($a, 9));  // 1020
+            $hub->SetVarFloat('u_l2_n', $mb->readFloat32($a, 29)); // 1040
+            $hub->SetVarFloat('u_l3_n', $mb->readFloat32($a, 49)); // 1060
         }
         if ($hub->GroupActive('GroupCurrentPhase')) {
-            $hub->SetVarFloat('i_l1', $mb->readFloat32($a, 11)); // 31022
-            $hub->SetVarFloat('i_l2', $mb->readFloat32($a, 31)); // 31042
-            $hub->SetVarFloat('i_l3', $mb->readFloat32($a, 51)); // 31062
+            $hub->SetVarFloat('i_l1', $mb->readFloat32($a, 11)); // 1022
+            $hub->SetVarFloat('i_l2', $mb->readFloat32($a, 31)); // 1042
+            $hub->SetVarFloat('i_l3', $mb->readFloat32($a, 51)); // 1062
         }
         if ($hub->GroupActive('GroupPowerPhase')) {
-            $hub->SetVarFloat('p_l1', $mb->readFloat32($a, 13)); // 31024
-            $hub->SetVarFloat('p_l2', $mb->readFloat32($a, 33)); // 31044
-            $hub->SetVarFloat('p_l3', $mb->readFloat32($a, 53)); // 31064
+            $hub->SetVarFloat('p_l1', $mb->readFloat32($a, 13)); // 1024
+            $hub->SetVarFloat('p_l2', $mb->readFloat32($a, 33)); // 1044
+            $hub->SetVarFloat('p_l3', $mb->readFloat32($a, 53)); // 1064
         }
         return true;
     }
 
     public function readSlow($mb, $hub)
     {
-        // EMData: Bezug 31162, Einspeisung 31164 (Float, Wh).
-        $e = $mb->readHolding(31162, 4);
+        $mb->setWordSwap(true);
+        // EMData: Bezug 1162, Einspeisung 1164 (Float wortgetauscht, Wh).
+        $e = $mb->readInput(1162, 4);
         if ($e === null) {
             return;
         }
-        $hub->SetVarEnergyWh('energy_import', $mb->readFloat32($e, 0)); // 31162
-        $hub->SetVarEnergyWh('energy_export', $mb->readFloat32($e, 2)); // 31164
+        $hub->SetVarEnergyWh('energy_import', $mb->readFloat32($e, 0)); // 1162
+        $hub->SetVarEnergyWh('energy_export', $mb->readFloat32($e, 2)); // 1164
     }
 }
 
@@ -1631,7 +1635,7 @@ class MeterHub extends IPSModule
                         ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (FC 0x03); Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 klassische Karte, UMG 800 Werkskarte, FC 0x03); Eastron SDM72D-M v2, WhatWatt und Phoenix Contact EEM-EM375/EEM-XM (FC 0x04, Input-Register).'],
                         ['type' => 'Label', 'caption' => 'Hinweis Eastron/Phoenix: Diese sprechen meist Modbus RTU und hängen über einen RTU/TCP-Gateway (dessen IP eintragen). Eastron-Geräteadresse ab Werk 1; Phoenix EEM-EM375 nutzt oft Unit-ID 255, EEM-XM meist 1. WhatWatt spricht Modbus TCP direkt.'],
                         ['type' => 'Label', 'caption' => '🧪 Experimentell: Socomec Countis und MBS Professional 3-75 sind aus Vorlagen abgeleitet und noch nicht an echter Hardware geprüft — bitte die Messwerte gegen die Geräteanzeige abgleichen. Bei unplausiblen Werten helfen der WordSwap- bzw. Invers-Schalter.'],
-                        ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP muss am Gerät erst aktiviert werden (Einstellungen → Modbus, Port 502). Register laut offizieller Shelly-Gen2-Doku (Messwerte ab 31011, Energie ab 31162), FC 0x03.'],
+                        ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP muss am Gerät erst aktiviert werden (Einstellungen → Modbus, Port 502). Gelesen über FC 0x04, Float wortgetauscht (CDAB); Wire-Adressen = Doku − 30000 (Messwerte ab 1011, Energie 1162/1164). An echtem Gerät verifiziert.'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
                         ['type' => 'Label', 'caption' => '🔧 Anschluss: Die Zähler nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (der PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
                         ['type' => 'Label', 'caption' => '⚠️ UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],

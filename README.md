@@ -20,7 +20,7 @@ willkommen — bitte mit Zählertyp und betroffenem Register melden.
 | **Carlo Gavazzi EM24 / EM300 / ET340** | Summen-Wirkleistung, Ø U/I, Frequenz, Energie Bezug/Abgabe, optional U/I/P/Q/S je Phase | **FC 0x04**, Int32 **wortgetauscht (CDAB)** mit Skalierung (U ×0,1 · I ×0,001 · P ×0,1 · f ×0,1 · Energie ×0,1 kWh). Registerkarte nach OpenEMS. |
 | **WhatWatt** | Summen-Wirkleistung (Bezug − Abgabe), Ø U/I, Energie Bezug/Abgabe (+ Tarif 1/2), optional U/I/P je Phase | **FC 0x04**, Float32 + 64-Bit-Double (Tarif-Energie), Big-Endian. Modbus TCP direkt. Getrennte Bezugs-/Abgabeleistung (501/505). |
 | **Phoenix Contact EEM-EM375 / EEM-XM** | Summen-Wirkleistung, Ø U/I, Bezugsenergie, optional U/I/P je Phase | **FC 0x04**, Float32. EM375 ab Reg. 4096 (Unit-ID oft 255), EEM-XM ab Reg. 32774 (Unit-ID meist 1). Bei EEM-XM ggf. den WordSwap-Schalter nutzen. |
-| **Shelly Pro 3EM** | Summen-Wirkleistung, Ø U/I, Frequenz, Energie Bezug/Abgabe, optional U/I/P je Phase | **FC 0x03**, Float32, absolute Adressen laut Shelly-Gen2-Doku (Messwerte ab 31011, Energie ab 31162). **Modbus TCP am Gerät aktivieren** (Einstellungen → Modbus, Port 502). |
+| **Shelly Pro 3EM** | Summen-Wirkleistung, Ø U/I, Frequenz, Energie Bezug/Abgabe, optional U/I/P je Phase | **FC 0x04**, Float32 **wortgetauscht (CDAB)**; Wire-Adressen = Doku − 30000 (Messwerte ab 1011, Energie 1162/1164). An echtem Gerät verifiziert. **Modbus TCP am Gerät aktivieren** (Einstellungen → Modbus, Port 502). |
 
 Die Janitza-Modelle mit klassischer Karte sind funktional identisch — der Zählertyp im
 Formular dient nur der richtigen Beschriftung.

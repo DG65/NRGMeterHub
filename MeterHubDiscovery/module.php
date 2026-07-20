@@ -454,13 +454,14 @@ class MeterHubDiscovery extends IPSModule
                 return ($u !== null && $u >= 30.0 && $u <= 500.0);
 
             case 'shelly_pro3em':
-                // Shelly Pro 3EM (Modbus muss am Gerät aktiviert sein), FC 0x03,
-                // Float32, absolute Adressen: Frequenz 31033, Spannung L1 31020.
-                $f = $this->readFloat($ip, $port, $unitId, 31033, 1.0);
+                // Shelly Pro 3EM (Modbus muss am Gerät aktiviert sein), FC 0x04,
+                // Float32 wortgetauscht (CDAB). Wire-Adresse = Doku − 30000:
+                // Frequenz 1033, Spannung L1 1020. (An echtem Gerät verifiziert.)
+                $f = $this->readFloatInputSw($ip, $port, $unitId, 1033, 1.0);
                 if ($f === null || $f < 45.0 || $f > 65.0) {
                     return false;
                 }
-                $u = $this->readFloat($ip, $port, $unitId, 31020, 1.0);
+                $u = $this->readFloatInputSw($ip, $port, $unitId, 1020, 1.0);
                 return ($u !== null && $u >= 30.0 && $u <= 500.0);
 
             case 'carlo_gavazzi_em':
@@ -537,6 +538,17 @@ class MeterHubDiscovery extends IPSModule
             return null;
         }
         $f = (float)(unpack('G', pack('nn', $regs[0] & 0xFFFF, $regs[1] & 0xFFFF))[1] ?? 0.0);
+        return is_finite($f) ? $f : null;
+    }
+
+    // Float32 mit getauschter Wortreihenfolge (CDAB) per FC 0x04 — Shelly Pro 3EM.
+    private function readFloatInputSw($host, $port, $unitId, $startReg, $timeout)
+    {
+        $regs = $this->readInput($host, $port, $unitId, $startReg, 2, $timeout);
+        if ($regs === null || count($regs) < 2) {
+            return null;
+        }
+        $f = (float)(unpack('G', pack('nn', $regs[1] & 0xFFFF, $regs[0] & 0xFFFF))[1] ?? 0.0);
         return is_finite($f) ? $f : null;
     }
 

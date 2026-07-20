@@ -1,14 +1,19 @@
 # Changelog
 
+## 0.9.2-beta.1 (2026-07-20)
+
+- **Shelly Pro 3EM an echtem Gerät verifiziert und final korrigiert.** Ein Live-Test am
+  Shelly Pro 3EM zeigte: gelesen wird über **FC 0x04** (Input-Register), die Doku-
+  Registernummern sind um **30000 versetzt** (Wire-Adresse = Doku − 30000, also Messwerte
+  ab 1011, Energie 1162/1164) und die Float32-Werte sind **wortgetauscht (CDAB)**. Damit
+  liefert der Treiber jetzt korrekte Werte (Spannung ~233 V, Leistung, Frequenz 49,99 Hz,
+  Bezug/Einspeisung). Die Discovery-Erkennung wurde entsprechend angepasst (FC 0x04,
+  CDAB, 1033/1020). Modbus TCP muss am Gerät aktiviert sein.
+
 ## 0.9.1-beta.1 (2026-07-20)
 
-- **Shelly Pro 3EM korrigiert und vervollständigt.** Die bisherigen Adressen (aus einer
-  Fremdkonfiguration, Basis 1011, FC 0x04) waren falsch — Symcon fand die Geräte nicht.
-  Jetzt gemäß **offizieller Shelly-Gen2-Doku**: **absolute** Adressen, **FC 0x03** (Holding),
-  Messwerte ab 31011 (Gesamtleistung 31013, Frequenz 31033, Phasen 31020/40/60 …) und
-  **Energiezähler** aus EMData (Bezug 31162, Einspeisung 31164, Wh). Damit ist der Shelly
-  kein „experimenteller" Sonderfall mehr. Die Discovery-Erkennung wurde entsprechend auf
-  FC 0x03 / 31033+31020 umgestellt. Modbus TCP muss am Gerät aktiviert sein.
+- Shelly Pro 3EM auf FC 0x03 / absolute Adressen (31011) umgestellt — **fehlerhaft**, siehe
+  0.9.2 (das Gerät nutzt FC 0x04, Adressen − 30000, wortgetauscht).
 
 ## 0.9.0-beta.1 (2026-07-20)
 
