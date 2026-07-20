@@ -88,6 +88,9 @@ oder Verdrahtung nicht, hilft der Invers-Schalter.
 https://github.com/DG65/MeterHub
 ```
 
+Solange sich MeterHub in der Testphase befindet, in der Modulverwaltung den Zweig **`beta`**
+auswählen — dort liegt der jeweils aktuelle Stand. Der Zweig `main` bleibt der stabile Kanal.
+
 ## Mitwirken / Fehler melden
 
 Rückmeldungen zu falschen Registerwerten, fehlenden Datenpunkten oder neuen unterstützten
