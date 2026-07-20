@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: transparent;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  #wrap { position: absolute; inset: 0; display: flex; flex-direction: column; }
+
+  /* Werkzeugleiste */
+  #bar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text, #ccc);
+    background: rgba(127,127,127,0.14);
+    border-bottom: 1px solid rgba(127,127,127,0.25);
+    min-height: 34px;
+  }
+  #title {
+    flex: 1 1 auto;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    opacity: 0.85;
+  }
+  #bar button {
+    flex: 0 0 auto;
+    border: 1px solid rgba(127,127,127,0.4);
+    background: rgba(127,127,127,0.12);
+    color: inherit;
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1.2;
+  }
+  #bar button:hover { background: rgba(127,127,127,0.28); }
+
+  /* iframe-Bereich */
+  #stage { position: relative; flex: 1 1 auto; overflow: hidden; }
+  #frame {
+    position: absolute; top: 0; left: 0;
+    border: 0;
+    transform-origin: 0 0;
+    /* Größe/Skalierung werden per JS gesetzt (Zoom). */
+  }
+
+  /* Leer-/Hinweiszustand */
+  #empty {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 18px; text-align: center;
+    color: var(--text, #aaa);
+  }
+  #empty .ic { font-size: 34px; opacity: 0.7; }
+  #empty .msg { font-size: 14px; opacity: 0.85; max-width: 90%; }
+  #empty a {
+    color: inherit; text-decoration: underline; cursor: pointer;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="bar">
+    <span id="title">–</span>
+    <button id="btnReload" title="Neu laden">⟳</button>
+    <button id="btnOpen" title="In neuem Tab öffnen">↗ Tab</button>
+  </div>
+  <div id="stage">
+    <iframe id="frame" referrerpolicy="no-referrer"></iframe>
+    <div id="empty">
+      <div class="ic">🔌</div>
+      <div class="msg" id="emptyMsg">Keine IP/Host konfiguriert.</div>
+      <a id="emptyOpen" style="display:none">In neuem Tab öffnen</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  var state = { url: '', zoom: 1, refreshMs: 0, showToolbar: true };
+  var refreshTimer = null;
+
+  function el(id) { return document.getElementById(id); }
+
+  // iframe an die Stage-Größe anpassen und den Zoom (CSS-scale) anwenden.
+  // Bei Zoom z füllt das iframe (100/z)% der Fläche und wird um z skaliert,
+  // sodass der sichtbare Inhalt exakt die Kachel ausfüllt.
+  function layout() {
+    var stage = el('stage'), frame = el('frame');
+    if (!stage || !frame) return;
+    var z = state.zoom > 0 ? state.zoom : 1;
+    frame.style.width  = (100 / z) + '%';
+    frame.style.height = (100 / z) + '%';
+    frame.style.transform = 'scale(' + z + ')';
+  }
+
+  function applyRefresh() {
+    if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+    if (state.refreshMs > 0 && state.url) {
+      refreshTimer = setInterval(function () {
+        var f = el('frame');
+        // src neu zuweisen erzwingt den Reload (auch cross-origin).
+        if (f && state.url) { f.src = state.url; }
+      }, state.refreshMs);
+    }
+  }
+
+  function render() {
+    var bar = el('bar'), frame = el('frame'), empty = el('empty');
+    bar.style.display = state.showToolbar ? 'flex' : 'none';
+
+    el('title').textContent = state.title || state.url || '–';
+
+    if (!state.url) {
+      frame.style.display = 'none';
+      empty.style.display = 'flex';
+      el('emptyMsg').textContent = 'Keine IP/Host konfiguriert. Bitte in der Instanz eine MeterHub-Instanz wählen oder Host manuell eintragen.';
+      el('emptyOpen').style.display = 'none';
+      return;
+    }
+
+    empty.style.display = 'none';
+    frame.style.display = 'block';
+    // Nur neu setzen, wenn sich die URL geändert hat (verhindert Flackern).
+    if (frame.getAttribute('data-src') !== state.url) {
+      frame.setAttribute('data-src', state.url);
+      frame.src = state.url;
+    }
+    layout();
+    applyRefresh();
+  }
+
+  function handleMessage(payload) {
+    if (!payload || typeof payload !== 'object') return;
+    state.url         = payload.url || '';
+    state.title       = payload.title || '';
+    state.zoom        = (typeof payload.zoom === 'number' && payload.zoom > 0) ? payload.zoom : 1;
+    state.refreshMs   = payload.refreshMs || 0;
+    state.showToolbar = payload.showToolbar !== false;
+    render();
+  }
+
+  window.addEventListener('resize', layout);
+  document.addEventListener('DOMContentLoaded', function () {
+    el('btnReload').addEventListener('click', function () {
+      var f = el('frame');
+      if (f && state.url) { f.src = state.url; }
+    });
+    el('btnOpen').addEventListener('click', function () {
+      if (state.url) { window.open(state.url, '_blank', 'noopener'); }
+    });
+    el('emptyOpen').addEventListener('click', function () {
+      if (state.url) { window.open(state.url, '_blank', 'noopener'); }
+    });
+  });
+</script>
+</body>
+</html>

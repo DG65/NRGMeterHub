@@ -82,6 +82,25 @@ gedacht für andere Modbus-Geräte, die sonst Probe-Zeit kosten. Mehrere IPs Kom
 eigenes Muster mit den Platzhaltern `{zaehler}` `{ip}` `{unitid}` `{nr}` eintragen (z. B.
 `{zaehler} Keller ({ip})`).
 
+### MeterHubWebFront
+
+Eine **Kachel**, die das **Web-Frontend** eines Zählers (Siemens PAC2200, Janitza UMG) per
+`iframe` direkt einbettet — praktisch, um die Geräte-Weboberfläche ohne separaten
+Browser-Tab in der Visualisierung zu haben.
+
+- **Quelle**: entweder eine MeterHub-Instanz wählen (deren IP wird automatisch übernommen)
+  oder IP/Host manuell eintragen. Protokoll/Port/Pfad beziehen sich auf die
+  **Weboberfläche** des Geräts (meist `http`/`80`), nicht auf den Modbus-Port 502.
+- **Werkzeugleiste** mit Titel, „Neu laden" und „In neuem Tab öffnen"; **Zoom** (25–200 %)
+  und optionales **automatisches Neuladen**.
+
+**Technische Grenzen (wichtig):** Ob sich ein Gerät einbetten lässt, entscheidet dessen
+Webserver. Setzt er `X-Frame-Options` bzw. eine CSP `frame-ancestors`, verweigert der
+Browser die Einbettung — die Kachel bleibt dann leer bzw. zeigt „Verbindung abgelehnt", und
+man nutzt „In neuem Tab öffnen". Wird IP-Symcon zudem über **HTTPS** aufgerufen, blockieren
+Browser eingebettete **HTTP**-Seiten (Mixed Content); dann das Gerät per HTTPS ansprechen
+oder die Symcon-Oberfläche über HTTP öffnen.
+
 ## Vorzeichen-Konvention
 
 Modulweit gilt: **+ = Bezug** aus dem Netz, **− = Einspeisung**. PAC2200 und UMG604 melden

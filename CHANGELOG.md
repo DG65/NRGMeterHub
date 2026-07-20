@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0-beta.1 (2026-07-20)
+
+- **Neues Modul: MeterHubWebFront (Kachel).** Bettet das Web-Frontend eines Zählers
+  (Siemens PAC2200, Janitza UMG) per iframe direkt in eine Kachel ein. Die IP kommt
+  wahlweise aus einer verknüpften MeterHub-Instanz oder wird manuell eingetragen;
+  Protokoll/Port/Pfad beziehen sich auf die Weboberfläche des Geräts. Werkzeugleiste mit
+  Titel, „Neu laden" und „In neuem Tab öffnen", einstellbarer Zoom und optionales
+  automatisches Neuladen. Hinweis: Ob die Einbettung klappt, hängt vom Geräte-Webserver ab
+  (X-Frame-Options / CSP) und — bei über HTTPS aufgerufenem Symcon — am Mixed-Content-Block
+  des Browsers; in diesen Fällen hilft „In neuem Tab öffnen".
+
 ## 0.3.0-beta.1 (2026-07-20)
 
 - **Netzwerk-Scan abbrechbar.** Während eines laufenden Scans erscheint ein „✖ Scan

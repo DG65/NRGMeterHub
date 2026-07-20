@@ -1,0 +1,15 @@
+{
+  "id": "{EB7DF9A2-F85D-425C-8262-71886A357AA8}",
+  "name": "MeterHubWebFront",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "MeterHub Webfront",
+    "Zähler-Webfront Kachel"
+  ],
+  "url": "https://github.com/DG65/MeterHub",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "MHUBWF"
+}
