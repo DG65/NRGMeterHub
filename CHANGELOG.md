@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0-beta.1 (2026-07-20)
+
+- **Drei experimentelle Zähler ergänzt** (aus Vorlagen/Fremdquellen abgeleitet, noch nicht
+  an echter Hardware geprüft — im Dropdown als „experimentell" markiert):
+  - **Socomec Countis** (E23/E24/E27/E28/E34/E44) — FC 0x03, Register/Skalen nach OpenEMS.
+  - **MBS Professional 3-75** — M-Bus/Modbus-Gateway, FC 0x03, aus den Symcon-Vorlagen.
+  - **Shelly Pro 3EM** — FC 0x04, Float32 (Adressen aus realer ESPHome-Konfiguration).
+    Enthält vorerst **keine** Energiezähler (EMData-Register folgen).
+- ABB B23/B24 und Schneider iEM3000 warten auf Geräte-Modbus-Tabellen.
+
 ## 0.7.0-beta.1 (2026-07-20)
 
 - **Eastron SDM630 v2** ergänzt — nutzt dieselbe Registerkarte wie der SDM72D-M v2 (per

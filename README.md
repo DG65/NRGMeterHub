@@ -24,6 +24,17 @@ willkommen — bitte mit Zählertyp und betroffenem Register melden.
 Die Janitza-Modelle mit klassischer Karte sind funktional identisch — der Zählertyp im
 Formular dient nur der richtigen Beschriftung.
 
+### Experimentell (noch nicht an echter Hardware geprüft)
+
+| Zähler | Anmerkung |
+|---|---|
+| **Socomec Countis** (E23/E24/E27/E28/E34/E44) | FC 0x03; U/I/f als UInt32, P/Q als Int32, Energie UInt32. Skalen aus OpenEMS abgeleitet — **v. a. die Leistungs-Skala am Gerät prüfen**. |
+| **MBS Professional 3-75** | M-Bus→Modbus-Gateway, FC 0x03. Bezug/Abgabe (kWh), Wirkleistung, Spannung, Frequenz. Integer-Typgrößen aus den Symcon-Vorlagen abgeleitet. |
+| **Shelly Pro 3EM** | FC 0x04, Float32 (Adressen aus realer ESPHome-Konfig). **Ohne Energiezähler** — die EMData-Register folgen, sobald sie vorliegen. Wortreihenfolge unbestätigt (ggf. WordSwap). |
+
+Bei experimentellen Zählern die Messwerte gegen die Geräteanzeige abgleichen; bei
+unplausiblen Werten helfen der **WordSwap**- bzw. **Invers**-Schalter.
+
 Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Manager, Spalte
 „Beschreibung") — praktisch zum Abgleich mit dem Herstellerhandbuch.
 

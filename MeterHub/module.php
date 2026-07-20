@@ -1218,6 +1218,257 @@ class CarloGavazziDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// SocomecCountisDriver — Socomec Countis E23/E24/E27/E28/E34/E44 (EXPERIMENTELL)
+// FC 0x03, Big-Endian; U als UInt32 ×0,01 V, I UInt32 ×0,001 A, f UInt32
+// ×0,001 Hz, P/Q Int32 ×10 W/var, Energie UInt32 ×0,01 kWh. Skalen nach
+// OpenEMS abgeleitet — an echtem Gerät prüfen (v. a. Leistungs-Skala).
+// ---------------------------------------------------------------------------
+
+class SocomecCountisDriver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC3 0xC568 (×10)'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC3 0xC558/5A/5C Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC3 0xC560/62/64 Ø'],
+            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 0xC55E'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC3 0xC702 (×0,01)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC3 0xC708 (×0,01)'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
+                ['u_l1_n', 'Spannung L1-N', 'F', 'MHB.V', false, 'voltage', 'FC3 0xC558'],
+                ['u_l2_n', 'Spannung L2-N', 'F', 'MHB.V', false, 'voltage', 'FC3 0xC55A'],
+                ['u_l3_n', 'Spannung L3-N', 'F', 'MHB.V', false, 'voltage', 'FC3 0xC55C'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
+                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC3 0xC560'],
+                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC3 0xC562'],
+                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC3 0xC564'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC3 0xC570'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC3 0xC572'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC3 0xC574'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    public function readFast($mb, $hub)
+    {
+        // Messblock 0xC558..0xC57B (Offset = Adresse − 0xC558).
+        $a = $mb->readHolding(0xC558, 36);
+        if ($a === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $hub->SetVarFloat('power_total', $mb->s32($a, 16) * 10.0);       // 0xC568
+        $hub->SetVarFloat('voltage_avg',
+            ($mb->u32($a, 0) + $mb->u32($a, 2) + $mb->u32($a, 4)) * 0.01 / 3.0);
+        $hub->SetVarFloat('current_avg',
+            ($mb->u32($a, 8) + $mb->u32($a, 10) + $mb->u32($a, 12)) * 0.001 / 3.0);
+        $hub->SetVarFloat('frequency', $mb->u32($a, 6) * 0.001);          // 0xC55E
+
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $hub->SetVarFloat('u_l1_n', $mb->u32($a, 0) * 0.01);
+            $hub->SetVarFloat('u_l2_n', $mb->u32($a, 2) * 0.01);
+            $hub->SetVarFloat('u_l3_n', $mb->u32($a, 4) * 0.01);
+        }
+        if ($hub->GroupActive('GroupCurrentPhase')) {
+            $hub->SetVarFloat('i_l1', $mb->u32($a, 8)  * 0.001);
+            $hub->SetVarFloat('i_l2', $mb->u32($a, 10) * 0.001);
+            $hub->SetVarFloat('i_l3', $mb->u32($a, 12) * 0.001);
+        }
+        if ($hub->GroupActive('GroupPowerPhase')) {
+            $hub->SetVarFloat('p_l1', $mb->s32($a, 24) * 10.0); // 0xC570
+            $hub->SetVarFloat('p_l2', $mb->s32($a, 26) * 10.0);
+            $hub->SetVarFloat('p_l3', $mb->s32($a, 28) * 10.0);
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        $r = $mb->readHolding(0xC702, 8); // 0xC702 Bezug, 0xC708 Abgabe
+        if ($r === null) {
+            return;
+        }
+        $hub->SetVarEnergykWh('energy_import', $mb->u32($r, 0) * 0.01); // 0xC702
+        $hub->SetVarEnergykWh('energy_export', $mb->u32($r, 6) * 0.01); // 0xC708
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MbsProfessionalDriver — MBS Professional 3-75 M-Bus/Modbus-Gateway (EXPERIMENTELL)
+// FC 0x03, Big-Endian. Aus den IP-Symcon-Forum-Vorlagen abgeleitet: Bezug/
+// Abgabe als UInt32 ×0,001 kWh, Wirkleistung Int32 (W), Spannung/Frequenz
+// UInt16 ×0,1. Integer-Typgrößen aus den Vorlagen abgeleitet — an echtem
+// Gateway prüfen.
+// ---------------------------------------------------------------------------
+
+class MbsProfessionalDriver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC3 4527'],
+            ['voltage_avg',   'Spannung Ø',          'F', 'MHB.V',   false, 'total',  'FC3 4567/68/69 Ø'],
+            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 4626 (×0,1)'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC3 4201 (×0,001)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC3 4281 (×0,001)'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
+                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC3 4567 (×0,1)'],
+                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC3 4568 (×0,1)'],
+                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC3 4569 (×0,1)'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    public function readFast($mb, $hub)
+    {
+        $p = $mb->readHolding(4527, 2); // Wirkleistung Int32
+        $v = $mb->readHolding(4567, 3); // Spannung L1/L2/L3 UInt16
+        $f = $mb->readHolding(4626, 1); // Frequenz UInt16
+        if ($p === null || $v === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $hub->SetVarFloat('power_total', (float)$mb->s32($p, 0));
+        $hub->SetVarFloat('voltage_avg',
+            ($mb->u16($v, 0) + $mb->u16($v, 1) + $mb->u16($v, 2)) * 0.1 / 3.0);
+        if ($f !== null) {
+            $hub->SetVarFloat('frequency', $mb->u16($f, 0) * 0.1);
+        }
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $hub->SetVarFloat('u_l1_n', $mb->u16($v, 0) * 0.1);
+            $hub->SetVarFloat('u_l2_n', $mb->u16($v, 1) * 0.1);
+            $hub->SetVarFloat('u_l3_n', $mb->u16($v, 2) * 0.1);
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        $imp = $mb->readHolding(4201, 2); // Bezug UInt32
+        $exp = $mb->readHolding(4281, 2); // Abgabe UInt32
+        if ($imp !== null) {
+            $hub->SetVarEnergykWh('energy_import', $mb->u32($imp, 0) * 0.001);
+        }
+        if ($exp !== null) {
+            $hub->SetVarEnergykWh('energy_export', $mb->u32($exp, 0) * 0.001);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ShellyPro3emDriver — Shelly Pro 3EM (EXPERIMENTELL)
+// FC 0x04, Float32. Adressen aus einer realen ESPHome-Konfiguration (Basis
+// 1011). ENERGIEZÄHLER (EMData) sind hier noch NICHT enthalten — folgen,
+// sobald die EMData-Register vorliegen. Wortreihenfolge unbestätigt: bei
+// unplausiblen Werten den WordSwap-Schalter testen.
+// ---------------------------------------------------------------------------
+
+class ShellyPro3emDriver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total', 'Wirkleistung gesamt', 'F', 'MHB.W',  true,  'total', 'FC4 1013'],
+            ['voltage_avg', 'Spannung Ø',          'F', 'MHB.V',  false, 'total', 'FC4 1020/40/60 Ø'],
+            ['current_avg', 'Strom Ø',             'F', 'MHB.A',  false, 'total', 'FC4 1011 (Summe)'],
+            ['frequency',   'Frequenz',            'F', 'MHB.Hz', false, 'total', 'FC4 1033'],
+            ['connected',   'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
+                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC4 1020'],
+                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC4 1040'],
+                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC4 1060'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
+                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC4 1022'],
+                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC4 1042'],
+                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC4 1062'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 1024'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 1044'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 1064'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    public function readFast($mb, $hub)
+    {
+        $a = $mb->readInput(1011, 64); // 1011..1074 (Offset = Adresse − 1011)
+        if ($a === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $hub->SetVarFloat('power_total', $mb->readFloat32($a, 2));  // 1013
+        $hub->SetVarFloat('current_avg', $mb->readFloat32($a, 0));  // 1011 (Summenstrom)
+        $hub->SetVarFloat('frequency',   $mb->readFloat32($a, 22)); // 1033
+        $hub->SetVarFloat('voltage_avg',
+            ($mb->readFloat32($a, 9) + $mb->readFloat32($a, 29) + $mb->readFloat32($a, 49)) / 3.0);
+
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $hub->SetVarFloat('u_l1_n', $mb->readFloat32($a, 9));  // 1020
+            $hub->SetVarFloat('u_l2_n', $mb->readFloat32($a, 29)); // 1040
+            $hub->SetVarFloat('u_l3_n', $mb->readFloat32($a, 49)); // 1060
+        }
+        if ($hub->GroupActive('GroupCurrentPhase')) {
+            $hub->SetVarFloat('i_l1', $mb->readFloat32($a, 11)); // 1022
+            $hub->SetVarFloat('i_l2', $mb->readFloat32($a, 31)); // 1042
+            $hub->SetVarFloat('i_l3', $mb->readFloat32($a, 51)); // 1062
+        }
+        if ($hub->GroupActive('GroupPowerPhase')) {
+            $hub->SetVarFloat('p_l1', $mb->readFloat32($a, 13)); // 1024
+            $hub->SetVarFloat('p_l2', $mb->readFloat32($a, 33)); // 1044
+            $hub->SetVarFloat('p_l3', $mb->readFloat32($a, 53)); // 1064
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        // Energiezähler (EMData) noch nicht implementiert — folgt, sobald die
+        // EMData-Modbus-Register vorliegen.
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MeterHub — Hauptmodul, lädt den Treiber laut Meter-Property
 // ---------------------------------------------------------------------------
 
@@ -1239,6 +1490,9 @@ class MeterHub extends IPSModule
         'phoenix_eem375'  => 'PhoenixEem375Driver',
         'phoenix_eemxm'   => 'PhoenixEemXmDriver',
         'carlo_gavazzi_em' => 'CarloGavazziDriver',
+        'socomec_countis'  => 'SocomecCountisDriver',
+        'mbs_professional' => 'MbsProfessionalDriver',
+        'shelly_pro3em'    => 'ShellyPro3emDriver',
     ];
 
     private const METER_LABELS = [
@@ -1257,6 +1511,9 @@ class MeterHub extends IPSModule
         'phoenix_eem375'  => 'Phoenix Contact EEM-EM375',
         'phoenix_eemxm'   => 'Phoenix Contact EEM-XM',
         'carlo_gavazzi_em' => 'Carlo Gavazzi EM24 / EM300 / ET340',
+        'socomec_countis'  => 'Socomec Countis',
+        'mbs_professional' => 'MBS Professional 3-75',
+        'shelly_pro3em'    => 'Shelly Pro 3EM',
     ];
 
     private $driver = null;
@@ -1365,6 +1622,7 @@ class MeterHub extends IPSModule
                         ['type' => 'Label', 'caption' => 'MeterHub liest Energiezähler verschiedener Hersteller direkt per Modbus TCP aus. Zählertyp wählen, IP-Adresse (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Bedarf aktivieren.'],
                         ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (FC 0x03); Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 klassische Karte, UMG 800 Werkskarte, FC 0x03); Eastron SDM72D-M v2, WhatWatt und Phoenix Contact EEM-EM375/EEM-XM (FC 0x04, Input-Register).'],
                         ['type' => 'Label', 'caption' => 'Hinweis Eastron/Phoenix: Diese sprechen meist Modbus RTU und hängen über einen RTU/TCP-Gateway (dessen IP eintragen). Eastron-Geräteadresse ab Werk 1; Phoenix EEM-EM375 nutzt oft Unit-ID 255, EEM-XM meist 1. WhatWatt spricht Modbus TCP direkt.'],
+                        ['type' => 'Label', 'caption' => '🧪 Experimentell: Socomec Countis, MBS Professional 3-75 und Shelly Pro 3EM sind aus Vorlagen/Fremdquellen abgeleitet und noch nicht an echter Hardware geprüft — bitte die Messwerte gegen die Geräteanzeige abgleichen. Bei unplausiblen Werten helfen der WordSwap- bzw. Invers-Schalter. Beim Shelly Pro 3EM fehlen aktuell noch die Energiezähler (Bezug/Einspeisung).'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
                         ['type' => 'Label', 'caption' => '🔧 Anschluss: Die Zähler nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (der PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
                         ['type' => 'Label', 'caption' => '⚠️ UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],
@@ -1396,6 +1654,9 @@ class MeterHub extends IPSModule
                         ['caption' => 'Phoenix Contact EEM-EM375', 'value' => 'phoenix_eem375'],
                         ['caption' => 'Phoenix Contact EEM-XM',  'value' => 'phoenix_eemxm'],
                         ['caption' => 'Carlo Gavazzi EM24 / EM300 / ET340', 'value' => 'carlo_gavazzi_em'],
+                        ['caption' => 'Socomec Countis (experimentell)', 'value' => 'socomec_countis'],
+                        ['caption' => 'MBS Professional 3-75 (experimentell)', 'value' => 'mbs_professional'],
+                        ['caption' => 'Shelly Pro 3EM (experimentell, ohne Energiezähler)', 'value' => 'shelly_pro3em'],
                     ],
                 ],
                 [
