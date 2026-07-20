@@ -109,26 +109,41 @@ class ModbusTcpClient
         return $v > 2147483647 ? $v - 4294967296 : $v;
     }
 
-    // IEEE-754 Float32 über 2 Register, Big-Endian (ABCD). Sowohl Siemens
-    // PAC2200 als auch Janitza UMG604 liefern Floats in dieser Reihenfolge.
+    // Wortreihenfolge tauschen (CDAB statt ABCD). Die meisten Zähler liefern
+    // Float/Double big-endian (ABCD); einige Geräte/Gateways drehen die
+    // 16-Bit-Wörter (z. B. Phoenix EEM-XM). Per Instanz-Schalter umstellbar.
+    public $wordSwap = false;
+    public function setWordSwap(bool $s) { $this->wordSwap = $s; }
+
+    // IEEE-754 Float32 über 2 Register. Standard Big-Endian (ABCD); bei
+    // gesetztem $wordSwap werden die beiden Wörter getauscht (CDAB).
     public function readFloat32($regs, $offset)
     {
-        $raw = pack('nn', $this->u16($regs, $offset), $this->u16($regs, $offset + 1));
+        $w0 = $this->u16($regs, $offset);
+        $w1 = $this->u16($regs, $offset + 1);
+        if ($this->wordSwap) {
+            $tmp = $w0; $w0 = $w1; $w1 = $tmp;
+        }
+        $raw = pack('nn', $w0, $w1);
         $val = unpack('G', $raw);
         return (float)($val[1] ?? 0.0);
     }
 
     // IEEE-754 Float64 (Double) über 4 Register, Big-Endian. Der PAC2200 legt
-    // seine Energiezähler (Wirk-/Blindarbeit) als 64-Bit-Double ab.
+    // seine Energiezähler (Wirk-/Blindarbeit) als 64-Bit-Double ab. Bei
+    // $wordSwap wird die 16-Bit-Wortreihenfolge komplett umgekehrt.
     public function readDouble64($regs, $offset)
     {
-        $raw = pack(
-            'nnnn',
+        $w = [
             $this->u16($regs, $offset),
             $this->u16($regs, $offset + 1),
             $this->u16($regs, $offset + 2),
-            $this->u16($regs, $offset + 3)
-        );
+            $this->u16($regs, $offset + 3),
+        ];
+        if ($this->wordSwap) {
+            $w = array_reverse($w);
+        }
+        $raw = pack('nnnn', $w[0], $w[1], $w[2], $w[3]);
         $val = unpack('E', $raw);
         return (float)($val[1] ?? 0.0);
     }
@@ -664,6 +679,420 @@ class Umg800Driver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// EastronSdmDriver — Eastron SDM72D-M v2
+// FC 0x04 (Input Register), Float32 Big-Endian, Basisadresse 0. Energie in kWh.
+// Registerkarte laut IP-Symcon-Forum-Vorlage / Eastron-Handbuch.
+// ---------------------------------------------------------------------------
+
+class EastronSdmDriver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 52'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC4 42'],
+            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 46'],
+            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC4 70'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 72 (kWh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC4 74 (kWh)'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
+                ['u_l1_n',  'Spannung L1-N',  'F', 'MHB.V', false, 'voltage', 'FC4 0'],
+                ['u_l2_n',  'Spannung L2-N',  'F', 'MHB.V', false, 'voltage', 'FC4 2'],
+                ['u_l3_n',  'Spannung L3-N',  'F', 'MHB.V', false, 'voltage', 'FC4 4'],
+                ['u_l1_l2', 'Spannung L1-L2', 'F', 'MHB.V', false, 'voltage', 'FC4 200'],
+                ['u_l2_l3', 'Spannung L2-L3', 'F', 'MHB.V', false, 'voltage', 'FC4 202'],
+                ['u_l3_l1', 'Spannung L3-L1', 'F', 'MHB.V', false, 'voltage', 'FC4 204'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ Neutralleiter)', 'vars' => [
+                ['i_l1', 'Strom L1',           'F', 'MHB.A', false, 'current', 'FC4 6'],
+                ['i_l2', 'Strom L2',           'F', 'MHB.A', false, 'current', 'FC4 8'],
+                ['i_l3', 'Strom L3',           'F', 'MHB.A', false, 'current', 'FC4 10'],
+                ['i_n',  'Neutralleiterstrom', 'F', 'MHB.A', false, 'current', 'FC4 224'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 12'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 14'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 16'],
+            ]],
+            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
+                ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC4 56'],
+                ['q_total', 'Blindleistung gesamt',  'F', 'MHB.var', false, 'power', 'FC4 60'],
+                ['s_l1', 'Scheinleistung L1', 'F', 'MHB.VA',  false, 'power', 'FC4 18'],
+                ['s_l2', 'Scheinleistung L2', 'F', 'MHB.VA',  false, 'power', 'FC4 20'],
+                ['s_l3', 'Scheinleistung L3', 'F', 'MHB.VA',  false, 'power', 'FC4 22'],
+                ['q_l1', 'Blindleistung L1',  'F', 'MHB.var', false, 'power', 'FC4 24'],
+                ['q_l2', 'Blindleistung L2',  'F', 'MHB.var', false, 'power', 'FC4 26'],
+                ['q_l3', 'Blindleistung L3',  'F', 'MHB.var', false, 'power', 'FC4 28'],
+            ]],
+            'GroupPowerFactor' => ['caption' => 'Leistungsfaktor', 'vars' => [
+                ['pf_total', 'Leistungsfaktor gesamt', 'F', 'MHB.PF', false, 'total', 'FC4 62'],
+                ['pf_l1', 'Leistungsfaktor L1', 'F', 'MHB.PF', false, 'total', 'FC4 30'],
+                ['pf_l2', 'Leistungsfaktor L2', 'F', 'MHB.PF', false, 'total', 'FC4 32'],
+                ['pf_l3', 'Leistungsfaktor L3', 'F', 'MHB.PF', false, 'total', 'FC4 34'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    public function readFast($mb, $hub)
+    {
+        $a = $mb->readInput(0, 41);   // 0..40  (U/I/P/S/Q/PF je Phase)
+        $b = $mb->readInput(42, 22);  // 42..63 (Ø + Summenwerte)
+        if ($a === null || $b === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $hub->SetVarFloat('power_total', $mb->readFloat32($b, 10)); // 52
+        $hub->SetVarFloat('voltage_avg', $mb->readFloat32($b, 0));  // 42
+        $hub->SetVarFloat('current_avg', $mb->readFloat32($b, 4));  // 46
+
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $hub->SetVarFloat('u_l1_n', $mb->readFloat32($a, 0));
+            $hub->SetVarFloat('u_l2_n', $mb->readFloat32($a, 2));
+            $hub->SetVarFloat('u_l3_n', $mb->readFloat32($a, 4));
+            $ll = $mb->readInput(200, 6); // 200..205 (L-L Spannungen)
+            if ($ll !== null) {
+                $hub->SetVarFloat('u_l1_l2', $mb->readFloat32($ll, 0));
+                $hub->SetVarFloat('u_l2_l3', $mb->readFloat32($ll, 2));
+                $hub->SetVarFloat('u_l3_l1', $mb->readFloat32($ll, 4));
+            }
+        }
+        if ($hub->GroupActive('GroupCurrentPhase')) {
+            $hub->SetVarFloat('i_l1', $mb->readFloat32($a, 6));
+            $hub->SetVarFloat('i_l2', $mb->readFloat32($a, 8));
+            $hub->SetVarFloat('i_l3', $mb->readFloat32($a, 10));
+            $nn = $mb->readInput(224, 2); // 224 Neutralleiterstrom
+            if ($nn !== null) {
+                $hub->SetVarFloat('i_n', $mb->readFloat32($nn, 0));
+            }
+        }
+        if ($hub->GroupActive('GroupPowerPhase')) {
+            $hub->SetVarFloat('p_l1', $mb->readFloat32($a, 12));
+            $hub->SetVarFloat('p_l2', $mb->readFloat32($a, 14));
+            $hub->SetVarFloat('p_l3', $mb->readFloat32($a, 16));
+        }
+        if ($hub->GroupActive('GroupReactiveApparent')) {
+            $hub->SetVarFloat('s_total', $mb->readFloat32($b, 14)); // 56
+            $hub->SetVarFloat('q_total', $mb->readFloat32($b, 18)); // 60
+            $hub->SetVarFloat('s_l1', $mb->readFloat32($a, 18));
+            $hub->SetVarFloat('s_l2', $mb->readFloat32($a, 20));
+            $hub->SetVarFloat('s_l3', $mb->readFloat32($a, 22));
+            $hub->SetVarFloat('q_l1', $mb->readFloat32($a, 24));
+            $hub->SetVarFloat('q_l2', $mb->readFloat32($a, 26));
+            $hub->SetVarFloat('q_l3', $mb->readFloat32($a, 28));
+        }
+        if ($hub->GroupActive('GroupPowerFactor')) {
+            $hub->SetVarFloat('pf_total', $mb->readFloat32($b, 20)); // 62
+            $hub->SetVarFloat('pf_l1', $mb->readFloat32($a, 30));
+            $hub->SetVarFloat('pf_l2', $mb->readFloat32($a, 32));
+            $hub->SetVarFloat('pf_l3', $mb->readFloat32($a, 34));
+        }
+
+        $f = $mb->readInput(70, 2); // 70 Frequenz
+        if ($f !== null) {
+            $hub->SetVarFloat('frequency', $mb->readFloat32($f, 0));
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        $r = $mb->readInput(72, 4); // 72 Bezug, 74 Abgabe (kWh)
+        if ($r === null) {
+            return;
+        }
+        $hub->SetVarEnergykWh('energy_import', $mb->readFloat32($r, 0));
+        $hub->SetVarEnergykWh('energy_export', $mb->readFloat32($r, 2));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// WhatWattDriver — WhatWatt Smart Meter
+// FC 0x04, Float32 (Momentanwerte, Energie-Summen) + Double (Tarif-Energie),
+// Big-Endian. Wirkleistung getrennt als Bezug (501) und Abgabe (505) →
+// Gesamt = Bezug − Abgabe. Keine Frequenz in der Vorlage.
+// ---------------------------------------------------------------------------
+
+class WhatWattDriver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 501−505'],
+            ['voltage_avg',   'Spannung Ø',          'F', 'MHB.V',   false, 'total',  'FC4 1/3/5 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 13/15/17 Ø'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 549 (Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC4 553 (Wh)'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
+                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC4 1'],
+                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC4 3'],
+                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC4 5'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
+                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC4 13'],
+                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC4 15'],
+                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC4 17'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 25'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 27'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 29'],
+            ]],
+            'GroupTariff2' => ['caption' => 'Energie nach Tarif (T1/T2)', 'vars' => [
+                ['energy_import_t1', 'Bezug Tarif 1',  'F', 'MHB.kWh', true, 'energy', 'FC4 801 (Wh)'],
+                ['energy_import_t2', 'Bezug Tarif 2',  'F', 'MHB.kWh', true, 'energy', 'FC4 805 (Wh)'],
+                ['energy_export_t1', 'Abgabe Tarif 1', 'F', 'MHB.kWh', true, 'energy', 'FC4 809 (Wh)'],
+                ['energy_export_t2', 'Abgabe Tarif 2', 'F', 'MHB.kWh', true, 'energy', 'FC4 813 (Wh)'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    public function readFast($mb, $hub)
+    {
+        $a = $mb->readInput(1, 30);   // 1..30 (U 1/3/5, I 13/15/17, P 25/27/29)
+        $p = $mb->readInput(501, 8);  // 501 Bezug-Leistung, 505 Abgabe-Leistung
+        if ($a === null || $p === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $imp = $mb->readFloat32($p, 0); // 501
+        $exp = $mb->readFloat32($p, 4); // 505
+        $hub->SetVarFloat('power_total', $imp - $exp);
+        $hub->SetVarFloat('voltage_avg',
+            ($mb->readFloat32($a, 0) + $mb->readFloat32($a, 2) + $mb->readFloat32($a, 4)) / 3.0);
+        $hub->SetVarFloat('current_avg',
+            ($mb->readFloat32($a, 12) + $mb->readFloat32($a, 14) + $mb->readFloat32($a, 16)) / 3.0);
+
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $hub->SetVarFloat('u_l1_n', $mb->readFloat32($a, 0));
+            $hub->SetVarFloat('u_l2_n', $mb->readFloat32($a, 2));
+            $hub->SetVarFloat('u_l3_n', $mb->readFloat32($a, 4));
+        }
+        if ($hub->GroupActive('GroupCurrentPhase')) {
+            $hub->SetVarFloat('i_l1', $mb->readFloat32($a, 12));
+            $hub->SetVarFloat('i_l2', $mb->readFloat32($a, 14));
+            $hub->SetVarFloat('i_l3', $mb->readFloat32($a, 16));
+        }
+        if ($hub->GroupActive('GroupPowerPhase')) {
+            $hub->SetVarFloat('p_l1', $mb->readFloat32($a, 24)); // 25
+            $hub->SetVarFloat('p_l2', $mb->readFloat32($a, 26));
+            $hub->SetVarFloat('p_l3', $mb->readFloat32($a, 28));
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        $e = $mb->readInput(549, 6); // 549 Bezug, 553 Abgabe (Wh)
+        if ($e !== null) {
+            $hub->SetVarEnergyWh('energy_import', $mb->readFloat32($e, 0));
+            $hub->SetVarEnergyWh('energy_export', $mb->readFloat32($e, 4));
+        }
+        if ($hub->GroupActive('GroupTariff2')) {
+            $t = $mb->readInput(801, 16); // Doubles 801/805/809/813
+            if ($t !== null) {
+                $hub->SetVarEnergyWh('energy_import_t1', $mb->readDouble64($t, 0));
+                $hub->SetVarEnergyWh('energy_import_t2', $mb->readDouble64($t, 4));
+                $hub->SetVarEnergyWh('energy_export_t1', $mb->readDouble64($t, 8));
+                $hub->SetVarEnergyWh('energy_export_t2', $mb->readDouble64($t, 12));
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PhoenixEem375Driver — Phoenix Contact EEM-EM375
+// FC 0x04, Float32 Big-Endian, Basisadresse 4096. Nur Bezugsenergie (Wh).
+// ---------------------------------------------------------------------------
+
+class PhoenixEem375Driver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 4134'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC4 4096/98/100 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 4110/12/14 Ø'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 4358 (Wh)'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
+                ['u_l1_n', 'Spannung L1-N', 'F', 'MHB.V', false, 'voltage', 'FC4 4096'],
+                ['u_l2_n', 'Spannung L2-N', 'F', 'MHB.V', false, 'voltage', 'FC4 4098'],
+                ['u_l3_n', 'Spannung L3-N', 'F', 'MHB.V', false, 'voltage', 'FC4 4100'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
+                ['i_l1', 'Strom I1', 'F', 'MHB.A', false, 'current', 'FC4 4110'],
+                ['i_l2', 'Strom I2', 'F', 'MHB.A', false, 'current', 'FC4 4112'],
+                ['i_l3', 'Strom I3', 'F', 'MHB.A', false, 'current', 'FC4 4114'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 4128'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 4130'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 4132'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    public function readFast($mb, $hub)
+    {
+        $a = $mb->readInput(4096, 40); // 4096..4135
+        if ($a === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $hub->SetVarFloat('power_total', $mb->readFloat32($a, 38)); // 4134
+        $hub->SetVarFloat('voltage_avg',
+            ($mb->readFloat32($a, 0) + $mb->readFloat32($a, 2) + $mb->readFloat32($a, 4)) / 3.0);
+        $hub->SetVarFloat('current_avg',
+            ($mb->readFloat32($a, 14) + $mb->readFloat32($a, 16) + $mb->readFloat32($a, 18)) / 3.0);
+
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $hub->SetVarFloat('u_l1_n', $mb->readFloat32($a, 0));
+            $hub->SetVarFloat('u_l2_n', $mb->readFloat32($a, 2));
+            $hub->SetVarFloat('u_l3_n', $mb->readFloat32($a, 4));
+        }
+        if ($hub->GroupActive('GroupCurrentPhase')) {
+            $hub->SetVarFloat('i_l1', $mb->readFloat32($a, 14));
+            $hub->SetVarFloat('i_l2', $mb->readFloat32($a, 16));
+            $hub->SetVarFloat('i_l3', $mb->readFloat32($a, 18));
+        }
+        if ($hub->GroupActive('GroupPowerPhase')) {
+            $hub->SetVarFloat('p_l1', $mb->readFloat32($a, 32));
+            $hub->SetVarFloat('p_l2', $mb->readFloat32($a, 34));
+            $hub->SetVarFloat('p_l3', $mb->readFloat32($a, 36));
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        $r = $mb->readInput(4358, 2); // Bezugsenergie (Wh)
+        if ($r !== null) {
+            $hub->SetVarEnergyWh('energy_import', $mb->readFloat32($r, 0));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PhoenixEemXmDriver — Phoenix Contact EEM-XM (xMxxx-Reihe)
+// FC 0x04, Float32, Basisadresse 32774. Anordnung weicht vom EM375 ab; einige
+// XM-Geräte liefern die Wörter getauscht — ggf. den WordSwap-Schalter nutzen.
+// ---------------------------------------------------------------------------
+
+class PhoenixEemXmDriver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 32790'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC4 32774/76/78 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 32782/84/86 Ø'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 37630 (Wh)'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
+                ['u_l1_n', 'Spannung L1-N', 'F', 'MHB.V', false, 'voltage', 'FC4 32774'],
+                ['u_l2_n', 'Spannung L2-N', 'F', 'MHB.V', false, 'voltage', 'FC4 32776'],
+                ['u_l3_n', 'Spannung L3-N', 'F', 'MHB.V', false, 'voltage', 'FC4 32778'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
+                ['i_l1', 'Strom I1', 'F', 'MHB.A', false, 'current', 'FC4 32782'],
+                ['i_l2', 'Strom I2', 'F', 'MHB.A', false, 'current', 'FC4 32784'],
+                ['i_l3', 'Strom I3', 'F', 'MHB.A', false, 'current', 'FC4 32786'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 32798'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 32800'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 32802'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    public function readFast($mb, $hub)
+    {
+        $a = $mb->readInput(32774, 30); // 32774..32803
+        if ($a === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $hub->SetVarFloat('power_total', $mb->readFloat32($a, 16)); // 32790
+        $hub->SetVarFloat('voltage_avg',
+            ($mb->readFloat32($a, 0) + $mb->readFloat32($a, 2) + $mb->readFloat32($a, 4)) / 3.0);
+        $hub->SetVarFloat('current_avg',
+            ($mb->readFloat32($a, 8) + $mb->readFloat32($a, 10) + $mb->readFloat32($a, 12)) / 3.0);
+
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $hub->SetVarFloat('u_l1_n', $mb->readFloat32($a, 0));
+            $hub->SetVarFloat('u_l2_n', $mb->readFloat32($a, 2));
+            $hub->SetVarFloat('u_l3_n', $mb->readFloat32($a, 4));
+        }
+        if ($hub->GroupActive('GroupCurrentPhase')) {
+            $hub->SetVarFloat('i_l1', $mb->readFloat32($a, 8));
+            $hub->SetVarFloat('i_l2', $mb->readFloat32($a, 10));
+            $hub->SetVarFloat('i_l3', $mb->readFloat32($a, 12));
+        }
+        if ($hub->GroupActive('GroupPowerPhase')) {
+            $hub->SetVarFloat('p_l1', $mb->readFloat32($a, 24)); // 32798
+            $hub->SetVarFloat('p_l2', $mb->readFloat32($a, 26));
+            $hub->SetVarFloat('p_l3', $mb->readFloat32($a, 28));
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        $r = $mb->readInput(37630, 2); // Bezugsenergie (Wh)
+        if ($r !== null) {
+            $hub->SetVarEnergyWh('energy_import', $mb->readFloat32($r, 0));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MeterHub — Hauptmodul, lädt den Treiber laut Meter-Property
 // ---------------------------------------------------------------------------
 
@@ -679,6 +1108,10 @@ class MeterHub extends IPSModule
         'janitza_umg96pa' => 'JanitzaClassicDriver',
         'janitza_umg801'  => 'JanitzaClassicDriver',
         'janitza_umg800'  => 'Umg800Driver',
+        'eastron_sdm72d'  => 'EastronSdmDriver',
+        'whatwatt'        => 'WhatWattDriver',
+        'phoenix_eem375'  => 'PhoenixEem375Driver',
+        'phoenix_eemxm'   => 'PhoenixEemXmDriver',
     ];
 
     private const METER_LABELS = [
@@ -691,6 +1124,10 @@ class MeterHub extends IPSModule
         'janitza_umg96pa' => 'Janitza UMG 96PA',
         'janitza_umg801'  => 'Janitza UMG 801',
         'janitza_umg800'  => 'Janitza UMG 800',
+        'eastron_sdm72d'  => 'Eastron SDM72D-M v2',
+        'whatwatt'        => 'WhatWatt',
+        'phoenix_eem375'  => 'Phoenix Contact EEM-EM375',
+        'phoenix_eemxm'   => 'Phoenix Contact EEM-XM',
     ];
 
     private $driver = null;
@@ -709,6 +1146,9 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyBoolean('PowerInvert', false);
         // Energie-Ausgabe in Wh statt kWh (Basiseinheit, konsistent zu W).
         $this->RegisterPropertyBoolean('EnergyUnitWh', false);
+        // Float-Wortreihenfolge tauschen (CDAB statt ABCD) — für Geräte/Gateways,
+        // die die 16-Bit-Wörter gedreht liefern (z. B. manche Phoenix EEM-XM).
+        $this->RegisterPropertyBoolean('WordSwap', false);
 
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
@@ -794,7 +1234,8 @@ class MeterHub extends IPSModule
                     'expanded' => false,
                     'items'    => [
                         ['type' => 'Label', 'caption' => 'MeterHub liest Energiezähler verschiedener Hersteller direkt per Modbus TCP aus. Zählertyp wählen, IP-Adresse (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Bedarf aktivieren.'],
-                        ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (Float32 ab Reg. 1, Energie als 64-Bit-Double ab Reg. 801) sowie die Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 mit klassischer Registerkarte ab 19000; UMG 800 mit konfigurierbarer Werkskarte). Alle über Funktionscode 0x03.'],
+                        ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (FC 0x03); Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 klassische Karte, UMG 800 Werkskarte, FC 0x03); Eastron SDM72D-M v2, WhatWatt und Phoenix Contact EEM-EM375/EEM-XM (FC 0x04, Input-Register).'],
+                        ['type' => 'Label', 'caption' => 'Hinweis Eastron/Phoenix: Diese sprechen meist Modbus RTU und hängen über einen RTU/TCP-Gateway (dessen IP eintragen). Eastron-Geräteadresse ab Werk 1; Phoenix EEM-EM375 nutzt oft Unit-ID 255, EEM-XM meist 1. WhatWatt spricht Modbus TCP direkt.'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
                         ['type' => 'Label', 'caption' => '🔧 Anschluss: Die Zähler nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (der PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
                         ['type' => 'Label', 'caption' => '⚠️ UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],
@@ -820,6 +1261,10 @@ class MeterHub extends IPSModule
                         ['caption' => 'Janitza UMG 96PA',        'value' => 'janitza_umg96pa'],
                         ['caption' => 'Janitza UMG 801',         'value' => 'janitza_umg801'],
                         ['caption' => 'Janitza UMG 800 (konfigurierbare Map — Werksvorgabe)', 'value' => 'janitza_umg800'],
+                        ['caption' => 'Eastron SDM72D-M v2',     'value' => 'eastron_sdm72d'],
+                        ['caption' => 'WhatWatt',                'value' => 'whatwatt'],
+                        ['caption' => 'Phoenix Contact EEM-EM375', 'value' => 'phoenix_eem375'],
+                        ['caption' => 'Phoenix Contact EEM-XM',  'value' => 'phoenix_eemxm'],
                     ],
                 ],
                 [
@@ -865,6 +1310,11 @@ class MeterHub extends IPSModule
                             'name'    => 'EnergyUnitWh',
                             'caption' => 'Energie in Wh statt kWh ausgeben (Basiseinheit; die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh)',
                         ],
+                        [
+                            'type'    => 'CheckBox',
+                            'name'    => 'WordSwap',
+                            'caption' => 'Float-Wortreihenfolge tauschen (CDAB) — falls Messwerte unplausibel groß/klein sind (z. B. manche Phoenix EEM-XM)',
+                        ],
                     ]),
                 ],
             ],
@@ -898,11 +1348,13 @@ class MeterHub extends IPSModule
 
     private function GetModbusClient(): ModbusTcpClient
     {
-        return new ModbusTcpClient(
+        $mb = new ModbusTcpClient(
             $this->ReadPropertyString('Host'),
             $this->ReadPropertyInteger('Port'),
             $this->ReadPropertyInteger('UnitId')
         );
+        $mb->setWordSwap($this->ReadPropertyBoolean('WordSwap'));
+        return $mb;
     }
 
     // Öffentlicher Wrapper, damit Treiber prüfen können, ob eine optionale
@@ -1121,6 +1573,24 @@ class MeterHub extends IPSModule
             SetValueFloat($vid, $wh);
         } else {
             SetValueFloat($vid, $wh / 1000.0);
+        }
+    }
+
+    // Energie-Setter für Zähler, die bereits kWh liefern (z. B. Eastron).
+    // Standard-Ausgabe kWh; ist „Energie in Wh" aktiv, auf Wh hochrechnen.
+    public function SetVarEnergykWh(string $ident, float $kwh)
+    {
+        if (!is_finite($kwh)) {
+            $kwh = 0.0;
+        }
+        $vid = $this->FindVarByIdent($ident);
+        if (!$vid) {
+            return;
+        }
+        if ($this->ReadPropertyBoolean('EnergyUnitWh')) {
+            SetValueFloat($vid, $kwh * 1000.0);
+        } else {
+            SetValueFloat($vid, $kwh);
         }
     }
 

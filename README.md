@@ -16,6 +16,9 @@ willkommen — bitte mit Zählertyp und betroffenem Register melden.
 | **Siemens SENTRON PAC2200** | Summen-Wirkleistung, Ø Spannung/Strom, Frequenz, Energie Bezug/Abgabe (Tarif 1+2), optional U/I/P/Q/S je Phase, Leistungsfaktor | Float32-Messgrößen ab Register 1, Energiezähler als **64-Bit-Double** ab Register 801. FC 0x03. |
 | **Janitza UMG 604 / 605 / 509 / 512 / 806 / 96PA / 801** | Summen-Wirkleistung, Ø Spannung/Strom, Frequenz, Energie Bezug/Abgabe, optional U/I/P/Q/S je Phase, cos φ, Netzqualität (THD, Drehfeld) | Gemeinsame **klassische Janitza-Registerkarte**: Float32 ab Register 19000, Energie in Wh bei 19068/19076, THD ab 19110, Drehfeld 19052. Ø-Werte werden aus den Phasen berechnet. FC 0x03. |
 | **Janitza UMG 800** | wie oben | Eigene, **frei konfigurierbare** Modbus-Karte — der Treiber folgt der ausgelieferten Werksvorgabe (Summe P 19030, Frequenz 19054, Bezug 19072, Abgabe 19080). Wurde die Zuordnung im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht. FC 0x03. |
+| **Eastron SDM72D-M v2** | Summen-Wirkleistung, Ø U/I, Frequenz, Energie Bezug/Abgabe, optional U/I/P/Q/S je Phase, Leistungsfaktor, L-L-Spannung, Neutralleiterstrom | **FC 0x04** (Input-Register), Float32 Big-Endian ab Reg. 0, Energie in kWh (Reg. 72/74). Spricht Modbus RTU → über RTU/TCP-Gateway. |
+| **WhatWatt** | Summen-Wirkleistung (Bezug − Abgabe), Ø U/I, Energie Bezug/Abgabe (+ Tarif 1/2), optional U/I/P je Phase | **FC 0x04**, Float32 + 64-Bit-Double (Tarif-Energie), Big-Endian. Modbus TCP direkt. Getrennte Bezugs-/Abgabeleistung (501/505). |
+| **Phoenix Contact EEM-EM375 / EEM-XM** | Summen-Wirkleistung, Ø U/I, Bezugsenergie, optional U/I/P je Phase | **FC 0x04**, Float32. EM375 ab Reg. 4096 (Unit-ID oft 255), EEM-XM ab Reg. 32774 (Unit-ID meist 1). Bei EEM-XM ggf. den WordSwap-Schalter nutzen. |
 
 Die Janitza-Modelle mit klassischer Karte sind funktional identisch — der Zählertyp im
 Formular dient nur der richtigen Beschriftung.

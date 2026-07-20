@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0-beta.1 (2026-07-20)
+
+- **Vier weitere Zähler ergänzt** (aus IP-Symcon-Forum-Vorlagen, alle Float32 über
+  Funktionscode 0x04):
+  - **Eastron SDM72D-M v2** — vollständige Karte (U/I/P/Q/S je Phase, Leistungsfaktor,
+    L-L-Spannung, Neutralleiterstrom, Frequenz), Energie in kWh.
+  - **WhatWatt** — getrennte Bezugs-/Abgabeleistung (Gesamt = Bezug − Abgabe), Energie inkl.
+    Tarif 1/2 (64-Bit-Double).
+  - **Phoenix Contact EEM-EM375** (ab Reg. 4096) und **EEM-XM** (ab Reg. 32774).
+- **Neuer Schalter „Float-Wortreihenfolge tauschen (CDAB)"** für Geräte/Gateways, die die
+  16-Bit-Wörter gedreht liefern (z. B. manche Phoenix EEM-XM) — wirkt auf Float32 und Double.
+- Die „Siemens Sentron"-Forumvorlage wurde bewusst **nicht** übernommen: sie enthält
+  Leistungsschalter/Schutzgeräte (5SL/5SV/5ST/3RV COM, 7KN-Datensammler), keine Energiezähler.
+
 ## 0.5.0-beta.1 (2026-07-20)
 
 - **Modul MeterHubWebFront wieder entfernt.** Ein Test am realen Siemens PAC2200 hat gezeigt,
