@@ -311,20 +311,23 @@ class Pac2200Driver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// Umg604Driver — Janitza UMG 604(-PRO)
-// Float32-Messgrößen ab Register 19000, Energie als Float32 (Wh) im selben
-// Bereich; Mittelwerte ab 19630, Netzqualität (THD) ab 19110. FC 0x03.
-// Registeradressen laut Modbus-Adressenliste des UMG 604-PRO.
+// JanitzaClassicDriver — klassische Janitza-UMG-Registerkarte (19000er-Block)
+// Deckt UMG 604, 605-PRO, 509-PRO, 512-PRO, 806, 96PA und 801 ab — alle nutzen
+// dieselbe feste Firmware-Karte: Float32-Messgrößen ab Register 19000, Energie
+// als Float32 (Wh) bei 19068 (Bezug) / 19076 (Abgabe), Netzqualität (THD) ab
+// 19110, Drehfeld 19052. FC 0x03. Ø-Spannung/-Strom werden aus den Phasen
+// berechnet (statt aus dem optionalen 19630-Mittelwertblock, den nicht jedes
+// Modell dieser Familie führt — z. B. der UMG 96PA nicht).
 // ---------------------------------------------------------------------------
 
-class Umg604Driver implements MeterDriverInterface
+class JanitzaClassicDriver implements MeterDriverInterface
 {
     public function getBaseVars()
     {
         return [
             ['power_total',   'Wirkleistung gesamt',        'F', 'MHB.W',   true,  'total',  'FC3 19026 (Psum3)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',           'F', 'MHB.V',   false, 'total',  'FC3 19630'],
-            ['current_avg',   'Strom Ø',                    'F', 'MHB.A',   false, 'total',  'FC3 19634'],
+            ['voltage_avg',   'Spannung Ø (L-N)',           'F', 'MHB.V',   false, 'total',  'FC3 19000/02/04 Ø'],
+            ['current_avg',   'Strom Ø',                    'F', 'MHB.A',   false, 'total',  'FC3 19012/14/16 Ø'],
             ['frequency',     'Frequenz',                   'F', 'MHB.Hz',  false, 'total',  'FC3 19050'],
             ['energy_import', 'Wirkarbeit Bezug',           'F', 'MHB.kWh', true,  'energy', 'FC3 19068 (Wh)'],
             ['energy_export', 'Wirkarbeit Abgabe',          'F', 'MHB.kWh', true,  'energy', 'FC3 19076 (Wh)'],
@@ -409,6 +412,13 @@ class Umg604Driver implements MeterDriverInterface
         $hub->SetVarFloat('power_total', $mb->readFloat32($r, 26)); // 19026
         $hub->SetVarFloat('frequency',   $mb->readFloat32($r, 50)); // 19050
 
+        // Ø-Spannung/-Strom aus den Phasenwerten des Messblocks berechnen
+        // (19000/02/04 bzw. 19012/14/16) — modellunabhängig verfügbar.
+        $hub->SetVarFloat('voltage_avg',
+            ($mb->readFloat32($r, 0) + $mb->readFloat32($r, 2) + $mb->readFloat32($r, 4)) / 3.0);
+        $hub->SetVarFloat('current_avg',
+            ($mb->readFloat32($r, 12) + $mb->readFloat32($r, 14) + $mb->readFloat32($r, 16)) / 3.0);
+
         if ($hub->GroupActive('GroupVoltagePhase')) {
             $hub->SetVarFloat('u_l1_n',  $mb->readFloat32($r, 0));   // 19000
             $hub->SetVarFloat('u_l2_n',  $mb->readFloat32($r, 2));
@@ -442,20 +452,17 @@ class Umg604Driver implements MeterDriverInterface
             $hub->SetVarFloat('pf_l1', $mb->readFloat32($r, 44)); // 19044
             $hub->SetVarFloat('pf_l2', $mb->readFloat32($r, 46));
             $hub->SetVarFloat('pf_l3', $mb->readFloat32($r, 48));
+            // Gesamt-Leistungsfaktor liegt im Mittelwertblock (19636). Nicht
+            // jedes Modell dieser Familie führt ihn — daher separat und robust
+            // gegen Fehler (der UMG 96PA z. B. liefert ihn nicht).
+            $pf = $mb->readHolding(19636, 2);
+            if ($pf !== null) {
+                $hub->SetVarFloat('pf_total', $mb->readFloat32($pf, 0)); // 19636
+            }
         }
         if ($hub->GroupActive('GroupQuality')) {
             // Drehfeld: 1=rechts, 0=keins, -1=links (Float, auf Integer runden).
             $hub->SetVarInt('phase_seq', (int)round($mb->readFloat32($r, 52))); // 19052
-        }
-
-        // Mittelwertblock 19630..19637 (Ø U L-N, Ø U L-L, Ø I, PF gesamt).
-        $a = $mb->readHolding(19630, 8);
-        if ($a !== null) {
-            $hub->SetVarFloat('voltage_avg', $mb->readFloat32($a, 0)); // 19630
-            $hub->SetVarFloat('current_avg', $mb->readFloat32($a, 4)); // 19634
-            if ($hub->GroupActive('GroupPowerFactor')) {
-                $hub->SetVarFloat('pf_total', $mb->readFloat32($a, 6)); // 19636
-            }
         }
 
         // THD-Block 19110..19121 nur bei aktiver Netzqualitäts-Gruppe lesen.
@@ -486,6 +493,177 @@ class Umg604Driver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// Umg800Driver — Janitza UMG 800 (neue Generation)
+// Der UMG 800 hat eine frei konfigurierbare Modbus-Registerkarte; dieser
+// Treiber folgt der ausgelieferten Werks-Standardzuordnung (VirtualMeter
+// „Group19"). Sie liegt zwar auch im 19000er-Bereich, ist aber ANDERS
+// aufgebaut als die klassische Karte: Summen-Wirkleistung 19030, Frequenz
+// 19054, Bezug 19072, Abgabe 19080; zwischen 19019 und 19024 liegt eine Lücke.
+// Wurde die Modbus-Zuordnung im Gerät geändert, stimmen diese Adressen nicht.
+// ---------------------------------------------------------------------------
+
+class Umg800Driver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC3 19030 (Σ P)'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC3 19000/02/04 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC3 19012/14/16 Ø'],
+            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 19054'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC3 19072 (Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC3 19080 (Wh)'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
+                ['u_l1_n',  'Spannung L1-N',  'F', 'MHB.V', false, 'voltage', 'FC3 19000'],
+                ['u_l2_n',  'Spannung L2-N',  'F', 'MHB.V', false, 'voltage', 'FC3 19002'],
+                ['u_l3_n',  'Spannung L3-N',  'F', 'MHB.V', false, 'voltage', 'FC3 19004'],
+                ['u_l1_l2', 'Spannung L1-L2', 'F', 'MHB.V', false, 'voltage', 'FC3 19006'],
+                ['u_l2_l3', 'Spannung L2-L3', 'F', 'MHB.V', false, 'voltage', 'FC3 19008'],
+                ['u_l3_l1', 'Spannung L3-L1', 'F', 'MHB.V', false, 'voltage', 'FC3 19010'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ I4)', 'vars' => [
+                ['i_l1',  'Strom L1', 'F', 'MHB.A', false, 'current', 'FC3 19012'],
+                ['i_l2',  'Strom L2', 'F', 'MHB.A', false, 'current', 'FC3 19014'],
+                ['i_l3',  'Strom L3', 'F', 'MHB.A', false, 'current', 'FC3 19016'],
+                ['i_sum', 'Strom I4', 'F', 'MHB.A', false, 'current', 'FC3 19018'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC3 19024'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC3 19026'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC3 19028'],
+            ]],
+            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
+                ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC3 19038'],
+                ['q_total', 'Blindleistung gesamt',  'F', 'MHB.var', false, 'power', 'FC3 19046'],
+                ['s_l1', 'Scheinleistung L1', 'F', 'MHB.VA',  false, 'power', 'FC3 19032'],
+                ['s_l2', 'Scheinleistung L2', 'F', 'MHB.VA',  false, 'power', 'FC3 19034'],
+                ['s_l3', 'Scheinleistung L3', 'F', 'MHB.VA',  false, 'power', 'FC3 19036'],
+                ['q_l1', 'Blindleistung L1',  'F', 'MHB.var', false, 'power', 'FC3 19040'],
+                ['q_l2', 'Blindleistung L2',  'F', 'MHB.var', false, 'power', 'FC3 19042'],
+                ['q_l3', 'Blindleistung L3',  'F', 'MHB.var', false, 'power', 'FC3 19044'],
+            ]],
+            'GroupPowerFactor' => ['caption' => 'Leistungsfaktor / cos φ', 'vars' => [
+                ['pf_l1', 'cos φ L1', 'F', 'MHB.PF', false, 'total', 'FC3 19048'],
+                ['pf_l2', 'cos φ L2', 'F', 'MHB.PF', false, 'total', 'FC3 19050'],
+                ['pf_l3', 'cos φ L3', 'F', 'MHB.PF', false, 'total', 'FC3 19052'],
+            ]],
+            'GroupQuality' => ['caption' => 'Netzqualität (THD, Drehfeld)', 'vars' => [
+                ['thd_u_l1', 'THD Spannung L1', 'F', 'MHB.Percent', false, 'quality', 'FC3 19114'],
+                ['thd_u_l2', 'THD Spannung L2', 'F', 'MHB.Percent', false, 'quality', 'FC3 19116'],
+                ['thd_u_l3', 'THD Spannung L3', 'F', 'MHB.Percent', false, 'quality', 'FC3 19118'],
+                ['thd_i_l1', 'THD Strom L1',    'F', 'MHB.Percent', false, 'quality', 'FC3 19120'],
+                ['thd_i_l2', 'THD Strom L2',    'F', 'MHB.Percent', false, 'quality', 'FC3 19122'],
+                ['thd_i_l3', 'THD Strom L3',    'F', 'MHB.Percent', false, 'quality', 'FC3 19124'],
+                ['phase_seq', 'Drehfeld', 'I', 'MHB.PhaseSeq', false, 'quality', 'FC3 19056'],
+            ]],
+        ];
+    }
+
+    public function getProfiles() { return []; }
+
+    public function getEnumProfiles()
+    {
+        return [
+            'MHB.PhaseSeq' => [
+                -1 => ['Linksdrehfeld', 0xFF8000],
+                 0 => ['kein Drehfeld',  0x808080],
+                 1 => ['Rechtsdrehfeld', 0x00A000],
+            ],
+        ];
+    }
+
+    // Zwei lückenfreie Block-Reads: zwischen 19019 (I4) und 19024 (P1) liegen
+    // im Werks-Mapping unbelegte Register.
+    //   Block A = 19000..19019 (U L-N, U L-L, I1..I4), Offset = Adresse − 19000
+    //   Block B = 19024..19057 (P/S/Q/PF, Freq, Drehfeld), Offset = Adresse − 19024
+    public function readFast($mb, $hub)
+    {
+        $a = $mb->readHolding(19000, 20);
+        $b = $mb->readHolding(19024, 34);
+        if ($a === null || $b === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $hub->SetVarFloat('power_total', $mb->readFloat32($b, 6));  // 19030
+        $hub->SetVarFloat('frequency',   $mb->readFloat32($b, 30)); // 19054
+        $hub->SetVarFloat('voltage_avg',
+            ($mb->readFloat32($a, 0) + $mb->readFloat32($a, 2) + $mb->readFloat32($a, 4)) / 3.0);
+        $hub->SetVarFloat('current_avg',
+            ($mb->readFloat32($a, 12) + $mb->readFloat32($a, 14) + $mb->readFloat32($a, 16)) / 3.0);
+
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $hub->SetVarFloat('u_l1_n',  $mb->readFloat32($a, 0));   // 19000
+            $hub->SetVarFloat('u_l2_n',  $mb->readFloat32($a, 2));
+            $hub->SetVarFloat('u_l3_n',  $mb->readFloat32($a, 4));
+            $hub->SetVarFloat('u_l1_l2', $mb->readFloat32($a, 6));   // 19006
+            $hub->SetVarFloat('u_l2_l3', $mb->readFloat32($a, 8));
+            $hub->SetVarFloat('u_l3_l1', $mb->readFloat32($a, 10));
+        }
+        if ($hub->GroupActive('GroupCurrentPhase')) {
+            $hub->SetVarFloat('i_l1',  $mb->readFloat32($a, 12)); // 19012
+            $hub->SetVarFloat('i_l2',  $mb->readFloat32($a, 14));
+            $hub->SetVarFloat('i_l3',  $mb->readFloat32($a, 16));
+            $hub->SetVarFloat('i_sum', $mb->readFloat32($a, 18)); // 19018 (I4)
+        }
+        if ($hub->GroupActive('GroupPowerPhase')) {
+            $hub->SetVarFloat('p_l1', $mb->readFloat32($b, 0)); // 19024
+            $hub->SetVarFloat('p_l2', $mb->readFloat32($b, 2));
+            $hub->SetVarFloat('p_l3', $mb->readFloat32($b, 4));
+        }
+        if ($hub->GroupActive('GroupReactiveApparent')) {
+            $hub->SetVarFloat('s_total', $mb->readFloat32($b, 14)); // 19038
+            $hub->SetVarFloat('q_total', $mb->readFloat32($b, 22)); // 19046
+            $hub->SetVarFloat('s_l1', $mb->readFloat32($b, 8));     // 19032
+            $hub->SetVarFloat('s_l2', $mb->readFloat32($b, 10));
+            $hub->SetVarFloat('s_l3', $mb->readFloat32($b, 12));
+            $hub->SetVarFloat('q_l1', $mb->readFloat32($b, 16));    // 19040
+            $hub->SetVarFloat('q_l2', $mb->readFloat32($b, 18));
+            $hub->SetVarFloat('q_l3', $mb->readFloat32($b, 20));
+        }
+        if ($hub->GroupActive('GroupPowerFactor')) {
+            $hub->SetVarFloat('pf_l1', $mb->readFloat32($b, 24)); // 19048
+            $hub->SetVarFloat('pf_l2', $mb->readFloat32($b, 26));
+            $hub->SetVarFloat('pf_l3', $mb->readFloat32($b, 28));
+        }
+        if ($hub->GroupActive('GroupQuality')) {
+            // RotationField ist beim UMG 800 ein (vorzeichenbehafteter) Integer.
+            $hub->SetVarInt('phase_seq', $mb->s32($b, 32)); // 19056
+
+            $q = $mb->readHolding(19114, 12);
+            if ($q !== null) {
+                $hub->SetVarFloat('thd_u_l1', $mb->readFloat32($q, 0));  // 19114
+                $hub->SetVarFloat('thd_u_l2', $mb->readFloat32($q, 2));
+                $hub->SetVarFloat('thd_u_l3', $mb->readFloat32($q, 4));
+                $hub->SetVarFloat('thd_i_l1', $mb->readFloat32($q, 6));  // 19120
+                $hub->SetVarFloat('thd_i_l2', $mb->readFloat32($q, 8));
+                $hub->SetVarFloat('thd_i_l3', $mb->readFloat32($q, 10));
+            }
+        }
+        return true;
+    }
+
+    // Energie: Float32 in Wh. Bezug-Summe 19072, Abgabe-Summe 19080.
+    public function readSlow($mb, $hub)
+    {
+        $r = $mb->readHolding(19072, 10);
+        if ($r === null) {
+            return;
+        }
+        $hub->SetVarEnergyWh('energy_import', $mb->readFloat32($r, 0)); // 19072
+        $hub->SetVarEnergyWh('energy_export', $mb->readFloat32($r, 8)); // 19080
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MeterHub — Hauptmodul, lädt den Treiber laut Meter-Property
 // ---------------------------------------------------------------------------
 
@@ -493,12 +671,26 @@ class MeterHub extends IPSModule
 {
     private const DRIVERS = [
         'siemens_pac2200' => 'Pac2200Driver',
-        'janitza_umg604'  => 'Umg604Driver',
+        'janitza_umg604'  => 'JanitzaClassicDriver',
+        'janitza_umg605'  => 'JanitzaClassicDriver',
+        'janitza_umg509'  => 'JanitzaClassicDriver',
+        'janitza_umg512'  => 'JanitzaClassicDriver',
+        'janitza_umg806'  => 'JanitzaClassicDriver',
+        'janitza_umg96pa' => 'JanitzaClassicDriver',
+        'janitza_umg801'  => 'JanitzaClassicDriver',
+        'janitza_umg800'  => 'Umg800Driver',
     ];
 
     private const METER_LABELS = [
         'siemens_pac2200' => 'Siemens PAC2200',
         'janitza_umg604'  => 'Janitza UMG 604',
+        'janitza_umg605'  => 'Janitza UMG 605',
+        'janitza_umg509'  => 'Janitza UMG 509',
+        'janitza_umg512'  => 'Janitza UMG 512',
+        'janitza_umg806'  => 'Janitza UMG 806',
+        'janitza_umg96pa' => 'Janitza UMG 96PA',
+        'janitza_umg801'  => 'Janitza UMG 801',
+        'janitza_umg800'  => 'Janitza UMG 800',
     ];
 
     private $driver = null;
@@ -602,9 +794,10 @@ class MeterHub extends IPSModule
                     'expanded' => false,
                     'items'    => [
                         ['type' => 'Label', 'caption' => 'MeterHub liest Energiezähler verschiedener Hersteller direkt per Modbus TCP aus. Zählertyp wählen, IP-Adresse (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Bedarf aktivieren.'],
-                        ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (Float32 ab Reg. 1, Energie als 64-Bit-Double ab Reg. 801) und Janitza UMG 604(-PRO) (Float32 ab Reg. 19000, Energie in Wh bei 19068/19076). Beide über Funktionscode 0x03.'],
+                        ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (Float32 ab Reg. 1, Energie als 64-Bit-Double ab Reg. 801) sowie die Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 mit klassischer Registerkarte ab 19000; UMG 800 mit konfigurierbarer Werkskarte). Alle über Funktionscode 0x03.'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
-                        ['type' => 'Label', 'caption' => '🔧 Anschluss: PAC2200 und UMG604 nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
+                        ['type' => 'Label', 'caption' => '🔧 Anschluss: Die Zähler nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (der PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
+                        ['type' => 'Label', 'caption' => '⚠️ UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
                     ],
                 ],
@@ -620,6 +813,13 @@ class MeterHub extends IPSModule
                     'options' => [
                         ['caption' => 'Siemens SENTRON PAC2200', 'value' => 'siemens_pac2200'],
                         ['caption' => 'Janitza UMG 604(-PRO)',   'value' => 'janitza_umg604'],
+                        ['caption' => 'Janitza UMG 605-PRO',     'value' => 'janitza_umg605'],
+                        ['caption' => 'Janitza UMG 509-PRO',     'value' => 'janitza_umg509'],
+                        ['caption' => 'Janitza UMG 512-PRO',     'value' => 'janitza_umg512'],
+                        ['caption' => 'Janitza UMG 806',         'value' => 'janitza_umg806'],
+                        ['caption' => 'Janitza UMG 96PA',        'value' => 'janitza_umg96pa'],
+                        ['caption' => 'Janitza UMG 801',         'value' => 'janitza_umg801'],
+                        ['caption' => 'Janitza UMG 800 (konfigurierbare Map — Werksvorgabe)', 'value' => 'janitza_umg800'],
                     ],
                 ],
                 [

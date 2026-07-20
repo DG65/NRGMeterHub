@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0-beta.1 (2026-07-20)
+
+- **Weitere Janitza-Zähler ergänzt.** Der bisherige UMG604-Treiber wurde zum gemeinsamen
+  `JanitzaClassicDriver` verallgemeinert und deckt nun **UMG 604, 605-PRO, 509-PRO,
+  512-PRO, 806, 96PA und 801** ab — alle nutzen dieselbe klassische Registerkarte ab 19000
+  (per Handbuch/Adressliste verifiziert). Ø-Spannung/-Strom werden jetzt aus den
+  Phasenwerten berechnet statt aus dem 19630-Mittelwertblock, den nicht jedes Modell dieser
+  Familie führt (z. B. der UMG 96PA nicht); der Gesamt-Leistungsfaktor wird separat und
+  fehlertolerant gelesen.
+- **Neuer Treiber `Umg800Driver`** für den **Janitza UMG 800**. Der UMG 800 hat eine frei
+  konfigurierbare Modbus-Karte mit abweichendem Aufbau (Summe P 19030, Frequenz 19054,
+  Bezug 19072, Abgabe 19080, Lücke bei 19020–19023) — der Treiber folgt der ausgelieferten
+  Werksvorgabe und liest lückenbewusst in zwei Blöcken.
+- **Discovery** unterscheidet jetzt klassische Janitza-Karte (Frequenz 19050) und UMG 800
+  (Frequenz 19054, 19050 kein Frequenzwert) und schlägt den passenden Typ vor.
+
 ## 0.1.0-beta.1 (2026-07-20)
 
 - **Erste Version.** Generisches Modbus-TCP-Framework für Energiezähler, analog zum

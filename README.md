@@ -14,7 +14,11 @@ willkommen — bitte mit Zählertyp und betroffenem Register melden.
 | Zähler | Umfang | Anmerkung |
 |---|---|---|
 | **Siemens SENTRON PAC2200** | Summen-Wirkleistung, Ø Spannung/Strom, Frequenz, Energie Bezug/Abgabe (Tarif 1+2), optional U/I/P/Q/S je Phase, Leistungsfaktor | Float32-Messgrößen ab Register 1, Energiezähler als **64-Bit-Double** ab Register 801. FC 0x03. |
-| **Janitza UMG 604(-PRO)** | Summen-Wirkleistung, Ø Spannung/Strom, Frequenz, Energie Bezug/Abgabe, optional U/I/P/Q/S je Phase, cos φ, Netzqualität (THD, Drehfeld) | Float32-Messgrößen ab Register 19000, Energie in Wh bei 19068/19076, Mittelwerte ab 19630, THD ab 19110. FC 0x03. |
+| **Janitza UMG 604 / 605 / 509 / 512 / 806 / 96PA / 801** | Summen-Wirkleistung, Ø Spannung/Strom, Frequenz, Energie Bezug/Abgabe, optional U/I/P/Q/S je Phase, cos φ, Netzqualität (THD, Drehfeld) | Gemeinsame **klassische Janitza-Registerkarte**: Float32 ab Register 19000, Energie in Wh bei 19068/19076, THD ab 19110, Drehfeld 19052. Ø-Werte werden aus den Phasen berechnet. FC 0x03. |
+| **Janitza UMG 800** | wie oben | Eigene, **frei konfigurierbare** Modbus-Karte — der Treiber folgt der ausgelieferten Werksvorgabe (Summe P 19030, Frequenz 19054, Bezug 19072, Abgabe 19080). Wurde die Zuordnung im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht. FC 0x03. |
+
+Die Janitza-Modelle mit klassischer Karte sind funktional identisch — der Zählertyp im
+Formular dient nur der richtigen Beschriftung.
 
 Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Manager, Spalte
 „Beschreibung") — praktisch zum Abgleich mit dem Herstellerhandbuch.
@@ -31,8 +35,9 @@ freigeschaltet. Architektur:
   Register, Datentyp-Hilfen inkl. Float32 und 64-Bit-Double), von allen Treibern genutzt.
 - **`MeterDriverInterface`** — Vertrag, den jeder Zähler-Treiber erfüllt (Basisvariablen,
   optionale Gruppen, Profile, `readFast`/`readSlow`). Zähler werden nur gelesen.
-- **Ein Treiber je Modell** (`Pac2200Driver`, `Umg604Driver`) — kapselt die
-  gerätespezifischen Registeradressen, Datentypen und Blockaufteilung.
+- **Treiber je Registerkarte** — `Pac2200Driver` (Siemens), `JanitzaClassicDriver`
+  (klassische Janitza-Karte, deckt UMG 604/605/509/512/806/96PA/801 ab) und `Umg800Driver`
+  (UMG 800). Jeder Treiber kapselt Registeradressen, Datentypen und Blockaufteilung.
 
 Einrichtung: Instanz anlegen, Zählertyp wählen, IP-Adresse (und bei Bedarf Port/Unit-ID)
 eintragen, gewünschte Datenpunkt-Gruppen aktivieren, übernehmen.
@@ -61,9 +66,12 @@ Modbus-TCP-Port 502 durchsucht:
    bleibt aber änderbar), optional eine Namens-Vorlage für neu anzulegende Instanzen.
 2. „Netzwerk durchsuchen" klicken — nicht-blockierender Parallel-Scan auf Port 502.
 3. Für jede offene IP wird der Zählertyp anhand dokumentierter Standard-Unit-IDs und einer
-   Plausibilitätsprüfung (Netzfrequenz 45–65 Hz **und** eine plausible Spannung) erkannt.
-   Da PAC2200 (niedrige Register) und UMG604 (ab 19000) in verschiedenen Adressbereichen
-   liegen, lassen sie sich zuverlässig unterscheiden.
+   Plausibilitätsprüfung (Netzfrequenz 45–65 Hz **und** eine plausible Spannung) erkannt:
+   PAC2200 (Frequenz auf Reg. 55), klassische Janitza-Karte (Frequenz auf 19050) und
+   UMG 800 (Frequenz auf 19054) liegen jeweils auf unterschiedlichen Registern und lassen
+   sich so trennen. Die klassischen Janitza-Modelle teilen sich eine Signatur — Discovery
+   schlägt stellvertretend „Janitza UMG (klassische Map)" vor; das exakte Modell lässt sich
+   danach in der Instanz einstellen (die Registerkarte ist ohnehin identisch).
 4. Treffer erscheinen in der Ergebnistabelle — Klick auf „Erstellen" legt eine
    `MeterHub`-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Zählertyp an.
 

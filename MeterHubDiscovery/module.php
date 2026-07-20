@@ -13,16 +13,22 @@ class MeterHubDiscovery extends IPSModule
 {
     private const METERHUB_GUID = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
 
-    // Kandidaten je Zählertyp: typische/dokumentierte Standard-Unit-IDs
-    // (kleine Liste statt vollem 1-247-Bereich).
+    // Kandidaten je Signatur: typische/dokumentierte Standard-Unit-IDs
+    // (kleine Liste statt vollem 1-247-Bereich). Die Janitza-Modelle mit
+    // klassischer Registerkarte teilen sich eine Signatur — Discovery kann sie
+    // nicht auseinanderhalten und schlägt stellvertretend den UMG 604 vor
+    // (identische Map; der Typ lässt sich in der Instanz umstellen). Der
+    // UMG 800 hat eine eigene Signatur (Frequenz auf 19054 statt 19050).
     private const METER_UNIT_IDS = [
         'siemens_pac2200' => [1, 247, 126],
         'janitza_umg604'  => [1],
+        'janitza_umg800'  => [1],
     ];
 
     private const METER_LABELS = [
         'siemens_pac2200' => 'Siemens PAC2200',
-        'janitza_umg604'  => 'Janitza UMG 604',
+        'janitza_umg604'  => 'Janitza UMG (klassische Map)',
+        'janitza_umg800'  => 'Janitza UMG 800',
     ];
 
     public function Create()
@@ -369,10 +375,26 @@ class MeterHubDiscovery extends IPSModule
                 return ($u !== null && $u >= 30.0 && $u <= 500.0);
 
             case 'janitza_umg604':
-                // Reg 19050: Frequenz (Float32), Reg 19000: Spannung L1-N.
+                // Klassische Janitza-Karte: Frequenz auf 19050, Spannung 19000.
                 $f = $this->readFloat($ip, $port, $unitId, 19050, 1.0);
                 if ($f === null || $f < 45.0 || $f > 65.0) {
                     return false;
+                }
+                $u = $this->readFloat($ip, $port, $unitId, 19000, 1.0);
+                return ($u !== null && $u >= 30.0 && $u <= 500.0);
+
+            case 'janitza_umg800':
+                // UMG 800 (Werkskarte): Frequenz auf 19054, Spannung 19000.
+                // Zusätzlich 19050 gegenprüfen — dort steht beim UMG 800 KEIN
+                // Frequenzwert (sondern ein Leistungsfaktor 0..1), was ihn von
+                // der klassischen Karte trennt.
+                $f = $this->readFloat($ip, $port, $unitId, 19054, 1.0);
+                if ($f === null || $f < 45.0 || $f > 65.0) {
+                    return false;
+                }
+                $f50 = $this->readFloat($ip, $port, $unitId, 19050, 1.0);
+                if ($f50 !== null && $f50 >= 45.0 && $f50 <= 65.0) {
+                    return false; // sieht nach klassischer Karte aus
                 }
                 $u = $this->readFloat($ip, $port, $unitId, 19000, 1.0);
                 return ($u !== null && $u >= 30.0 && $u <= 500.0);
