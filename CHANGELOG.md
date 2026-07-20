@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.1-beta.1 (2026-07-20)
+
+- **Shelly Pro 3EM korrigiert und vervollständigt.** Die bisherigen Adressen (aus einer
+  Fremdkonfiguration, Basis 1011, FC 0x04) waren falsch — Symcon fand die Geräte nicht.
+  Jetzt gemäß **offizieller Shelly-Gen2-Doku**: **absolute** Adressen, **FC 0x03** (Holding),
+  Messwerte ab 31011 (Gesamtleistung 31013, Frequenz 31033, Phasen 31020/40/60 …) und
+  **Energiezähler** aus EMData (Bezug 31162, Einspeisung 31164, Wh). Damit ist der Shelly
+  kein „experimenteller" Sonderfall mehr. Die Discovery-Erkennung wurde entsprechend auf
+  FC 0x03 / 31033+31020 umgestellt. Modbus TCP muss am Gerät aktiviert sein.
+
 ## 0.9.0-beta.1 (2026-07-20)
 
 - **Discovery erkennt jetzt mehr Zähler.** Neben PAC2200 und Janitza findet der Netzwerk-

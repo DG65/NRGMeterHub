@@ -454,13 +454,13 @@ class MeterHubDiscovery extends IPSModule
                 return ($u !== null && $u >= 30.0 && $u <= 500.0);
 
             case 'shelly_pro3em':
-                // Shelly Pro 3EM (Modbus muss am Gerät aktiviert sein), FC 0x04,
-                // Float32: Frequenz auf 1033, Spannung Phase A auf 1020.
-                $f = $this->readFloatInput($ip, $port, $unitId, 1033, 1.0);
+                // Shelly Pro 3EM (Modbus muss am Gerät aktiviert sein), FC 0x03,
+                // Float32, absolute Adressen: Frequenz 31033, Spannung L1 31020.
+                $f = $this->readFloat($ip, $port, $unitId, 31033, 1.0);
                 if ($f === null || $f < 45.0 || $f > 65.0) {
                     return false;
                 }
-                $u = $this->readFloatInput($ip, $port, $unitId, 1020, 1.0);
+                $u = $this->readFloat($ip, $port, $unitId, 31020, 1.0);
                 return ($u !== null && $u >= 30.0 && $u <= 500.0);
 
             case 'carlo_gavazzi_em':
