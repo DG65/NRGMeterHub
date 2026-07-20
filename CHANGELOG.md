@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0-beta.1 (2026-07-20)
+
+- **Netzwerk-Scan abbrechbar.** Während eines laufenden Scans erscheint ein „✖ Scan
+  abbrechen"-Button (der Start-Button wird solange ausgeblendet). Der Abbruch wird über
+  eine versteckte, thread-sichere Flagge angefordert; sowohl der Portscan als auch die
+  anschließende Zählererkennung prüfen sie und brechen zeitnah ab — die bis dahin
+  gefundenen Zähler bleiben in der Ergebnisliste. Analog zur InverterHub-Discovery.
+
 ## 0.2.0-beta.1 (2026-07-20)
 
 - **Weitere Janitza-Zähler ergänzt.** Der bisherige UMG604-Treiber wurde zum gemeinsamen

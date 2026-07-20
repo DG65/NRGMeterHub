@@ -68,6 +68,27 @@ class MeterHubDiscovery extends IPSModule
     public function ApplyChanges()
     {
         parent::ApplyChanges();
+        // Versteckte Abbruch-Flagge für laufende Scans (thread-sicher über
+        // GetValue/SetValue — der „Abbrechen"-Button läuft in einem eigenen
+        // Thread und setzt sie, die Scan-Schleifen prüfen sie). In ApplyChanges
+        // registriert, damit auch bestehende Instanzen sie nach dem Update haben.
+        $this->RegisterVariableBoolean('ScanAbort', 'Scan-Abbruch', '', 100);
+        IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
+    }
+
+    // true, wenn während eines laufenden Scans „Abbrechen" geklickt wurde.
+    private function scanAborted(): bool
+    {
+        return @$this->GetValue('ScanAbort') === true;
+    }
+
+    public function AbortScan()
+    {
+        if (@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
+            $this->SetValue('ScanAbort', true);
+        }
+        @$this->UpdateFormField('ScanProgress', 'caption', 'Abbruch angefordert – bitte kurz warten …');
+        @$this->UpdateFormField('ScanProgress', 'indeterminate', true);
     }
 
     public function GetConfigurationForm()
@@ -140,7 +161,8 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {zaehler} {ip} {unitid} {nr} — z. B. „{zaehler} Keller ({ip})"'],
                         ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'IPs ignorieren (Komma-getrennt)'],
                         ['type' => 'Label', 'caption' => 'Diese Adressen werden beim Scan komplett übersprungen — z. B. andere Modbus-Geräte, die sonst fälschlich erscheinen würden.'],
-                        ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'MHUBD_Discover($id);'],
+                        ['type' => 'Button', 'name' => 'BtnScan',  'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'MHUBD_Discover($id);'],
+                        ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Scan abbrechen', 'onClick' => 'MHUBD_AbortScan($id);', 'visible' => false],
                         [
                             'type'          => 'ProgressBar',
                             'name'          => 'ScanProgress',
@@ -207,6 +229,15 @@ class MeterHubDiscovery extends IPSModule
             return;
         }
 
+        // Abbruch-Flagge zu Beginn zurücksetzen.
+        if (@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
+            $this->SetValue('ScanAbort', false);
+        }
+        // Start-Button aus, Abbrechen-Button ein (am Scan-Ende stellt ReloadForm
+        // die Ausgangslage wieder her).
+        @$this->UpdateFormField('BtnScan', 'visible', false);
+        @$this->UpdateFormField('BtnAbort', 'visible', true);
+
         $ips = $this->expandRange($start, $end);
         if (count($ips) > 1024) {
             $ips = array_slice($ips, 0, 1024);
@@ -224,7 +255,9 @@ class MeterHubDiscovery extends IPSModule
         $results = [];
         $total   = count($openIps);
         $i       = 0;
+        $aborted = $this->scanAborted();
         foreach ($openIps as $ip) {
+            if ($this->scanAborted()) { $aborted = true; break; }
             $i++;
             $this->ShowProgress("Prüfe Zählertyp: $ip ($i von $total offenen Ports) …", (int)round(($i / max(1, $total)) * 100));
             $found = $this->identifyMeter($ip, $port);
@@ -233,7 +266,11 @@ class MeterHubDiscovery extends IPSModule
             }
         }
 
-        $this->ShowProgress('Fertig: ' . count($results) . ' Zähler gefunden (von ' . $total . ' offenen Ports).', 100);
+        if ($aborted) {
+            $this->ShowProgress('Scan abgebrochen – ' . count($results) . ' Zähler bis dahin gefunden.', 100);
+        } else {
+            $this->ShowProgress('Fertig: ' . count($results) . ' Zähler gefunden (von ' . $total . ' offenen Ports).', 100);
+        }
 
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
         $this->SetStatus(102);
@@ -305,6 +342,9 @@ class MeterHubDiscovery extends IPSModule
         $deadline  = $startTime + $timeoutSec;
         $lastUi    = 0.0;
         while (count($pending) > 0 && microtime(true) < $deadline) {
+            if ($this->scanAborted()) {
+                break;
+            }
             $write  = array_values($pending);
             $read   = [];
             $except = [];
