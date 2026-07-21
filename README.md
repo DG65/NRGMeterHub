@@ -107,9 +107,17 @@ Ausgangspunkt ist der **Messmodus** — er entscheidet, wie zugeordnet wird:
 | **Dreiphasig** | ein Verbraucher über alle 3 Phasen (Netzanschluss, Wärmepumpe, …) | **eine** Funktion für den ganzen Zähler |
 | **Einphasig getrennt** | 3 unabhängige einphasige Verbraucher | **je Phase** eine eigene Funktion |
 
-Zur Auswahl stehen u. a. Netzanschluss, Hausverbrauch, PV-Erzeugung, Batterie, Wärmepumpe,
-Wallbox 1–5, Garage, Warmwasser, Klimaanlage, Pool, Sauna, Trockner, Küche, Beleuchtung und
-Sonstiger Verbraucher — jeweils mit optionaler **eigener Bezeichnung** (z. B. „Garage hinten").
+Zur Auswahl stehen, nach Bereichen gruppiert:
+
+- **Anlage:** Netzanschluss, Hausverbrauch, PV-Erzeugung, Batterie
+- **Wärme/Klima:** Wärmepumpe, Heizung/Heizstab, Warmwasser, Klimaanlage, Lüftung
+- **Mobilität:** Wallbox 1–5, Garage
+- **Haushaltsgeräte:** Waschmaschine, Trockner, Spülmaschine, Backofen, Herd,
+  Kühl-/Gefriergerät, Küche (gesamt)
+- **Weitere Bereiche:** Pool, Sauna, Beleuchtung, Server/Netzwerk, Werkstatt,
+  Sonstiger Verbraucher
+
+Jeweils mit optionaler **eigener Bezeichnung** (z. B. „Garage hinten").
 
 Die Zuordnung bewirkt dreierlei:
 

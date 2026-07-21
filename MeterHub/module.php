@@ -1555,26 +1555,40 @@ class MeterHub extends IPSModule
     // der InverterHubTile-Kachel orientiert, damit andere Module die Zuordnung
     // direkt übernehmen können.
     private const FUNCTIONS = [
-        'none'      => ['— keine Zuordnung —',    ''],
-        'grid'      => ['Netzanschluss',          'Electricity'],
-        'house'     => ['Hausverbrauch',          'HollowHouse'],
-        'pv'        => ['PV-Erzeugung',           'Sun'],
-        'battery'   => ['Batterie',               'Battery'],
-        'heatpump'  => ['Wärmepumpe',             'Temperature'],
-        'wallbox1'  => ['Wallbox 1',              'Car'],
-        'wallbox2'  => ['Wallbox 2',              'Car'],
-        'wallbox3'  => ['Wallbox 3',              'Car'],
-        'wallbox4'  => ['Wallbox 4',              'Car'],
-        'wallbox5'  => ['Wallbox 5',              'Car'],
-        'garage'    => ['Garage',                 'Car'],
-        'hotwater'  => ['Warmwasser',             'Drops'],
-        'aircon'    => ['Klimaanlage',            'Snowflake'],
-        'pool'      => ['Pool',                   'Waves'],
-        'sauna'     => ['Sauna',                  'Flame'],
-        'dryer'     => ['Trockner',               'Wind'],
-        'kitchen'   => ['Küche',                  'Gear'],
-        'light'     => ['Beleuchtung',            'Bulb'],
-        'other'     => ['Sonstiger Verbraucher',  'Electricity'],
+        'none'       => ['— keine Zuordnung —',      ''],
+        // Anlage / Infrastruktur
+        'grid'       => ['Netzanschluss',            'Electricity'],
+        'house'      => ['Hausverbrauch',            'HollowHouse'],
+        'pv'         => ['PV-Erzeugung',             'Sun'],
+        'battery'    => ['Batterie',                 'Battery'],
+        // Wärme / Klima
+        'heatpump'   => ['Wärmepumpe',               'Temperature'],
+        'heater'     => ['Heizung / Heizstab',       'Temperature'],
+        'hotwater'   => ['Warmwasser',               'Drops'],
+        'aircon'     => ['Klimaanlage',              'Snowflake'],
+        'ventilation'=> ['Lüftung',                  'Ventilation'],
+        // Mobilität
+        'wallbox1'   => ['Wallbox 1',                'Car'],
+        'wallbox2'   => ['Wallbox 2',                'Car'],
+        'wallbox3'   => ['Wallbox 3',                'Car'],
+        'wallbox4'   => ['Wallbox 4',                'Car'],
+        'wallbox5'   => ['Wallbox 5',                'Car'],
+        'garage'     => ['Garage',                   'Car'],
+        // Haushaltsgeräte
+        'washer'     => ['Waschmaschine',            'Drops'],
+        'dryer'      => ['Trockner',                 'Wind'],
+        'dishwasher' => ['Spülmaschine',             'Drops'],
+        'oven'       => ['Backofen',                 'Flame'],
+        'stove'      => ['Herd',                     'Flame'],
+        'fridge'     => ['Kühl-/Gefriergerät',       'Snowflake'],
+        'kitchen'    => ['Küche (gesamt)',           'Gear'],
+        // Sonstige Bereiche
+        'pool'       => ['Pool',                     'Waves'],
+        'sauna'      => ['Sauna',                    'Flame'],
+        'light'      => ['Beleuchtung',              'Bulb'],
+        'it'         => ['Server / Netzwerk',        'Gear'],
+        'workshop'   => ['Werkstatt',                'Gear'],
+        'other'      => ['Sonstiger Verbraucher',    'Electricity'],
     ];
 
     private $driver = null;

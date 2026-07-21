@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.1-beta.1 (2026-07-21)
+
+- **Funktions-Vokabular vervollständigt.** Neu: Waschmaschine, Spülmaschine, Backofen, Herd,
+  Kühl-/Gefriergerät, Heizung/Heizstab, Lüftung, Server/Netzwerk und Werkstatt. Die Liste ist
+  jetzt nach Bereichen gruppiert (Anlage · Wärme/Klima · Mobilität · Haushaltsgeräte ·
+  Weitere), was die Auswahl im Dropdown übersichtlicher macht. Bestehende Zuordnungen bleiben
+  erhalten — es kamen nur Einträge hinzu, vorhandene Schlüssel wurden nicht verändert.
+
 ## 0.11.0-beta.1 (2026-07-21)
 
 - **Funktionszuordnung: Zähler bzw. Phasen bestimmten Verbrauchern zuordnen.** Neues Panel
