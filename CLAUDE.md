@@ -2,19 +2,38 @@
 
 ## Verwandte Repositories
 
-An diesen drei Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet:
+An diesen Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet:
 
 - **MeterHub** (dieses Repo): Energiezähler per Modbus TCP — https://github.com/DG65/MeterHub
 - **InverterHub**: Wechselrichter per Modbus TCP — https://github.com/DG65/InverterHub
   (lokale Arbeitskopie: `../InverterHub`)
 - **Prognose** (Suite EnergiePrognose): PV- und Verbrauchsprognose —
   https://github.com/DG65/Prognose (lokale Arbeitskopie: `../Prognose`)
+- **ChargerHub**: Wallboxen per Modbus TCP — https://github.com/DG65/ChargerHub
+- **MigrationsHub**: Übernahme von Bestandsgeräten samt Archivwerten —
+  https://github.com/DG65/MigrationsHub
+- **EMS**: Energiemanagement, Steuerungshoheit über den Verbund
 
 **MeterHub koppelt direkt nur an InverterHub.** Zum Prognose-Repo besteht derzeit keine
 Verbindung; es ist hier nur zur Orientierung genannt, weil an allen dreien parallel gearbeitet
 wird. Die Prognose ist ihrerseits an den `InverterHubMonitor` gekoppelt (Vertrag dort:
 `PVF_Get*`). Sollte MeterHub jemals Prognosewerte einbeziehen, ist das vorher mit der
 Prognose-Sitzung abzustimmen — nichts eigenmächtig in fremden Repos anlegen.
+
+**ChargerHub und MigrationsHub** sind seit dem 21.07.2026 eigene Repos mit eigenen Sitzungen,
+zunächst als Gerüst (v0.1.0) ohne Fachlogik. Für MeterHub folgt daraus vor allem eines: Ein
+**Migrationswerkzeug gehört nicht hierher.** Wer von einem Fremdmodul auf MeterHub umsteigt und
+seine Archivwerte behalten will, wird von MigrationsHub bedient. Anfragen in diese Richtung
+also dorthin verweisen, statt hier eine zweite Lösung zu bauen. Ebenso ist ChargerHub der Ort
+für Wallboxen — MeterHub misst eine Wallbox allenfalls als Zähler (Funktion `wallbox1…5`), es
+steuert sie nicht.
+
+**Koordination:** Dietmar ist der zentrale Ansprechpartner für den gesamten Verbund. Die
+Modul-Sitzungen werden von ihm direkt angesprochen, wenn es um **modulspezifische** Aufgaben
+geht; alles Übergreifende läuft über ihn. Sitzung-zu-Sitzung-Nachrichten bleiben deshalb dem
+vorbehalten, was zwei Module technisch unmittelbar verbindet — beim MeterHub ist das die
+Kopplung an InverterHub (Kachel und Sankey). Keine unaufgeforderten Rundnachrichten an neue
+Sitzungen; wenn eine andere Sitzung etwas von hier braucht, geht das über Dietmar.
 
 ## Kopplung an InverterHub
 
