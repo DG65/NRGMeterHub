@@ -160,6 +160,13 @@ nicht beschrieb.
 - **Vor dem Committen prüfen**, ob im Arbeitsbaum fremde Änderungen liegen (`git status`,
   `git diff`) — wenn ja, nicht mitcommitten und nicht stashen.
 - **Versionsbump und Changelog-Eintrag gehören zusammen** und müssen synchron sein.
+- **Den gewünschten Changelog-Text gleich beim Push mitschicken**, nicht danach. Wer in einem
+  fremden Repo committet, dessen Version eine andere Sitzung pflegt, kann sonst überholt
+  werden: Ein Feature lag bereits auf `beta`, als die andere Seite für einen eigenen Fix
+  bumpte — es ging dadurch **ohne Changelog-Eintrag** an die Tester. Der Eintrag wurde
+  nachträglich am tatsächlich ausliefernden Release ergänzt (nicht unter einer neuen Nummer,
+  die fälschlich Neuheit suggeriert hätte). Umgekehrt gilt: **vor einem Bump prüfen**, ob seit
+  dem letzten Release fremde Commits dazugekommen sind, und deren Einträge mitnehmen.
 - **Konfigurationsdateien (`form.json`) nie maschinell umformatieren.** Ein `json.dump`-Lauf
   hat dort schon 929 Zeilen für eine 13-zeilige Ergänzung geändert und den Diff unlesbar
   gemacht. Kompakte Handformatierung beibehalten, rein additiv als Text arbeiten.
