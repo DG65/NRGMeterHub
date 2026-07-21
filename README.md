@@ -97,6 +97,33 @@ gedacht für andere Modbus-Geräte, die sonst Probe-Zeit kosten. Mehrere IPs Kom
 eigenes Muster mit den Platzhaltern `{zaehler}` `{ip}` `{unitid}` `{nr}` eintragen (z. B.
 `{zaehler} Keller ({ip})`).
 
+## Funktionszuordnung (welcher Verbraucher hängt hier?)
+
+Im Panel **„Funktionszuordnung"** lässt sich festlegen, *was* ein Zähler eigentlich misst.
+Ausgangspunkt ist der **Messmodus** — er entscheidet, wie zugeordnet wird:
+
+| Messmodus | Bedeutung | Zuordnung |
+|---|---|---|
+| **Dreiphasig** | ein Verbraucher über alle 3 Phasen (Netzanschluss, Wärmepumpe, …) | **eine** Funktion für den ganzen Zähler |
+| **Einphasig getrennt** | 3 unabhängige einphasige Verbraucher | **je Phase** eine eigene Funktion |
+
+Zur Auswahl stehen u. a. Netzanschluss, Hausverbrauch, PV-Erzeugung, Batterie, Wärmepumpe,
+Wallbox 1–5, Garage, Warmwasser, Klimaanlage, Pool, Sauna, Trockner, Küche, Beleuchtung und
+Sonstiger Verbraucher — jeweils mit optionaler **eigener Bezeichnung** (z. B. „Garage hinten").
+
+Die Zuordnung bewirkt dreierlei:
+
+1. **Benennung + Icon** — betroffene Variablen heißen dann z. B. „Wärmepumpe — Wirkarbeit
+   Bezug" und bekommen ein passendes Icon.
+2. **Maschinenlesbar** — `MHUB_GetFunctions($id)` liefert Modus, Zuordnungen und die
+   Variablen-IDs (Leistung/Bezug/Einspeisung) als JSON, sodass EMS oder Kacheln die
+   Zuordnung automatisch übernehmen können.
+3. **Optionale Sammel-Variablen** je Funktion (Kategorie „Funktionen"), die den zugeordneten
+   Kanal spiegeln — praktisch für Charts und Automationen.
+
+Für getrennte Energiezähler je Phase zusätzlich im Panel „Datenpunkte" die Gruppe
+**„Energie je Phase"** aktivieren (beim Shelly Pro 3EM verfügbar).
+
 ## Vorzeichen-Konvention
 
 Modulweit gilt: **+ = Bezug** aus dem Netz, **− = Einspeisung**. PAC2200 und UMG604 melden

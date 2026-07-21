@@ -1550,7 +1550,36 @@ class MeterHub extends IPSModule
         'shelly_pro3em'    => 'Shelly Pro 3EM',
     ];
 
+    // Funktions-Vokabular für die Zuordnung „welcher Verbraucher hängt hier?".
+    // [Schlüssel => [Anzeigename, IPS-Icon]]. Bewusst an den Verbraucher-Arten
+    // der InverterHubTile-Kachel orientiert, damit andere Module die Zuordnung
+    // direkt übernehmen können.
+    private const FUNCTIONS = [
+        'none'      => ['— keine Zuordnung —',    ''],
+        'grid'      => ['Netzanschluss',          'Electricity'],
+        'house'     => ['Hausverbrauch',          'HollowHouse'],
+        'pv'        => ['PV-Erzeugung',           'Sun'],
+        'battery'   => ['Batterie',               'Battery'],
+        'heatpump'  => ['Wärmepumpe',             'Temperature'],
+        'wallbox1'  => ['Wallbox 1',              'Car'],
+        'wallbox2'  => ['Wallbox 2',              'Car'],
+        'wallbox3'  => ['Wallbox 3',              'Car'],
+        'wallbox4'  => ['Wallbox 4',              'Car'],
+        'wallbox5'  => ['Wallbox 5',              'Car'],
+        'garage'    => ['Garage',                 'Car'],
+        'hotwater'  => ['Warmwasser',             'Drops'],
+        'aircon'    => ['Klimaanlage',            'Snowflake'],
+        'pool'      => ['Pool',                   'Waves'],
+        'sauna'     => ['Sauna',                  'Flame'],
+        'dryer'     => ['Trockner',               'Wind'],
+        'kitchen'   => ['Küche',                  'Gear'],
+        'light'     => ['Beleuchtung',            'Bulb'],
+        'other'     => ['Sonstiger Verbraucher',  'Electricity'],
+    ];
+
     private $driver = null;
+    /** Ident => Funktionszuordnung, in RegisterVariables() aufgelöst. */
+    private $funcMap = [];
 
     public function Create()
     {
@@ -1569,6 +1598,20 @@ class MeterHub extends IPSModule
         // Float-Wortreihenfolge tauschen (CDAB statt ABCD) — für Geräte/Gateways,
         // die die 16-Bit-Wörter gedreht liefern (z. B. manche Phoenix EEM-XM).
         $this->RegisterPropertyBoolean('WordSwap', false);
+
+        // --- Funktionszuordnung -------------------------------------------
+        // Messmodus entscheidet, wie zugeordnet wird:
+        //   'combined' = ein Verbraucher über alle Phasen (Netzanschluss, WP …)
+        //   'perphase' = drei unabhängige einphasige Verbraucher (je Phase einer)
+        $this->RegisterPropertyString('MeasureMode', 'combined');
+        $this->RegisterPropertyString('FuncTotal', 'none');
+        $this->RegisterPropertyString('FuncTotalLabel', '');
+        foreach (['L1', 'L2', 'L3'] as $ph) {
+            $this->RegisterPropertyString('Func' . $ph, 'none');
+            $this->RegisterPropertyString('FuncLabel' . $ph, '');
+        }
+        // Zusätzliche, nach der Funktion benannte Sammel-Variablen anlegen.
+        $this->RegisterPropertyBoolean('FuncMirrors', false);
 
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
@@ -1623,6 +1666,7 @@ class MeterHub extends IPSModule
         }
         $ok = $this->GetDriver()->readFast($this->GetModbusClient(), $this);
         $this->SetStatus($ok ? 102 : 201);
+        $this->UpdateMirrors();
     }
 
     public function ReadSlow()
@@ -1631,6 +1675,7 @@ class MeterHub extends IPSModule
             return;
         }
         $this->GetDriver()->readSlow($this->GetModbusClient(), $this);
+        $this->UpdateMirrors();
     }
 
     public function GetConfigurationForm()
@@ -1645,6 +1690,37 @@ class MeterHub extends IPSModule
                 'caption' => $group['caption'],
             ];
         }
+
+        // --- Funktionszuordnung: Messmodus ist die Weiche ---------------------
+        $funcOptions = [];
+        foreach (self::FUNCTIONS as $key => $def) {
+            $funcOptions[] = ['caption' => $def[0], 'value' => $key];
+        }
+        $funcItems = [
+            ['type' => 'Label', 'caption' => 'Zuerst festlegen, WIE dieser Zähler misst — daraus ergibt sich, ob eine Funktion für das ganze Gerät oder je Phase eine eigene zugeordnet wird.'],
+            [
+                'type'    => 'Select',
+                'name'    => 'MeasureMode',
+                'caption' => 'Messmodus',
+                'options' => [
+                    ['caption' => 'Dreiphasig — ein Verbraucher über alle 3 Phasen (z. B. Netzanschluss, Wärmepumpe)', 'value' => 'combined'],
+                    ['caption' => 'Einphasig getrennt — 3 unabhängige Verbraucher (je Phase einer)',                    'value' => 'perphase'],
+                ],
+            ],
+            ['type' => 'Label', 'caption' => 'Nach dem Umschalten einmal „Übernehmen" — danach erscheinen hier die passenden Zuordnungsfelder.'],
+        ];
+        if ($this->IsPerPhaseMode()) {
+            $funcItems[] = ['type' => 'Label', 'caption' => '⚡ Je Phase einen Verbraucher zuordnen. Für getrennte Energiezähler zusätzlich im Panel „Datenpunkte" die Gruppe „Energie je Phase" aktivieren (sofern der Zähler sie unterstützt).'];
+            foreach (['L1', 'L2', 'L3'] as $ph) {
+                $funcItems[] = ['type' => 'Select', 'name' => 'Func' . $ph, 'caption' => 'Phase ' . $ph . ' — Funktion', 'options' => $funcOptions];
+                $funcItems[] = ['type' => 'ValidationTextBox', 'name' => 'FuncLabel' . $ph, 'caption' => 'Phase ' . $ph . ' — eigene Bezeichnung (optional, z. B. „Garage hinten")'];
+            }
+        } else {
+            $funcItems[] = ['type' => 'Select', 'name' => 'FuncTotal', 'caption' => 'Funktion dieses Zählers', 'options' => $funcOptions];
+            $funcItems[] = ['type' => 'ValidationTextBox', 'name' => 'FuncTotalLabel', 'caption' => 'Eigene Bezeichnung (optional, ersetzt den Namen der Funktion)'];
+        }
+        $funcItems[] = ['type' => 'CheckBox', 'name' => 'FuncMirrors', 'caption' => 'Zusätzliche Sammel-Variablen je Funktion anlegen (Leistung/Bezug/Einspeisung unter „Funktionen")'];
+        $funcItems[] = ['type' => 'Label', 'caption' => 'Die Zuordnung benennt die betroffenen Variablen um (z. B. „Wärmepumpe — Wirkarbeit Bezug") und setzt ein passendes Icon. Andere Module (EMS, Kacheln) können die Zuordnung per MHUB_GetFunctions(' . $this->InstanceID . ') auslesen.'];
 
         $form = [
             'elements' => [
@@ -1702,6 +1778,12 @@ class MeterHub extends IPSModule
                         ['caption' => 'Netz-/NAP-Zähler (+ Bezug / − Einspeisung)', 'value' => 'grid'],
                         ['caption' => 'Unterzähler / Verbraucher (immer positiv)', 'value' => 'consumption'],
                     ],
+                ],
+                [
+                    'type'     => 'ExpansionPanel',
+                    'caption'  => '🏷️  Funktionszuordnung',
+                    'expanded' => false,
+                    'items'    => $funcItems,
                 ],
                 [
                     'type'    => 'ExpansionPanel',
@@ -1792,12 +1874,136 @@ class MeterHub extends IPSModule
     }
 
     // -----------------------------------------------------------------------
+    // Funktionszuordnung
+    // -----------------------------------------------------------------------
+
+    private function IsPerPhaseMode(): bool
+    {
+        return $this->ReadPropertyString('MeasureMode') === 'perphase';
+    }
+
+    /**
+     * Aktive Zuordnungen als Liste.
+     * [ ['slot'=>'total|L1|L2|L3', 'key'=>'heatpump', 'label'=>'Wärmepumpe',
+     *    'icon'=>'Temperature', 'power'=>ident, 'import'=>ident, 'export'=>ident] ]
+     */
+    private function FunctionAssignments(): array
+    {
+        $out = [];
+        $mk = function (string $slot, string $key, string $custom, string $p, string $i, string $e) use (&$out) {
+            if ($key === '' || $key === 'none' || !isset(self::FUNCTIONS[$key])) {
+                return;
+            }
+            [$name, $icon] = self::FUNCTIONS[$key];
+            $custom = trim($custom);
+            $out[] = [
+                'slot'   => $slot,
+                'key'    => $key,
+                'label'  => $custom !== '' ? $custom : $name,
+                'icon'   => $icon,
+                'power'  => $p,
+                'import' => $i,
+                'export' => $e,
+            ];
+        };
+
+        if ($this->IsPerPhaseMode()) {
+            $n = 1;
+            foreach (['L1', 'L2', 'L3'] as $ph) {
+                $mk($ph,
+                    $this->ReadPropertyString('Func' . $ph),
+                    $this->ReadPropertyString('FuncLabel' . $ph),
+                    'p_l' . $n, 'energy_import_l' . $n, 'energy_export_l' . $n);
+                $n++;
+            }
+        } else {
+            $mk('total',
+                $this->ReadPropertyString('FuncTotal'),
+                $this->ReadPropertyString('FuncTotalLabel'),
+                'power_total', 'energy_import', 'energy_export');
+        }
+        return $out;
+    }
+
+    // Ident -> Zuordnung, für Benennung/Icon der Quellvariablen.
+    private function FunctionByIdent(): array
+    {
+        $map = [];
+        foreach ($this->FunctionAssignments() as $a) {
+            foreach (['power', 'import', 'export'] as $role) {
+                if ($a[$role] !== '') {
+                    $map[$a[$role]] = $a;
+                }
+            }
+        }
+        return $map;
+    }
+
+    // Idents der optionalen Sammel-Variablen (nur wenn aktiviert).
+    private function MirrorDefs(): array
+    {
+        if (!$this->ReadPropertyBoolean('FuncMirrors')) {
+            return [];
+        }
+        $defs = [];
+        foreach ($this->FunctionAssignments() as $a) {
+            $slug = preg_replace('/[^a-z0-9]+/', '_', strtolower($a['key']));
+            $defs[] = ['fn_' . $slug . '_power',  $a['label'] . ' — Leistung',       'F', 'MHB.W',   true, 'function', $a['icon'], $a['power']];
+            $defs[] = ['fn_' . $slug . '_import', $a['label'] . ' — Bezug',          'F', 'MHB.kWh', true, 'function', $a['icon'], $a['import']];
+            $defs[] = ['fn_' . $slug . '_export', $a['label'] . ' — Einspeisung',    'F', 'MHB.kWh', true, 'function', $a['icon'], $a['export']];
+        }
+        return $defs;
+    }
+
+    // Spiegelt die zugeordneten Kanäle in die Sammel-Variablen.
+    private function UpdateMirrors()
+    {
+        foreach ($this->MirrorDefs() as $d) {
+            $src = $this->FindVarByIdent($d[7]);
+            $dst = $this->FindVarByIdent($d[0]);
+            if ($src && $dst) {
+                SetValueFloat($dst, (float)GetValue($src));
+            }
+        }
+    }
+
+    /**
+     * Öffentliche Abfrage der Zuordnung für andere Module (EMS, Kacheln):
+     * liefert JSON mit Modus und je Zuordnung Funktion, Bezeichnung und den
+     * Variablen-IDs für Leistung, Bezug und Einspeisung.
+     */
+    public function GetFunctions(): string
+    {
+        $list = [];
+        foreach ($this->FunctionAssignments() as $a) {
+            $list[] = [
+                'slot'            => $a['slot'],
+                'function'        => $a['key'],
+                'label'           => $a['label'],
+                'powerID'         => $this->FindVarByIdent($a['power']),
+                'energyImportID'  => $this->FindVarByIdent($a['import']),
+                'energyExportID'  => $this->FindVarByIdent($a['export']),
+            ];
+        }
+        return json_encode([
+            'instanceID'  => $this->InstanceID,
+            'meter'       => $this->ReadPropertyString('Meter'),
+            'measureMode' => $this->ReadPropertyString('MeasureMode'),
+            'assignments' => $list,
+        ]);
+    }
+
+    // -----------------------------------------------------------------------
     // Variablen-Registrierung (generisch, treiberunabhängig)
     // -----------------------------------------------------------------------
 
     private function RegisterVariables()
     {
         $driver = $this->GetDriver();
+
+        // Funktionszuordnung einmalig auflösen (wird in RegisterVar genutzt).
+        $this->funcMap = $this->FunctionByIdent();
+        $mirrors = $this->MirrorDefs();
 
         $valid = [];
         foreach ($driver->getBaseVars() as $v) {
@@ -1810,6 +2016,15 @@ class MeterHub extends IPSModule
                 }
             }
         }
+        // Nur Spiegel anlegen, deren Quellkanal es beim gewählten Zähler gibt
+        // (z. B. liefert Phoenix keine Einspeisung, Shelly kein L2 im
+        // Dreiphasen-Modus ohne aktivierte Phasengruppe).
+        $mirrors = array_values(array_filter($mirrors, function ($d) use ($valid) {
+            return isset($valid[$d[7]]);
+        }));
+        foreach ($mirrors as $d) {
+            $valid[$d[0]] = true;
+        }
         $this->PruneForeignObjects($valid);
 
         $pos = 0;
@@ -1821,6 +2036,14 @@ class MeterHub extends IPSModule
                 foreach ($group['vars'] as $v) {
                     $this->RegisterVar($v, $pos++);
                 }
+            }
+        }
+        // Sammel-Variablen je Funktion (Spiegel der zugeordneten Kanäle).
+        foreach ($mirrors as $d) {
+            $this->RegisterVar([$d[0], $d[1], $d[2], $d[3], $d[4], $d[5], ''], $pos++);
+            $vid = $this->FindVarByIdent($d[0]);
+            if ($vid && $d[6] !== '') {
+                @IPS_SetIcon($vid, $d[6]);
             }
         }
     }
@@ -1891,6 +2114,15 @@ class MeterHub extends IPSModule
         $catID = $this->EnsureCategory($group);
         IPS_SetParent($vid, $catID);
         IPS_SetPosition($vid, $pos);
+
+        // Funktionszuordnung: Bezeichnung voranstellen und passendes Icon
+        // setzen, damit im Objektbaum direkt „Wärmepumpe — …" steht.
+        if (isset($this->funcMap[$ident])) {
+            $caption = $this->funcMap[$ident]['label'] . ' — ' . $caption;
+            if ($this->funcMap[$ident]['icon'] !== '') {
+                @IPS_SetIcon($vid, $this->funcMap[$ident]['icon']);
+            }
+        }
         IPS_SetName($vid, $caption);
 
         // Energie in Wh: statt kWh-Profil das Wh-Profil setzen (×1000 macht
@@ -1915,6 +2147,7 @@ class MeterHub extends IPSModule
         'current' => 'Strom',
         'power'   => 'Leistung je Phase',
         'energy'  => 'Energiezähler',
+        'function' => 'Funktionen',
         'quality' => 'Netzqualität',
         'device'  => 'Gerät',
         'errors'  => 'Fehler / Verbindung',

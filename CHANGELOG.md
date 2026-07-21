@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.11.0-beta.1 (2026-07-21)
+
+- **Funktionszuordnung: Zähler bzw. Phasen bestimmten Verbrauchern zuordnen.** Neues Panel
+  „Funktionszuordnung". Zuerst wird der **Messmodus** festgelegt — das ist die Weiche:
+  - *Dreiphasig* (ein Verbraucher über alle 3 Phasen) → **eine** Funktion für den Zähler,
+    z. B. „Netzanschluss" oder „Wärmepumpe".
+  - *Einphasig getrennt* (3 unabhängige Verbraucher) → **je Phase** eine eigene Funktion,
+    z. B. L1 = Garage, L2 = Wärmepumpe, L3 = Wallbox 1.
+
+  Vokabular: Netzanschluss, Hausverbrauch, PV-Erzeugung, Batterie, Wärmepumpe, Wallbox 1–5,
+  Garage, Warmwasser, Klimaanlage, Pool, Sauna, Trockner, Küche, Beleuchtung, Sonstiger
+  Verbraucher — jeweils mit optionaler eigener Bezeichnung. Bewusst an den Verbraucher-Arten
+  der InverterHubTile-Kachel orientiert.
+
+  Wirkung:
+  - **Benennung + Icon**: betroffene Variablen heißen z. B. „Wärmepumpe — Wirkarbeit Bezug"
+    und bekommen ein passendes Icon.
+  - **Maschinenlesbar**: neue Funktion `MHUB_GetFunctions($id)` liefert Modus, Zuordnungen
+    und die Variablen-IDs (Leistung/Bezug/Einspeisung) als JSON — damit können EMS oder
+    Kacheln die Zuordnung automatisch übernehmen.
+  - **Optionale Sammel-Variablen** je Funktion (Kategorie „Funktionen"), die den zugeordneten
+    Kanal spiegeln — bequem für Charts und Automationen. Werden nur angelegt, wenn der
+    Quellkanal beim gewählten Zähler existiert.
+
 ## 0.10.0-beta.1 (2026-07-21)
 
 - **Shelly Pro 3EM: Energiezähler je Phase.** Neue optionale Gruppe „Energie je Phase
