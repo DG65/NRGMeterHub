@@ -1,14 +1,25 @@
 # Hinweise für die Arbeit an diesem Repository
 
-## Schwester-Repository InverterHub
+## Verwandte Repositories
 
-Dieses Projekt hat ein eng verwandtes Schwester-Repository:
+An diesen drei Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet:
 
 - **MeterHub** (dieses Repo): Energiezähler per Modbus TCP — https://github.com/DG65/MeterHub
 - **InverterHub**: Wechselrichter per Modbus TCP — https://github.com/DG65/InverterHub
   (lokale Arbeitskopie: `../InverterHub`)
+- **Prognose** (Suite EnergiePrognose): PV- und Verbrauchsprognose —
+  https://github.com/DG65/Prognose (lokale Arbeitskopie: `../Prognose`)
 
-Beide sind eigenständig lauffähig und koppeln nur optional aneinander. Die Berührungspunkte:
+**MeterHub koppelt direkt nur an InverterHub.** Zum Prognose-Repo besteht derzeit keine
+Verbindung; es ist hier nur zur Orientierung genannt, weil an allen dreien parallel gearbeitet
+wird. Die Prognose ist ihrerseits an den `InverterHubMonitor` gekoppelt (Vertrag dort:
+`PVF_Get*`). Sollte MeterHub jemals Prognosewerte einbeziehen, ist das vorher mit der
+Prognose-Sitzung abzustimmen — nichts eigenmächtig in fremden Repos anlegen.
+
+## Kopplung an InverterHub
+
+Beide Module sind eigenständig lauffähig und koppeln nur optional aneinander. Die
+Berührungspunkte:
 
 | Berührungspunkt | Wo im Code |
 |---|---|
