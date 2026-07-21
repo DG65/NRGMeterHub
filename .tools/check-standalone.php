@@ -12,8 +12,14 @@
  * installiert, bricht die Instanz hart ab, statt die Zusatzfunktion einfach
  * wegzulassen.
  *
- * Aufruf:  php tools/check-standalone.php
+ * Aufruf:  php .tools/check-standalone.php
  * Rückgabe: 0 = alles abgesichert, 1 = mindestens eine ungeschützte Stelle
+ *
+ * Warum der Ordner .tools heißt (mit führendem Punkt): Die Prüfung des Symcon
+ * Module Store behandelt JEDEN sichtbaren Top-Level-Ordner als Modul und
+ * verlangt dort eine module.json. Ein sichtbarer Ordner "tools" lässt die
+ * Einreichung mit „Das Modul tools hat keine module.json" scheitern. Ordner mit
+ * führendem Punkt überspringt der Scanner.
  */
 
 // Präfixe der Partnermodule im Verbund. Neue Partner hier ergänzen.
@@ -25,15 +31,20 @@ const FOREIGN_PREFIXES = ['IHUB', 'IHUBD', 'IHUBNRG', 'IHUBMON', 'IHUBTILE', 'PV
 $root = dirname(__DIR__);
 $rx   = '/\b((' . implode('|', FOREIGN_PREFIXES) . ')_[A-Za-z_][A-Za-z0-9_]*)\s*\(/';
 
-/** Alle PHP-Dateien des Repos einsammeln (ohne tools/ selbst). */
+/**
+ * Alle PHP-Dateien des Repos einsammeln. Das Verzeichnis des Skripts selbst
+ * wird ausgeschlossen — bewusst über __DIR__ statt über den Ordnernamen, damit
+ * der Ausschluss auch nach einer Umbenennung des Ordners greift.
+ */
 function phpFiles(string $dir): array {
-    $out = [];
-    $it  = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+    $self = realpath(__DIR__) . DIRECTORY_SEPARATOR;
+    $out  = [];
+    $it   = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
     foreach ($it as $f) {
         $p = $f->getPathname();
         if (substr($p, -4) !== '.php')            continue;
         if (strpos($p, DIRECTORY_SEPARATOR . '.git' . DIRECTORY_SEPARATOR) !== false) continue;
-        if (strpos($p, DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR) !== false) continue;
+        if (strpos(realpath($p) ?: $p, $self) === 0) continue;
         $out[] = $p;
     }
     sort($out);

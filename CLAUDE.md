@@ -47,10 +47,19 @@ Drei Invarianten der Kopplung (identisch in der CLAUDE.md von InverterHub):
    `+` = Einspeisung.
 3. **`form.json` nicht maschinell umformatieren** (siehe Commit-Regeln unten).
 
-## Eigenständigkeit prüfen: `tools/check-standalone.php`
+## Hilfsordner im Wurzelverzeichnis müssen mit einem Punkt beginnen
+
+Die Store-Prüfung von IP-Symcon behandelt **jeden sichtbaren Ordner im Repo-Wurzelverzeichnis
+als Modul-Kandidaten** und verlangt dort eine `module.json`. Ein Ordner `tools/` lässt die
+Einreichung mit „Das Modul tools hat keine module.json" scheitern.
+
+**Regel für alles Künftige** (Skripte, Testdaten, CI): entweder mit führendem Punkt benennen
+(`.tools/`) oder unterhalb eines bestehenden Modulordners ablegen.
+
+## Eigenständigkeit prüfen: `.tools/check-standalone.php`
 
 ```
-php tools/check-standalone.php     # 0 = sauber, 1 = ungesicherter Fremdaufruf
+php .tools/check-standalone.php    # 0 = sauber, 1 = ungesicherter Fremdaufruf
 ```
 
 Findet Aufrufe fremder Modulfunktionen (`IHUB*_`, `PVF_`, `HEISHA_` …), denen **in derselben
@@ -64,7 +73,7 @@ auf — die Prüfung meldet also 0 Aufrufe. Sie läuft trotzdem mit, damit eine 
 nicht unbemerkt ungesichert hereinkommt. `MHUB`/`MHUBD` stehen bewusst **nicht** in
 `FOREIGN_PREFIXES`, das sind die eigenen Präfixe.
 
-Das Skript stammt aus dem InverterHub-Repo (dort `tools/check-standalone.php`); Änderungen an
+Das Skript stammt aus dem InverterHub-Repo (dort `.tools/check-standalone.php`); Änderungen an
 der Prüflogik bitte in beiden Repos gleich halten.
 
 ## Konvention für `*_GetFunctions`-Verträge (Referenz für neue Partnermodule)
