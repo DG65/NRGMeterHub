@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.12.0-beta.1 (2026-07-21)
+
+- **Neues Modul: MeterHubVirtual — virtuelle Zähler aus der Verdrahtung.** Statt frei
+  konfigurierbarer Rechenoperationen wird beschrieben, welcher Zähler *hinter* welchem sitzt.
+  Daraus leitet das Modul je Knoten „Summe untergeordnet" und „Rest" (eigener Zähler minus
+  Untergeordnete) ab — für Leistung (W) und Energie (kWh), archiviert. Der Grund ist
+  Fehlersicherheit: Weil jeder Zähler im Baum genau **einen** Platz hat, ist ein doppelter
+  Abzug strukturell ausgeschlossen. Was der Baum nicht verhindert, meldet die Prüfung
+  (derselbe Datenpunkt in zwei Knoten, Ringschlüsse, unbekannte Elternknoten, doppelte
+  Kürzel, gemischte Einheiten) — und solange etwas offen ist, wird bewusst nicht gerechnet.
+  Jeder Knoten kann eine Funktion bekommen; `MHUBV_GetFunctions` liefert denselben Vertrag wie
+  das Hauptmodul, sodass virtuelle Zähler in Stromflusskachel und Sankey wie echte erscheinen.
+- **Automatische Zählersuche.** „🔎 Zähler im System suchen" findet Datenpunkte mit W-/kW- bzw.
+  kWh-Profil (Steckdosen, Licht- und Jalousieschalter, Zwischenzähler), gruppiert sie je Gerät
+  und übernimmt den **Gerätenamen** als Bezeichnung. Geprüft wird dabei: unbrauchbare Einheiten
+  werden übersprungen, bereits eingetragene nicht doppelt vorgeschlagen, **Ausgaben virtueller
+  Zähler ausgeschlossen** (sonst Rückkopplung), fehlende Archivierung und veraltete Werte
+  gemeldet. Die Funde sind nur ein Vorschlag in der geöffneten Maske — gespeichert wird mit
+  „Übernehmen"; die Verdrahtung bleibt eine bewusste Entscheidung.
+
 ## 0.11.1-beta.1 (2026-07-21)
 
 - **Funktions-Vokabular vervollständigt.** Neu: Waschmaschine, Spülmaschine, Backofen, Herd,

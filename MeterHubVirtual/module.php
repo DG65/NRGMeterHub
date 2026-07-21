@@ -344,6 +344,173 @@ class MeterHubVirtual extends IPSModule
     }
 
     // -----------------------------------------------------------------------
+    // Automatische Suche nach Zähler-Datenpunkten im System
+    // -----------------------------------------------------------------------
+
+    private const GUID_VIRTUAL = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
+
+    /**
+     * Klassifiziert eine Variable anhand ihres Profil-Suffixes.
+     * Rückgabe: 'power' | 'import' | '' (unbrauchbar).
+     */
+    private function Classify(int $vid): string
+    {
+        $v = @IPS_GetVariable($vid);
+        // Nur Zahlen — ein Schalter-Status in W wäre sinnlos.
+        if (!$v || ($v['VariableType'] !== 1 && $v['VariableType'] !== 2)) {
+            return '';
+        }
+        $u = strtolower(str_replace(' ', '', $this->UnitOf($vid)));
+        if ($u === 'w' || $u === 'kw') {
+            return 'power';
+        }
+        if ($u === 'kwh' || $u === 'wh') {
+            return 'import';
+        }
+        return '';
+    }
+
+    /** Gerätename: der nächste übergeordnete Container/Instanz der Variable. */
+    private function DeviceOf(int $vid): array
+    {
+        $pid = IPS_GetParent($vid);
+        while ($pid > 0) {
+            $o = IPS_GetObject($pid);
+            // Instanz (1) oder Kategorie (0) gilt als „Gerät".
+            if ($o['ObjectType'] === 1 || $o['ObjectType'] === 0) {
+                return [$pid, IPS_GetName($pid)];
+            }
+            $pid = $o['ParentID'];
+        }
+        return [0, IPS_GetName($vid)];
+    }
+
+    /** Aus dem Gerätenamen ein eindeutiges Kürzel bilden. */
+    private function SlugFor(string $name, array $taken): string
+    {
+        $map = ['ä'=>'ae','ö'=>'oe','ü'=>'ue','ß'=>'ss'];
+        $s = strtr(mb_strtolower($name, 'UTF-8'), $map);
+        $s = preg_replace('/[^a-z0-9]+/', '_', $s);
+        $s = trim((string)$s, '_');
+        if ($s === '') {
+            $s = 'zaehler';
+        }
+        $s = substr($s, 0, 24);
+        $base = $s; $i = 2;
+        while (isset($taken[$s])) {
+            $s = $base . '_' . $i++;
+        }
+        return $s;
+    }
+
+    /**
+     * Durchsucht die Installation nach Leistungs-/Energie-Datenpunkten und
+     * schlägt sie als neue Zeilen vor. Persistiert bewusst NICHTS: Die
+     * Vorschläge landen nur in der geöffneten Maske, bestätigt wird mit
+     * „Übernehmen" — so bleibt ein versehentlicher Klick folgenlos.
+     */
+    public function ScanMeters()
+    {
+        $existing = json_decode($this->ReadPropertyString('Nodes'), true);
+        $existing = is_array($existing) ? $existing : [];
+
+        $taken = [];
+        $used  = [];
+        foreach ($existing as $r) {
+            $k = strtolower(trim((string)($r['Key'] ?? '')));
+            if ($k !== '') {
+                $taken[$k] = true;
+            }
+            foreach (['PowerID', 'EnergyImportID', 'EnergyExportID'] as $f) {
+                $v = (int)($r[$f] ?? 0);
+                if ($v > 0) {
+                    $used[$v] = true;
+                }
+            }
+        }
+
+        // Ausgabevariablen ALLER virtuellen Zähler ausschließen — sonst könnte
+        // ein berechneter Wert wieder als Quelle einfließen (Rückkopplung).
+        $ownOutputs = [];
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_VIRTUAL) as $iid) {
+            foreach (IPS_GetChildrenIDs($iid) as $cid) {
+                $ownOutputs[$cid] = true;
+            }
+        }
+
+        $devices = [];
+        $skipped = ['einheit' => 0, 'schonverwendet' => 0, 'virtuell' => 0];
+
+        foreach (IPS_GetVariableList() as $vid) {
+            if (isset($ownOutputs[$vid])) { $skipped['virtuell']++; continue; }
+            if (isset($used[$vid]))       { $skipped['schonverwendet']++; continue; }
+            $kind = $this->Classify($vid);
+            if ($kind === '') { $skipped['einheit']++; continue; }
+
+            [$did, $dname] = $this->DeviceOf($vid);
+            $key = $did > 0 ? 'd' . $did : 'v' . $vid;
+            if (!isset($devices[$key])) {
+                $devices[$key] = ['name' => $dname, 'power' => 0, 'import' => 0];
+            }
+            // Je Gerät den ersten brauchbaren Datenpunkt je Art nehmen.
+            if ($devices[$key][$kind] === 0) {
+                $devices[$key][$kind] = $vid;
+            }
+        }
+
+        // Prüfung je Fundstelle
+        $rows = $existing;
+        $added = 0;
+        $notes = [];
+        foreach ($devices as $d) {
+            if ($d['power'] === 0 && $d['import'] === 0) {
+                continue;
+            }
+            $warn = [];
+            if ($d['import'] > 0 && !$this->IsArchived($d['import'])) {
+                $warn[] = 'Energie nicht archiviert (für Langzeitauswertung nötig)';
+            }
+            if ($d['power'] > 0) {
+                $age = time() - (int)(@IPS_GetVariable($d['power'])['VariableUpdated'] ?? 0);
+                if ($age > 7 * 86400) {
+                    $warn[] = 'Leistung seit über 7 Tagen nicht aktualisiert';
+                }
+            }
+            $key = $this->SlugFor($d['name'], $taken);
+            $taken[$key] = true;
+            $rows[] = [
+                'Key' => $key, 'Name' => $d['name'], 'Parent' => '',
+                'PowerID' => $d['power'], 'EnergyImportID' => $d['import'],
+                'EnergyExportID' => 0, 'Function' => 'none',
+            ];
+            $added++;
+            if ($warn) {
+                $notes[] = '   ⚠️ ' . $d['name'] . ': ' . implode('; ', $warn);
+            }
+        }
+
+        $msg = $added > 0
+            ? "🔎 $added Gerät(e) gefunden und unten eingetragen — bitte prüfen, verdrahten („hängt hinter“) und mit „Übernehmen“ bestätigen. Nichts wurde bereits gespeichert."
+            : '🔎 Keine neuen Geräte gefunden.';
+        $msg .= sprintf(' (Übersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler.)',
+            $skipped['einheit'], $skipped['schonverwendet'], $skipped['virtuell']);
+        if ($notes) {
+            $msg .= "\n" . implode("\n", $notes);
+        }
+        $msg .= "\nHinweis: Alle Funde stehen zunächst auf oberster Ebene — die Verdrahtung („hängt hinter“) muss von Hand gesetzt werden, denn welcher Zähler hinter welchem sitzt, weiß nur die Anlage.";
+
+        $this->UpdateFormField('ScanResult', 'caption', $msg);
+        $this->UpdateFormField('ScanResult', 'visible', true);
+        $this->UpdateFormField('Nodes', 'values', json_encode($rows));
+    }
+
+    private function IsArchived(int $vid): bool
+    {
+        $ids = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        return count($ids) > 0 && (bool)@AC_GetLoggingStatus($ids[0], $vid);
+    }
+
+    // -----------------------------------------------------------------------
     // Vertrag (siehe Konvention in CLAUDE.md) — gleiche Struktur wie
     // MHUB_GetFunctions, damit Kachel und Sankey virtuelle Zähler wie echte
     // übernehmen können.
@@ -430,6 +597,9 @@ class MeterHubVirtual extends IPSModule
                 [
                     'type' => 'ExpansionPanel', 'caption' => '🔌  Verdrahtung', 'expanded' => true,
                     'items' => [
+                        ['type' => 'Label', 'caption' => 'Zähler im System automatisch suchen: Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil (Steckdosen, Licht- und Jalousieschalter, Zwischenzähler …), gruppiert sie nach Gerät und übernimmt den Gerätenamen als Bezeichnung. Die Funde werden nur vorgeschlagen — gespeichert wird erst mit „Übernehmen“.'],
+                        ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id);'],
+                        ['type' => 'Label', 'name' => 'ScanResult', 'caption' => '', 'visible' => false],
                         ['type' => 'Label', 'caption' => 'Neue Zeilen erscheinen erst nach „Übernehmen“ in der Auswahl „hängt hinter“ — zuerst die Zeile anlegen und übernehmen, dann verdrahten.'],
                         [
                             'type' => 'List', 'name' => 'Nodes', 'caption' => 'Zähler und ihre Verdrahtung',

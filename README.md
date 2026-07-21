@@ -162,6 +162,24 @@ Jeder Knoten kann eine **Funktion** bekommen (Netzanschluss, Hausverbrauch, Wär
 Über `MHUBV_GetFunctions($id)` — denselben Vertrag wie das Hauptmodul — erscheinen virtuelle
 Zähler damit automatisch in der InverterHub-Stromflusskachel und im Sankey.
 
+**Zähler automatisch finden:** Der Knopf „🔎 Zähler im System suchen" durchsucht die
+Installation nach Datenpunkten mit W-/kW- bzw. kWh-Profil — also nach den Messwerten von
+Steckdosen, Licht- und Jalousieschaltern, Zwischenzählern usw. Die Funde werden **je Gerät
+gruppiert** (Leistung und Energie desselben Geräts landen in einer Zeile), die **Bezeichnung
+kommt aus dem Gerätenamen**, und das Kürzel wird daraus abgeleitet und bei Namensgleichheit
+eindeutig gemacht.
+
+Dabei wird geprüft: Datenpunkte ohne verwertbare Einheit werden übersprungen, bereits
+eingetragene nicht doppelt vorgeschlagen, und **Ausgaben virtueller Zähler bleiben
+ausgeschlossen** — sonst flösse ein berechneter Wert wieder als Quelle ein. Zusätzlich wird
+gemeldet, wenn ein Energiezähler nicht archiviert ist oder eine Leistung seit über einer Woche
+nicht aktualisiert wurde.
+
+Die Funde erscheinen zunächst **auf oberster Ebene und nur als Vorschlag in der geöffneten
+Maske** — gespeichert wird erst mit „Übernehmen". Die **Verdrahtung setzt man von Hand**: Welcher
+Zähler hinter welchem sitzt, weiß nur die Anlage — und genau diese Entscheidung ist es, die den
+doppelten Abzug ausschließt.
+
 Geliefert werden **Leistung (W)** und **Energie (kWh)** jeweils als Summe und Rest; die
 Variablen werden archiviert.
 
