@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.0-beta.1 (2026-07-21)
+
+- **Shelly Pro 3EM: Energiezähler je Phase.** Neue optionale Gruppe „Energie je Phase
+  (Bezug/Abgabe)" mit eigenen kWh-Zählern für L1, L2 und L3 — damit lässt sich jede Phase
+  als eigenständiger Verbraucher führen. Die Registeradressen wurden am realen Gerät
+  (Shelly Pro 3EM Gen3) ermittelt und gegen dessen eigene RPC-API gegengeprüft: Summe
+  1162/1164, danach je Phase im Abstand von 20 Registern (L1 1182/1184, L2 1202/1204,
+  L3 1222/1224) — die in der Doku-Übersicht genannten 1170/1190/1210 sind etwas anderes.
+  Die Probe bestätigt L1+L2+L3 = Gesamtzähler. Alles wird in **einem** Block-Read
+  (1162..1225) geholt, kostet also keine zusätzlichen Modbus-Anfragen.
+
 ## 0.9.2-beta.1 (2026-07-20)
 
 - **Shelly Pro 3EM an echtem Gerät verifiziert und final korrigiert.** Ein Live-Test am

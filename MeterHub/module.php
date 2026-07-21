@@ -1425,6 +1425,16 @@ class ShellyPro3emDriver implements MeterDriverInterface
                 ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 1044'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 1064'],
             ]],
+            // Eigene Energiezähler je Phase — damit lässt sich jede Phase als
+            // eigenständiger Verbraucher führen (Summe der drei = Gesamtzähler).
+            'GroupEnergyPhase' => ['caption' => 'Energie je Phase (Bezug/Abgabe)', 'vars' => [
+                ['energy_import_l1', 'Wirkarbeit Bezug L1',  'F', 'MHB.kWh', true, 'energy', 'FC4 1182 (Wh)'],
+                ['energy_export_l1', 'Wirkarbeit Abgabe L1', 'F', 'MHB.kWh', true, 'energy', 'FC4 1184 (Wh)'],
+                ['energy_import_l2', 'Wirkarbeit Bezug L2',  'F', 'MHB.kWh', true, 'energy', 'FC4 1202 (Wh)'],
+                ['energy_export_l2', 'Wirkarbeit Abgabe L2', 'F', 'MHB.kWh', true, 'energy', 'FC4 1204 (Wh)'],
+                ['energy_import_l3', 'Wirkarbeit Bezug L3',  'F', 'MHB.kWh', true, 'energy', 'FC4 1222 (Wh)'],
+                ['energy_export_l3', 'Wirkarbeit Abgabe L3', 'F', 'MHB.kWh', true, 'energy', 'FC4 1224 (Wh)'],
+            ]],
         ];
     }
 
@@ -1470,13 +1480,25 @@ class ShellyPro3emDriver implements MeterDriverInterface
     public function readSlow($mb, $hub)
     {
         $mb->setWordSwap(true);
-        // EMData: Bezug 1162, Einspeisung 1164 (Float wortgetauscht, Wh).
-        $e = $mb->readInput(1162, 4);
+        // EMData in EINEM Block: 1162..1225. Summe bei 1162/1164, danach je
+        // Phase im Abstand von 20 Registern (L1 1182/1184, L2 1202/1204,
+        // L3 1222/1224). Alle Werte Float wortgetauscht in Wh.
+        // (Am Shelly Pro 3EM Gen3 verifiziert: L1+L2+L3 = Gesamtzähler.)
+        $e = $mb->readInput(1162, 64);
         if ($e === null) {
             return;
         }
         $hub->SetVarEnergyWh('energy_import', $mb->readFloat32($e, 0)); // 1162
         $hub->SetVarEnergyWh('energy_export', $mb->readFloat32($e, 2)); // 1164
+
+        if ($hub->GroupActive('GroupEnergyPhase')) {
+            $hub->SetVarEnergyWh('energy_import_l1', $mb->readFloat32($e, 20)); // 1182
+            $hub->SetVarEnergyWh('energy_export_l1', $mb->readFloat32($e, 22)); // 1184
+            $hub->SetVarEnergyWh('energy_import_l2', $mb->readFloat32($e, 40)); // 1202
+            $hub->SetVarEnergyWh('energy_export_l2', $mb->readFloat32($e, 42)); // 1204
+            $hub->SetVarEnergyWh('energy_import_l3', $mb->readFloat32($e, 60)); // 1222
+            $hub->SetVarEnergyWh('energy_export_l3', $mb->readFloat32($e, 62)); // 1224
+        }
     }
 }
 
