@@ -110,6 +110,18 @@ sonst kostet jeder neue Partner eine eigene Übersetzungsschicht in Kachel und S
    hochrechnen.
 4. **Immer hinter `function_exists('XXX_GetFunctions')`.** Das Partnermodul ist optional; ohne
    es muss alles unverändert laufen.
+5. **Das Suffix `ID` kennzeichnet eine Referenz, es ist keine Stilregel.** `powerID` heißt
+   „hier steht eine IPS-Variablen-ID, die du auflösen musst" — im Unterschied zu einem
+   direkt verwertbaren Wert. Verträge, die **Werte** statt Referenzen liefern (z. B. eine
+   Preiskurve mit `start`/`end`/`price`), benennen diese passend zu ihrer Domäne und
+   übernehmen dabei ruhig das Vokabular der Datenquelle. Was fehlt, muss die Doku tragen:
+   **Einheit und Zeitbasis** (ct/kWh vs. €/kWh, Unix-Zeit, ob `end` inklusiv oder exklusiv
+   ist) sind die klassischen Faktor-100- und Randfehler.
+6. **Abgeleitete Felder brauchen eine definierte Herleitung — oder sie sind optional.**
+   Liefert eine Quelle ein Feld nativ und eine andere nicht (etwa eine Einstufung wie
+   „günstig/teuer"), muss entweder die Berechnung verbindlich festgeschrieben sein oder das
+   Feld ausdrücklich `null` sein dürfen. Sonst verhält sich der Konsument je nach Quelle
+   unterschiedlich, ohne dass es jemand bemerkt.
 
 Intern werden alle Quellen auf dieselbe Zeilenstruktur normalisiert (siehe
 `MeterHubAssignments()` / `HeishaAssignments()` in `InverterHubTile` und `InverterHubEnergy`).
