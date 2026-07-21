@@ -47,6 +47,45 @@ Drei Invarianten der Kopplung (identisch in der CLAUDE.md von InverterHub):
    `+` = Einspeisung.
 3. **`form.json` nicht maschinell umformatieren** (siehe Commit-Regeln unten).
 
+## Konvention für `*_GetFunctions`-Verträge (Referenz für neue Partnermodule)
+
+`MHUB_GetFunctions($id)` ist die Referenzimplementierung dieses Musters. Wer ein weiteres
+Modul anbindet (HeishaMon, StromGedacht, Tibber, EMS …), sollte sich daran orientieren —
+sonst kostet jeder neue Partner eine eigene Übersetzungsschicht in Kachel und Sankey.
+
+**Empfohlene Struktur** — eine **Liste** von Einträgen, auch wenn es zunächst nur einen gibt
+(so bricht eine spätere Aufteilung, z. B. Verdichter und Heizstab getrennt, die Signatur nicht):
+
+| Feld | Bedeutung |
+|---|---|
+| `function` | Rolle als Schlüssel aus einem festen Vokabular (z. B. `heatpump`, `wallbox1`) |
+| `label` | Anzeigename, vom Nutzer überschreibbar |
+| `powerID` | Variablen-ID der Momentanleistung in **W**, `0` = nicht vorhanden |
+| `energyImportID` | Variablen-ID des **kumulativen** kWh-Zählers, `0` = keiner |
+| `energyExportID` | dito für Einspeisung, `0` = keine |
+| `measured` | `bool` — ist `powerID` gemessen oder geschätzt? |
+
+**Regeln aus konkreten Vorfällen:**
+
+1. **Ein veröffentlichter Vertrag wird nicht umbenannt.** Sobald ein Modul im Store ist, sind
+   Feldnamen öffentliche API. Abweichende Namen (HeishaMon nutzt `Type`/`Caption`/`PowerID`/
+   `EnergyID`/`Measured`) werden auf der **Konsumentenseite** übersetzt, nicht beim Anbieter
+   erzwungen. Änderungen dort nur **additiv und nach Ankündigung**.
+2. **Genauigkeit braucht ein eigenes Flag.** Nicht aus `energyImportID == 0` ableiten, ob ein
+   Wert gemessen ist — beide Eigenschaften sind unabhängig. Wer nur eine Leistungsvariable
+   zuweist, hat einen *gemessenen* Wert *ohne* Energiezähler. Genau daran wäre die
+   HeishaMon-Anbindung fast falsch geworden; deshalb gibt es dort jetzt `Measured`.
+3. **Energie nur aus kumulativen Zählern.** Tages-/Monatswerte, die periodisch auf 0
+   zurückspringen, taugen nicht für Bilanzen (die Auswertung bildet Zählerdifferenzen). Fehlt
+   ein kumulativer Zähler, wird die Größe **weggelassen** — niemals aus der Leistung
+   hochrechnen.
+4. **Immer hinter `function_exists('XXX_GetFunctions')`.** Das Partnermodul ist optional; ohne
+   es muss alles unverändert laufen.
+
+Intern werden alle Quellen auf dieselbe Zeilenstruktur normalisiert (siehe
+`MeterHubAssignments()` / `HeishaAssignments()` in `InverterHubTile` und `InverterHubEnergy`).
+Ein neuer Partner heißt also: eine Einleseschicht ergänzen, nicht die Verarbeitung anfassen.
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide
