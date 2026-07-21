@@ -26,6 +26,16 @@ Ebenso gilt: Neue Funktionen im Vokabular `FUNCTIONS` brauchen einen Eintrag in
 `MHUB_TYPE_MAP` der Kachel, sonst fallen sie dort stillschweigend raus. Kernwerte (`grid`,
 `house`, `pv`, `battery`, `none`) sind dort bewusst **nicht** gemappt.
 
+Drei Invarianten der Kopplung (identisch in der CLAUDE.md von InverterHub):
+
+1. **Verbraucher-Arten nur in `CONSUMER_TYPES` pflegen.** Die Auswahlliste der Spalte „Art"
+   erzeugt `injectConsumerTypeOptions()` in `GetConfigurationForm` zur Laufzeit und
+   überschreibt dabei die statischen `options` der `form.json`. Wer eine Art nur dort
+   einträgt, erzeugt ein stilles Auseinanderlaufen.
+2. **Vorzeichen des Netz-Kernwerts wird negiert.** MeterHub zählt `+` = Bezug, die Kachel
+   `+` = Einspeisung.
+3. **`form.json` nicht maschinell umformatieren** (siehe Commit-Regeln unten).
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide
