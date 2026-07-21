@@ -76,6 +76,34 @@ nicht unbemerkt ungesichert hereinkommt. `MHUB`/`MHUBD` stehen bewusst **nicht**
 Das Skript stammt aus dem InverterHub-Repo (dort `.tools/check-standalone.php`); Änderungen an
 der Prüflogik bitte in beiden Repos gleich halten.
 
+## Klassengrenzen prüfen: `.tools/check-class-scope.php`
+
+```
+php .tools/check-class-scope.php    # 0 = sauber, 1 = klassenfremder Aufruf
+```
+
+Meldet ein `$this->foo()`, wenn `foo()` in der aufrufenden Klasse (und ihren Vorfahren
+innerhalb derselben Datei) fehlt, aber in einer **anderen** Klasse derselben Datei existiert.
+
+Der Anlass ist ein realer Fehler aus dem InverterHub: Treiberklassen enthalten wortgleiche
+Codeblöcke, weil sie dasselbe Protokoll bedienen. Ein Textersatz traf deshalb den erstbesten
+Treffer statt den gemeinten — eine Methode landete im SMA-Treiber, aufgerufen wurde sie im
+Fronius-Treiber. Ergebnis: **Fatal Error in jedem Lesezyklus** der betroffenen Geräte.
+`php -l` sieht das nicht, denn syntaktisch ist die Datei einwandfrei.
+
+Gegengeprüft am echten Fall: Auf dem defekten Stand (InverterHub build 146) meldet das Skript
+beide Hälften des Fehlers mit Klassen- und Zeilenangabe, auf dem reparierten (build 147)
+meldet es sauber.
+
+Die Meldung ist bewusst auf „existiert woanders in der Datei" eingeschränkt. Von `IPSModule`
+geerbte Methoden sind nirgends in der Datei definiert und lösen deshalb keinen Fehlalarm aus.
+Die Analyse arbeitet auf PHP-Token, nicht auf Textsuche — Kommentare und Zeichenketten können
+keine Fundstellen vortäuschen.
+
+**Praktische Konsequenz für die Arbeit an Treiberdateien:** Vor einem Textersatz in
+`MeterHub/module.php` (12 Treiberklassen) prüfen, in welcher Klasse die Fundstelle liegt.
+`Edit` mit eindeutigem Kontext statt `replace_all`, danach dieses Skript laufen lassen.
+
 ## Konvention für `*_GetFunctions`-Verträge (Referenz für neue Partnermodule)
 
 `MHUB_GetFunctions($id)` ist die Referenzimplementierung dieses Musters. Wer ein weiteres
