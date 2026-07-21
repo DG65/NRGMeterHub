@@ -138,6 +138,26 @@ Modulweit gilt: **+ = Bezug** aus dem Netz, **− = Einspeisung**. PAC2200 und U
 ihre Summen-Wirkleistung bereits vorzeichenbehaftet; passt die Richtung durch Einbaulage
 oder Verdrahtung nicht, hilft der Invers-Schalter.
 
+## Verwandtes Projekt: InverterHub
+
+MeterHub hat ein eng verwandtes Schwester-Repository:
+
+- **MeterHub** (dieses Repo): Energiezähler per Modbus TCP
+- **[InverterHub](https://github.com/DG65/InverterHub)**: Wechselrichter per Modbus TCP —
+  gleiches Treiber-Framework, gleiche Bedienlogik
+
+Beide Module sind **eigenständig lauffähig**; die Kopplung ist **beidseitig optional**. Fehlt
+das jeweils andere Modul, entfallen lediglich die Zusatzfunktionen — es bricht nichts.
+
+| Berührungspunkt | Was passiert |
+|---|---|
+| **Kombinierte Gerätesuche** | Ist MeterHub installiert, bietet der Netzwerk-Scan des `InverterHubDiscovery` gefundene **Energiezähler** gleich als MeterHub-Instanz zum Anlegen an — ein Scan findet Wechselrichter *und* Zähler. Umgekehrt sucht `MeterHubDiscovery` weiterhin eigenständig nur nach Zählern. |
+| **Verbraucher-Kreise der Stromflusskachel** | Die `InverterHubTile` übernimmt die **Funktionszuordnung** dieses Moduls automatisch als Verbraucher-Kreise (Art, Bezeichnung, Leistungsvariable). Zusätzlich speist ein Zähler mit Funktion **„Netzanschluss"** die Netz-Leistung und einer mit **„Hausverbrauch"** die gemessene Hauslast — die Kachel läuft dadurch auch ganz ohne InverterHub-Instanz. |
+
+Grundlage dafür ist die Abfragefunktion `MHUB_GetFunctions($id)` (siehe
+[Funktionszuordnung](#funktionszuordnung-welcher-verbraucher-hängt-hier)), die Modus,
+Zuordnungen und Variablen-IDs als JSON liefert.
+
 ## Installation
 
 Über die IP-Symcon Modulverwaltung „Hinzufügen" mit der URL dieses Repositories:
