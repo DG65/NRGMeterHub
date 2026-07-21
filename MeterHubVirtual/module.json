@@ -1,0 +1,15 @@
+{
+  "id": "{ADF18291-2E60-4354-92F5-B96863C127C8}",
+  "name": "MeterHubVirtual",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "MeterHub Virtuelle Zähler",
+    "Virtueller Zähler"
+  ],
+  "url": "https://github.com/DG65/MeterHub",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "MHUBV"
+}

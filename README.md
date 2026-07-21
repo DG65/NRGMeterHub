@@ -138,6 +138,33 @@ Modulweit gilt: **+ = Bezug** aus dem Netz, **− = Einspeisung**. PAC2200 und U
 ihre Summen-Wirkleistung bereits vorzeichenbehaftet; passt die Richtung durch Einbaulage
 oder Verdrahtung nicht, hilft der Invers-Schalter.
 
+### MeterHubVirtual (virtuelle Zähler)
+
+Bildet **virtuelle Zähler aus der Verdrahtung** statt aus Formeln. Statt Rechenoperationen zu
+konfigurieren, gibt man je Zähler an, **hinter welchem er sitzt**. Daraus ergibt sich je Knoten
+mit Untergeordneten automatisch:
+
+- **Summe untergeordnet** — die Summe aller direkt darunter hängenden Zähler
+- **Rest** — eigener Zähler minus Summe der Untergeordneten (nur mit eigenem Zähler)
+
+*Beispiel:* „Hausanschluss" (eigener Zähler) mit den untergeordneten „Wärmepumpe" und
+„Wallbox" ergibt automatisch „Hausanschluss: Leistung Rest" — alles, was weder Wärmepumpe noch
+Wallbox verbraucht.
+
+**Warum keine freie Formel:** Weil jeder Zähler im Baum genau **einen** Platz hat, kann er
+nicht doppelt abgezogen werden — ein doppelter Abzug müsste denselben Zähler an zwei Stellen
+hängen, und das lässt die Struktur nicht zu. Was der Baum nicht verhindert, meldet die Prüfung:
+derselbe Datenpunkt in zwei Zeilen, Ringschlüsse, unbekannte Elternknoten, doppelte Kürzel und
+**gemischte Einheiten** (W neben kW ergäbe still falsche Werte). Solange etwas offen ist, wird
+bewusst **nicht gerechnet** — lieber kein Wert als ein falscher.
+
+Jeder Knoten kann eine **Funktion** bekommen (Netzanschluss, Hausverbrauch, Wärmepumpe …).
+Über `MHUBV_GetFunctions($id)` — denselben Vertrag wie das Hauptmodul — erscheinen virtuelle
+Zähler damit automatisch in der InverterHub-Stromflusskachel und im Sankey.
+
+Geliefert werden **Leistung (W)** und **Energie (kWh)** jeweils als Summe und Rest; die
+Variablen werden archiviert.
+
 ## Verwandtes Projekt: InverterHub
 
 MeterHub hat ein eng verwandtes Schwester-Repository:
