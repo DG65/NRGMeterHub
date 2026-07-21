@@ -47,6 +47,26 @@ Drei Invarianten der Kopplung (identisch in der CLAUDE.md von InverterHub):
    `+` = Einspeisung.
 3. **`form.json` nicht maschinell umformatieren** (siehe Commit-Regeln unten).
 
+## Eigenständigkeit prüfen: `tools/check-standalone.php`
+
+```
+php tools/check-standalone.php     # 0 = sauber, 1 = ungesicherter Fremdaufruf
+```
+
+Findet Aufrufe fremder Modulfunktionen (`IHUB*_`, `PVF_`, `HEISHA_` …), denen **in derselben
+Funktion** ein `function_exists()`-Wächter fehlt. Das ist kein Stilthema: Der Aufruf einer
+nicht vorhandenen Funktion ist in PHP ein **Fatal Error**, und ein vorangestelltes `@`
+unterdrückt ihn **nicht** — es unterdrückt nur Warnungen. Ohne Wächter bräche die Instanz
+hart ab, statt die Zusatzfunktion wegzulassen.
+
+MeterHub ist derzeit reiner **Anbieter** (`MHUB_GetFunctions`) und ruft kein fremdes Modul
+auf — die Prüfung meldet also 0 Aufrufe. Sie läuft trotzdem mit, damit eine künftige Kopplung
+nicht unbemerkt ungesichert hereinkommt. `MHUB`/`MHUBD` stehen bewusst **nicht** in
+`FOREIGN_PREFIXES`, das sind die eigenen Präfixe.
+
+Das Skript stammt aus dem InverterHub-Repo (dort `tools/check-standalone.php`); Änderungen an
+der Prüflogik bitte in beiden Repos gleich halten.
+
 ## Konvention für `*_GetFunctions`-Verträge (Referenz für neue Partnermodule)
 
 `MHUB_GetFunctions($id)` ist die Referenzimplementierung dieses Musters. Wer ein weiteres
