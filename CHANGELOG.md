@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.13.0-beta.1 (2026-07-22)
+
+- **Virtuellen Zähler direkt aus einer Zählerinstanz anlegen.** Jede MeterHub-Instanz hat das
+  neue Panel „🧮 Virtueller Zähler": weitere beteiligte Instanzen auswählen, Rolle festlegen —
+  *übergeordnet* (die anderen hängen dahinter → Summe **und** Rest) oder *gleichrangig* (nur
+  Summe) — und anlegen. Die Verdrahtung der neuen MeterHubVirtual-Instanz wird fertig
+  vorbelegt; die Variablen-IDs muss niemand von Hand zusammensuchen. Geschrieben wird
+  ausschließlich in die **neue** Instanz, an der eigenen Konfiguration ändert der Knopf nichts.
+- **Prüfung vor dem Anlegen.** Steckt der Zähler bereits in einem virtuellen Zähler, wird
+  **nicht** angelegt, sondern auf die vorhandene Instanz samt Kürzel verwiesen — ein zweiter
+  virtueller Zähler mit demselben Gerät wäre der Anfang doppelter Buchführung. Ebenso wird
+  gemeldet, wenn ein Zähler weder Gesamtleistung noch Bezug liefert oder je Phase misst.
+- **Funktionszuordnung wird bewusst nicht übernommen.** Belegte der virtuelle Knoten dieselbe
+  Funktion wie der echte Zähler, erschiene der Verbraucher in Stromflusskachel und Sankey
+  doppelt. Der Hinweistext nennt stattdessen den sinnvollen Griff: dem übergeordneten Knoten
+  „Hausverbrauch" geben, dann ist der Rest alles, was nicht auf die Unterzähler entfällt.
+- **Hinweis in der Zählerinstanz.** Ist ein Zähler in einen virtuellen eingebunden, zeigt das
+  Panel das an — mit Instanz und Kürzel. Vorher gab es von der normalen Instanz aus keinerlei
+  Hinweis, dass es virtuelle Zähler überhaupt gibt.
+- **Vier Filter für den Zählersuchlauf** (MeterHubVirtual): Suchbereich (nur unterhalb eines
+  Objekts), Namensbestandteil, „nur Geräte mit Energiezähler" und „nur in den letzten 7 Tagen
+  aktualisiert". Sie wirken sofort beim Klick, auch ohne vorher zu übernehmen. Das Ergebnis
+  nennt den verwendeten Suchbereich und zählt auf, was woran gescheitert ist; wurde alles
+  wegfiltriert, sagt es das ausdrücklich statt nur „nichts gefunden".
+- **Verdrahtungsliste wächst mit dem Inhalt** (12 bis 30 Zeilen statt fest 8) — auch direkt
+  nach einem Suchlauf, damit die Funde ohne Scrollen sichtbar sind.
+- **Neu: `.tools/test-virtual.php`.** Prüfstand mit nachgebildeter IP-Symcon-Umgebung, der die
+  Brücke wirklich ausführt: Knotenaufbau beider Rollen, Übernahme durch das Zielmodul,
+  gerechnete Summen und Reste, die Ablehnung des zweiten virtuellen Zählers, alle vier
+  Suchfilter und der Rückkopplungsschutz. Anlass ist ein früherer Laufzeitfehler in genau
+  diesem Modul, den `php -l` nicht sehen konnte.
+
 ## 0.12.0-beta.1 (2026-07-21)
 
 - **Neues Modul: MeterHubVirtual — virtuelle Zähler aus der Verdrahtung.** Statt frei

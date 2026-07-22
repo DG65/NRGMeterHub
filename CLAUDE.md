@@ -123,6 +123,27 @@ keine Fundstellen vortäuschen.
 `MeterHub/module.php` (12 Treiberklassen) prüfen, in welcher Klasse die Fundstelle liegt.
 `Edit` mit eindeutigem Kontext statt `replace_all`, danach dieses Skript laufen lassen.
 
+## Prüfstand: `.tools/test-virtual.php`
+
+```
+php .tools/test-virtual.php    # 0 = alle Prüfungen bestanden
+```
+
+Bildet so viel IP-Symcon nach (Objektbaum, Variablen, Properties, `IPS_CreateInstance`,
+`IPS_ApplyChanges`), dass `MHUB_CreateVirtual` und `MHUBV_ScanMeters` **wirklich ausgeführt**
+werden. Geprüft wird die ganze Kette: Knotenaufbau beider Rollen, Übernahme der erzeugten
+Verdrahtung durch das Zielmodul, die gerechneten Summen und Reste, die Ablehnung eines zweiten
+virtuellen Zählers, alle vier Suchfilter und der Rückkopplungsschutz.
+
+Anlass ist ein früherer Laufzeitfehler in genau diesem Modul: Typografische Anführungszeichen
+hatten Variablennamen verschluckt, `php -l` meldete nichts, und der Fehler zeigte sich erst am
+Gerät. Nach Änderungen an der Brücke oder am Suchlauf diesen Prüfstand laufen lassen — ein
+Syntaxcheck allein genügt für dieses Modul nachweislich nicht.
+
+`IPS_ApplyChanges()` erzeugt im Prüfstand absichtlich ein echtes `MeterHubVirtual`-Objekt und
+ruft dessen `ApplyChanges()` auf. Damit ist der Test kein Selbstgespräch des Hauptmoduls,
+sondern deckt genau die Stelle ab, an der die beiden Module sich einig sein müssen.
+
 ## Konvention für `*_GetFunctions`-Verträge (Referenz für neue Partnermodule)
 
 `MHUB_GetFunctions($id)` ist die Referenzimplementierung dieses Musters. Wer ein weiteres

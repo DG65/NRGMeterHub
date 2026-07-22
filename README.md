@@ -175,6 +175,13 @@ ausgeschlossen** — sonst flösse ein berechneter Wert wieder als Quelle ein. Z
 gemeldet, wenn ein Energiezähler nicht archiviert ist oder eine Leistung seit über einer Woche
 nicht aktualisiert wurde.
 
+In einer gewachsenen Installation findet der Suchlauf schnell dreistellig viele Datenpunkte.
+Vier **Filter** engen ihn ein — Suchbereich (nur unterhalb eines Objekts), Namensbestandteil,
+„nur Geräte mit Energiezähler" (blendet Schalter aus, die bloß die Momentanleistung melden) und
+„nur in den letzten 7 Tagen aktualisiert" (blendet Karteileichen aus). Sie wirken **sofort beim
+Klick**, auch ohne vorher zu übernehmen. Das Ergebnis nennt den verwendeten Suchbereich und
+zählt auf, was woran gescheitert ist — wurde alles wegfiltriert, sagt es das ausdrücklich.
+
 Die Funde erscheinen zunächst **auf oberster Ebene und nur als Vorschlag in der geöffneten
 Maske** — gespeichert wird erst mit „Übernehmen". Die **Verdrahtung setzt man von Hand**: Welcher
 Zähler hinter welchem sitzt, weiß nur die Anlage — und genau diese Entscheidung ist es, die den
@@ -182,6 +189,23 @@ doppelten Abzug ausschließt.
 
 Geliefert werden **Leistung (W)** und **Energie (kWh)** jeweils als Summe und Rest; die
 Variablen werden archiviert.
+
+**Aus einer Zählerinstanz heraus anlegen:** Meist entsteht ein virtueller Zähler aus zwei, drei
+echten Zählern, die man ohnehin gerade vor sich hat. Deshalb hat jede MeterHub-Instanz das Panel
+„🧮 Virtueller Zähler": die weiteren beteiligten Instanzen auswählen, die Rolle festlegen —
+*übergeordnet* (die anderen hängen dahinter, ergibt Summe **und** Rest) oder *gleichrangig*
+(alle werden nur addiert) — und anlegen. Die Verdrahtung wird fertig vorbelegt, die
+Variablen-IDs muss man nicht von Hand zusammensuchen.
+
+Zwei Dinge macht der Generator bewusst *nicht*: Er legt **keinen zweiten** virtuellen Zähler an,
+wenn dieses Gerät schon in einem steckt — dann ist die richtige Stelle die vorhandene Instanz,
+sonst beginnt doppelte Buchführung. Und er überträgt **keine Funktionszuordnung**, denn belegte
+der virtuelle Knoten dieselbe Funktion wie der echte Zähler, erschiene der Verbraucher in Kachel
+und Sankey doppelt. Typisch ist, dem übergeordneten Knoten anschließend „Hausverbrauch" zu
+geben: der Rest ist dann alles, was nicht auf die untergeordneten Zähler entfällt.
+
+Umgekehrt zeigt das Panel bei einem bereits eingebundenen Zähler an, **in welchem virtuellen
+Zähler er steckt** — und unter welchem Kürzel.
 
 ## Verwandtes Projekt: InverterHub
 

@@ -61,6 +61,12 @@ class MeterHubVirtual extends IPSModule
         // Verdrahtung: [{Key,Name,Parent,PowerID,EnergyImportID,EnergyExportID,Function}]
         $this->RegisterPropertyString('Nodes', '[]');
         $this->RegisterPropertyInteger('Interval', 10);
+        // Filter für den Suchlauf. Sie merken sich die letzte Eingabe; wirksam
+        // ist beim Klick aber immer der aktuelle Stand der Maske.
+        $this->RegisterPropertyInteger('ScanRoot', 0);
+        $this->RegisterPropertyString('ScanFilter', '');
+        $this->RegisterPropertyBoolean('ScanNeedEnergy', false);
+        $this->RegisterPropertyBoolean('ScanOnlyActive', true);
         $this->RegisterTimer('Recalc', 0, 'MHUBV_Recalc($_IPS[\'TARGET\']);');
     }
 
@@ -403,14 +409,45 @@ class MeterHubVirtual extends IPSModule
         return $s;
     }
 
+    /** Liegt $vid irgendwo unterhalb von $root? ($root = 0: ganze Installation) */
+    private function IsBelow(int $vid, int $root): bool
+    {
+        if ($root <= 0) {
+            return true;
+        }
+        $pid = IPS_GetParent($vid);
+        while ($pid > 0) {
+            if ($pid === $root) {
+                return true;
+            }
+            $pid = IPS_GetParent($pid);
+        }
+        return false;
+    }
+
     /**
      * Durchsucht die Installation nach Leistungs-/Energie-Datenpunkten und
      * schlägt sie als neue Zeilen vor. Persistiert bewusst NICHTS: Die
      * Vorschläge landen nur in der geöffneten Maske, bestätigt wird mit
      * „Übernehmen" — so bleibt ein versehentlicher Klick folgenlos.
+     *
+     * Die vier Filter kommen aus der Maske und werden im onClick übergeben,
+     * damit eine noch nicht übernommene Änderung sofort greift.
      */
-    public function ScanMeters()
+    public function ScanMeters($root = null, $filter = null, $needEnergy = null, $onlyActive = null)
     {
+        // Direktaufruf ohne Argumente (Skript, Konsole): gespeicherte Filter.
+        $root       = $root       === null ? $this->ReadPropertyInteger('ScanRoot')       : (int)$root;
+        $filter     = $filter     === null ? $this->ReadPropertyString('ScanFilter')      : (string)$filter;
+        $needEnergy = $needEnergy === null ? $this->ReadPropertyBoolean('ScanNeedEnergy') : (bool)$needEnergy;
+        $onlyActive = $onlyActive === null ? $this->ReadPropertyBoolean('ScanOnlyActive') : (bool)$onlyActive;
+        $filter     = trim($filter);
+
+        if ($root > 0 && !IPS_ObjectExists($root)) {
+            $this->UpdateFormField('ScanResult', 'caption', "❌ Der gewählte Suchbereich (#$root) existiert nicht mehr.");
+            $this->UpdateFormField('ScanResult', 'visible', true);
+            return;
+        }
         $existing = json_decode($this->ReadPropertyString('Nodes'), true);
         $existing = is_array($existing) ? $existing : [];
 
@@ -439,15 +476,20 @@ class MeterHubVirtual extends IPSModule
         }
 
         $devices = [];
-        $skipped = ['einheit' => 0, 'schonverwendet' => 0, 'virtuell' => 0];
+        $skipped = ['einheit' => 0, 'schonverwendet' => 0, 'virtuell' => 0, 'bereich' => 0, 'name' => 0];
 
         foreach (IPS_GetVariableList() as $vid) {
             if (isset($ownOutputs[$vid])) { $skipped['virtuell']++; continue; }
             if (isset($used[$vid]))       { $skipped['schonverwendet']++; continue; }
             $kind = $this->Classify($vid);
             if ($kind === '') { $skipped['einheit']++; continue; }
+            if (!$this->IsBelow($vid, $root)) { $skipped['bereich']++; continue; }
 
             [$did, $dname] = $this->DeviceOf($vid);
+            if ($filter !== '' && mb_stripos($dname, $filter) === false && mb_stripos(IPS_GetName($vid), $filter) === false) {
+                $skipped['name']++;
+                continue;
+            }
             $key = $did > 0 ? 'd' . $did : 'v' . $vid;
             if (!isset($devices[$key])) {
                 $devices[$key] = ['name' => $dname, 'power' => 0, 'import' => 0];
@@ -462,9 +504,28 @@ class MeterHubVirtual extends IPSModule
         $rows = $existing;
         $added = 0;
         $notes = [];
+        $filteredOut = ['ohneenergie' => 0, 'inaktiv' => 0];
         foreach ($devices as $d) {
             if ($d['power'] === 0 && $d['import'] === 0) {
                 continue;
+            }
+            // Nachgelagerte Filter: sie brauchen das fertige Gerät, nicht die
+            // einzelne Variable.
+            if ($needEnergy && $d['import'] === 0) {
+                $filteredOut['ohneenergie']++;
+                continue;
+            }
+            if ($onlyActive) {
+                $newest = 0;
+                foreach (['power', 'import'] as $f) {
+                    if ($d[$f] > 0) {
+                        $newest = max($newest, (int)(@IPS_GetVariable($d[$f])['VariableUpdated'] ?? 0));
+                    }
+                }
+                if ($newest === 0 || time() - $newest > 7 * 86400) {
+                    $filteredOut['inaktiv']++;
+                    continue;
+                }
             }
             $warn = [];
             if ($d['import'] > 0 && !$this->IsArchived($d['import'])) {
@@ -489,11 +550,22 @@ class MeterHubVirtual extends IPSModule
             }
         }
 
+        $scope = [];
+        if ($root > 0)          { $scope[] = 'nur unterhalb „' . IPS_GetName($root) . '“'; }
+        if ($filter !== '')     { $scope[] = 'Name enthält „' . $filter . '“'; }
+        if ($needEnergy)        { $scope[] = 'nur mit Energiezähler'; }
+        if ($onlyActive)        { $scope[] = 'nur in den letzten 7 Tagen aktualisiert'; }
+
         $msg = $added > 0
             ? "🔎 $added Gerät(e) gefunden und unten eingetragen — bitte prüfen, verdrahten („hängt hinter“) und mit „Übernehmen“ bestätigen. Nichts wurde bereits gespeichert."
             : '🔎 Keine neuen Geräte gefunden.';
-        $msg .= sprintf(' (Übersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler.)',
-            $skipped['einheit'], $skipped['schonverwendet'], $skipped['virtuell']);
+        $msg .= "\nSuchbereich: " . ($scope ? implode(', ', $scope) : 'ganze Installation, ungefiltert');
+        $msg .= sprintf("\nÜbersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler, %d außerhalb des Suchbereichs, %d durch den Namensfilter, %d ohne Energiezähler, %d länger als 7 Tage still.",
+            $skipped['einheit'], $skipped['schonverwendet'], $skipped['virtuell'],
+            $skipped['bereich'], $skipped['name'], $filteredOut['ohneenergie'], $filteredOut['inaktiv']);
+        if ($added === 0 && ($filteredOut['ohneenergie'] + $filteredOut['inaktiv'] + $skipped['bereich'] + $skipped['name']) > 0) {
+            $msg .= "\n💡 Es wurde etwas gefunden, aber wegfiltriert — probeweise einen Filter lockern.";
+        }
         if ($notes) {
             $msg .= "\n" . implode("\n", $notes);
         }
@@ -502,6 +574,14 @@ class MeterHubVirtual extends IPSModule
         $this->UpdateFormField('ScanResult', 'caption', $msg);
         $this->UpdateFormField('ScanResult', 'visible', true);
         $this->UpdateFormField('Nodes', 'values', json_encode($rows));
+        // Liste mitwachsen lassen, damit die Funde ohne Scrollen sichtbar sind.
+        $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($rows)));
+    }
+
+    /** Sichtbare Zeilen der Verdrahtungsliste: wächst mit dem Inhalt. */
+    private function RowCountFor(int $count): int
+    {
+        return max(12, min(30, $count + 3));
     }
 
     private function IsArchived(int $vid): bool
@@ -598,12 +678,17 @@ class MeterHubVirtual extends IPSModule
                     'type' => 'ExpansionPanel', 'caption' => '🔌  Verdrahtung', 'expanded' => true,
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Zähler im System automatisch suchen: Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil (Steckdosen, Licht- und Jalousieschalter, Zwischenzähler …), gruppiert sie nach Gerät und übernimmt den Gerätenamen als Bezeichnung. Die Funde werden nur vorgeschlagen — gespeichert wird erst mit „Übernehmen“.'],
-                        ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id);'],
+                        ['type' => 'Label', 'caption' => 'In einer gewachsenen Installation findet die Suche schnell dreistellig viele Datenpunkte. Die Filter engen sie ein; sie wirken sofort beim Klick, auch ohne vorher zu übernehmen.'],
+                        ['type' => 'SelectObject', 'name' => 'ScanRoot', 'caption' => 'Nur in diesem Bereich suchen (leer = ganze Installation)'],
+                        ['type' => 'ValidationTextBox', 'name' => 'ScanFilter', 'caption' => 'Nur Geräte, deren Name das hier enthält (leer = alle)'],
+                        ['type' => 'CheckBox', 'name' => 'ScanNeedEnergy', 'caption' => 'Nur Geräte mit Energiezähler (kWh) — blendet Schalter aus, die bloß die Momentanleistung melden'],
+                        ['type' => 'CheckBox', 'name' => 'ScanOnlyActive', 'caption' => 'Nur Geräte, die in den letzten 7 Tagen Werte geliefert haben — blendet Karteileichen aus'],
+                        ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive);'],
                         ['type' => 'Label', 'name' => 'ScanResult', 'caption' => '', 'visible' => false],
                         ['type' => 'Label', 'caption' => 'Neue Zeilen erscheinen erst nach „Übernehmen“ in der Auswahl „hängt hinter“ — zuerst die Zeile anlegen und übernehmen, dann verdrahten.'],
                         [
                             'type' => 'List', 'name' => 'Nodes', 'caption' => 'Zähler und ihre Verdrahtung',
-                            'rowCount' => 8, 'add' => true, 'delete' => true,
+                            'rowCount' => $this->RowCountFor(count($nodes)), 'add' => true, 'delete' => true,
                             'columns' => [
                                 ['caption' => 'Kürzel', 'name' => 'Key', 'width' => '130px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['caption' => 'Bezeichnung', 'name' => 'Name', 'width' => '170px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
