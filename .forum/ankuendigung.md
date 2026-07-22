@@ -96,7 +96,7 @@ Alle Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Man
 - 🔌 **Ein Modul, viele Hersteller** — austauschbare Treiber, gemeinsame Konventionen.
 - 🔍 **Netzwerksuche** über Port 502 mit Abbrechen-Knopf; erkennt PAC2200, Janitza (klassisch
   und 800er), Shelly, Carlo Gavazzi, WhatWatt, Phoenix EEM-EM375 und Eastron. Zähler hinter
-  RTU-Gateways (Socomec, MBS) lassen sich nicht sinnvoll durchsuchen — deren Unit-ID ist frei
+  RTU-Gateways (Socomec, MBS) findet die Suche nicht zuverlässig — deren Unit-ID ist frei
   wählbar; die legt man von Hand an.
 - 🏷️ **Funktionszuordnung** — jedem Zähler lässt sich sagen, *was* er misst: Netzanschluss,
   Hausverbrauch, Wärmepumpe, Wallbox 1–5, Garage, Waschmaschine, Trockner, Backofen …

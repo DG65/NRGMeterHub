@@ -147,6 +147,23 @@ Praktisch heißt das: Beim Aufräumen die Trefferliste immer danach trennen, ob 
 in einem String steht, den ein Mensch liest, oder in einem Bezeichner, den Code auflöst. Im
 Zweifel ist es ein Bezeichner — dann bleibt er.
 
+**Nach dem Ersetzen den Diff lesen, nicht nur `replace_all` laufen lassen.** Ein Wort-für-Wort-
+Tausch bricht Sätze auf zwei Arten, die keine Prüfung automatisch findet:
+
+- *Grammatik* — mit dem Wort ändert sich das Genus. Aus „nicht-blockierender Parallel-Scan"
+  (m.) muss „nicht-blockierende, parallele Suche" (f.) werden, nicht „nicht-blockierender
+  Suche". Ebenso „der Netzwerk-Scan" → „die Netzwerksuche".
+- *Bedeutung* — das Ersatzwort passt grammatisch, meint aber etwas anderes. Real passiert:
+  „Zähler … lassen sich nicht sinnvoll **scannen**" wurde zu „… **durchsuchen**". Man
+  durchsucht aber nicht die Zähler; die Suche findet sie nicht. Richtig: „Zähler hinter
+  RTU-Gateways findet die Suche nicht zuverlässig." Bei „scannen" ist genau zu unterscheiden,
+  ob etwas *abgesucht* wird (Adressbereich) oder *gefunden* werden soll (Gerät).
+
+Und nicht überdehnen: Eindeutschen, wo es das Verständnis **verbessert** (Token →
+Zugangsschlüssel, Polling → Abfragetakt); stehen lassen, wo der englische Begriff der
+Fachbegriff **ist** (Modbus TCP, CDAB, Unit-ID, WebFront, SunSpec). `'type' => 'Button'` ist
+ein Formularelementtyp, also Code — kein Anzeigetext.
+
 ## Prüfstand: `.tools/test-virtual.php`
 
 ```
