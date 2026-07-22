@@ -123,6 +123,30 @@ keine Fundstellen vortäuschen.
 `MeterHub/module.php` (12 Treiberklassen) prüfen, in welcher Klasse die Fundstelle liegt.
 `Edit` mit eindeutigem Kontext statt `replace_all`, danach dieses Skript laufen lassen.
 
+## Sprachregel: alles Nutzersichtbare auf Deutsch
+
+Verbund-Regel seit 22.07.2026 (Anweisung Dietmars an alle zehn Module). Deutsch ist alles, was
+der Nutzer zu sehen bekommt: Formularbeschriftungen, Hinweis- und Warntexte, Fehler- und
+Statusmeldungen, Rückgabetexte (etwa das `reason`-Feld eines Ergebnisses), Protokollmeldungen,
+**Variablen- und Profilnamen**, README und Changelog. Vermeidbare Anglizismen werden ersetzt:
+Scan → Suche, Button → Schaltfläche, Dry-Run → Probelauf, Link → Verknüpfung, Event → Ereignis,
+Polling → Abfragetakt, Framework → Gerüst.
+
+**Ausgenommen — und diese Grenze ist wichtiger als die Regel selbst:**
+
+- **Idents sind API und werden nie umbenannt.** Ein umbenannter Ident erzeugt eine neue Variable
+  und wirft die Historie der alten weg. Das gilt genauso für Property-, Methoden-, Klassen- und
+  Feldnamen: `ScanMeters`, `ScanRoot`, `ScanResult`, `BtnScan`, `power_total` bleiben, wie sie
+  sind — auch wenn „Scan" im Anzeigetext ersetzt wird.
+- Feststehende Fachbegriffe: Modbus TCP, `SelectVariable`, WebFront, `AC_ChangeVariableID`,
+  Float32/CDAB, Unit-ID. Eindeutschung würde hier Verständlichkeit kosten, nicht schaffen.
+- Eigennamen: Modulnamen (`MeterHubDiscovery`, `MeterHubVirtual`), Hersteller- und
+  Produktbezeichnungen, Registernamen aus Herstellerdoku (`usePvSurplus`, `modelStatus`).
+
+Praktisch heißt das: Beim Aufräumen die Trefferliste immer danach trennen, ob eine Fundstelle
+in einem String steht, den ein Mensch liest, oder in einem Bezeichner, den Code auflöst. Im
+Zweifel ist es ein Bezeichner — dann bleibt er.
+
 ## Prüfstand: `.tools/test-virtual.php`
 
 ```

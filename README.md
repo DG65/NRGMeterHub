@@ -1,7 +1,7 @@
 # MeterHub
 
 IP-Symcon-Modul, das Energiezähler verschiedener Hersteller direkt per **Modbus TCP**
-ausliest — ein generisches Treiber-Framework statt eines Moduls pro Hersteller, analog
+ausliest — ein gemeinsames Treibergerüst statt eines Moduls pro Hersteller, analog
 zum [InverterHub](https://github.com/DG65/InverterHub).
 
 **Status: Beta.** Die Register-Zuordnungen basieren auf den öffentlich verfügbaren
@@ -56,7 +56,7 @@ Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Manager,
 ### MeterHub
 
 Die eigentliche Datenauslese-Instanz. Ein Modul, ein `Zählertyp`-Auswahlfeld — je nach
-gewähltem Zähler werden die passenden Datenpunkt-Gruppen (Checkboxen) und Register
+gewähltem Zähler werden die passenden Datenpunkt-Gruppen (Schalter) und Register
 freigeschaltet. Architektur:
 
 - **`ModbusTcpClient`** — gemeinsame Modbus-TCP-Grundfunktionen (Read Holding/Input
@@ -82,7 +82,7 @@ konsistent zur Leistung (W); die neue IP-Symcon-Darstellung skaliert dann selbst
 Wh/kWh/MWh. Bestehende Instanzen bleiben ohne Umschalten bei kWh (kein Sprung in der
 Historie).
 
-**Polling:** Momentanwerte (Leistung, Spannung, Strom, Frequenz) werden im Schnell-
+**Abfragetakt:** Momentanwerte (Leistung, Spannung, Strom, Frequenz) werden im Schnell-
 Intervall gelesen, die Energiezähler im Langsam-Intervall.
 
 ### MeterHubDiscovery
@@ -92,7 +92,7 @@ Modbus-TCP-Port 502 durchsucht:
 
 1. Start- und End-IP eintragen (wird beim Anlegen anhand des eigenen Netzwerks vorbelegt,
    bleibt aber änderbar), optional eine Namens-Vorlage für neu anzulegende Instanzen.
-2. „Netzwerk durchsuchen" klicken — nicht-blockierender Parallel-Scan auf Port 502.
+2. „Netzwerk durchsuchen" klicken — nicht-blockierende, parallele Suche auf Port 502.
 3. Für jede offene IP wird der Zählertyp anhand dokumentierter Standard-Unit-IDs und einer
    Plausibilitätsprüfung (Netzfrequenz 45–65 Hz **und** eine plausible Spannung) erkannt:
    PAC2200 (Frequenz auf Reg. 55), klassische Janitza-Karte (Frequenz auf 19050) und
@@ -103,7 +103,7 @@ Modbus-TCP-Port 502 durchsucht:
 4. Treffer erscheinen in der Ergebnistabelle — Klick auf „Erstellen" legt eine
    `MeterHub`-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Zählertyp an.
 
-**IPs ignorieren:** Adressen in dieser Liste werden beim Scan komplett übersprungen —
+**IPs ignorieren:** Adressen in dieser Liste werden bei der Suche komplett übersprungen —
 gedacht für andere Modbus-Geräte, die sonst Probe-Zeit kosten. Mehrere IPs Komma-getrennt.
 
 **Namens-Vorlage:** leer lassen für den Standard „Zählertyp + laufende Nummer", oder ein
@@ -226,14 +226,14 @@ MeterHub hat ein eng verwandtes Schwester-Repository:
 
 - **MeterHub** (dieses Repo): Energiezähler per Modbus TCP
 - **[InverterHub](https://github.com/DG65/InverterHub)**: Wechselrichter per Modbus TCP —
-  gleiches Treiber-Framework, gleiche Bedienlogik
+  gleiches Treibergerüst, gleiche Bedienlogik
 
 Beide Module sind **eigenständig lauffähig**; die Kopplung ist **beidseitig optional**. Fehlt
 das jeweils andere Modul, entfallen lediglich die Zusatzfunktionen — es bricht nichts.
 
 | Berührungspunkt | Was passiert |
 |---|---|
-| **Kombinierte Gerätesuche** | Ist MeterHub installiert, bietet der Netzwerk-Scan des `InverterHubDiscovery` gefundene **Energiezähler** gleich als MeterHub-Instanz zum Anlegen an — ein Scan findet Wechselrichter *und* Zähler. Umgekehrt sucht `MeterHubDiscovery` weiterhin eigenständig nur nach Zählern. |
+| **Kombinierte Gerätesuche** | Ist MeterHub installiert, bietet die Netzwerksuche des `InverterHubDiscovery` gefundene **Energiezähler** gleich als MeterHub-Instanz zum Anlegen an — eine Suche findet Wechselrichter *und* Zähler. Umgekehrt sucht `MeterHubDiscovery` weiterhin eigenständig nur nach Zählern. |
 | **Verbraucher-Kreise der Stromflusskachel** | Die `InverterHubTile` übernimmt die **Funktionszuordnung** dieses Moduls automatisch als Verbraucher-Kreise (Art, Bezeichnung, Leistungsvariable). Zusätzlich speist ein Zähler mit Funktion **„Netzanschluss"** die Netz-Leistung und einer mit **„Hausverbrauch"** die gemessene Hauslast — die Kachel läuft dadurch auch ganz ohne InverterHub-Instanz. |
 
 Grundlage dafür ist die Abfragefunktion `MHUB_GetFunctions($id)` (siehe

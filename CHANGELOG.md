@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.14.2-beta.1 (2026-07-22)
+
+- **Sprachregel des Modul-Verbunds umgesetzt: alles Nutzersichtbare auf Deutsch.** Ersetzt
+  wurden vermeidbare Anglizismen in Anzeigetexten und Dokumentation — „Scan abbrechen" →
+  „Suche abbrechen", „Der Scan prüft…" → „Die Suche prüft…", „beim Scan übersprungen" → „bei
+  der Suche übersprungen", Polling → Abfragetakt, Framework → Treibergerüst, Checkboxen →
+  Schalter, Highlights → „Das Wichtigste in Kürze".
+- **Bezeichner blieben unangetastet.** `ScanMeters`, `ScanRoot`, `ScanResult`, `BtnScan`,
+  `AbortScan` und alle Idents sind unverändert: Idents sind API, ein umbenannter Ident
+  erzeugte eine neue Variable und würfe die Historie der alten weg. Die Abgrenzung zwischen
+  Anzeigetext und Bezeichner ist in CLAUDE.md festgehalten.
+
 ## 0.14.1-beta.1 (2026-07-22)
 
 - **Zwei-Regler-Warnung für den go-e Controller** (README + Konfigurationsformular): Der

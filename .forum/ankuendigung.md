@@ -19,8 +19,8 @@ die habe ich nicht, die musst Du beisteuern.
 Moin zusammen,
 
 nach dem **InverterHub** für Wechselrichter kommt hier das Gegenstück für die andere Seite der
-Anlage: **MeterHub** liest **Energiezähler direkt per Modbus TCP** aus — wieder ein generisches
-Treiber-Framework statt eines eigenen Moduls je Hersteller. Wer den InverterHub kennt, findet
+Anlage: **MeterHub** liest **Energiezähler direkt per Modbus TCP** aus — wieder ein gemeinsames
+Treibergerüst statt eines eigenen Moduls je Hersteller. Wer den InverterHub kennt, findet
 sich sofort zurecht: gleiche Bedienlogik, gleiche Konventionen, gleiche Netzwerksuche.
 
 Zwei Zähler laufen hier produktiv und sind an echter Hardware verifiziert, der Rest ist aus
@@ -91,12 +91,12 @@ und Schutzgeräte, keine Zähler.
 Alle Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Manager, Spalte
 „Beschreibung") — praktisch für den Abgleich mit dem Handbuch.
 
-## Highlights
+## Das Wichtigste in Kürze
 
 - 🔌 **Ein Modul, viele Hersteller** — austauschbare Treiber, gemeinsame Konventionen.
 - 🔍 **Netzwerksuche** über Port 502 mit Abbrechen-Knopf; erkennt PAC2200, Janitza (klassisch
   und 800er), Shelly, Carlo Gavazzi, WhatWatt, Phoenix EEM-EM375 und Eastron. Zähler hinter
-  RTU-Gateways (Socomec, MBS) lassen sich nicht sinnvoll scannen — deren Unit-ID ist frei
+  RTU-Gateways (Socomec, MBS) lassen sich nicht sinnvoll durchsuchen — deren Unit-ID ist frei
   wählbar; die legt man von Hand an.
 - 🏷️ **Funktionszuordnung** — jedem Zähler lässt sich sagen, *was* er misst: Netzanschluss,
   Hausverbrauch, Wärmepumpe, Wallbox 1–5, Garage, Waschmaschine, Trockner, Backofen …
