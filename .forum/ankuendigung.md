@@ -75,6 +75,7 @@ Hardware-Rückmeldung fehlt · 🧪 aus Doku/Referenz implementiert (Feldrückme
 |---|---|---|
 | **Siemens SENTRON PAC2200** | ✅ | Produktiv im Einsatz. Energie als 64-Bit-Double ab Register 801; die Lücke zwischen Register 41 und 55 erzwingt zwei getrennte Blocklesungen — sonst „Illegal Data Address" |
 | **Shelly Pro 3EM** | ✅ | Am Gerät verifiziert. Inkl. **Energie je Phase**, damit jede Phase als eigener Verbraucher zählen kann |
+| **go-e Controller** | ✅ | Am Gerät verifiziert. Kern aus der Kategorie Grid; zuschaltbar die Stromsensoren 1–6 und die Kategorien Home/Car/Relais/Solar/Akku (je Leistung + Energie). Modbus TCP erst in der go-e-App aktivieren |
 | **Janitza UMG 604 / 605-PRO / 509-PRO / 512-PRO / 806 / 96PA / 801** | 🔧 | Gemeinsame klassische Registerkarte ab 19000, per Handbuch als identisch bestätigt |
 | **Janitza UMG 800** | 🔧 | Modbus-Zuordnung ist frei konfigurierbar — der Treiber folgt der **Werksvorgabe**. Wurde sie in GridVis geändert, stimmen die Adressen nicht |
 | **Eastron SDM72D-M v2 / SDM630 v2** | 🧪 | Float32 über FC 0x04, Energie in kWh |

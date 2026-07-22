@@ -38,7 +38,7 @@
     <rect x="536" y="98" width="56" height="24" rx="12" fill="#16a34a"/>
     <text class="chip" x="564" y="115" fill="#ffffff" text-anchor="middle">NEU</text>
     <text class="name" x="440" y="152">MeterHub</text>
-    <text class="desc" x="440" y="176">18 Energiezähler,</text>
+    <text class="desc" x="440" y="176">19 Energiezähler,</text>
     <text class="desc" x="440" y="194">Modbus TCP</text>
     <text class="desc" x="440" y="212">+ virtuelle Zähler</text>
     <rect x="440" y="224" width="66" height="20" rx="10" fill="#16a34a"/>

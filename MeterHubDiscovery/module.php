@@ -31,6 +31,7 @@ class MeterHubDiscovery extends IPSModule
         'whatwatt'         => [1],
         'phoenix_eem375'   => [255, 1],
         'eastron_sdm72d'   => [1],
+        'goe_controller'   => [1],
     ];
 
     private const METER_LABELS = [
@@ -42,6 +43,7 @@ class MeterHubDiscovery extends IPSModule
         'whatwatt'         => 'WhatWatt',
         'phoenix_eem375'   => 'Phoenix EEM-EM375',
         'eastron_sdm72d'   => 'Eastron SDM72D/SDM630',
+        'goe_controller'   => 'go-e Controller',
     ];
 
     public function Create()
@@ -502,6 +504,22 @@ class MeterHubDiscovery extends IPSModule
                 }
                 $f = $this->readFloatInput($ip, $port, $unitId, 70, 1.0);
                 return ($f !== null && $f >= 45.0 && $f <= 65.0);
+
+            case 'goe_controller':
+                // go-e Controller, FC 0x04, Float32 Big-Endian: Spannung L1 auf
+                // 1000, L2 auf 1002 — beide plausibel als Doppelkriterium (eine
+                // Frequenz hat das Gerät nicht, Register 1008 liefert NaN).
+                // Unbelegte Register beantwortet der Controller mit 0xFFFF…
+                // (NaN) statt einer Exception; die Float-Helfer geben dafür
+                // null zurück, wodurch er bei allen Fremd-Proben durchfällt —
+                // und umgekehrt NaN hier nicht als Treffer zählt.
+                // Modbus muss am Gerät aktiviert sein (App/HTTP-API men=true).
+                $u1 = $this->readFloatInput($ip, $port, $unitId, 1000, 1.0);
+                if ($u1 === null || $u1 < 30.0 || $u1 > 500.0) {
+                    return false;
+                }
+                $u2 = $this->readFloatInput($ip, $port, $unitId, 1002, 1.0);
+                return ($u2 !== null && $u2 >= 30.0 && $u2 <= 500.0);
         }
         return false;
     }

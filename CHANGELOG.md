@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.14.0-beta.1 (2026-07-22)
+
+- **Neuer Zähler: go-e Controller — an echtem Gerät verifiziert.** Die Energiemess-Zentrale
+  von go-e wechselt fachlich vom Schwestermodul ChargerHub hierher (dort bleiben die
+  Wallboxen). Kernwerte kommen aus der Kategorie **Grid** (Wirkleistung, Bezug/Abgabe als
+  64-Bit-Double in Wh); zuschaltbar sind Spannung je Phase (inkl. N), Strom je Phase (inkl. N),
+  die **Stromsensoren 1–6** (Strom/Leistung/Leistungsfaktor) und die Kategorien
+  **Home/Car/Relais/Solar/Akku** (je Leistung + Energie Ein/Aus). FC 0x04, Float32/Float64
+  Big-Endian, Wire-Adresse = Doku − 30001.
+- **Besonderheiten des Geräts, im Treiber berücksichtigt:** Es gibt keine Frequenz (Register
+  1008 ist „nicht implementiert") — der Kern verzichtet darauf. Unbelegte Register beantwortet
+  der Controller mit 0xFFFF… (NaN) statt einer Modbus-Exception; alle Werte werden deshalb vor
+  der Übernahme auf Endlichkeit geprüft, statt NaN in die Variablen zu schreiben. Modbus TCP
+  muss am Gerät erst aktiviert werden (go-e-App: Internet → Erweiterte Einstellungen → Modbus);
+  nach dem Aktivieren die Einstellung ggf. einmal aus-/einschalten.
+- **Netzwerksuche erkennt den go-e Controller** (Spannung L1/L2 auf 1000/1002 als
+  Doppelkriterium, Unit-ID 1). Das NaN-Verhalten schützt zugleich vor Verwechslung: Bei allen
+  Fremd-Proben fällt der Controller sauber durch, und NaN zählt bei der eigenen Probe nicht
+  als Treffer — beides am Gerät gegengeprüft.
+- Verifikation am echten Controller: Spannungen, Sensorleistungen (Summe der Netzsensoren ≙
+  Grid-Leistung), Energiezählerstände und Vorzeichen (− = Einspeisung, passt zur Konvention)
+  live abgeglichen; Blocklesungen mit 125 Registern bestätigt.
+
 ## 0.13.0-beta.1 (2026-07-22)
 
 - **Virtuellen Zähler direkt aus einer Zählerinstanz anlegen.** Jede MeterHub-Instanz hat das

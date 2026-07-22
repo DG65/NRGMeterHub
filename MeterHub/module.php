@@ -1503,6 +1503,178 @@ class ShellyPro3emDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// go-e Controller — Energiemess-Zentrale (kein Ladegerät; die Wallboxen des
+// Herstellers bedient ChargerHub). Übernommen von dort am 22.07.2026.
+//
+// Quelle: github.com/goecharger/go-eController-API (modbus-de.md), an einem
+// echten Controller verifiziert. FC 0x04 (Input), Float32/Float64 Big-Endian
+// (ABCD), Wire-Adresse = Doku − 30001. Modbus TCP muss am Gerät erst
+// aktiviert werden (App: Internet → Erweiterte Einstellungen → Modbus, oder
+// HTTP-API men=true) — sonst bleibt Port 502 GESCHLOSSEN; nach dem Aktivieren
+// ggf. die Einstellung einmal aus-/einschalten oder das Gerät neu starten.
+//
+// Registerbild (live bestätigt):
+//   1000..1006  Spannung L1/L2/L3/N (Float32) — 1008 „Frequenz" ist NICHT
+//               implementiert und liefert 0xFFFFFFFF (NaN)
+//   1010..1045  Sensoren 1-6: Strom, Leistung, Leistungsfaktor (je Float32)
+//   ab 1046     Kategorie-Blöcke im 26-Register-Raster: Home 1046, Grid 1072,
+//               Car 1098, Relais 1124, Solar 1150, Akku 1176. Je Block:
+//               +0..7 Ströme L1/L2/L3/N (F32), +8 Leistung (F32),
+//               +10 Energie Ein (F64, Wh), +14 Energie Aus (F64, Wh),
+//               +18..25 „Money" — nicht implementiert, wird übersprungen.
+//
+// Unbelegte Register beantwortet das Gerät mit 0xFFFF… (NaN) statt einer
+// Modbus-Exception — Werte daher vor der Übernahme auf is_finite prüfen.
+// Vorzeichen: am Gerät bestätigt − = Einspeisung, passt zur Konvention.
+// ---------------------------------------------------------------------------
+
+class GoeControllerDriver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung gesamt (Grid)', 'F', 'MHB.W',   true,  'total',  'FC4 1080 (Kategorie Grid)'],
+            ['voltage_avg',   'Spannung Ø',                 'F', 'MHB.V',   false, 'total',  'FC4 1000/1002/1004 Ø'],
+            ['current_avg',   'Strom Ø (Grid)',             'F', 'MHB.A',   false, 'total',  'FC4 1072/1074/1076 Ø'],
+            ['energy_import', 'Wirkarbeit Bezug',           'F', 'MHB.kWh', true,  'energy', 'FC4 1082 (Grid Ein, F64 Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',          'F', 'MHB.kWh', true,  'energy', 'FC4 1086 (Grid Aus, F64 Wh)'],
+            ['connected',     'Verbindung',                 'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+        // Bewusst KEINE Frequenz: Register 1008 ist laut Doku „nicht
+        // implementiert" und liefert am echten Gerät NaN.
+    }
+
+    public function getOptionalGroups()
+    {
+        $sensors = [];
+        for ($i = 1; $i <= 6; $i++) {
+            $b = 1010 + ($i - 1) * 2;
+            $sensors[] = ['sens' . $i . '_i',  'Sensor ' . $i . ' Strom',           'F', 'MHB.A',  false, 'current', 'FC4 ' . $b];
+            $sensors[] = ['sens' . $i . '_p',  'Sensor ' . $i . ' Leistung',        'F', 'MHB.W',  false, 'power',   'FC4 ' . ($b + 12)];
+            $sensors[] = ['sens' . $i . '_pf', 'Sensor ' . $i . ' Leistungsfaktor', 'F', 'MHB.PF', false, 'total',   'FC4 ' . ($b + 24)];
+        }
+        $cats = [];
+        foreach ([['home', 'Home', 1046], ['car', 'Car', 1098], ['relais', 'Relais', 1124], ['solar', 'Solar', 1150], ['akku', 'Akku', 1176]] as [$key, $lbl, $base]) {
+            $cats[] = [$key . '_power',         $lbl . ' Leistung',    'F', 'MHB.W',   false, 'power',  'FC4 ' . ($base + 8)];
+            $cats[] = [$key . '_energy_import', $lbl . ' Energie Ein', 'F', 'MHB.kWh', true,  'energy', 'FC4 ' . ($base + 10) . ' (F64 Wh)'];
+            $cats[] = [$key . '_energy_export', $lbl . ' Energie Aus', 'F', 'MHB.kWh', true,  'energy', 'FC4 ' . ($base + 14) . ' (F64 Wh)'];
+        }
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (inkl. N)', 'vars' => [
+                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC4 1000'],
+                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC4 1002'],
+                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC4 1004'],
+                ['u_n',    'Spannung N',  'F', 'MHB.V', false, 'voltage', 'FC4 1006'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Strom je Phase (Kategorie Grid, inkl. N)', 'vars' => [
+                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC4 1072'],
+                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC4 1074'],
+                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC4 1076'],
+                ['i_n',  'Strom N',  'F', 'MHB.A', false, 'current', 'FC4 1078'],
+            ]],
+            'GroupGoeSensors'    => ['caption' => 'Stromsensoren 1-6 (Strom/Leistung/Leistungsfaktor)', 'vars' => $sensors],
+            'GroupGoeCategories' => ['caption' => 'Kategorien Home/Car/Relais/Solar/Akku (Leistung + Energie)', 'vars' => $cats],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    /** NaN-sichere Übernahme — unbelegte Register liefern 0xFFFF… statt Fehler. */
+    private function put($hub, string $ident, float $v)
+    {
+        if (is_finite($v)) {
+            $hub->SetVarFloat($ident, $v);
+        }
+    }
+
+    private function putWh($hub, string $ident, float $wh)
+    {
+        if (is_finite($wh)) {
+            $hub->SetVarEnergyWh($ident, $wh);
+        }
+    }
+
+    public function readFast($mb, $hub)
+    {
+        // Ein Block deckt Spannungen, Sensoren und die Kategorien Home/Grid/
+        // Car ab (1000..1124, 125 Register = Modbus-Maximum, live geprüft).
+        $a = $mb->readInput(1000, 125);
+        if ($a === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $this->put($hub, 'power_total', $mb->readFloat32($a, 80));           // Grid P
+        $this->put($hub, 'voltage_avg',
+            ($mb->readFloat32($a, 0) + $mb->readFloat32($a, 2) + $mb->readFloat32($a, 4)) / 3.0);
+        $this->put($hub, 'current_avg',
+            ($mb->readFloat32($a, 72) + $mb->readFloat32($a, 74) + $mb->readFloat32($a, 76)) / 3.0);
+
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            $this->put($hub, 'u_l1_n', $mb->readFloat32($a, 0));
+            $this->put($hub, 'u_l2_n', $mb->readFloat32($a, 2));
+            $this->put($hub, 'u_l3_n', $mb->readFloat32($a, 4));
+            $this->put($hub, 'u_n',    $mb->readFloat32($a, 6));
+        }
+        if ($hub->GroupActive('GroupCurrentPhase')) {
+            $this->put($hub, 'i_l1', $mb->readFloat32($a, 72));
+            $this->put($hub, 'i_l2', $mb->readFloat32($a, 74));
+            $this->put($hub, 'i_l3', $mb->readFloat32($a, 76));
+            $this->put($hub, 'i_n',  $mb->readFloat32($a, 78));
+        }
+        if ($hub->GroupActive('GroupGoeSensors')) {
+            for ($i = 0; $i < 6; $i++) {
+                $this->put($hub, 'sens' . ($i + 1) . '_i',  $mb->readFloat32($a, 10 + $i * 2));
+                $this->put($hub, 'sens' . ($i + 1) . '_p',  $mb->readFloat32($a, 22 + $i * 2));
+                $this->put($hub, 'sens' . ($i + 1) . '_pf', $mb->readFloat32($a, 34 + $i * 2));
+            }
+        }
+        if ($hub->GroupActive('GroupGoeCategories')) {
+            $this->put($hub, 'home_power', $mb->readFloat32($a, 54));  // 1046+8
+            $this->put($hub, 'car_power',  $mb->readFloat32($a, 106)); // 1098+8
+            // Relais/Solar/Akku liegen hinter Register 1124 → zweiter Block.
+            $b = $mb->readInput(1124, 70); // 1124..1193
+            if ($b !== null) {
+                $this->put($hub, 'relais_power', $mb->readFloat32($b, 8));  // 1124+8
+                $this->put($hub, 'solar_power',  $mb->readFloat32($b, 34)); // 1150+8
+                $this->put($hub, 'akku_power',   $mb->readFloat32($b, 60)); // 1176+8
+            }
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        $a = $mb->readInput(1000, 125);
+        if ($a === null) {
+            return;
+        }
+        // Kategorie Grid = Netzübergabepunkt: Ein = Bezug, Aus = Einspeisung
+        // (Zuordnung über die Zählerstände gegen die go-e-App geprüft).
+        $this->putWh($hub, 'energy_import', $mb->readDouble64($a, 82)); // 1082
+        $this->putWh($hub, 'energy_export', $mb->readDouble64($a, 86)); // 1086
+
+        if ($hub->GroupActive('GroupGoeCategories')) {
+            $this->putWh($hub, 'home_energy_import', $mb->readDouble64($a, 56));  // 1056
+            $this->putWh($hub, 'home_energy_export', $mb->readDouble64($a, 60));  // 1060
+            $this->putWh($hub, 'car_energy_import',  $mb->readDouble64($a, 108)); // 1108
+            $this->putWh($hub, 'car_energy_export',  $mb->readDouble64($a, 112)); // 1112
+            $b = $mb->readInput(1124, 70);
+            if ($b !== null) {
+                $this->putWh($hub, 'relais_energy_import', $mb->readDouble64($b, 10)); // 1134
+                $this->putWh($hub, 'relais_energy_export', $mb->readDouble64($b, 14)); // 1138
+                $this->putWh($hub, 'solar_energy_import',  $mb->readDouble64($b, 36)); // 1160
+                $this->putWh($hub, 'solar_energy_export',  $mb->readDouble64($b, 40)); // 1164
+                $this->putWh($hub, 'akku_energy_import',   $mb->readDouble64($b, 62)); // 1186
+                $this->putWh($hub, 'akku_energy_export',   $mb->readDouble64($b, 66)); // 1190
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MeterHub — Hauptmodul, lädt den Treiber laut Meter-Property
 // ---------------------------------------------------------------------------
 
@@ -1527,6 +1699,7 @@ class MeterHub extends IPSModule
         'socomec_countis'  => 'SocomecCountisDriver',
         'mbs_professional' => 'MbsProfessionalDriver',
         'shelly_pro3em'    => 'ShellyPro3emDriver',
+        'goe_controller'   => 'GoeControllerDriver',
     ];
 
     private const METER_LABELS = [
@@ -1548,6 +1721,7 @@ class MeterHub extends IPSModule
         'socomec_countis'  => 'Socomec Countis',
         'mbs_professional' => 'MBS Professional 3-75',
         'shelly_pro3em'    => 'Shelly Pro 3EM',
+        'goe_controller'   => 'go-e Controller',
     ];
 
     // Funktions-Vokabular für die Zuordnung „welcher Verbraucher hängt hier?".
@@ -1979,6 +2153,7 @@ class MeterHub extends IPSModule
                         ['type' => 'Label', 'caption' => 'Hinweis Eastron/Phoenix: Diese sprechen meist Modbus RTU und hängen über einen RTU/TCP-Gateway (dessen IP eintragen). Eastron-Geräteadresse ab Werk 1; Phoenix EEM-EM375 nutzt oft Unit-ID 255, EEM-XM meist 1. WhatWatt spricht Modbus TCP direkt.'],
                         ['type' => 'Label', 'caption' => '🧪 Experimentell: Socomec Countis und MBS Professional 3-75 sind aus Vorlagen abgeleitet und noch nicht an echter Hardware geprüft — bitte die Messwerte gegen die Geräteanzeige abgleichen. Bei unplausiblen Werten helfen der WordSwap- bzw. Invers-Schalter.'],
                         ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP muss am Gerät erst aktiviert werden (Einstellungen → Modbus, Port 502). Gelesen über FC 0x04, Float wortgetauscht (CDAB); Wire-Adressen = Doku − 30000 (Messwerte ab 1011, Energie 1162/1164). An echtem Gerät verifiziert.'],
+                        ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP muss am Gerät erst aktiviert werden (go-e-App: Internet → Erweiterte Einstellungen → Modbus, oder HTTP-API men=true) — sonst bleibt Port 502 geschlossen; nach dem Aktivieren die Einstellung ggf. einmal aus-/einschalten. Kernwerte kommen aus der Kategorie Grid; Sensoren 1-6 und die Kategorien Home/Car/Relais/Solar/Akku sind zuschaltbar. An echtem Gerät verifiziert. (Die go-e-Wallboxen selbst bedient das Modul ChargerHub.)'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
                         ['type' => 'Label', 'caption' => '🔧 Anschluss: Die Zähler nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (der PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
                         ['type' => 'Label', 'caption' => '⚠️ UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],
@@ -2013,6 +2188,7 @@ class MeterHub extends IPSModule
                         ['caption' => 'Socomec Countis (experimentell)', 'value' => 'socomec_countis'],
                         ['caption' => 'MBS Professional 3-75 (experimentell)', 'value' => 'mbs_professional'],
                         ['caption' => 'Shelly Pro 3EM', 'value' => 'shelly_pro3em'],
+                        ['caption' => 'go-e Controller', 'value' => 'goe_controller'],
                     ],
                 ],
                 [
