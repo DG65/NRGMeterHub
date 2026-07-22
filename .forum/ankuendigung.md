@@ -5,7 +5,7 @@
 
 **Titelvorschlag:**
 
-> [Beta-Tester gesucht] MeterHub — ein Modbus-TCP-Modul für Energiezähler: Siemens PAC2200, Janitza UMG, Shelly Pro 3EM, Eastron, Carlo Gavazzi, Phoenix Contact, WhatWatt u. a. (+ Netzwerksuche + virtuelle Zähler)
+> [Beta-Tester gesucht] MeterHub — ein Modbus-TCP-Modul für Energiezähler: Siemens PAC2200, Janitza UMG, Shelly Pro 3EM, go-e Controller, Eastron, Carlo Gavazzi, Phoenix Contact, WhatWatt u. a. (+ Netzwerksuche + virtuelle Zähler)
 
 **Bilder:** `virtuelle-zaehler.png` an der markierten Stelle, `suite.png` im Abschnitt
 „Die Modulfamilie". Beide liegen neben dieser Datei; Screenshots aus der eigenen Anlage
@@ -23,7 +23,7 @@ Anlage: **MeterHub** liest **Energiezähler direkt per Modbus TCP** aus — wied
 Treibergerüst statt eines eigenen Moduls je Hersteller. Wer den InverterHub kennt, findet
 sich sofort zurecht: gleiche Bedienlogik, gleiche Konventionen, gleiche Netzwerksuche.
 
-Zwei Zähler laufen hier produktiv und sind an echter Hardware verifiziert, der Rest ist aus
+Drei Zähler sind an echter Hardware verifiziert und laufen produktiv, der Rest ist aus
 Herstellerdoku, OpenEMS und euren Forum-Vorlagen abgeleitet. **Genau dafür suche ich
 Rückmeldungen.**
 
@@ -95,7 +95,7 @@ Alle Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Man
 
 - 🔌 **Ein Modul, viele Hersteller** — austauschbare Treiber, gemeinsame Konventionen.
 - 🔍 **Netzwerksuche** über Port 502 mit Abbrechen-Knopf; erkennt PAC2200, Janitza (klassisch
-  und 800er), Shelly, Carlo Gavazzi, WhatWatt, Phoenix EEM-EM375 und Eastron. Zähler hinter
+  und 800er), Shelly, go-e Controller, Carlo Gavazzi, WhatWatt, Phoenix EEM-EM375 und Eastron. Zähler hinter
   RTU-Gateways (Socomec, MBS) findet die Suche nicht zuverlässig — deren Unit-ID ist frei
   wählbar; die legt man von Hand an.
 - 🏷️ **Funktionszuordnung** — jedem Zähler lässt sich sagen, *was* er misst: Netzanschluss,
@@ -119,6 +119,10 @@ Alle Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Man
   Herstellerdoku wörtlich nimmt, bekommt Modbus-Ausnahmen — das war hier ein längerer Abend.
 - **Eastron / Phoenix:** sprechen meist Modbus RTU und hängen an einem RTU/TCP-Gateway —
   **dessen** IP eintragen, nicht die des Zählers.
+- **go-e Controller:** Modbus muss in der go-e-App freigeschaltet werden (Internet → Erweiterte
+  Einstellungen → Modbus); danach die Einstellung ggf. einmal aus- und wieder einschalten, sonst
+  bleibt Port 502 zu. Unbelegte Register beantwortet das Gerät mit NaN statt einer Fehlermeldung —
+  der Treiber fängt das ab.
 - **PAC2200:** antwortet oft unabhängig von der Unit-ID.
 - **Janitza UMG 800:** siehe Tabelle — Werksvorgabe vorausgesetzt.
 
@@ -164,10 +168,16 @@ virtuelle Zähler denselben Vertrag.
 
 Das Modul ist als wachsendes Projekt angelegt:
 
-- **Weitere Zähler** — ABB und Schneider stehen an, sobald die Registerdaten da sind. Weitere
-  Vorschläge (mit Doku!) sind willkommen.
+- **SMA Sunny Home Manager 2.0 und SMA Energy Meter** — die spannendste offene Baustelle. Beide
+  sprechen kein Modbus, sondern senden per Speedwire-Multicast (UDP). Das wird deshalb ein
+  eigenes Empfängermodul auf dem Multicast-Socket von IP-Symcon. Konzept steht, Umsetzung hängt
+  an einem Tester mit SMA-Anlage — Freiwillige vor.
+- **Chint DTSU666** — der Zähler, der bei vielen Huawei-, Sungrow- und Growatt-Anlagen mitgeliefert
+  wird. Guter nächster Kandidat.
+- **ABB B23/B24 und Schneider iEM3000** — sobald die Registerdaten da sind (siehe oben). Weitere
+  Vorschläge mit Doku sind willkommen.
 - **Umstieg ohne Datenverlust** — wer heute Zähler als einzelne Modbus-Datenpunkte betreibt,
-  soll auf MeterHub wechseln können, **ohne die Archivwerte zu verlieren**. Das wird ein
+  soll auf MeterHub wechseln können, **ohne die Archivwerte zu verlieren**. Dafür entsteht ein
   eigenes Modul, weil es nicht nur MeterHub betrifft.
 - **Wallboxen** bekommen mit ChargerHub ein eigenes Gegenstück nach demselben Muster.
 
