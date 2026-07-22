@@ -1,0 +1,190 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      .band  { font-size: 15px; font-weight: 700; letter-spacing: 1.6px; fill: #64748b; }
+      .bsub  { font-size: 13px; font-weight: 400; fill: #64748b; }
+      .name  { font-size: 21px; font-weight: 700; fill: #0f172a; }
+      .desc  { font-size: 14px; fill: #475569; }
+      .chip  { font-size: 12px; font-weight: 700; }
+      .title { font-size: 34px; font-weight: 700; fill: #0f172a; }
+      .sub   { font-size: 17px; fill: #475569; }
+      .foot  { font-size: 15px; fill: #64748b; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="#ffffff"/>
+
+  <text class="title" x="60" y="56">Ein Baukasten für die eigene Energieanlage</text>
+  <text class="sub"   x="60" y="88">Zwölf IP-Symcon-Module, die zusammenarbeiten — aber jedes auch für sich allein läuft</text>
+
+  <!-- ================= Band 1: MESSEN ================= -->
+  <text class="band" x="60" y="168">MESSEN</text>
+  <text class="bsub" x="60" y="188">Geräte anbinden</text>
+
+  <g>
+    <rect x="220" y="120" width="180" height="130" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+    <text class="name" x="240" y="158">InverterHub</text>
+    <text class="desc" x="240" y="182">13 Wechselrichter-</text>
+    <text class="desc" x="240" y="200">Hersteller, Modbus TCP</text>
+    <rect x="240" y="214" width="66" height="20" rx="10" fill="#2563eb"/>
+    <text class="chip" x="273" y="228" fill="#ffffff" text-anchor="middle">Beta</text>
+  </g>
+
+  <g>
+    <rect x="420" y="112" width="180" height="146" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="3.5"/>
+    <rect x="536" y="98" width="56" height="24" rx="12" fill="#16a34a"/>
+    <text class="chip" x="564" y="115" fill="#ffffff" text-anchor="middle">NEU</text>
+    <text class="name" x="440" y="152">MeterHub</text>
+    <text class="desc" x="440" y="176">18 Energiezähler,</text>
+    <text class="desc" x="440" y="194">Modbus TCP</text>
+    <text class="desc" x="440" y="212">+ virtuelle Zähler</text>
+    <rect x="440" y="224" width="66" height="20" rx="10" fill="#16a34a"/>
+    <text class="chip" x="473" y="238" fill="#ffffff" text-anchor="middle">Beta</text>
+  </g>
+
+  <g>
+    <rect x="620" y="120" width="180" height="130" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+    <text class="name" x="640" y="158">ChargerHub</text>
+    <text class="desc" x="640" y="182">Wallboxen,</text>
+    <text class="desc" x="640" y="200">Modbus TCP</text>
+    <rect x="640" y="214" width="86" height="20" rx="10" fill="#94a3b8"/>
+    <text class="chip" x="683" y="228" fill="#ffffff" text-anchor="middle">in Arbeit</text>
+  </g>
+
+  <g>
+    <rect x="820" y="120" width="180" height="130" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+    <text class="name" x="840" y="158">HeishaMon</text>
+    <text class="desc" x="840" y="182">Panasonic-</text>
+    <text class="desc" x="840" y="200">Wärmepumpen</text>
+    <rect x="840" y="214" width="66" height="20" rx="10" fill="#2563eb"/>
+    <text class="chip" x="873" y="228" fill="#ffffff" text-anchor="middle">Beta</text>
+  </g>
+
+  <g>
+    <rect x="1020" y="120" width="180" height="130" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+    <text class="name" x="1040" y="158">Tessie</text>
+    <text class="desc" x="1040" y="182">Tesla-Fahrzeuge</text>
+    <text class="desc" x="1040" y="200">(Ladestand, Laden)</text>
+    <rect x="1040" y="214" width="66" height="20" rx="10" fill="#2563eb"/>
+    <text class="chip" x="1073" y="228" fill="#ffffff" text-anchor="middle">Beta</text>
+  </g>
+
+  <line x1="710" y1="258" x2="710" y2="292" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ================= Band 2: WISSEN ================= -->
+  <text class="band" x="60" y="348">WISSEN</text>
+  <text class="bsub" x="60" y="368">Was kommt?</text>
+
+  <g>
+    <rect x="220" y="300" width="300" height="130" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2"/>
+    <text class="name" x="240" y="338">EnergiePrognose</text>
+    <text class="desc" x="240" y="362">PV-Ertrag physikbasiert, Verbrauch per</text>
+    <text class="desc" x="240" y="380">k-NN aus ähnlichen Tagen (P10/P50/P90)</text>
+    <rect x="240" y="394" width="66" height="20" rx="10" fill="#7c3aed"/>
+    <text class="chip" x="273" y="408" fill="#ffffff" text-anchor="middle">Beta</text>
+  </g>
+
+  <g>
+    <rect x="540" y="300" width="300" height="130" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2"/>
+    <text class="name" x="560" y="338">StromGedacht</text>
+    <text class="desc" x="560" y="362">Netzampel der TransnetBW —</text>
+    <text class="desc" x="560" y="380">wann ist Strom grün und günstig?</text>
+    <rect x="560" y="394" width="90" height="20" rx="10" fill="#7c3aed"/>
+    <text class="chip" x="605" y="408" fill="#ffffff" text-anchor="middle">im Store</text>
+  </g>
+
+  <g>
+    <rect x="860" y="300" width="340" height="130" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2"/>
+    <text class="name" x="880" y="338">Tibber Grid Rewards</text>
+    <text class="desc" x="880" y="362">Erlöse und Abrufe der Batterie-</text>
+    <text class="desc" x="880" y="380">vermarktung sichtbar machen</text>
+    <rect x="880" y="394" width="66" height="20" rx="10" fill="#7c3aed"/>
+    <text class="chip" x="913" y="408" fill="#ffffff" text-anchor="middle">v1.0</text>
+  </g>
+
+  <line x1="710" y1="438" x2="710" y2="472" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ================= Band 3: ENTSCHEIDEN ================= -->
+  <text class="band" x="60" y="528">ENTSCHEIDEN</text>
+  <text class="bsub" x="60" y="548">Was tun?</text>
+
+  <g>
+    <rect x="220" y="480" width="980" height="120" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="2.5"/>
+    <text class="name" x="240" y="518" font-size="24">EMS — Energiemanagement</text>
+    <text class="desc" x="240" y="546" font-size="15">Führt Messwerte, Prognosen und Netzsignale zusammen und entscheidet: laden, speichern, heizen oder einspeisen.</text>
+    <text class="desc" x="240" y="568" font-size="15">Die Steuerungshoheit liegt bewusst an einer Stelle — die Messmodule steuern nichts.</text>
+  </g>
+
+  <line x1="710" y1="608" x2="710" y2="642" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ================= Band 4: ZEIGEN ================= -->
+  <text class="band" x="60" y="698">ZEIGEN</text>
+  <text class="bsub" x="60" y="718">Was passiert gerade?</text>
+
+  <g>
+    <rect x="220" y="650" width="470" height="130" rx="12" fill="#f0fdfa" stroke="#0d9488" stroke-width="2"/>
+    <text class="name" x="240" y="688">Stromfluss-Kachel</text>
+    <text class="desc" x="240" y="712">Animierter Energiefluss: Erzeugung, Netz, Batterie und</text>
+    <text class="desc" x="240" y="730">beliebig viele Verbraucher — gespeist auch aus MeterHub</text>
+    <rect x="240" y="744" width="128" height="20" rx="10" fill="#0d9488"/>
+    <text class="chip" x="304" y="758" fill="#ffffff" text-anchor="middle">in InverterHub</text>
+  </g>
+
+  <g>
+    <rect x="710" y="650" width="490" height="130" rx="12" fill="#f0fdfa" stroke="#0d9488" stroke-width="2"/>
+    <text class="name" x="730" y="688">Sankey-Energiefluss</text>
+    <text class="desc" x="730" y="712">Wohin ist die Energie über Tag, Woche oder Jahr</text>
+    <text class="desc" x="730" y="730">geflossen — je Verbraucher aufgeschlüsselt</text>
+    <rect x="730" y="744" width="128" height="20" rx="10" fill="#0d9488"/>
+    <text class="chip" x="794" y="758" fill="#ffffff" text-anchor="middle">in InverterHub</text>
+  </g>
+
+  <!-- ================= Werkzeuge ================= -->
+  <line x1="1230" y1="120" x2="1230" y2="780" stroke="#e2e8f0" stroke-width="2"/>
+  <text class="band" x="1270" y="140">WERKZEUGE</text>
+
+  <g>
+    <rect x="1270" y="160" width="280" height="106" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+    <text class="name" x="1290" y="194" font-size="19">Gleitender Mittelwert</text>
+    <text class="desc" x="1290" y="218" font-size="13">Mittelwert-Kanäle ohne Archiv —</text>
+    <text class="desc" x="1290" y="236" font-size="13">glättet zappelige Messwerte</text>
+    <rect x="1290" y="242" width="90" height="18" rx="9" fill="#64748b"/>
+    <text class="chip" x="1335" y="255" fill="#ffffff" text-anchor="middle" font-size="11">im Store</text>
+  </g>
+
+  <g>
+    <rect x="1270" y="286" width="280" height="106" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+    <text class="name" x="1290" y="320" font-size="19">ModbusSlave</text>
+    <text class="desc" x="1290" y="344" font-size="13">Symcon als Modbus-Server —</text>
+    <text class="desc" x="1290" y="362" font-size="13">u. a. für die Direktvermarktung</text>
+    <rect x="1290" y="368" width="66" height="18" rx="9" fill="#64748b"/>
+    <text class="chip" x="1323" y="381" fill="#ffffff" text-anchor="middle" font-size="11">v1.0</text>
+  </g>
+
+  <g>
+    <rect x="1270" y="412" width="280" height="106" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+    <text class="name" x="1290" y="446" font-size="19">MigrationsHub</text>
+    <text class="desc" x="1290" y="470" font-size="13">Umsteigen ohne Datenverlust:</text>
+    <text class="desc" x="1290" y="488" font-size="13">Datenpunkte und Archivwerte</text>
+    <rect x="1290" y="494" width="86" height="18" rx="9" fill="#94a3b8"/>
+    <text class="chip" x="1333" y="507" fill="#ffffff" text-anchor="middle" font-size="11">in Arbeit</text>
+  </g>
+
+  <g>
+    <rect x="1270" y="538" width="280" height="106" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+    <text class="name" x="1290" y="572" font-size="19">Netzwerksuche</text>
+    <text class="desc" x="1290" y="596" font-size="13">Findet Wechselrichter und Zähler</text>
+    <text class="desc" x="1290" y="614" font-size="13">im Netz und legt sie an</text>
+    <rect x="1290" y="620" width="160" height="18" rx="9" fill="#64748b"/>
+    <text class="chip" x="1370" y="633" fill="#ffffff" text-anchor="middle" font-size="11">in beiden Hubs</text>
+  </g>
+
+  <text class="foot" x="1270" y="690" font-size="13" fill="#64748b">Kein Modul setzt ein anderes</text>
+  <text class="foot" x="1270" y="710" font-size="13" fill="#64748b">voraus. Fehlt der Partner, fällt</text>
+  <text class="foot" x="1270" y="730" font-size="13" fill="#64748b">nur dessen Zusatzfunktion weg.</text>
+
+  <text class="foot" x="60" y="850">github.com/DG65  ·  Installation über die Modulverwaltung per GitHub-URL, Zweig „beta"</text>
+</svg>

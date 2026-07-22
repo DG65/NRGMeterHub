@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="760" viewBox="0 0 1500 760" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <style>
+      .title { font-size: 32px; font-weight: 700; fill: #0f172a; }
+      .sub   { font-size: 17px; fill: #475569; }
+      .sect  { font-size: 14px; font-weight: 700; letter-spacing: 1.5px; fill: #64748b; }
+      .node  { font-size: 20px; font-weight: 700; fill: #0f172a; }
+      .val   { font-size: 19px; font-weight: 700; fill: #16a34a; }
+      .valg  { font-size: 19px; font-weight: 700; fill: #334155; }
+      .small { font-size: 13px; fill: #64748b; }
+      .out   { font-size: 34px; font-weight: 700; fill: #16a34a; }
+      .outl  { font-size: 18px; font-weight: 700; fill: #0f172a; }
+      .note  { font-size: 14px; fill: #475569; }
+    </style>
+  </defs>
+
+  <rect width="1500" height="760" fill="#ffffff"/>
+
+  <text class="title" x="60" y="56">Virtuelle Zähler: die Verdrahtung beschreiben, nicht die Formel</text>
+  <text class="sub"   x="60" y="88">Konfiguriert wird nur, welcher Zähler hinter welchem sitzt — Summe und Rest ergeben sich daraus von selbst</text>
+
+  <!-- ===================== links: der Baum ===================== -->
+  <text class="sect" x="60" y="150">SO WIRD ES EINGETRAGEN</text>
+
+  <rect x="60" y="170" width="620" height="420" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+
+  <!-- Wurzel -->
+  <rect x="90" y="200" width="330" height="76" rx="10" fill="#ffffff" stroke="#334155" stroke-width="2.5"/>
+  <text class="node" x="112" y="232">Hausanschluss</text>
+  <text class="small" x="112" y="256">eigener Zähler am Netzübergabepunkt</text>
+  <text class="valg" x="560" y="246" text-anchor="end">5.000 W</text>
+
+  <!-- Verbindungen -->
+  <path d="M 120 276 L 120 356 L 150 356" fill="none" stroke="#94a3b8" stroke-width="2.5"/>
+  <path d="M 120 276 L 120 466 L 150 466" fill="none" stroke="#94a3b8" stroke-width="2.5"/>
+  <path d="M 120 276 L 120 540" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-dasharray="5 5"/>
+  <path d="M 120 540 L 150 540" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-dasharray="5 5"/>
+
+  <!-- Kinder -->
+  <rect x="150" y="326" width="300" height="62" rx="10" fill="#ffffff" stroke="#64748b" stroke-width="2"/>
+  <text class="node" x="172" y="352" font-size="18">Wärmepumpe</text>
+  <text class="small" x="172" y="374">hängt hinter: Hausanschluss</text>
+  <text class="valg" x="560" y="364" text-anchor="end">1.200 W</text>
+
+  <rect x="150" y="436" width="300" height="62" rx="10" fill="#ffffff" stroke="#64748b" stroke-width="2"/>
+  <text class="node" x="172" y="462" font-size="18">Wallbox</text>
+  <text class="small" x="172" y="484">hängt hinter: Hausanschluss</text>
+  <text class="valg" x="560" y="474" text-anchor="end">1.800 W</text>
+
+  <rect x="150" y="520" width="300" height="42" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6 5"/>
+  <text class="small" x="172" y="546" font-size="14">… weitere Zähler jederzeit ergänzbar</text>
+
+  <!-- Pfeil nach rechts -->
+  <path d="M 700 380 L 770 380" stroke="#16a34a" stroke-width="3" marker-end="url(#ar)"/>
+
+  <!-- ===================== rechts: das Ergebnis ===================== -->
+  <text class="sect" x="800" y="150">DAS RECHNET DAS MODUL</text>
+
+  <rect x="800" y="170" width="640" height="120" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="2.5"/>
+  <text class="outl" x="828" y="208">Summe untergeordnet</text>
+  <text class="note" x="828" y="234">alle direkt darunter hängenden Zähler</text>
+  <text class="small" x="828" y="262" font-size="15">1.200 W  +  1.800 W</text>
+  <text class="out"  x="1412" y="248" text-anchor="end">3.000 W</text>
+
+  <rect x="800" y="310" width="640" height="140" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="3.5"/>
+  <text class="outl" x="828" y="348">Rest</text>
+  <text class="note" x="828" y="374">der eigene Zähler minus die untergeordneten —</text>
+  <text class="note" x="828" y="396">also alles, was weder Wärmepumpe noch Wallbox verbraucht</text>
+  <text class="small" x="828" y="424" font-size="15">5.000 W  −  3.000 W</text>
+  <text class="out"  x="1412" y="400" text-anchor="end">2.000 W</text>
+
+  <rect x="800" y="470" width="640" height="120" rx="14" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+  <text class="outl" x="828" y="506" font-size="17">🛡️ Warum kein freies Rechenfeld?</text>
+  <text class="note" x="828" y="532">Weil jeder Zähler im Baum genau einen Platz hat, kann er nicht zweimal</text>
+  <text class="note" x="828" y="554">abgezogen werden — dafür müsste er an zwei Stellen hängen, und das lässt</text>
+  <text class="note" x="828" y="576">die Struktur nicht zu. Doppelte Buchführung wird unmöglich, nicht bloß geprüft.</text>
+
+  <!-- ===================== Fußzeile ===================== -->
+  <rect x="60" y="620" width="1380" height="90" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+  <text class="note" x="88" y="652" font-size="15">Was die Struktur nicht ausschließt, meldet die Prüfung: derselbe Datenpunkt in zwei Zeilen, Ringschlüsse, unbekannte Elternknoten, gemischte Einheiten (W neben kW).</text>
+  <text class="note" x="88" y="678" font-size="15">Solange etwas offen ist, wird bewusst nicht gerechnet — lieber kein Wert als ein falscher.</text>
+  <text class="small" x="88" y="700">Die Quellen müssen keine MeterHub-Zähler sein: Ein Suchlauf findet auch die Leistungs- und Energiewerte von Steckdosen, Licht- und Jalousieschaltern.</text>
+</svg>
