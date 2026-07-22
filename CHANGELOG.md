@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.1-beta.1 (2026-07-22)
+
+- **Zwei-Regler-Warnung für den go-e Controller** (README + Konfigurationsformular): Der
+  Controller kann die go-e-Wallboxen **selbst** regeln (PV-Überschussladen, Lastbegrenzung).
+  Wer stattdessen ein EMS steuern lässt, muss die interne Regelung deaktivieren — sonst
+  arbeiten zwei Regler gegeneinander. Recherchiert und dokumentiert: Der Regelzustand ist über
+  die Modbus-Karte des Controllers **nicht** sichtbar (auch nicht über dessen HTTP-API, die
+  nur Messwerte führt) — er liegt an den Wallboxen selbst (`fup`, `loe`, `modelStatus` mit
+  Klartextgrund, `lpsc`). Die Statusvariable dafür gehört deshalb in ChargerHub; dieses Modul
+  liest ausschließlich und ist vom Konflikt nicht betroffen.
+
 ## 0.14.0-beta.1 (2026-07-22)
 
 - **Neuer Zähler: go-e Controller — an echtem Gerät verifiziert.** Die Energiemess-Zentrale

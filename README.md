@@ -23,6 +23,18 @@ willkommen — bitte mit Zählertyp und betroffenem Register melden.
 | **Shelly Pro 3EM** | Summen-Wirkleistung, Ø U/I, Frequenz, Energie Bezug/Abgabe, optional U/I/P je Phase sowie **Energiezähler je Phase** | **FC 0x04**, Float32 **wortgetauscht (CDAB)**; Wire-Adressen = Doku − 30000 (Messwerte ab 1011, Energie-Summe 1162/1164, je Phase 1182/1184 · 1202/1204 · 1222/1224). An echtem Gerät (Gen3) verifiziert. **Modbus TCP am Gerät aktivieren** (Einstellungen → Modbus, Port 502). |
 | **go-e Controller** | Kern aus der Kategorie **Grid** (Wirkleistung, Energie Bezug/Abgabe), Ø U/I, optional U je Phase + N, I je Phase + N, **Stromsensoren 1–6** (I/P/cos φ) und die Kategorien **Home/Car/Relais/Solar/Akku** (Leistung + Energie Ein/Aus) | **FC 0x04**, Float32/Float64 Big-Endian; Wire-Adresse = Doku − 30001 (Spannungen ab 1000, Sensoren ab 1010, Kategorie-Blöcke im 26er-Raster ab 1046). Keine Frequenz (Register nicht implementiert); unbelegte Register liefern NaN statt Fehler und werden verworfen. An echtem Gerät verifiziert. **Modbus TCP am Gerät aktivieren** (go-e-App: Internet → Erweiterte Einstellungen → Modbus; danach ggf. einmal aus-/einschalten). Die go-e-**Wallboxen** bedient das Schwestermodul ChargerHub. |
 
+> ⚠️ **go-e Controller und Überschussladen — Zwei-Regler-Warnung:** Der Controller ist nicht
+> nur Messzentrale. Je nach Konfiguration regelt er die go-e-Wallboxen **selbst**
+> (PV-Überschussladen, Lastbegrenzung — eine geräteinterne Regelschleife). Wer stattdessen ein
+> Energiemanagement die Wallboxen steuern lässt, muss die interne Regelung bewusst deaktivieren
+> — sonst arbeiten zwei Regler gegeneinander an derselben Wallbox. Umgekehrt gilt: Regelt der
+> Controller, darf das Energiemanagement die betroffenen Wallboxen nur **lesend** einbinden.
+> Dieses Modul liest ausschließlich und ist von dem Konflikt nicht betroffen. Der Regelzustand
+> ist über die Modbus-Karte des Controllers **nicht** sichtbar — er liegt an den Wallboxen
+> selbst (go-e-Charger-API: `fup` = usePvSurplus, `loe` = Lastmanagement, `modelStatus` mit
+> Klartextgrund wie *ChargingBecausePvSurplus*). Die passende Statusvariable gehört daher in
+> ChargerHub, nicht hierher.
+
 Die Janitza-Modelle mit klassischer Karte sind funktional identisch — der Zählertyp im
 Formular dient nur der richtigen Beschriftung.
 
