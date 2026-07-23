@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.1-beta.1 (2026-07-23)
+
+- **Migrations-Hinweis im Inexogy-Cloud-Panel.** Wer von einem anderen Discovergy-/Inexogy-Modul
+  umsteigt und die Messhistorie behalten will, sieht jetzt den mit MigrationsHub abgestimmten
+  Ablauf: Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann adoptieren,
+  danach einschalten — so bleibt die Zielvariable bis zur Übernahme ohne eigene Historie und es
+  gibt keine Grauzone.
+
 ## 0.16.0-beta.1 (2026-07-23)
 
 - **Neuer Zählertyp: Inexogy / Discovergy (Cloud-API) — der erste Nicht-Modbus-Zähler.**
