@@ -2392,7 +2392,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'name' => 'InexogyResult', 'caption' => '', 'visible' => false],
                 ['type' => 'Select', 'name' => 'InexogyMeterID', 'caption' => 'Zähler-UID', 'options' => $meterOpts],
                 ['type' => 'Label', 'caption' => 'ℹ️ Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
-                ['type' => 'Label', 'caption' => '↪️ Umstieg von einem anderen Discovergy-/Inexogy-Modul mit Übernahme der Messhistorie? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann mit MigrationsHub adoptieren, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene Historie.'],
+                ['type' => 'Label', 'caption' => '→ Umstieg von einem anderen Discovergy-/Inexogy-Modul mit Übernahme der Messhistorie? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann mit MigrationsHub adoptieren, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene Historie.'],
             ];
         } else {
             $connectionItems = [
