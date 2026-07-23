@@ -1,17 +1,18 @@
 # Changelog
 
-## 0.16.3-beta.1 (2026-07-23)
+## 0.16.4-beta.1 (2026-07-23)
 
-- **Dekorative Emoji aus Hinweis- und Statustexten entfernt** (Verbund-Entscheidung, Option 3):
-  Emoji bleiben als Panel-/Schaltflächen-Icon (Ersatz fürs fehlende `icon`-Feld der
-  ExpansionPanels), verschwinden aber aus dem Fließtext. 27 Stellen: Warnungen jetzt als
-  „Achtung: …", Status (bisher ✅/❌) trägt der Meldungstext selbst, Info-/Tipp-/Deko-Symbole
-  sind weg. Die ~23 Panel- und Button-Icons blieben. Regel in CLAUDE.md festgehalten, damit
-  neue Captions gleich passend entstehen.
+- **Emoji-Entfernung aus 0.16.3 rückgängig.** Der Verbund hatte die Emoji-Regel zunächst
+  restriktiv gefasst (nur Panel-Icons); Dietmar hat sie danach permissiv entschieden: Status-
+  und Aufmerksamkeitssymbole (`✅`/`❌`/`⚠️`/`💡`/`ℹ️`) sind erwünscht, wo sie Fokus schaffen —
+  kein Review hat je eines beanstandet. Die in 0.16.3 durch Wörter ersetzten Symbole sind damit
+  wieder da; die permissive Regel steht in CLAUDE.md. (0.16.3 war netto ein Rundweg — hier zur
+  Nachvollziehbarkeit dokumentiert statt stillschweigend übersprungen.)
 
-## 0.16.2-beta.1 (2026-07-23)
+## 0.16.3-beta.1 (2026-07-23, zurückgenommen)
 
-- Inexogy-Migrations-Label: dekoratives Emoji durch einen typografischen Pfeil ersetzt.
+- Dekorative Emoji aus Fließtext/Status entfernt (restriktive Zwischenregel) — in 0.16.4
+  wieder rückgängig gemacht.
 
 ## 0.16.1-beta.1 (2026-07-23)
 

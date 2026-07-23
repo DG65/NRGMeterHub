@@ -123,23 +123,22 @@ keine Fundstellen vortäuschen.
 `MeterHub/module.php` (12 Treiberklassen) prüfen, in welcher Klasse die Fundstelle liegt.
 `Edit` mit eindeutigem Kontext statt `replace_all`, danach dieses Skript laufen lassen.
 
-## Emoji-Regel (Verbund-Entscheidung 23.07.2026, Option 3)
+## Emoji-Regel (Verbund-Entscheidung 23.07.2026, permissiv)
 
-Emoji **nur als Panel-Icon** — als Ersatz für das fehlende `icon`-Feld der ExpansionPanels
-(und sinngemäß als Icon am Anfang einer Button-Caption). **Keine dekorativen Emoji im
-Fließtext oder Statustext.** Konkret:
+Emoji sind **erwünscht, wo sie Nutzen stiften** — Dietmar schätzt sie für Fokus und
+Auflockerung, und kein Symcon-Store-Review hat je eines beanstandet. Zwei Einsatzarten:
 
-- **Erlaubt:** ein Emoji am Anfang einer Panel-Überschrift (`📖 Dokumentation`, `🔌 Verbindung`,
-  `🧮 Virtueller Zähler`) oder einer Schaltflächen-Caption (`🔎 Netzwerk durchsuchen`).
-- **Nicht erlaubt:** Emoji mitten im Hinweis-/Erklärtext (`ℹ️`, `💡`, `🔗`, `⚡`, `🛡️`, `🧪`) oder
-  als Statusanzeige (`✅`/`❌`/`⚠️` in Meldungen). Stattdessen das Wort führen: Warnungen als
-  „Achtung: …", Fehler/OK aus dem Meldungstext selbst (der Text trägt die Bedeutung schon).
+- **Panel-/Schaltflächen-Icon** als Ersatz für das fehlende `icon`-Feld der ExpansionPanels
+  (`📖 Dokumentation`, `🔌 Verbindung`, `🔎 Netzwerk durchsuchen`).
+- **Status-/Aufmerksamkeitssymbol** dort, wo etwas herausgestellt werden soll oder Beachtung
+  braucht (`✅` `❌` `⚠️` `💡` `ℹ️` in Meldungen und Hinweistexten).
 
-Hintergrund: MigrationsHubs Stable-Checkliste beanstandete dekorative Emoji; der etablierte
-Panel-Icon-Ersatz (auch InverterHub, [[ips-module-pitfalls]] Punkt 2) bleibt aber. Ein Symcon-
-Store-Review hat Panel-Icon-Emoji bisher nie bemängelt. **Beobachtungsklausel:** Falls ein
-echter Stable-Review sie doch anmerkt, stellt der ganze Verbund gemeinsam auf emoji-frei um.
-Bei 0.16.3-beta.1 wurden 27 dekorative Emoji entfernt; die ~23 Panel-/Button-Icons blieben.
+Keine feste Obergrenze, aber mit Augenmaß — als Akzent, nicht als Flächenfüller. Es gibt keinen
+Zwang, Symbole durch Wörter zu ersetzen. (Zwischenzeitlich, am 23.07.2026, galt kurz eine
+strengere „nur Panel-Icon"-Fassung; sie wurde von Dietmar zugunsten dieser permissiveren Regel
+zurückgenommen — Historie im Changelog 0.16.3/0.16.4.) **Beobachtungsklausel:** Falls ein
+echter Stable-Review Emoji je bemängelt, entscheidet der Verbund gemeinsam neu. MigrationsHub
+führt die einheitliche Checklisten-Zeile für alle Module.
 
 ## Sprachregel: alles Nutzersichtbare auf Deutsch
 

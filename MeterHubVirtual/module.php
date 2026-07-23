@@ -444,7 +444,7 @@ class MeterHubVirtual extends IPSModule
         $filter     = trim($filter);
 
         if ($root > 0 && !IPS_ObjectExists($root)) {
-            $this->UpdateFormField('ScanResult', 'caption', "Der gewählte Suchbereich (#$root) existiert nicht mehr.");
+            $this->UpdateFormField('ScanResult', 'caption', "❌ Der gewählte Suchbereich (#$root) existiert nicht mehr.");
             $this->UpdateFormField('ScanResult', 'visible', true);
             return;
         }
@@ -546,7 +546,7 @@ class MeterHubVirtual extends IPSModule
             ];
             $added++;
             if ($warn) {
-                $notes[] = '   Achtung: ' . $d['name'] . ': ' . implode('; ', $warn);
+                $notes[] = '   ⚠️ ' . $d['name'] . ': ' . implode('; ', $warn);
             }
         }
 
@@ -564,7 +564,7 @@ class MeterHubVirtual extends IPSModule
             $skipped['einheit'], $skipped['schonverwendet'], $skipped['virtuell'],
             $skipped['bereich'], $skipped['name'], $filteredOut['ohneenergie'], $filteredOut['inaktiv']);
         if ($added === 0 && ($filteredOut['ohneenergie'] + $filteredOut['inaktiv'] + $skipped['bereich'] + $skipped['name']) > 0) {
-            $msg .= "\nEs wurde etwas gefunden, aber wegfiltriert — probeweise einen Filter lockern.";
+            $msg .= "\n💡 Es wurde etwas gefunden, aber wegfiltriert — probeweise einen Filter lockern.";
         }
         if ($notes) {
             $msg .= "\n" . implode("\n", $notes);
@@ -664,14 +664,14 @@ class MeterHubVirtual extends IPSModule
         // Prüfergebnis und Baumvorschau als Klartext.
         $check = [];
         if (count($errors) > 0) {
-            $check[] = ['type' => 'Label', 'caption' => count($errors) . ' Problem(e) — solange sie bestehen, wird nicht gerechnet:'];
+            $check[] = ['type' => 'Label', 'caption' => '❌ ' . count($errors) . ' Problem(e) — solange sie bestehen, wird nicht gerechnet:'];
             foreach ($errors as $e) {
                 $check[] = ['type' => 'Label', 'caption' => '   • ' . $e];
             }
         } elseif (count($nodes) === 0) {
             $check[] = ['type' => 'Label', 'caption' => 'Noch keine Verdrahtung angelegt.'];
         } else {
-            $check[] = ['type' => 'Label', 'caption' => 'Verdrahtung schlüssig. Vorschau:'];
+            $check[] = ['type' => 'Label', 'caption' => '✅ Verdrahtung schlüssig. Vorschau:'];
             foreach ($this->TreePreview($nodes) as $line) {
                 $check[] = ['type' => 'Label', 'caption' => $line];
             }
@@ -684,7 +684,7 @@ class MeterHubVirtual extends IPSModule
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Bildet virtuelle Zähler, indem die VERDRAHTUNG beschrieben wird statt einer Formel: Für jeden Zähler wird angegeben, hinter welchem er sitzt. Daraus ergibt sich je Knoten mit Untergeordneten automatisch die „Summe untergeordnet“ und — falls der Knoten einen eigenen Zähler hat — der „Rest“ (eigener Zähler minus Untergeordnete).'],
                         ['type' => 'Label', 'caption' => 'Beispiel: „Hausanschluss“ (eigener Zähler) mit den untergeordneten „Wärmepumpe“ und „Wallbox“ ergibt „Hausanschluss: Leistung Rest“ — also alles, was weder Wärmepumpe noch Wallbox verbraucht.'],
-                        ['type' => 'Label', 'caption' => 'Warum keine freie Formel: Weil jeder Zähler im Baum genau EINEN Platz hat, kann er nicht doppelt abgezogen werden. Was die Struktur nicht verhindert (derselbe Datenpunkt in zwei Zeilen, Ringschlüsse, gemischte Einheiten), meldet die Prüfung unten — und solange etwas offen ist, wird bewusst nicht gerechnet.'],
+                        ['type' => 'Label', 'caption' => '🛡️ Warum keine freie Formel: Weil jeder Zähler im Baum genau EINEN Platz hat, kann er nicht doppelt abgezogen werden. Was die Struktur nicht verhindert (derselbe Datenpunkt in zwei Zeilen, Ringschlüsse, gemischte Einheiten), meldet die Prüfung unten — und solange etwas offen ist, wird bewusst nicht gerechnet.'],
                         ['type' => 'Label', 'caption' => 'Das Kürzel ist der technische Name: Es bildet die Variablen-Idents und dient als Bezug für „hängt hinter“. Die Bezeichnung ist frei änderbar, das Kürzel sollte stehen bleiben — sonst entstehen neue Variablen und die Historie der alten geht verloren.'],
                         ['type' => 'Label', 'caption' => 'Einheiten: Leistung in W, Energie als kumulative kWh-Zählerstände. Alle Datenpunkte eines Knotens müssen dieselbe Einheit haben; Abweichungen meldet die Prüfung.'],
                     ],
