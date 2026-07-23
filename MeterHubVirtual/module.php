@@ -617,12 +617,23 @@ class MeterHubVirtual extends IPSModule
                 'energyImportID' => $id('_rest_imp')   ?: $id('_sum_imp'),
                 'energyExportID' => $id('_rest_exp')   ?: $id('_sum_exp'),
                 'measured'       => true, // Rechenergebnis gemessener Zähler
+                // Summe/Rest kumulativer Zählerstände sind selbst kumulativ.
+                'energyKind'     => 'counter',
+                // Güte-/Abdeckungshinweis: Fällt eine Quelle aus, wird der Rest
+                // still zu groß. Ein Konsument kann bei kleiner Quellenzahl
+                // vorsichtiger sein. Zahl der direkt untergeordneten Zähler.
+                'sourceCount'    => count($kids[$parent] ?? []),
             ];
         }
+        // Ein virtueller Zähler ist ein Rechenergebnis lokaler Werte: so
+        // echtzeitnah wie seine Quellen, aber nie abrechnungsverbindlich.
         return json_encode([
             'instanceID'  => $this->InstanceID,
             'meter'       => 'virtual',
             'measureMode' => 'combined',
+            'latency'     => 'realtime',
+            'authority'   => 'auxiliary',
+            'pollInterval'=> max(2, $this->ReadPropertyInteger('Interval')),
             'assignments' => $list,
         ]);
     }

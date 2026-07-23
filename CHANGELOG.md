@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.15.0-beta.1 (2026-07-22)
+
+- **Vertragserweiterung `MHUB_GetFunctions` / `MHUBV_GetFunctions` (additiv, im Verbund
+  abgestimmt).** Vier neue Felder, damit ein Konsument (EMS, Auswertung, InverterHub-Balken)
+  Zähler nach Eignung unterscheiden kann:
+  - `latency` (`realtime`|`delayed`) — darf das EMS in Sekunden darauf regeln? Modbus-Zähler
+    sind `realtime`, Cloud-Zähler (Inexogy folgt) `delayed`.
+  - `authority` (`billing`|`auxiliary`) — steht der Wert auf der Rechnung? Neue Checkbox
+    „Abrechnungsverbindlicher Zähler am Netzübergabepunkt" setzt `billing`.
+  - `pollInterval` — reale Aktualisierungsrate in Sekunden.
+  - `energyKind` je Zuordnung (`counter`|`interval`) — kumulativer Zählerstand (Konsument
+    bildet Differenzen) vs. Periodenverbrauch (summieren). Alle bisherigen Zähler `counter`.
+  - `sourceCount` je Zuordnung (nur MHUBV) — Zahl der beteiligten Quellen eines Rest-/
+    Summenknotens als Güte-Hinweis (der Rest wird still zu groß, wenn eine Quelle ausfällt).
+- **`latency` und `authority` sind bewusst getrennt.** Sie sind orthogonal — alle vier
+  Kombinationen existieren real (Inexogy billing+delayed, lokaler Shelly auxiliary+realtime,
+  lokal ausgelesenes iMSys billing+realtime, virtueller Rest-Knoten auxiliary+realtime). Ein
+  einzelnes Flag könnte das nicht trennen; deshalb zwei Felder.
+- Bestehende Konsumenten (Kachel, Sankey) ignorieren die neuen Felder — kein Bruch. Konvention
+  in CLAUDE.md dokumentiert (inkl. konservativer Defaults bei fehlenden Feldern).
+- `.tools/test-virtual.php` prüft die neuen Felder mit (32 Prüfungen). Vorbereitung des
+  Cloud-Zählertyps: `CLOUD_METERS`-Liste im Hauptmodul steht bereit (noch leer), Inexogy trägt
+  sich dort ein, sobald der Treiber gebaut wird.
+
 ## 0.14.2-beta.1 (2026-07-22)
 
 - **Sprachregel des Modul-Verbunds umgesetzt: alles Nutzersichtbare auf Deutsch.** Ersetzt

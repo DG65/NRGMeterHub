@@ -244,5 +244,22 @@ foreach (IPS_GetChildrenIDs($new) as $c) { $virtOutNames[] = IPS_GetName($c); }
 $overlap = array_intersect($feedback, $virtOutNames);
 check('keine Ausgabe eines virtuellen Zählers als Quelle', $overlap === [], implode(' | ', $overlap));
 
+echo "\n8) Vertragserweiterung MHUBV_GetFunctions\n";
+// Der erste virtuelle Zähler (#$new, Rolle parent) hat noch Funktion 'none' an
+// allen Knoten -> leere assignments. Für den Vertragstest einem Knoten eine
+// Funktion geben.
+$vnodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
+$vnodes[0]['Function'] = 'house';
+IPS_SetProperty($new, 'Nodes', json_encode($vnodes));
+$GLOBALS['MODOBJ'][$new]->ApplyChanges();
+$gf = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
+check('latency = realtime',   ($gf['latency'] ?? '') === 'realtime', json_encode($gf['latency'] ?? null));
+check('authority = auxiliary', ($gf['authority'] ?? '') === 'auxiliary');
+check('pollInterval gesetzt',  ($gf['pollInterval'] ?? 0) >= 2);
+$a0 = $gf['assignments'][0] ?? [];
+check('assignment vorhanden',  !empty($gf['assignments']), json_encode($gf['assignments'] ?? null));
+check('energyKind = counter',  ($a0['energyKind'] ?? '') === 'counter');
+check('sourceCount = 2 Kinder', ($a0['sourceCount'] ?? -1) === 2, 'ist ' . ($a0['sourceCount'] ?? 'fehlt'));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

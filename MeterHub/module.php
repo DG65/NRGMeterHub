@@ -1779,6 +1779,11 @@ class MeterHub extends IPSModule
         //   grid        = Netz-/NAP-Zähler (+ Bezug / − Einspeisung)
         //   consumption = Unterzähler/Verbraucher (immer positiv)
         $this->RegisterPropertyString('Role', 'grid');
+        // Abrechnungsverbindlicher Zähler am Netzübergabepunkt (geeichtes iMSys/
+        // mMSD)? Steuert im Vertrag das Feld `authority` — ein Konsument (EMS,
+        // Auswertung) unterscheidet damit den geeichten Netzzähler von einem
+        // beliebigen Hilfszähler, wenn zwei am selben Anschluss hängen.
+        $this->RegisterPropertyBoolean('BillingGrade', false);
         // Invers-Schalter für die Gesamt-Wirkleistung (Einbaurichtung/Verdrahtung).
         $this->RegisterPropertyBoolean('PowerInvert', false);
         // Energie-Ausgabe in Wh statt kWh (Basiseinheit, konsistent zu W).
@@ -2202,6 +2207,11 @@ class MeterHub extends IPSModule
                     ],
                 ],
                 [
+                    'type'    => 'CheckBox',
+                    'name'    => 'BillingGrade',
+                    'caption' => 'Abrechnungsverbindlicher Zähler am Netzübergabepunkt (geeichtes iMSys/mMSD) — der Wert, der auf der Stromrechnung steht',
+                ],
+                [
                     'type'     => 'ExpansionPanel',
                     'caption'  => '🏷️  Funktionszuordnung',
                     'expanded' => false,
@@ -2395,10 +2405,23 @@ class MeterHub extends IPSModule
         }
     }
 
+    // Zähler, deren Werte NICHT lokal-echtzeitnah, sondern über eine Cloud-API
+    // mit Sekunden-Latenz kommen. Bestimmt das Vertragsfeld `latency`. Modbus-
+    // Zähler sind alle 'realtime'; Cloud-Zähler (Inexogy u. a.) 'delayed'.
+    private const CLOUD_METERS = [];
+
     /**
      * Öffentliche Abfrage der Zuordnung für andere Module (EMS, Kacheln):
      * liefert JSON mit Modus und je Zuordnung Funktion, Bezeichnung und den
      * Variablen-IDs für Leistung, Bezug und Einspeisung.
+     *
+     * Vertragserweiterung (abgestimmt 22.07.2026): `latency` und `authority`
+     * sind ZWEI orthogonale Achsen — „darf das EMS darauf regeln?" (realtime/
+     * delayed) und „steht der Wert auf der Rechnung?" (billing/auxiliary). Ein
+     * Konsument mit zwei grid-Zählern am selben Anschluss wählt damit den
+     * richtigen für den richtigen Zweck. `energyKind` je Zuordnung trennt
+     * kumulative Zählerstände (Differenzen bilden) von Periodenwerten
+     * (summieren). Alle Felder additiv; alte Konsumenten ignorieren sie.
      */
     public function GetFunctions(): string
     {
@@ -2411,12 +2434,18 @@ class MeterHub extends IPSModule
                 'powerID'         => $this->FindVarByIdent($a['power']),
                 'energyImportID'  => $this->FindVarByIdent($a['import']),
                 'energyExportID'  => $this->FindVarByIdent($a['export']),
+                // Alle bisherigen Treiber liefern kumulative Zählerstände.
+                'energyKind'      => 'counter',
             ];
         }
+        $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
         return json_encode([
             'instanceID'  => $this->InstanceID,
             'meter'       => $this->ReadPropertyString('Meter'),
             'measureMode' => $this->ReadPropertyString('MeasureMode'),
+            'latency'     => $isCloud ? 'delayed' : 'realtime',
+            'authority'   => $this->ReadPropertyBoolean('BillingGrade') ? 'billing' : 'auxiliary',
+            'pollInterval'=> $this->ReadPropertyInteger('IntervalFast'),
             'assignments' => $list,
         ]);
     }

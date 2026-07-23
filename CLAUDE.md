@@ -202,6 +202,25 @@ sonst kostet jeder neue Partner eine eigene Übersetzungsschicht in Kachel und S
 | `energyImportID` | Variablen-ID des **kumulativen** kWh-Zählers, `0` = keiner |
 | `energyExportID` | dito für Einspeisung, `0` = keine |
 | `measured` | `bool` — ist `powerID` gemessen oder geschätzt? |
+| `energyKind` | `'counter'` (kumulativer Zählerstand → Konsument bildet Differenzen) oder `'interval'` (fertiger Periodenverbrauch → Konsument summiert) |
+
+Dazu auf **Instanz-Ebene** (neben `instanceID`/`meter`/`measureMode`), abgestimmt im Verbund am
+22.07.2026:
+
+| Feld | Bedeutung |
+|---|---|
+| `latency` | `'realtime'` (lokal, in Sekunden regelbar) oder `'delayed'` (Cloud-API mit Latenz) — Regelfähigkeit |
+| `authority` | `'billing'` (geeichter, abrechnungsverbindlicher Zähler am Netzübergabepunkt) oder `'auxiliary'` (Hilfszähler) |
+| `pollInterval` | reale Aktualisierungsrate in Sekunden |
+| `sourceCount` | nur MHUBV: Zahl der beteiligten Quellen eines Rest-/Summenknotens (Güte) |
+
+**`latency` und `authority` sind orthogonal, keine Gegenteile** — alle vier Kombinationen
+existieren real: Inexogy (billing+delayed), lokaler Shelly am NAP (auxiliary+realtime), ein
+lokal ausgelesenes iMSys (billing+realtime), ein virtueller Rest-Knoten (auxiliary+realtime).
+Ein einzelnes „billingGrade"-Flag könnte das nicht trennen; deshalb zwei Felder. Konservative
+Defaults bei fehlenden Feldern (alter Anbieter): `latency→realtime`, `authority→auxiliary`,
+`energyKind→counter`. Konsumentenbedingung für „der abrechnungsgenaue Netzzähler": `function ==
+'grid' && authority == 'billing'`, mit Rückfall, wenn keiner vorhanden.
 
 **Regeln aus konkreten Vorfällen:**
 
