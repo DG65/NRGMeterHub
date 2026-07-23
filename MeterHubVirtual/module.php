@@ -600,6 +600,7 @@ class MeterHubVirtual extends IPSModule
     {
         $nodes = $this->Nodes();
         $kids  = $this->Children($nodes);
+        $pollInterval = max(2, $this->ReadPropertyInteger('Interval'));
         $list  = [];
         foreach ($kids as $parent => $list_) {
             $n = $nodes[$parent];
@@ -623,6 +624,10 @@ class MeterHubVirtual extends IPSModule
                 // still zu groß. Ein Konsument kann bei kleiner Quellenzahl
                 // vorsichtiger sein. Zahl der direkt untergeordneten Zähler.
                 'sourceCount'    => count($kids[$parent] ?? []),
+                // Zähler-Eigenschaften auch je Zuordnung gespiegelt (wie MHUB).
+                'latency'        => 'realtime',
+                'authority'      => 'auxiliary',
+                'pollInterval'   => $pollInterval,
             ];
         }
         // Ein virtueller Zähler ist ein Rechenergebnis lokaler Werte: so
@@ -633,7 +638,7 @@ class MeterHubVirtual extends IPSModule
             'measureMode' => 'combined',
             'latency'     => 'realtime',
             'authority'   => 'auxiliary',
-            'pollInterval'=> max(2, $this->ReadPropertyInteger('Interval')),
+            'pollInterval'=> $pollInterval,
             'assignments' => $list,
         ]);
     }

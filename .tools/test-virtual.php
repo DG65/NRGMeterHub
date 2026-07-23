@@ -260,6 +260,9 @@ $a0 = $gf['assignments'][0] ?? [];
 check('assignment vorhanden',  !empty($gf['assignments']), json_encode($gf['assignments'] ?? null));
 check('energyKind = counter',  ($a0['energyKind'] ?? '') === 'counter');
 check('sourceCount = 2 Kinder', ($a0['sourceCount'] ?? -1) === 2, 'ist ' . ($a0['sourceCount'] ?? 'fehlt'));
+// authority/latency MÜSSEN auch je Zuordnung stehen (InverterHub filtert dort).
+check('authority je Zuordnung', ($a0['authority'] ?? '') === 'auxiliary');
+check('latency je Zuordnung',   ($a0['latency'] ?? '') === 'realtime');
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

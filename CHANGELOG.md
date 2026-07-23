@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.15.1-beta.1 (2026-07-22)
+
+- **`latency`/`authority`/`pollInterval` zusätzlich in jede Zuordnung gespiegelt** (bisher nur
+  auf Instanz-Ebene). Anlass: Die InverterHub-Netzbezug-Auswertung iteriert über
+  `assignments[]` und filtert nach `function`; sie liest `authority` an der Zuordnung, nicht am
+  Instanz-Objekt. Ohne die Spiegelung hätte sie `authority` verfehlt und keinen Zähler als
+  `billing` erkannt. Die Werte stehen jetzt an beiden Orten (aus derselben Property, können
+  nicht auseinanderlaufen) — Konsumenten können frei wählen. Rein additiv.
+- `.tools/test-virtual.php` prüft `authority`/`latency` je Zuordnung mit (34 Prüfungen).
+
 ## 0.15.0-beta.1 (2026-07-22)
 
 - **Vertragserweiterung `MHUB_GetFunctions` / `MHUBV_GetFunctions` (additiv, im Verbund

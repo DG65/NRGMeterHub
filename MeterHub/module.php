@@ -2425,6 +2425,13 @@ class MeterHub extends IPSModule
      */
     public function GetFunctions(): string
     {
+        // Zähler-Eigenschaften einmal bestimmen — sie gelten für die ganze
+        // Instanz (ein Zähler ist als Ganzes echtzeitnah/träge bzw. abrechnungs-
+        // verbindlich, auch im Drei-Phasen-Modus mit drei Zuordnungen).
+        $latency      = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true) ? 'delayed' : 'realtime';
+        $authority    = $this->ReadPropertyBoolean('BillingGrade') ? 'billing' : 'auxiliary';
+        $pollInterval = $this->ReadPropertyInteger('IntervalFast');
+
         $list = [];
         foreach ($this->FunctionAssignments() as $a) {
             $list[] = [
@@ -2436,16 +2443,24 @@ class MeterHub extends IPSModule
                 'energyExportID'  => $this->FindVarByIdent($a['export']),
                 // Alle bisherigen Treiber liefern kumulative Zählerstände.
                 'energyKind'      => 'counter',
+                // Zähler-Eigenschaften in JEDE Zuordnung gespiegelt (identisch
+                // zur Instanz-Ebene). So kann ein Konsument, der über
+                // assignments[] iteriert und nach function filtert, authority/
+                // latency direkt an der Zuordnung lesen, ohne zum Instanz-Objekt
+                // zurückzugreifen. Beide Orte stammen aus derselben Property —
+                // sie können nicht auseinanderlaufen.
+                'latency'         => $latency,
+                'authority'       => $authority,
+                'pollInterval'    => $pollInterval,
             ];
         }
-        $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
         return json_encode([
             'instanceID'  => $this->InstanceID,
             'meter'       => $this->ReadPropertyString('Meter'),
             'measureMode' => $this->ReadPropertyString('MeasureMode'),
-            'latency'     => $isCloud ? 'delayed' : 'realtime',
-            'authority'   => $this->ReadPropertyBoolean('BillingGrade') ? 'billing' : 'auxiliary',
-            'pollInterval'=> $this->ReadPropertyInteger('IntervalFast'),
+            'latency'     => $latency,
+            'authority'   => $authority,
+            'pollInterval'=> $pollInterval,
             'assignments' => $list,
         ]);
     }

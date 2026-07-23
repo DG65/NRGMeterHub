@@ -222,6 +222,15 @@ Defaults bei fehlenden Feldern (alter Anbieter): `latency→realtime`, `authorit
 `energyKind→counter`. Konsumentenbedingung für „der abrechnungsgenaue Netzzähler": `function ==
 'grid' && authority == 'billing'`, mit Rückfall, wenn keiner vorhanden.
 
+**`latency`/`authority`/`pollInterval` stehen an ZWEI Orten: auf Instanz-Ebene UND in jede
+Zuordnung gespiegelt.** Grund: Ein Konsument, der über `assignments[]` iteriert und nach
+`function` filtert (so macht es die InverterHub-Netzbezug-Auswertung), liest `authority` direkt
+an der Zuordnung, ohne zum Instanz-Objekt zurückzuspringen. Beide Orte stammen im selben
+Aufruf aus derselben Property — sie können nicht auseinanderlaufen. Die Redundanz ist bewusst:
+Sie löst die Erbungslogik einmal beim Anbieter statt bei jedem Konsumenten. Merksatz:
+**Zähler-Eigenschaften (latency/authority/pollInterval) an beiden Orten, Zuordnungs-
+Eigenschaften (energyKind/sourceCount) nur je Zuordnung.**
+
 **Regeln aus konkreten Vorfällen:**
 
 1. **Ein veröffentlichter Vertrag wird nicht umbenannt.** Sobald ein Modul im Store ist, sind
