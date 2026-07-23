@@ -2284,12 +2284,12 @@ class MeterHub extends IPSModule
         $ids = array_values($ids);
 
         if (!$ids) {
-            $say('❌ Es ist kein weiterer Zähler ausgewählt. Ein virtueller Zähler ergibt sich erst aus dem Verhältnis mehrerer Zähler zueinander — bitte oben mindestens eine zweite Instanz eintragen.');
+            $say('Es ist kein weiterer Zähler ausgewählt. Ein virtueller Zähler ergibt sich erst aus dem Verhältnis mehrerer Zähler zueinander — bitte oben mindestens eine zweite Instanz eintragen.');
             return 0;
         }
         foreach ($ids as $iid) {
             if (!IPS_InstanceExists($iid)) {
-                $say("❌ Instanz #$iid existiert nicht (mehr).");
+                $say("Instanz #$iid existiert nicht (mehr).");
                 return 0;
             }
         }
@@ -2303,7 +2303,7 @@ class MeterHub extends IPSModule
             foreach ($member as $iid => $keys) {
                 $list[] = '„' . IPS_GetName($iid) . '" (#' . $iid . ', als ' . implode('/', $keys) . ')';
             }
-            $say('⚠️ Dieser Zähler ist bereits Teil von ' . implode(', ', $list) . '. Ein zweiter virtueller Zähler mit demselben Gerät führt leicht zu doppelter Buchführung — bitte die Zeile dort ergänzen statt hier neu anzulegen. Es wurde nichts angelegt.');
+            $say('Achtung: Dieser Zähler ist bereits Teil von ' . implode(', ', $list) . '. Ein zweiter virtueller Zähler mit demselben Gerät führt leicht zu doppelter Buchführung — bitte die Zeile dort ergänzen statt hier neu anzulegen. Es wurde nichts angelegt.');
             return 0;
         }
 
@@ -2361,11 +2361,11 @@ class MeterHub extends IPSModule
         IPS_ApplyChanges($iid);
 
         $msg = $role === 'sibling'
-            ? "✅ Virtueller Zähler #$iid angelegt: alle " . count($nodes) . " Zähler gleichrangig unter „Summe“ — ausgegeben wird deren Summe."
-            : "✅ Virtueller Zähler #$iid angelegt: „" . IPS_GetName($this->InstanceID) . '" als übergeordneter Zähler, ' . count($ids) . ' untergeordnete(r) — ausgegeben werden deren Summe und der Rest (dieser Zähler minus die untergeordneten).';
+            ? "Virtueller Zähler #$iid angelegt: alle " . count($nodes) . " Zähler gleichrangig unter „Summe“ — ausgegeben wird deren Summe."
+            : "Virtueller Zähler #$iid angelegt: „" . IPS_GetName($this->InstanceID) . '" als übergeordneter Zähler, ' . count($ids) . ' untergeordnete(r) — ausgegeben werden deren Summe und der Rest (dieser Zähler minus die untergeordneten).';
         $msg .= "\nDie Funktionszuordnung steht dort noch auf „keine“ — bewusst, denn sonst erschiene derselbe Verbraucher in Kachel und Sankey doppelt. Typisch ist, dem übergeordneten Knoten „Hausverbrauch“ zu geben: der Rest ist dann alles, was nicht auf die untergeordneten Zähler entfällt.";
         if ($warn) {
-            $msg .= "\n⚠️ " . implode("\n⚠️ ", $warn);
+            $msg .= "\nAchtung: " . implode("\nAchtung: ", $warn);
         }
         $say($msg);
         return $iid;
@@ -2391,7 +2391,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Button', 'caption' => '🔑  Anmelden und Zähler abrufen', 'onClick' => 'MHUB_InexogyLogin($id);'],
                 ['type' => 'Label', 'name' => 'InexogyResult', 'caption' => '', 'visible' => false],
                 ['type' => 'Select', 'name' => 'InexogyMeterID', 'caption' => 'Zähler-UID', 'options' => $meterOpts],
-                ['type' => 'Label', 'caption' => 'ℹ️ Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
+                ['type' => 'Label', 'caption' => 'Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
                 ['type' => 'Label', 'caption' => '→ Umstieg von einem anderen Discovergy-/Inexogy-Modul mit Übernahme der Messhistorie? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann mit MigrationsHub adoptieren, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene Historie.'],
             ];
         } else {
@@ -2430,7 +2430,7 @@ class MeterHub extends IPSModule
             ['type' => 'Label', 'caption' => 'Nach dem Umschalten einmal „Übernehmen" — danach erscheinen hier die passenden Zuordnungsfelder.'],
         ];
         if ($this->IsPerPhaseMode()) {
-            $funcItems[] = ['type' => 'Label', 'caption' => '⚡ Je Phase einen Verbraucher zuordnen. Für getrennte Energiezähler zusätzlich im Panel „Datenpunkte" die Gruppe „Energie je Phase" aktivieren (sofern der Zähler sie unterstützt).'];
+            $funcItems[] = ['type' => 'Label', 'caption' => 'Je Phase einen Verbraucher zuordnen. Für getrennte Energiezähler zusätzlich im Panel „Datenpunkte" die Gruppe „Energie je Phase" aktivieren (sofern der Zähler sie unterstützt).'];
             foreach (['L1', 'L2', 'L3'] as $ph) {
                 $funcItems[] = ['type' => 'Select', 'name' => 'Func' . $ph, 'caption' => 'Phase ' . $ph . ' — Funktion', 'options' => $funcOptions];
                 $funcItems[] = ['type' => 'ValidationTextBox', 'name' => 'FuncLabel' . $ph, 'caption' => 'Phase ' . $ph . ' — eigene Bezeichnung (optional, z. B. „Garage hinten")'];
@@ -2455,7 +2455,7 @@ class MeterHub extends IPSModule
         $member = $this->VirtualMemberships();
         if ($member) {
             foreach ($member as $iid => $keys) {
-                $virtualItems[] = ['type' => 'Label', 'caption' => '🔗 Dieser Zähler ist eingebunden in „' . IPS_GetName($iid) . '" (#' . $iid . ') als „' . implode('", „', $keys) . '".'];
+                $virtualItems[] = ['type' => 'Label', 'caption' => 'Dieser Zähler ist eingebunden in „' . IPS_GetName($iid) . '" (#' . $iid . ') als „' . implode('", „', $keys) . '".'];
             }
             $virtualItems[] = ['type' => 'Label', 'caption' => 'Weitere Zähler werden am besten dort ergänzt — ein zweiter virtueller Zähler mit demselben Gerät führt leicht zu doppelter Buchführung.'];
         } else {
@@ -2490,13 +2490,13 @@ class MeterHub extends IPSModule
                         ['type' => 'Label', 'caption' => 'MeterHub liest Energiezähler verschiedener Hersteller direkt per Modbus TCP aus. Zählertyp wählen, IP-Adresse (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Bedarf aktivieren.'],
                         ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (FC 0x03); Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 klassische Karte, UMG 800 Werkskarte, FC 0x03); Eastron SDM72D-M v2, WhatWatt und Phoenix Contact EEM-EM375/EEM-XM (FC 0x04, Input-Register).'],
                         ['type' => 'Label', 'caption' => 'Hinweis Eastron/Phoenix: Diese sprechen meist Modbus RTU und hängen über einen RTU/TCP-Gateway (dessen IP eintragen). Eastron-Geräteadresse ab Werk 1; Phoenix EEM-EM375 nutzt oft Unit-ID 255, EEM-XM meist 1. WhatWatt spricht Modbus TCP direkt.'],
-                        ['type' => 'Label', 'caption' => '🧪 Experimentell: Socomec Countis und MBS Professional 3-75 sind aus Vorlagen abgeleitet und noch nicht an echter Hardware geprüft — bitte die Messwerte gegen die Geräteanzeige abgleichen. Bei unplausiblen Werten helfen der WordSwap- bzw. Invers-Schalter.'],
+                        ['type' => 'Label', 'caption' => 'Experimentell: Socomec Countis und MBS Professional 3-75 sind aus Vorlagen abgeleitet und noch nicht an echter Hardware geprüft — bitte die Messwerte gegen die Geräteanzeige abgleichen. Bei unplausiblen Werten helfen der WordSwap- bzw. Invers-Schalter.'],
                         ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP muss am Gerät erst aktiviert werden (Einstellungen → Modbus, Port 502). Gelesen über FC 0x04, Float wortgetauscht (CDAB); Wire-Adressen = Doku − 30000 (Messwerte ab 1011, Energie 1162/1164). An echtem Gerät verifiziert.'],
                         ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP muss am Gerät erst aktiviert werden (go-e-App: Internet → Erweiterte Einstellungen → Modbus, oder HTTP-API men=true) — sonst bleibt Port 502 geschlossen; nach dem Aktivieren die Einstellung ggf. einmal aus-/einschalten. Kernwerte kommen aus der Kategorie Grid; Sensoren 1-6 und die Kategorien Home/Car/Relais/Solar/Akku sind zuschaltbar. An echtem Gerät verifiziert. (Die go-e-Wallboxen selbst bedient das Modul ChargerHub.)'],
-                        ['type' => 'Label', 'caption' => '⚠️ go-e Controller + Überschussladen: Der Controller kann die go-e-Wallboxen SELBST regeln (PV-Überschussladen, Lastbegrenzung — geräteinterne Regelschleife). Soll stattdessen ein EMS die Wallboxen steuern, muss diese interne Regelung an den Wallboxen deaktiviert sein — sonst arbeiten zwei Regler gegeneinander. Dieses Modul liest nur und ist davon nicht betroffen; der Regelzustand ist per Modbus nicht sichtbar, sondern nur an den Wallboxen selbst (go-e-API: usePvSurplus, Lastmanagement, modelStatus).'],
-                        ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
+                        ['type' => 'Label', 'caption' => 'Achtung: go-e Controller + Überschussladen: Der Controller kann die go-e-Wallboxen SELBST regeln (PV-Überschussladen, Lastbegrenzung — geräteinterne Regelschleife). Soll stattdessen ein EMS die Wallboxen steuern, muss diese interne Regelung an den Wallboxen deaktiviert sein — sonst arbeiten zwei Regler gegeneinander. Dieses Modul liest nur und ist davon nicht betroffen; der Regelzustand ist per Modbus nicht sichtbar, sondern nur an den Wallboxen selbst (go-e-API: usePvSurplus, Lastmanagement, modelStatus).'],
+                        ['type' => 'Label', 'caption' => 'Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
                         ['type' => 'Label', 'caption' => '🔧 Anschluss: Die Zähler nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (der PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
-                        ['type' => 'Label', 'caption' => '⚠️ UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],
+                        ['type' => 'Label', 'caption' => 'Achtung: UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
                     ],
                 ],
@@ -2674,26 +2674,26 @@ class MeterHub extends IPSModule
         $email = trim($this->ReadPropertyString('InexogyEmail'));
         $pass  = (string)$this->ReadPropertyString('InexogyPassword');
         if ($email === '' || $pass === '') {
-            $say('❌ Bitte zuerst E-Mail und Passwort eintragen und übernehmen, dann anmelden.');
+            $say('Bitte zuerst E-Mail und Passwort eintragen und übernehmen, dann anmelden.');
             return;
         }
 
         $c = new InexogyClient();
         if (!$c->registerConsumer('IP-Symcon MeterHub ' . $this->InstanceID)) {
-            $say('❌ Anmeldung fehlgeschlagen bei der Registrierung (Schritt 1/4). Ist die Inexogy-API erreichbar?');
+            $say('Anmeldung fehlgeschlagen bei der Registrierung (Schritt 1/4). Ist die Inexogy-API erreichbar?');
             return;
         }
         if (!$c->fetchRequestToken()) {
-            $say('❌ Anmeldung fehlgeschlagen beim Anforderungs-Token (Schritt 2/4).');
+            $say('Anmeldung fehlgeschlagen beim Anforderungs-Token (Schritt 2/4).');
             return;
         }
         $verifier = $c->authorize($email, $pass);
         if ($verifier === '') {
-            $say('❌ Anmeldung fehlgeschlagen bei der Autorisierung (Schritt 3/4). E-Mail oder Passwort falsch?');
+            $say('Anmeldung fehlgeschlagen bei der Autorisierung (Schritt 3/4). E-Mail oder Passwort falsch?');
             return;
         }
         if (!$c->fetchAccessToken($verifier)) {
-            $say('❌ Anmeldung fehlgeschlagen beim Zugriffs-Token (Schritt 4/4).');
+            $say('Anmeldung fehlgeschlagen beim Zugriffs-Token (Schritt 4/4).');
             return;
         }
 
@@ -2708,10 +2708,10 @@ class MeterHub extends IPSModule
 
         $meters = $c->getMeters();
         if (!$meters) {
-            $say('✅ Angemeldet, Tokens gespeichert, Passwort verworfen. Es wurden aber keine Zähler gefunden.');
+            $say('Angemeldet, Tokens gespeichert, Passwort verworfen. Es wurden aber keine Zähler gefunden.');
             return;
         }
-        $lines = ['✅ Angemeldet, Tokens gespeichert, Passwort verworfen. Gefundene Zähler:'];
+        $lines = ['Angemeldet, Tokens gespeichert, Passwort verworfen. Gefundene Zähler:'];
         $opts  = [];
         foreach ($meters as $m) {
             $uid  = (string)($m['meterId'] ?? '');

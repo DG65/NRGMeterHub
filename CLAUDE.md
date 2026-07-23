@@ -123,6 +123,24 @@ keine Fundstellen vortäuschen.
 `MeterHub/module.php` (12 Treiberklassen) prüfen, in welcher Klasse die Fundstelle liegt.
 `Edit` mit eindeutigem Kontext statt `replace_all`, danach dieses Skript laufen lassen.
 
+## Emoji-Regel (Verbund-Entscheidung 23.07.2026, Option 3)
+
+Emoji **nur als Panel-Icon** — als Ersatz für das fehlende `icon`-Feld der ExpansionPanels
+(und sinngemäß als Icon am Anfang einer Button-Caption). **Keine dekorativen Emoji im
+Fließtext oder Statustext.** Konkret:
+
+- **Erlaubt:** ein Emoji am Anfang einer Panel-Überschrift (`📖 Dokumentation`, `🔌 Verbindung`,
+  `🧮 Virtueller Zähler`) oder einer Schaltflächen-Caption (`🔎 Netzwerk durchsuchen`).
+- **Nicht erlaubt:** Emoji mitten im Hinweis-/Erklärtext (`ℹ️`, `💡`, `🔗`, `⚡`, `🛡️`, `🧪`) oder
+  als Statusanzeige (`✅`/`❌`/`⚠️` in Meldungen). Stattdessen das Wort führen: Warnungen als
+  „Achtung: …", Fehler/OK aus dem Meldungstext selbst (der Text trägt die Bedeutung schon).
+
+Hintergrund: MigrationsHubs Stable-Checkliste beanstandete dekorative Emoji; der etablierte
+Panel-Icon-Ersatz (auch InverterHub, [[ips-module-pitfalls]] Punkt 2) bleibt aber. Ein Symcon-
+Store-Review hat Panel-Icon-Emoji bisher nie bemängelt. **Beobachtungsklausel:** Falls ein
+echter Stable-Review sie doch anmerkt, stellt der ganze Verbund gemeinsam auf emoji-frei um.
+Bei 0.16.3-beta.1 wurden 27 dekorative Emoji entfernt; die ~23 Panel-/Button-Icons blieben.
+
 ## Sprachregel: alles Nutzersichtbare auf Deutsch
 
 Verbund-Regel seit 22.07.2026 (Anweisung Dietmars an alle zehn Module). Deutsch ist alles, was

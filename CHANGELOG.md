@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.16.3-beta.1 (2026-07-23)
+
+- **Dekorative Emoji aus Hinweis- und Statustexten entfernt** (Verbund-Entscheidung, Option 3):
+  Emoji bleiben als Panel-/Schaltflächen-Icon (Ersatz fürs fehlende `icon`-Feld der
+  ExpansionPanels), verschwinden aber aus dem Fließtext. 27 Stellen: Warnungen jetzt als
+  „Achtung: …", Status (bisher ✅/❌) trägt der Meldungstext selbst, Info-/Tipp-/Deko-Symbole
+  sind weg. Die ~23 Panel- und Button-Icons blieben. Regel in CLAUDE.md festgehalten, damit
+  neue Captions gleich passend entstehen.
+
+## 0.16.2-beta.1 (2026-07-23)
+
+- Inexogy-Migrations-Label: dekoratives Emoji durch einen typografischen Pfeil ersetzt.
+
 ## 0.16.1-beta.1 (2026-07-23)
 
 - **Migrations-Hinweis im Inexogy-Cloud-Panel.** Wer von einem anderen Discovergy-/Inexogy-Modul
