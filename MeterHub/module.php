@@ -1675,6 +1675,294 @@ class GoeControllerDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// InexogyClient — OAuth-1.0a-Transport für die Inexogy-Cloud-API (ehem.
+// Discovergy). Das Gegenstück zu ModbusTcpClient für Cloud-Zähler: ein Treiber
+// bekommt statt des Modbus-Clients diese Instanz und ruft getLastReading().
+//
+// Auth (an api.inexogy.com/docs geprüft, mit dem Verbund abgestimmt): Es gibt
+// KEIN Basic Auth mehr (das alte Fremdmodul sprach die veraltete Domain
+// discovergy.com an) und keinen Portal-API-Key — nur OAuth 1.0a HMAC-SHA1. Der
+// ganze Handshake läuft programmatisch:
+//   1. consumer_token  — Selbstregistrierung, liefert Consumer Key+Secret
+//   2. request_token   — signiert mit dem Consumer
+//   3. authorize       — E-Mail+Passwort des Nutzers → oauth_verifier
+//   4. access_token    — Verifier → dauerhaftes Access-Token+Secret
+// Danach wird NUR mit Consumer- und Access-Token signiert; das Passwort wird
+// nach Schritt 3 sofort verworfen und nie gespeichert.
+//
+// Die Signierung ist in reinem PHP (hash_hmac), keine externe Bibliothek.
+// ---------------------------------------------------------------------------
+
+class InexogyClient
+{
+    const BASE = 'https://api.inexogy.com/public/v1';
+
+    private $consumerKey;
+    private $consumerSecret;
+    private $token;         // Access-Token (oder Request-Token im Handshake)
+    private $tokenSecret;
+
+    public function __construct(string $consumerKey = '', string $consumerSecret = '', string $token = '', string $tokenSecret = '')
+    {
+        $this->consumerKey    = $consumerKey;
+        $this->consumerSecret = $consumerSecret;
+        $this->token          = $token;
+        $this->tokenSecret    = $tokenSecret;
+    }
+
+    // RFC-3986-Prozentkodierung (strenger als rawurlencode bei ~ nicht nötig,
+    // aber wir folgen der Norm exakt, weil die Signatur sonst kippt).
+    private static function enc($v): string
+    {
+        return str_replace(['+', '%7E'], ['%20', '~'], rawurlencode((string)$v));
+    }
+
+    /**
+     * OAuth-1.0a-Signatur (HMAC-SHA1) für einen Request bilden und den
+     * Authorization-Header zurückgeben. $extraOauth ergänzt/überschreibt
+     * oauth_*-Parameter (z. B. oauth_verifier, oauth_callback).
+     */
+    private function authHeader(string $method, string $url, array $queryParams, array $extraOauth = []): string
+    {
+        $oauth = [
+            'oauth_consumer_key'     => $this->consumerKey,
+            'oauth_nonce'            => bin2hex(random_bytes(16)),
+            'oauth_signature_method' => 'HMAC-SHA1',
+            'oauth_timestamp'        => (string)time(),
+            'oauth_version'          => '1.0',
+        ];
+        if ($this->token !== '') {
+            $oauth['oauth_token'] = $this->token;
+        }
+        foreach ($extraOauth as $k => $v) {
+            $oauth[$k] = $v;
+        }
+
+        // Signatur-Basisstring: alle oauth_- UND Query-Parameter, kodiert,
+        // sortiert, verkettet.
+        $all = array_merge($queryParams, $oauth);
+        $pairs = [];
+        foreach ($all as $k => $v) {
+            $pairs[] = self::enc($k) . '=' . self::enc($v);
+        }
+        sort($pairs);
+        $base = strtoupper($method) . '&' . self::enc($url) . '&' . self::enc(implode('&', $pairs));
+        $key  = self::enc($this->consumerSecret) . '&' . self::enc($this->tokenSecret);
+        $oauth['oauth_signature'] = base64_encode(hash_hmac('sha1', $base, $key, true));
+
+        $parts = [];
+        foreach ($oauth as $k => $v) {
+            $parts[] = self::enc($k) . '="' . self::enc($v) . '"';
+        }
+        return 'OAuth ' . implode(', ', $parts);
+    }
+
+    /** HTTP-Request mit optionalem OAuth-Header. Rückgabe: [httpCode, body]. */
+    private function http(string $method, string $url, array $queryParams = [], string $authHeader = ''): array
+    {
+        $full = $url . (empty($queryParams) ? '' : '?' . http_build_query($queryParams));
+        $ch = curl_init($full);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+        if ($authHeader !== '') {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: ' . $authHeader]);
+        }
+        $body = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return [$code, $body === false ? '' : $body];
+    }
+
+    // --- Handshake-Schritte (nur beim Login aufgerufen) --------------------
+
+    /** Schritt 1: Consumer-Token selbst registrieren. Setzt Key/Secret. */
+    public function registerConsumer(string $clientName): bool
+    {
+        [$code, $body] = $this->http('POST', self::BASE . '/oauth1/consumer_token', ['client' => $clientName]);
+        $j = json_decode($body, true);
+        if ($code === 200 && isset($j['key'], $j['secret'])) {
+            $this->consumerKey    = $j['key'];
+            $this->consumerSecret = $j['secret'];
+            return true;
+        }
+        return false;
+    }
+
+    /** Schritt 2: Request-Token holen (form-kodierte Antwort). */
+    public function fetchRequestToken(): bool
+    {
+        $url = self::BASE . '/oauth1/request_token';
+        $hdr = $this->authHeader('POST', $url, [], ['oauth_callback' => 'oob']);
+        [$code, $body] = $this->http('POST', $url, [], $hdr);
+        parse_str($body, $r);
+        if ($code === 200 && isset($r['oauth_token'], $r['oauth_token_secret'])) {
+            $this->token       = $r['oauth_token'];
+            $this->tokenSecret = $r['oauth_token_secret'];
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Schritt 3: Autorisieren mit E-Mail+Passwort → oauth_verifier.
+     * Discovergy/Inexogy weicht hier vom Redirect-Standard ab und nimmt die
+     * Zugangsdaten direkt entgegen. Das Passwort wird nur hier verwendet.
+     */
+    public function authorize(string $email, string $password): string
+    {
+        [$code, $body] = $this->http('GET', self::BASE . '/oauth1/authorize', [
+            'oauth_token' => $this->token,
+            'email'       => $email,
+            'password'    => $password,
+        ]);
+        parse_str($body, $r);
+        return ($code === 200 && isset($r['oauth_verifier'])) ? $r['oauth_verifier'] : '';
+    }
+
+    /** Schritt 4: Access-Token holen. Setzt das dauerhafte Token/Secret. */
+    public function fetchAccessToken(string $verifier): bool
+    {
+        $url = self::BASE . '/oauth1/access_token';
+        $hdr = $this->authHeader('POST', $url, [], ['oauth_verifier' => $verifier]);
+        [$code, $body] = $this->http('POST', $url, [], $hdr);
+        parse_str($body, $r);
+        if ($code === 200 && isset($r['oauth_token'], $r['oauth_token_secret'])) {
+            $this->token       = $r['oauth_token'];
+            $this->tokenSecret = $r['oauth_token_secret'];
+            return true;
+        }
+        return false;
+    }
+
+    public function getConsumerKey(): string    { return $this->consumerKey; }
+    public function getConsumerSecret(): string { return $this->consumerSecret; }
+    public function getToken(): string          { return $this->token; }
+    public function getTokenSecret(): string    { return $this->tokenSecret; }
+
+    // --- Datenabruf (mit Access-Token signiert) ----------------------------
+
+    /** Zählerliste des Kontos. Rückgabe: Liste von Meter-Objekten (Array). */
+    public function getMeters(): array
+    {
+        $url = self::BASE . '/meters';
+        $hdr = $this->authHeader('GET', $url, []);
+        [$code, $body] = $this->http('GET', $url, [], $hdr);
+        $j = json_decode($body, true);
+        return ($code === 200 && is_array($j)) ? $j : [];
+    }
+
+    /** Letzte Messung eines Zählers. Rückgabe: values-Objekt (Array) oder null. */
+    public function getLastReading(string $meterId)
+    {
+        $url = self::BASE . '/last_reading';
+        $hdr = $this->authHeader('GET', $url, ['meterId' => $meterId]);
+        [$code, $body] = $this->http('GET', $url, ['meterId' => $meterId], $hdr);
+        $j = json_decode($body, true);
+        return ($code === 200 && isset($j['values']) && is_array($j['values'])) ? $j['values'] : null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// InexogyDriver — Cloud-Zähler über die Inexogy-API. Bekommt statt des
+// ModbusTcpClient einen InexogyClient. Feldstruktur und Skalierung aus dem
+// öffentlichen Quellcode des Alt-Moduls (elueckel/Discovergy_Smartmeter)
+// verifiziert und gegen die Live-Werte von Dietmars Zähler gegengeprüft:
+//   energy   /10^10 → kWh (Bezug, kumulativ)
+//   energyOut/10^10 → kWh (Einspeisung, kumulativ)   — CamelCase-O im JSON!
+//   power    /1000  → W    (Rohwert mW; Alt-Modul beschriftet fälschlich „kW")
+//   power1/2/3 bzw. phase1Power/…  /1000 → W je Phase
+//   voltage1/2/3 bzw. phase1Voltage/… /1000 → V je Phase
+// Nur NON-OBIS (moderne Stromzähler). Kosten/Vergütung bewusst NICHT — reine
+// Messung; die Rechnung macht das EMS/Tibber.
+// ---------------------------------------------------------------------------
+
+class InexogyDriver implements MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        // KEINE Frequenz — die API liefert keine.
+        return [
+            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'Inexogy values.power /1000'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'Inexogy values.energy /1e10'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'Inexogy values.energyOut /1e10'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
+                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'Inexogy voltage1 /1000'],
+                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'Inexogy voltage2 /1000'],
+                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'Inexogy voltage3 /1000'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'Inexogy power1 /1000'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'Inexogy power2 /1000'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'Inexogy power3 /1000'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    /** Ersten vorhandenen Feldnamen aus $v nehmen (Firmware-Varianten). */
+    private static function pick(array $v, array $names)
+    {
+        foreach ($names as $n) {
+            if (isset($v[$n]) && is_numeric($v[$n])) {
+                return (float)$v[$n];
+            }
+        }
+        return null;
+    }
+
+    public function readFast($client, $hub)
+    {
+        $v = $client->getLastReading($hub->InexogyMeterId());
+        if ($v === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $p = self::pick($v, ['power']);
+        if ($p !== null) {
+            $hub->SetVarFloat('power_total', $p / 1000.0);
+        }
+        if ($hub->GroupActive('GroupPowerPhase')) {
+            foreach ([['p_l1', ['power1', 'phase1Power']], ['p_l2', ['power2', 'phase2Power']], ['p_l3', ['power3', 'phase3Power']]] as [$id, $names]) {
+                $x = self::pick($v, $names);
+                if ($x !== null) { $hub->SetVarFloat($id, $x / 1000.0); }
+            }
+        }
+        if ($hub->GroupActive('GroupVoltagePhase')) {
+            foreach ([['u_l1_n', ['voltage1', 'phase1Voltage']], ['u_l2_n', ['voltage2', 'phase2Voltage']], ['u_l3_n', ['voltage3', 'phase3Voltage']]] as [$id, $names]) {
+                $x = self::pick($v, $names);
+                if ($x !== null) { $hub->SetVarFloat($id, $x / 1000.0); }
+            }
+        }
+        return true;
+    }
+
+    public function readSlow($client, $hub)
+    {
+        $v = $client->getLastReading($hub->InexogyMeterId());
+        if ($v === null) {
+            return;
+        }
+        // Rohwert /10^10 → kWh; SetVarEnergykWh nimmt kWh entgegen.
+        $imp = self::pick($v, ['energy']);
+        $exp = self::pick($v, ['energyOut']);
+        if ($imp !== null) { $hub->SetVarEnergykWh('energy_import', $imp / 1e10); }
+        if ($exp !== null) { $hub->SetVarEnergykWh('energy_export', $exp / 1e10); }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MeterHub — Hauptmodul, lädt den Treiber laut Meter-Property
 // ---------------------------------------------------------------------------
 
@@ -1700,6 +1988,7 @@ class MeterHub extends IPSModule
         'mbs_professional' => 'MbsProfessionalDriver',
         'shelly_pro3em'    => 'ShellyPro3emDriver',
         'goe_controller'   => 'GoeControllerDriver',
+        'inexogy'          => 'InexogyDriver',
     ];
 
     private const METER_LABELS = [
@@ -1722,6 +2011,7 @@ class MeterHub extends IPSModule
         'mbs_professional' => 'MBS Professional 3-75',
         'shelly_pro3em'    => 'Shelly Pro 3EM',
         'goe_controller'   => 'go-e Controller',
+        'inexogy'          => 'Inexogy / Discovergy (Cloud)',
     ];
 
     // Funktions-Vokabular für die Zuordnung „welcher Verbraucher hängt hier?".
@@ -1813,6 +2103,17 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
         $this->RegisterPropertyInteger('UnitId', 1);
+
+        // Inexogy-Cloud-Zugang. E-Mail/Passwort dienen nur dem einmaligen
+        // OAuth-Handshake; das Passwort wird danach geleert. Die Tokens liegen
+        // in Attributen (nicht im Formular sichtbar, nie im Klartext-Anzeige).
+        $this->RegisterPropertyString('InexogyEmail', '');
+        $this->RegisterPropertyString('InexogyPassword', '');
+        $this->RegisterPropertyString('InexogyMeterID', '');
+        $this->RegisterAttributeString('InexogyConsumerKey', '');
+        $this->RegisterAttributeString('InexogyConsumerSecret', '');
+        $this->RegisterAttributeString('InexogyToken', '');
+        $this->RegisterAttributeString('InexogyTokenSecret', '');
         $this->RegisterPropertyInteger('IntervalFast', 5);
         $this->RegisterPropertyInteger('IntervalSlow', 60);
 
@@ -1844,7 +2145,13 @@ class MeterHub extends IPSModule
         $this->CreateProfiles();
         $this->RegisterVariables();
 
-        if (!$this->ReadPropertyBoolean('Active') || $this->ReadPropertyString('Host') === '') {
+        // Bereitschaft: Modbus-Zähler brauchen eine IP, Cloud-Zähler ein
+        // gültiges Zugriffs-Token samt gewählter Zähler-UID.
+        $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
+        $ready   = $isCloud
+            ? ($this->ReadAttributeString('InexogyToken') !== '' && $this->ReadPropertyString('InexogyMeterID') !== '')
+            : ($this->ReadPropertyString('Host') !== '');
+        if (!$this->ReadPropertyBoolean('Active') || !$ready) {
             $this->SetStatus(104);
             $this->SetTimerInterval('FastTimer', 0);
             $this->SetTimerInterval('SlowTimer', 0);
@@ -1861,7 +2168,7 @@ class MeterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
-        $ok = $this->GetDriver()->readFast($this->GetModbusClient(), $this);
+        $ok = $this->GetDriver()->readFast($this->GetTransport(), $this);
         $this->SetStatus($ok ? 102 : 201);
         $this->UpdateMirrors();
     }
@@ -2067,6 +2374,32 @@ class MeterHub extends IPSModule
     public function GetConfigurationForm()
     {
         $driver = $this->GetDriver();
+        $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
+
+        // Verbindungspanel je nach Transport: Cloud-Anmeldung (Inexogy) oder
+        // Modbus-TCP-Adresse. Bei Cloud sind Host/Port/UnitId gegenstandslos.
+        if ($isCloud) {
+            $meterOpts = [];
+            $curUID = $this->ReadPropertyString('InexogyMeterID');
+            if ($curUID !== '') {
+                $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];
+            }
+            $connectionItems = [
+                ['type' => 'Label', 'caption' => '🔐 Anmeldung bei Inexogy (ehem. Discovergy). E-Mail und Passwort deines my.inexogy.com-Kontos eintragen, übernehmen, dann „Anmelden". Das Passwort wird nur einmal für die Anmeldung benutzt, danach automatisch gelöscht — gespeichert werden ausschließlich Zugriffs-Token (nicht im Klartext).'],
+                ['type' => 'ValidationTextBox', 'name' => 'InexogyEmail', 'caption' => 'E-Mail (Inexogy-Konto)'],
+                ['type' => 'PasswordTextBox', 'name' => 'InexogyPassword', 'caption' => 'Passwort (wird nach der Anmeldung gelöscht)'],
+                ['type' => 'Button', 'caption' => '🔑  Anmelden und Zähler abrufen', 'onClick' => 'MHUB_InexogyLogin($id);'],
+                ['type' => 'Label', 'name' => 'InexogyResult', 'caption' => '', 'visible' => false],
+                ['type' => 'Select', 'name' => 'InexogyMeterID', 'caption' => 'Zähler-UID', 'options' => $meterOpts],
+                ['type' => 'Label', 'caption' => 'ℹ️ Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
+            ];
+        } else {
+            $connectionItems = [
+                ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+                ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
+            ];
+        }
 
         $groupItems = [];
         foreach ($driver->getOptionalGroups() as $propName => $group) {
@@ -2195,6 +2528,7 @@ class MeterHub extends IPSModule
                         ['caption' => 'MBS Professional 3-75 (experimentell)', 'value' => 'mbs_professional'],
                         ['caption' => 'Shelly Pro 3EM', 'value' => 'shelly_pro3em'],
                         ['caption' => 'go-e Controller', 'value' => 'goe_controller'],
+                        ['caption' => 'Inexogy / Discovergy (Cloud-API, kein Modbus)', 'value' => 'inexogy'],
                     ],
                 ],
                 [
@@ -2225,13 +2559,9 @@ class MeterHub extends IPSModule
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🔌  Verbindung',
+                    'caption' => $isCloud ? '🔐  Cloud-Zugang' : '🔌  Verbindung',
                     'expanded' => true,
-                    'items' => [
-                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
-                        ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
-                    ],
+                    'items' => $connectionItems,
                 ],
                 [
                     'type'    => 'ExpansionPanel',
@@ -2302,6 +2632,97 @@ class MeterHub extends IPSModule
         );
         $mb->setWordSwap($this->ReadPropertyBoolean('WordSwap'));
         return $mb;
+    }
+
+    /**
+     * Transport passend zum Zählertyp: für Cloud-Zähler der InexogyClient (aus
+     * den gespeicherten Tokens), sonst der Modbus-Client. Der Treiber bekommt
+     * diesen als ersten Parameter und weiß, wie er ihn benutzt.
+     */
+    private function GetTransport()
+    {
+        if (in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+            return new InexogyClient(
+                $this->ReadAttributeString('InexogyConsumerKey'),
+                $this->ReadAttributeString('InexogyConsumerSecret'),
+                $this->ReadAttributeString('InexogyToken'),
+                $this->ReadAttributeString('InexogyTokenSecret')
+            );
+        }
+        return $this->GetModbusClient();
+    }
+
+    /** Für den Inexogy-Treiber: die konfigurierte Zähler-UID. */
+    public function InexogyMeterId(): string
+    {
+        return $this->ReadPropertyString('InexogyMeterID');
+    }
+
+    /**
+     * Führt den OAuth-Handshake mit E-Mail+Passwort aus, speichert danach NUR
+     * die Tokens (Attribute) und leert das Passwort-Property. Anschließend wird
+     * die Zählerliste des Kontos geholt und als Auswahl angeboten. Rückgabe-
+     * texte gehen nur ins Formularfeld — Passwort/Token nie in Log/Anzeige.
+     */
+    public function InexogyLogin()
+    {
+        $say = function (string $m) {
+            $this->UpdateFormField('InexogyResult', 'caption', $m);
+            $this->UpdateFormField('InexogyResult', 'visible', true);
+        };
+        $email = trim($this->ReadPropertyString('InexogyEmail'));
+        $pass  = (string)$this->ReadPropertyString('InexogyPassword');
+        if ($email === '' || $pass === '') {
+            $say('❌ Bitte zuerst E-Mail und Passwort eintragen und übernehmen, dann anmelden.');
+            return;
+        }
+
+        $c = new InexogyClient();
+        if (!$c->registerConsumer('IP-Symcon MeterHub ' . $this->InstanceID)) {
+            $say('❌ Anmeldung fehlgeschlagen bei der Registrierung (Schritt 1/4). Ist die Inexogy-API erreichbar?');
+            return;
+        }
+        if (!$c->fetchRequestToken()) {
+            $say('❌ Anmeldung fehlgeschlagen beim Anforderungs-Token (Schritt 2/4).');
+            return;
+        }
+        $verifier = $c->authorize($email, $pass);
+        if ($verifier === '') {
+            $say('❌ Anmeldung fehlgeschlagen bei der Autorisierung (Schritt 3/4). E-Mail oder Passwort falsch?');
+            return;
+        }
+        if (!$c->fetchAccessToken($verifier)) {
+            $say('❌ Anmeldung fehlgeschlagen beim Zugriffs-Token (Schritt 4/4).');
+            return;
+        }
+
+        // Erfolg: Tokens sichern, Passwort verwerfen.
+        $this->WriteAttributeString('InexogyConsumerKey',    $c->getConsumerKey());
+        $this->WriteAttributeString('InexogyConsumerSecret', $c->getConsumerSecret());
+        $this->WriteAttributeString('InexogyToken',          $c->getToken());
+        $this->WriteAttributeString('InexogyTokenSecret',    $c->getTokenSecret());
+        IPS_SetProperty($this->InstanceID, 'InexogyPassword', '');
+        IPS_ApplyChanges($this->InstanceID);
+        $this->UpdateFormField('InexogyPassword', 'value', '');
+
+        $meters = $c->getMeters();
+        if (!$meters) {
+            $say('✅ Angemeldet, Tokens gespeichert, Passwort verworfen. Es wurden aber keine Zähler gefunden.');
+            return;
+        }
+        $lines = ['✅ Angemeldet, Tokens gespeichert, Passwort verworfen. Gefundene Zähler:'];
+        $opts  = [];
+        foreach ($meters as $m) {
+            $uid  = (string)($m['meterId'] ?? '');
+            $sn   = (string)($m['serialNumber'] ?? ($m['fullSerialNumber'] ?? ''));
+            $type = (string)($m['type'] ?? ($m['measurementType'] ?? ''));
+            if ($uid === '') { continue; }
+            $lines[] = '   • ' . ($sn !== '' ? $sn : $uid) . ($type !== '' ? " ($type)" : '');
+            $opts[]  = ['caption' => ($sn !== '' ? $sn : $uid) . ($type !== '' ? " — $type" : ''), 'value' => $uid];
+        }
+        $lines[] = 'Bitte unten die Zähler-UID wählen und übernehmen.';
+        $this->UpdateFormField('InexogyMeterID', 'options', json_encode($opts));
+        $say(implode("\n", $lines));
     }
 
     // Öffentlicher Wrapper, damit Treiber prüfen können, ob eine optionale
@@ -2406,9 +2827,10 @@ class MeterHub extends IPSModule
     }
 
     // Zähler, deren Werte NICHT lokal-echtzeitnah, sondern über eine Cloud-API
-    // mit Sekunden-Latenz kommen. Bestimmt das Vertragsfeld `latency`. Modbus-
-    // Zähler sind alle 'realtime'; Cloud-Zähler (Inexogy u. a.) 'delayed'.
-    private const CLOUD_METERS = [];
+    // mit Sekunden-Latenz kommen. Bestimmt das Vertragsfeld `latency` und den
+    // Transport (InexogyClient statt ModbusTcpClient). Modbus-Zähler sind alle
+    // 'realtime'.
+    private const CLOUD_METERS = ['inexogy'];
 
     /**
      * Öffentliche Abfrage der Zuordnung für andere Module (EMS, Kacheln):

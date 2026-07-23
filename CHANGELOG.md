@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.16.0-beta.1 (2026-07-23)
+
+- **Neuer Zählertyp: Inexogy / Discovergy (Cloud-API) — der erste Nicht-Modbus-Zähler.**
+  MeterHub bekommt damit eine zweite **Transportklasse neben Modbus**: `ModbusTcpClient` bleibt
+  unverändert, ein neuer `InexogyClient` (OAuth 1.0a, HMAC-SHA1 in reinem PHP) tritt daneben.
+  Der Hub baut je Zählertyp den passenden Transport (`GetTransport`), die 15 Modbus-Treiber
+  bleiben unberührt. Architekturregel dahinter: getrennt wird nach Lebenszyklus (Pull/Timer wie
+  Modbus vs. Push), nicht nach Protokoll — deshalb passt der gepollte Cloud-Zähler hier hinein,
+  ein Push-Empfänger (SMA-Speedwire) bekäme dagegen ein eigenes Modul.
+- **Sicherer Zugang.** Anmeldung mit E-Mail/Passwort des Inexogy-Kontos, der OAuth-Handshake
+  (Consumer-Token selbst registrieren → Request-Token → Autorisieren → Access-Token) läuft
+  programmatisch. Danach werden **nur die Token** gespeichert (Attribute, nicht im Formular),
+  das **Passwort wird sofort gelöscht**. Kein Klartext-Passwort im System — anders als das alte
+  Discovergy-Fremdmodul (Basic Auth). Kein Token/Passwort in Log oder Anzeige.
+- **Verifizierte Werte, kein Raten.** Feldstruktur und Skalierung aus dem öffentlichen
+  Quellcode des Alt-Moduls geholt und gegen die echten Zählerwerte gegengeprüft: `energy`/
+  `energyOut` /10^10 → kWh (kumulativ, `energyKind: counter`), `power` /1000 → W (Rohwert mW),
+  Phasen/Spannung /1000, beide Firmware-Feldnamen (`power1` und `phase1Power`). Vertrag: Rolle
+  grid, `authority: billing`, `latency: delayed`. Keine Kostenrechnung — reine Messung.
+- **Idents identisch zum MeterHub-Standard** (`energy_import`/`energy_export`/`power_total`/
+  `p_l*`/`u_l*`), damit die geplante MigrationsHub-Adoption der Alt-Historie einfach ausrichtet.
+- **Neu: `.tools/test-inexogy.php`.** Prüft OAuth-Prozentkodierung (RFC 3986), die
+  Signaturbildung gegen eine unabhängige Nachrechnung und die Treiber-Skalierung gegen ein
+  last_reading mit Dietmars echten Größenordnungen (27 Prüfungen). Der Handshake selbst ist
+  erst am echten Login verifizierbar — bewusst nicht abgedeckt, klar markiert.
+
 ## 0.15.1-beta.1 (2026-07-22)
 
 - **`latency`/`authority`/`pollInterval` zusätzlich in jede Zuordnung gespiegelt** (bisher nur

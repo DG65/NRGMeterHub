@@ -117,6 +117,9 @@ class IPSModule
     protected function SetVisualizationType($t) {}
     public function UpdateFormField($f, $p, $v) { $GLOBALS['FORMFIELDS'][$f][$p] = $v; }
     protected function ReloadForm() {}
+    protected function RegisterAttributeString($n, $v) { $this->defs['@' . $n] = $v; }
+    public function ReadAttributeString($n)  { return (string)($GLOBALS['ATTR'][$this->InstanceID][$n] ?? $this->defs['@' . $n] ?? ''); }
+    public function WriteAttributeString($n, $v) { $GLOBALS['ATTR'][$this->InstanceID][$n] = $v; }
 }
 
 require_once dirname(__DIR__) . '/MeterHub/module.php';
