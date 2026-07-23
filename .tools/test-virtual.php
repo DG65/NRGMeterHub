@@ -256,6 +256,7 @@ $vnodes[0]['Function'] = 'house';
 IPS_SetProperty($new, 'Nodes', json_encode($vnodes));
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
 $gf = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
+check('contractVersion = 1.1', ($gf['contractVersion'] ?? '') === '1.1', json_encode($gf['contractVersion'] ?? null));
 check('latency = realtime',   ($gf['latency'] ?? '') === 'realtime', json_encode($gf['latency'] ?? null));
 check('authority = auxiliary', ($gf['authority'] ?? '') === 'auxiliary');
 check('pollInterval gesetzt',  ($gf['pollInterval'] ?? 0) >= 2);

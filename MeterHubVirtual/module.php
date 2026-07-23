@@ -633,6 +633,8 @@ class MeterHubVirtual extends IPSModule
         // Ein virtueller Zähler ist ein Rechenergebnis lokaler Werte: so
         // echtzeitnah wie seine Quellen, aber nie abrechnungsverbindlich.
         return json_encode([
+            // Gleiche Vertragsversion wie MHUB_GetFunctions (siehe dort).
+            'contractVersion' => '1.1',
             'instanceID'  => $this->InstanceID,
             'meter'       => 'virtual',
             'measureMode' => 'combined',

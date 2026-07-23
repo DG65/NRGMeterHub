@@ -226,6 +226,7 @@ Dazu auf **Instanz-Ebene** (neben `instanceID`/`meter`/`measureMode`), abgestimm
 
 | Feld | Bedeutung |
 |---|---|
+| `contractVersion` | `'Major.Minor'`-String der Vertragsversion (siehe unten) |
 | `latency` | `'realtime'` (lokal, in Sekunden regelbar) oder `'delayed'` (Cloud-API mit Latenz) — Regelfähigkeit |
 | `authority` | `'billing'` (geeichter, abrechnungsverbindlicher Zähler am Netzübergabepunkt) oder `'auxiliary'` (Hilfszähler) |
 | `pollInterval` | reale Aktualisierungsrate in Sekunden |
@@ -238,6 +239,16 @@ Ein einzelnes „billingGrade"-Flag könnte das nicht trennen; deshalb zwei Feld
 Defaults bei fehlenden Feldern (alter Anbieter): `latency→realtime`, `authority→auxiliary`,
 `energyKind→counter`. Konsumentenbedingung für „der abrechnungsgenaue Netzzähler": `function ==
 'grid' && authority == 'billing'`, mit Rückfall, wenn keiner vorhanden.
+
+**Vertragsversionierung (Verbund-Konvention 23.07.2026, Manifest `DG65/EMS/SUITE.md`):**
+`contractVersion` ist ein `'Major.Minor'`-String — **1.0** = Ur-Vertrag (function/label/…/
+measured), **1.1** = die latency/authority/pollInterval/energyKind/sourceCount-Erweiterung.
+**Major nur bei Bruch;** volle Kompatibilität ist nur innerhalb derselben Major garantiert
+(blue'Log-Prinzip). Additiv erweitern hebt die Minor, nie die Major. Fehlt das Feld (alter
+Anbieter), ist konservativ `'1.0'` anzunehmen. Ein Konsument, der eine höhere Major braucht als
+der Anbieter liefert, läuft **eigenständig weiter, deaktiviert die Kopplung und meldet das
+sichtbar** (Instanzstatus/Formular) — kein harter Abbruch. Die Modul-SemVer (`library.json`)
+ist davon unabhängig und hat ihren eigenen Takt.
 
 **`latency`/`authority`/`pollInterval` stehen an ZWEI Orten: auf Instanz-Ebene UND in jede
 Zuordnung gespiegelt.** Grund: Ein Konsument, der über `assignments[]` iteriert und nach

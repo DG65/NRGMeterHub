@@ -2878,6 +2878,11 @@ class MeterHub extends IPSModule
             ];
         }
         return json_encode([
+            // Vertragsversion (Verbund-Konvention): 1.0 = Ur-Vertrag,
+            // 1.1 = latency/authority/pollInterval/energyKind-Erweiterung.
+            // Additiv; Major nur bei Bruch, volle Kompatibilität innerhalb
+            // derselben Major. Fehlt das Feld, ist konservativ '1.0' anzunehmen.
+            'contractVersion' => '1.1',
             'instanceID'  => $this->InstanceID,
             'meter'       => $this->ReadPropertyString('Meter'),
             'measureMode' => $this->ReadPropertyString('MeasureMode'),

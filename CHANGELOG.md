@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.17.0-beta.1 (2026-07-23)
+
+- **Vertragsversionierung `contractVersion` (Verbund-Konvention).** `MHUB_GetFunctions` und
+  `MHUBV_GetFunctions` liefern jetzt additiv `contractVersion => '1.1'` — 1.0 = Ur-Vertrag,
+  1.1 = die latency/authority/pollInterval/energyKind/sourceCount-Erweiterung. Ein Konsument
+  kann damit die Kompatibilität prüfen (Major nur bei Bruch, volle Verträglichkeit innerhalb
+  derselben Major; fehlendes Feld = konservativ 1.0). Rein additiv, bestehende Konsumenten
+  ignorieren es. Regel in CLAUDE.md, Prüfstand kontrolliert das Feld mit.
+- **README:** Zeile „Teil der DG65 Energie-Suite" mit Verweis auf `DG65/EMS/SUITE.md` (Manifest
+  der zusammen getesteten Modulstände).
+
 ## 0.16.4-beta.1 (2026-07-23)
 
 - **Emoji-Entfernung aus 0.16.3 rückgängig.** Der Verbund hatte die Emoji-Regel zunächst
