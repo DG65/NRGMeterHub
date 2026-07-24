@@ -204,12 +204,12 @@ class Pac2200Driver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt',       'F', 'MHB.W',   true,  'total',  'FC3 65 (Σ P)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',          'F', 'MHB.V',   false, 'total',  'FC3 57'],
-            ['current_avg',   'Strom Ø',                   'F', 'MHB.A',   false, 'total',  'FC3 61'],
+            ['power_total',   'Wirkleistung gesamt',       'F', 'NRG.Watt',   true,  'total',  'FC3 65 (Σ P)'],
+            ['voltage_avg',   'Spannung Ø (L-N)',          'F', 'NRG.Volt',   false, 'total',  'FC3 57'],
+            ['current_avg',   'Strom Ø',                   'F', 'NRG.Ampere',   false, 'total',  'FC3 61'],
             ['frequency',     'Frequenz',                  'F', 'MHB.Hz',  false, 'total',  'FC3 55'],
-            ['energy_import', 'Wirkarbeit Bezug (Tarif 1)','F', 'MHB.kWh', true,  'energy', 'FC3 801 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe (Tarif 1)','F','MHB.kWh', true,  'energy', 'FC3 809 (Wh)'],
+            ['energy_import', 'Wirkarbeit Bezug (Tarif 1)','F', 'NRG.kWh', true,  'energy', 'FC3 801 (Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe (Tarif 1)','F','NRG.kWh', true,  'energy', 'FC3 809 (Wh)'],
             ['connected',     'Verbindung',                'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -218,23 +218,23 @@ class Pac2200Driver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
-                ['u_l1_n',  'Spannung L1-N',  'F', 'MHB.V', false, 'voltage', 'FC3 1'],
-                ['u_l2_n',  'Spannung L2-N',  'F', 'MHB.V', false, 'voltage', 'FC3 3'],
-                ['u_l3_n',  'Spannung L3-N',  'F', 'MHB.V', false, 'voltage', 'FC3 5'],
-                ['u_l1_l2', 'Spannung L1-L2', 'F', 'MHB.V', false, 'voltage', 'FC3 7'],
-                ['u_l2_l3', 'Spannung L2-L3', 'F', 'MHB.V', false, 'voltage', 'FC3 9'],
-                ['u_l3_l1', 'Spannung L3-L1', 'F', 'MHB.V', false, 'voltage', 'FC3 11'],
+                ['u_l1_n',  'Spannung L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 1'],
+                ['u_l2_n',  'Spannung L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 3'],
+                ['u_l3_n',  'Spannung L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 5'],
+                ['u_l1_l2', 'Spannung L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 7'],
+                ['u_l2_l3', 'Spannung L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 9'],
+                ['u_l3_l1', 'Spannung L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 11'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ Neutralleiter)', 'vars' => [
-                ['i_l1', 'Strom L1',           'F', 'MHB.A', false, 'current', 'FC3 13'],
-                ['i_l2', 'Strom L2',           'F', 'MHB.A', false, 'current', 'FC3 15'],
-                ['i_l3', 'Strom L3',           'F', 'MHB.A', false, 'current', 'FC3 17'],
-                ['i_n',  'Neutralleiterstrom', 'F', 'MHB.A', false, 'current', 'FC3 71'],
+                ['i_l1', 'Strom L1',           'F', 'NRG.Ampere', false, 'current', 'FC3 13'],
+                ['i_l2', 'Strom L2',           'F', 'NRG.Ampere', false, 'current', 'FC3 15'],
+                ['i_l3', 'Strom L3',           'F', 'NRG.Ampere', false, 'current', 'FC3 17'],
+                ['i_n',  'Neutralleiterstrom', 'F', 'NRG.Ampere', false, 'current', 'FC3 71'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC3 25'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC3 27'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC3 29'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 25'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 27'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 29'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
                 ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC3 63'],
@@ -253,8 +253,8 @@ class Pac2200Driver implements MeterDriverInterface
                 ['pf_l3', 'Leistungsfaktor L3', 'F', 'MHB.PF', false, 'total', 'FC3 41'],
             ]],
             'GroupTariff2' => ['caption' => 'Energie Tarif 2 (Bezug/Abgabe)', 'vars' => [
-                ['energy_import_t2', 'Wirkarbeit Bezug (Tarif 2)',  'F', 'MHB.kWh', true, 'energy', 'FC3 805 (Wh)'],
-                ['energy_export_t2', 'Wirkarbeit Abgabe (Tarif 2)', 'F', 'MHB.kWh', true, 'energy', 'FC3 813 (Wh)'],
+                ['energy_import_t2', 'Wirkarbeit Bezug (Tarif 2)',  'F', 'NRG.kWh', true, 'energy', 'FC3 805 (Wh)'],
+                ['energy_export_t2', 'Wirkarbeit Abgabe (Tarif 2)', 'F', 'NRG.kWh', true, 'energy', 'FC3 813 (Wh)'],
             ]],
         ];
     }
@@ -353,12 +353,12 @@ class JanitzaClassicDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt',        'F', 'MHB.W',   true,  'total',  'FC3 19026 (Psum3)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',           'F', 'MHB.V',   false, 'total',  'FC3 19000/02/04 Ø'],
-            ['current_avg',   'Strom Ø',                    'F', 'MHB.A',   false, 'total',  'FC3 19012/14/16 Ø'],
+            ['power_total',   'Wirkleistung gesamt',        'F', 'NRG.Watt',   true,  'total',  'FC3 19026 (Psum3)'],
+            ['voltage_avg',   'Spannung Ø (L-N)',           'F', 'NRG.Volt',   false, 'total',  'FC3 19000/02/04 Ø'],
+            ['current_avg',   'Strom Ø',                    'F', 'NRG.Ampere',   false, 'total',  'FC3 19012/14/16 Ø'],
             ['frequency',     'Frequenz',                   'F', 'MHB.Hz',  false, 'total',  'FC3 19050'],
-            ['energy_import', 'Wirkarbeit Bezug',           'F', 'MHB.kWh', true,  'energy', 'FC3 19068 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',          'F', 'MHB.kWh', true,  'energy', 'FC3 19076 (Wh)'],
+            ['energy_import', 'Wirkarbeit Bezug',           'F', 'NRG.kWh', true,  'energy', 'FC3 19068 (Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',          'F', 'NRG.kWh', true,  'energy', 'FC3 19076 (Wh)'],
             ['connected',     'Verbindung',                 'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -367,23 +367,23 @@ class JanitzaClassicDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
-                ['u_l1_n',  'Spannung L1-N',  'F', 'MHB.V', false, 'voltage', 'FC3 19000'],
-                ['u_l2_n',  'Spannung L2-N',  'F', 'MHB.V', false, 'voltage', 'FC3 19002'],
-                ['u_l3_n',  'Spannung L3-N',  'F', 'MHB.V', false, 'voltage', 'FC3 19004'],
-                ['u_l1_l2', 'Spannung L1-L2', 'F', 'MHB.V', false, 'voltage', 'FC3 19006'],
-                ['u_l2_l3', 'Spannung L2-L3', 'F', 'MHB.V', false, 'voltage', 'FC3 19008'],
-                ['u_l3_l1', 'Spannung L3-L1', 'F', 'MHB.V', false, 'voltage', 'FC3 19010'],
+                ['u_l1_n',  'Spannung L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19000'],
+                ['u_l2_n',  'Spannung L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19002'],
+                ['u_l3_n',  'Spannung L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19004'],
+                ['u_l1_l2', 'Spannung L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19006'],
+                ['u_l2_l3', 'Spannung L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19008'],
+                ['u_l3_l1', 'Spannung L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19010'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ Summe)', 'vars' => [
-                ['i_l1', 'Strom L1',       'F', 'MHB.A', false, 'current', 'FC3 19012'],
-                ['i_l2', 'Strom L2',       'F', 'MHB.A', false, 'current', 'FC3 19014'],
-                ['i_l3', 'Strom L3',       'F', 'MHB.A', false, 'current', 'FC3 19016'],
-                ['i_sum', 'Strom Summe (I1+I2+I3)', 'F', 'MHB.A', false, 'current', 'FC3 19018'],
+                ['i_l1', 'Strom L1',       'F', 'NRG.Ampere', false, 'current', 'FC3 19012'],
+                ['i_l2', 'Strom L2',       'F', 'NRG.Ampere', false, 'current', 'FC3 19014'],
+                ['i_l3', 'Strom L3',       'F', 'NRG.Ampere', false, 'current', 'FC3 19016'],
+                ['i_sum', 'Strom Summe (I1+I2+I3)', 'F', 'NRG.Ampere', false, 'current', 'FC3 19018'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC3 19020'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC3 19022'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC3 19024'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 19020'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 19022'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 19024'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
                 ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC3 19034'],
@@ -402,12 +402,12 @@ class JanitzaClassicDriver implements MeterDriverInterface
                 ['pf_l3', 'cos φ L3', 'F', 'MHB.PF', false, 'total', 'FC3 19048'],
             ]],
             'GroupQuality' => ['caption' => 'Netzqualität (THD, Drehfeld)', 'vars' => [
-                ['thd_u_l1', 'THD Spannung L1', 'F', 'MHB.Percent', false, 'quality', 'FC3 19110'],
-                ['thd_u_l2', 'THD Spannung L2', 'F', 'MHB.Percent', false, 'quality', 'FC3 19112'],
-                ['thd_u_l3', 'THD Spannung L3', 'F', 'MHB.Percent', false, 'quality', 'FC3 19114'],
-                ['thd_i_l1', 'THD Strom L1',    'F', 'MHB.Percent', false, 'quality', 'FC3 19116'],
-                ['thd_i_l2', 'THD Strom L2',    'F', 'MHB.Percent', false, 'quality', 'FC3 19118'],
-                ['thd_i_l3', 'THD Strom L3',    'F', 'MHB.Percent', false, 'quality', 'FC3 19120'],
+                ['thd_u_l1', 'THD Spannung L1', 'F', 'NRG.Percent', false, 'quality', 'FC3 19110'],
+                ['thd_u_l2', 'THD Spannung L2', 'F', 'NRG.Percent', false, 'quality', 'FC3 19112'],
+                ['thd_u_l3', 'THD Spannung L3', 'F', 'NRG.Percent', false, 'quality', 'FC3 19114'],
+                ['thd_i_l1', 'THD Strom L1',    'F', 'NRG.Percent', false, 'quality', 'FC3 19116'],
+                ['thd_i_l2', 'THD Strom L2',    'F', 'NRG.Percent', false, 'quality', 'FC3 19118'],
+                ['thd_i_l3', 'THD Strom L3',    'F', 'NRG.Percent', false, 'quality', 'FC3 19120'],
                 ['phase_seq', 'Drehfeld', 'I', 'MHB.PhaseSeq', false, 'quality', 'FC3 19052'],
             ]],
         ];
@@ -535,12 +535,12 @@ class Umg800Driver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC3 19030 (Σ P)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC3 19000/02/04 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC3 19012/14/16 Ø'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC3 19030 (Σ P)'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC3 19000/02/04 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC3 19012/14/16 Ø'],
             ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 19054'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC3 19072 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC3 19080 (Wh)'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC3 19072 (Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC3 19080 (Wh)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -549,23 +549,23 @@ class Umg800Driver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
-                ['u_l1_n',  'Spannung L1-N',  'F', 'MHB.V', false, 'voltage', 'FC3 19000'],
-                ['u_l2_n',  'Spannung L2-N',  'F', 'MHB.V', false, 'voltage', 'FC3 19002'],
-                ['u_l3_n',  'Spannung L3-N',  'F', 'MHB.V', false, 'voltage', 'FC3 19004'],
-                ['u_l1_l2', 'Spannung L1-L2', 'F', 'MHB.V', false, 'voltage', 'FC3 19006'],
-                ['u_l2_l3', 'Spannung L2-L3', 'F', 'MHB.V', false, 'voltage', 'FC3 19008'],
-                ['u_l3_l1', 'Spannung L3-L1', 'F', 'MHB.V', false, 'voltage', 'FC3 19010'],
+                ['u_l1_n',  'Spannung L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19000'],
+                ['u_l2_n',  'Spannung L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19002'],
+                ['u_l3_n',  'Spannung L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19004'],
+                ['u_l1_l2', 'Spannung L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19006'],
+                ['u_l2_l3', 'Spannung L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19008'],
+                ['u_l3_l1', 'Spannung L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19010'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ I4)', 'vars' => [
-                ['i_l1',  'Strom L1', 'F', 'MHB.A', false, 'current', 'FC3 19012'],
-                ['i_l2',  'Strom L2', 'F', 'MHB.A', false, 'current', 'FC3 19014'],
-                ['i_l3',  'Strom L3', 'F', 'MHB.A', false, 'current', 'FC3 19016'],
-                ['i_sum', 'Strom I4', 'F', 'MHB.A', false, 'current', 'FC3 19018'],
+                ['i_l1',  'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 19012'],
+                ['i_l2',  'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 19014'],
+                ['i_l3',  'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 19016'],
+                ['i_sum', 'Strom I4', 'F', 'NRG.Ampere', false, 'current', 'FC3 19018'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC3 19024'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC3 19026'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC3 19028'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 19024'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 19026'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 19028'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
                 ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC3 19038'],
@@ -583,12 +583,12 @@ class Umg800Driver implements MeterDriverInterface
                 ['pf_l3', 'cos φ L3', 'F', 'MHB.PF', false, 'total', 'FC3 19052'],
             ]],
             'GroupQuality' => ['caption' => 'Netzqualität (THD, Drehfeld)', 'vars' => [
-                ['thd_u_l1', 'THD Spannung L1', 'F', 'MHB.Percent', false, 'quality', 'FC3 19114'],
-                ['thd_u_l2', 'THD Spannung L2', 'F', 'MHB.Percent', false, 'quality', 'FC3 19116'],
-                ['thd_u_l3', 'THD Spannung L3', 'F', 'MHB.Percent', false, 'quality', 'FC3 19118'],
-                ['thd_i_l1', 'THD Strom L1',    'F', 'MHB.Percent', false, 'quality', 'FC3 19120'],
-                ['thd_i_l2', 'THD Strom L2',    'F', 'MHB.Percent', false, 'quality', 'FC3 19122'],
-                ['thd_i_l3', 'THD Strom L3',    'F', 'MHB.Percent', false, 'quality', 'FC3 19124'],
+                ['thd_u_l1', 'THD Spannung L1', 'F', 'NRG.Percent', false, 'quality', 'FC3 19114'],
+                ['thd_u_l2', 'THD Spannung L2', 'F', 'NRG.Percent', false, 'quality', 'FC3 19116'],
+                ['thd_u_l3', 'THD Spannung L3', 'F', 'NRG.Percent', false, 'quality', 'FC3 19118'],
+                ['thd_i_l1', 'THD Strom L1',    'F', 'NRG.Percent', false, 'quality', 'FC3 19120'],
+                ['thd_i_l2', 'THD Strom L2',    'F', 'NRG.Percent', false, 'quality', 'FC3 19122'],
+                ['thd_i_l3', 'THD Strom L3',    'F', 'NRG.Percent', false, 'quality', 'FC3 19124'],
                 ['phase_seq', 'Drehfeld', 'I', 'MHB.PhaseSeq', false, 'quality', 'FC3 19056'],
             ]],
         ];
@@ -702,12 +702,12 @@ class EastronSdmDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 52'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC4 42'],
-            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 46'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 52'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 42'],
+            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 46'],
             ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC4 70'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 72 (kWh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC4 74 (kWh)'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 72 (kWh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC4 74 (kWh)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -716,23 +716,23 @@ class EastronSdmDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
-                ['u_l1_n',  'Spannung L1-N',  'F', 'MHB.V', false, 'voltage', 'FC4 0'],
-                ['u_l2_n',  'Spannung L2-N',  'F', 'MHB.V', false, 'voltage', 'FC4 2'],
-                ['u_l3_n',  'Spannung L3-N',  'F', 'MHB.V', false, 'voltage', 'FC4 4'],
-                ['u_l1_l2', 'Spannung L1-L2', 'F', 'MHB.V', false, 'voltage', 'FC4 200'],
-                ['u_l2_l3', 'Spannung L2-L3', 'F', 'MHB.V', false, 'voltage', 'FC4 202'],
-                ['u_l3_l1', 'Spannung L3-L1', 'F', 'MHB.V', false, 'voltage', 'FC4 204'],
+                ['u_l1_n',  'Spannung L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 0'],
+                ['u_l2_n',  'Spannung L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 2'],
+                ['u_l3_n',  'Spannung L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 4'],
+                ['u_l1_l2', 'Spannung L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 200'],
+                ['u_l2_l3', 'Spannung L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 202'],
+                ['u_l3_l1', 'Spannung L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 204'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ Neutralleiter)', 'vars' => [
-                ['i_l1', 'Strom L1',           'F', 'MHB.A', false, 'current', 'FC4 6'],
-                ['i_l2', 'Strom L2',           'F', 'MHB.A', false, 'current', 'FC4 8'],
-                ['i_l3', 'Strom L3',           'F', 'MHB.A', false, 'current', 'FC4 10'],
-                ['i_n',  'Neutralleiterstrom', 'F', 'MHB.A', false, 'current', 'FC4 224'],
+                ['i_l1', 'Strom L1',           'F', 'NRG.Ampere', false, 'current', 'FC4 6'],
+                ['i_l2', 'Strom L2',           'F', 'NRG.Ampere', false, 'current', 'FC4 8'],
+                ['i_l3', 'Strom L3',           'F', 'NRG.Ampere', false, 'current', 'FC4 10'],
+                ['i_n',  'Neutralleiterstrom', 'F', 'NRG.Ampere', false, 'current', 'FC4 224'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 12'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 14'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 16'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 12'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 14'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 16'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
                 ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC4 56'],
@@ -842,11 +842,11 @@ class WhatWattDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 501−505'],
-            ['voltage_avg',   'Spannung Ø',          'F', 'MHB.V',   false, 'total',  'FC4 1/3/5 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 13/15/17 Ø'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 549 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC4 553 (Wh)'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 501−505'],
+            ['voltage_avg',   'Spannung Ø',          'F', 'NRG.Volt',   false, 'total',  'FC4 1/3/5 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 13/15/17 Ø'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 549 (Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC4 553 (Wh)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -855,25 +855,25 @@ class WhatWattDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC4 1'],
-                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC4 3'],
-                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC4 5'],
+                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1'],
+                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 3'],
+                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 5'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC4 13'],
-                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC4 15'],
-                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC4 17'],
+                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 13'],
+                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 15'],
+                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 17'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 25'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 27'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 29'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 25'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 27'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 29'],
             ]],
             'GroupTariff2' => ['caption' => 'Energie nach Tarif (T1/T2)', 'vars' => [
-                ['energy_import_t1', 'Bezug Tarif 1',  'F', 'MHB.kWh', true, 'energy', 'FC4 801 (Wh)'],
-                ['energy_import_t2', 'Bezug Tarif 2',  'F', 'MHB.kWh', true, 'energy', 'FC4 805 (Wh)'],
-                ['energy_export_t1', 'Abgabe Tarif 1', 'F', 'MHB.kWh', true, 'energy', 'FC4 809 (Wh)'],
-                ['energy_export_t2', 'Abgabe Tarif 2', 'F', 'MHB.kWh', true, 'energy', 'FC4 813 (Wh)'],
+                ['energy_import_t1', 'Bezug Tarif 1',  'F', 'NRG.kWh', true, 'energy', 'FC4 801 (Wh)'],
+                ['energy_import_t2', 'Bezug Tarif 2',  'F', 'NRG.kWh', true, 'energy', 'FC4 805 (Wh)'],
+                ['energy_export_t1', 'Abgabe Tarif 1', 'F', 'NRG.kWh', true, 'energy', 'FC4 809 (Wh)'],
+                ['energy_export_t2', 'Abgabe Tarif 2', 'F', 'NRG.kWh', true, 'energy', 'FC4 813 (Wh)'],
             ]],
         ];
     }
@@ -946,10 +946,10 @@ class PhoenixEem375Driver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 4134'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC4 4096/98/100 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 4110/12/14 Ø'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 4358 (Wh)'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 4134'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 4096/98/100 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 4110/12/14 Ø'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 4358 (Wh)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -958,19 +958,19 @@ class PhoenixEem375Driver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1-N', 'F', 'MHB.V', false, 'voltage', 'FC4 4096'],
-                ['u_l2_n', 'Spannung L2-N', 'F', 'MHB.V', false, 'voltage', 'FC4 4098'],
-                ['u_l3_n', 'Spannung L3-N', 'F', 'MHB.V', false, 'voltage', 'FC4 4100'],
+                ['u_l1_n', 'Spannung L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4096'],
+                ['u_l2_n', 'Spannung L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4098'],
+                ['u_l3_n', 'Spannung L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4100'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom I1', 'F', 'MHB.A', false, 'current', 'FC4 4110'],
-                ['i_l2', 'Strom I2', 'F', 'MHB.A', false, 'current', 'FC4 4112'],
-                ['i_l3', 'Strom I3', 'F', 'MHB.A', false, 'current', 'FC4 4114'],
+                ['i_l1', 'Strom I1', 'F', 'NRG.Ampere', false, 'current', 'FC4 4110'],
+                ['i_l2', 'Strom I2', 'F', 'NRG.Ampere', false, 'current', 'FC4 4112'],
+                ['i_l3', 'Strom I3', 'F', 'NRG.Ampere', false, 'current', 'FC4 4114'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 4128'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 4130'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 4132'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 4128'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 4130'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 4132'],
             ]],
         ];
     }
@@ -1031,10 +1031,10 @@ class PhoenixEemXmDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 32790'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC4 32774/76/78 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 32782/84/86 Ø'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 37630 (Wh)'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 32790'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 32774/76/78 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 32782/84/86 Ø'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 37630 (Wh)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -1043,19 +1043,19 @@ class PhoenixEemXmDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1-N', 'F', 'MHB.V', false, 'voltage', 'FC4 32774'],
-                ['u_l2_n', 'Spannung L2-N', 'F', 'MHB.V', false, 'voltage', 'FC4 32776'],
-                ['u_l3_n', 'Spannung L3-N', 'F', 'MHB.V', false, 'voltage', 'FC4 32778'],
+                ['u_l1_n', 'Spannung L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 32774'],
+                ['u_l2_n', 'Spannung L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 32776'],
+                ['u_l3_n', 'Spannung L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 32778'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom I1', 'F', 'MHB.A', false, 'current', 'FC4 32782'],
-                ['i_l2', 'Strom I2', 'F', 'MHB.A', false, 'current', 'FC4 32784'],
-                ['i_l3', 'Strom I3', 'F', 'MHB.A', false, 'current', 'FC4 32786'],
+                ['i_l1', 'Strom I1', 'F', 'NRG.Ampere', false, 'current', 'FC4 32782'],
+                ['i_l2', 'Strom I2', 'F', 'NRG.Ampere', false, 'current', 'FC4 32784'],
+                ['i_l3', 'Strom I3', 'F', 'NRG.Ampere', false, 'current', 'FC4 32786'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 32798'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 32800'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 32802'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 32798'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 32800'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 32802'],
             ]],
         ];
     }
@@ -1117,12 +1117,12 @@ class CarloGavazziDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 40 (×0,1)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC4 0/2/4 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 12/14/16 Ø'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 40 (×0,1)'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 0/2/4 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 12/14/16 Ø'],
             ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC4 51 (×0,1)'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 52 (×0,1 kWh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC4 78 (×0,1 kWh)'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 52 (×0,1 kWh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC4 78 (×0,1 kWh)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -1131,19 +1131,19 @@ class CarloGavazziDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1-N', 'F', 'MHB.V', false, 'voltage', 'FC4 0'],
-                ['u_l2_n', 'Spannung L2-N', 'F', 'MHB.V', false, 'voltage', 'FC4 2'],
-                ['u_l3_n', 'Spannung L3-N', 'F', 'MHB.V', false, 'voltage', 'FC4 4'],
+                ['u_l1_n', 'Spannung L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 0'],
+                ['u_l2_n', 'Spannung L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 2'],
+                ['u_l3_n', 'Spannung L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC4 12'],
-                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC4 14'],
-                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC4 16'],
+                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 12'],
+                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 14'],
+                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 16'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 18'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 20'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 22'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 18'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 20'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 22'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
                 ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC4 42'],
@@ -1229,12 +1229,12 @@ class SocomecCountisDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC3 0xC568 (×10)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'MHB.V',   false, 'total',  'FC3 0xC558/5A/5C Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC3 0xC560/62/64 Ø'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC3 0xC568 (×10)'],
+            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC3 0xC558/5A/5C Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC3 0xC560/62/64 Ø'],
             ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 0xC55E'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC3 0xC702 (×0,01)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC3 0xC708 (×0,01)'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC3 0xC702 (×0,01)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC3 0xC708 (×0,01)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -1243,19 +1243,19 @@ class SocomecCountisDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1-N', 'F', 'MHB.V', false, 'voltage', 'FC3 0xC558'],
-                ['u_l2_n', 'Spannung L2-N', 'F', 'MHB.V', false, 'voltage', 'FC3 0xC55A'],
-                ['u_l3_n', 'Spannung L3-N', 'F', 'MHB.V', false, 'voltage', 'FC3 0xC55C'],
+                ['u_l1_n', 'Spannung L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC3 0xC558'],
+                ['u_l2_n', 'Spannung L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC3 0xC55A'],
+                ['u_l3_n', 'Spannung L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC3 0xC55C'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC3 0xC560'],
-                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC3 0xC562'],
-                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC3 0xC564'],
+                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC560'],
+                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC562'],
+                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC564'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC3 0xC570'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC3 0xC572'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC3 0xC574'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC570'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC572'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC574'],
             ]],
         ];
     }
@@ -1322,11 +1322,11 @@ class MbsProfessionalDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC3 4527'],
-            ['voltage_avg',   'Spannung Ø',          'F', 'MHB.V',   false, 'total',  'FC3 4567/68/69 Ø'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC3 4527'],
+            ['voltage_avg',   'Spannung Ø',          'F', 'NRG.Volt',   false, 'total',  'FC3 4567/68/69 Ø'],
             ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 4626 (×0,1)'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC3 4201 (×0,001)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC3 4281 (×0,001)'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC3 4201 (×0,001)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC3 4281 (×0,001)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -1335,9 +1335,9 @@ class MbsProfessionalDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC3 4567 (×0,1)'],
-                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC3 4568 (×0,1)'],
-                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC3 4569 (×0,1)'],
+                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 4567 (×0,1)'],
+                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 4568 (×0,1)'],
+                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 4569 (×0,1)'],
             ]],
         ];
     }
@@ -1397,12 +1397,12 @@ class ShellyPro3emDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'FC4 1013'],
-            ['voltage_avg',   'Spannung Ø',          'F', 'MHB.V',   false, 'total',  'FC4 1020/40/60 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'MHB.A',   false, 'total',  'FC4 1022/42/62 Ø'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 1013'],
+            ['voltage_avg',   'Spannung Ø',          'F', 'NRG.Volt',   false, 'total',  'FC4 1020/40/60 Ø'],
+            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 1022/42/62 Ø'],
             ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC4 1033'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'FC4 1162 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'FC4 1164 (Wh)'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 1162 (Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC4 1164 (Wh)'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -1411,29 +1411,29 @@ class ShellyPro3emDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC4 1020'],
-                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC4 1040'],
-                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC4 1060'],
+                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1020'],
+                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1040'],
+                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1060'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC4 1022'],
-                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC4 1042'],
-                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC4 1062'],
+                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 1022'],
+                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 1042'],
+                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 1062'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'FC4 1024'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'FC4 1044'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'FC4 1064'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 1024'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 1044'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 1064'],
             ]],
             // Eigene Energiezähler je Phase — damit lässt sich jede Phase als
             // eigenständiger Verbraucher führen (Summe der drei = Gesamtzähler).
             'GroupEnergyPhase' => ['caption' => 'Energie je Phase (Bezug/Abgabe)', 'vars' => [
-                ['energy_import_l1', 'Wirkarbeit Bezug L1',  'F', 'MHB.kWh', true, 'energy', 'FC4 1182 (Wh)'],
-                ['energy_export_l1', 'Wirkarbeit Abgabe L1', 'F', 'MHB.kWh', true, 'energy', 'FC4 1184 (Wh)'],
-                ['energy_import_l2', 'Wirkarbeit Bezug L2',  'F', 'MHB.kWh', true, 'energy', 'FC4 1202 (Wh)'],
-                ['energy_export_l2', 'Wirkarbeit Abgabe L2', 'F', 'MHB.kWh', true, 'energy', 'FC4 1204 (Wh)'],
-                ['energy_import_l3', 'Wirkarbeit Bezug L3',  'F', 'MHB.kWh', true, 'energy', 'FC4 1222 (Wh)'],
-                ['energy_export_l3', 'Wirkarbeit Abgabe L3', 'F', 'MHB.kWh', true, 'energy', 'FC4 1224 (Wh)'],
+                ['energy_import_l1', 'Wirkarbeit Bezug L1',  'F', 'NRG.kWh', true, 'energy', 'FC4 1182 (Wh)'],
+                ['energy_export_l1', 'Wirkarbeit Abgabe L1', 'F', 'NRG.kWh', true, 'energy', 'FC4 1184 (Wh)'],
+                ['energy_import_l2', 'Wirkarbeit Bezug L2',  'F', 'NRG.kWh', true, 'energy', 'FC4 1202 (Wh)'],
+                ['energy_export_l2', 'Wirkarbeit Abgabe L2', 'F', 'NRG.kWh', true, 'energy', 'FC4 1204 (Wh)'],
+                ['energy_import_l3', 'Wirkarbeit Bezug L3',  'F', 'NRG.kWh', true, 'energy', 'FC4 1222 (Wh)'],
+                ['energy_export_l3', 'Wirkarbeit Abgabe L3', 'F', 'NRG.kWh', true, 'energy', 'FC4 1224 (Wh)'],
             ]],
         ];
     }
@@ -1533,11 +1533,11 @@ class GoeControllerDriver implements MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt (Grid)', 'F', 'MHB.W',   true,  'total',  'FC4 1080 (Kategorie Grid)'],
-            ['voltage_avg',   'Spannung Ø',                 'F', 'MHB.V',   false, 'total',  'FC4 1000/1002/1004 Ø'],
-            ['current_avg',   'Strom Ø (Grid)',             'F', 'MHB.A',   false, 'total',  'FC4 1072/1074/1076 Ø'],
-            ['energy_import', 'Wirkarbeit Bezug',           'F', 'MHB.kWh', true,  'energy', 'FC4 1082 (Grid Ein, F64 Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',          'F', 'MHB.kWh', true,  'energy', 'FC4 1086 (Grid Aus, F64 Wh)'],
+            ['power_total',   'Wirkleistung gesamt (Grid)', 'F', 'NRG.Watt',   true,  'total',  'FC4 1080 (Kategorie Grid)'],
+            ['voltage_avg',   'Spannung Ø',                 'F', 'NRG.Volt',   false, 'total',  'FC4 1000/1002/1004 Ø'],
+            ['current_avg',   'Strom Ø (Grid)',             'F', 'NRG.Ampere',   false, 'total',  'FC4 1072/1074/1076 Ø'],
+            ['energy_import', 'Wirkarbeit Bezug',           'F', 'NRG.kWh', true,  'energy', 'FC4 1082 (Grid Ein, F64 Wh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',          'F', 'NRG.kWh', true,  'energy', 'FC4 1086 (Grid Aus, F64 Wh)'],
             ['connected',     'Verbindung',                 'B', '~Alert.Reversed', false, 'errors', ''],
         ];
         // Bewusst KEINE Frequenz: Register 1008 ist laut Doku „nicht
@@ -1549,28 +1549,28 @@ class GoeControllerDriver implements MeterDriverInterface
         $sensors = [];
         for ($i = 1; $i <= 6; $i++) {
             $b = 1010 + ($i - 1) * 2;
-            $sensors[] = ['sens' . $i . '_i',  'Sensor ' . $i . ' Strom',           'F', 'MHB.A',  false, 'current', 'FC4 ' . $b];
-            $sensors[] = ['sens' . $i . '_p',  'Sensor ' . $i . ' Leistung',        'F', 'MHB.W',  false, 'power',   'FC4 ' . ($b + 12)];
+            $sensors[] = ['sens' . $i . '_i',  'Sensor ' . $i . ' Strom',           'F', 'NRG.Ampere',  false, 'current', 'FC4 ' . $b];
+            $sensors[] = ['sens' . $i . '_p',  'Sensor ' . $i . ' Leistung',        'F', 'NRG.Watt',  false, 'power',   'FC4 ' . ($b + 12)];
             $sensors[] = ['sens' . $i . '_pf', 'Sensor ' . $i . ' Leistungsfaktor', 'F', 'MHB.PF', false, 'total',   'FC4 ' . ($b + 24)];
         }
         $cats = [];
         foreach ([['home', 'Home', 1046], ['car', 'Car', 1098], ['relais', 'Relais', 1124], ['solar', 'Solar', 1150], ['akku', 'Akku', 1176]] as [$key, $lbl, $base]) {
-            $cats[] = [$key . '_power',         $lbl . ' Leistung',    'F', 'MHB.W',   false, 'power',  'FC4 ' . ($base + 8)];
-            $cats[] = [$key . '_energy_import', $lbl . ' Energie Ein', 'F', 'MHB.kWh', true,  'energy', 'FC4 ' . ($base + 10) . ' (F64 Wh)'];
-            $cats[] = [$key . '_energy_export', $lbl . ' Energie Aus', 'F', 'MHB.kWh', true,  'energy', 'FC4 ' . ($base + 14) . ' (F64 Wh)'];
+            $cats[] = [$key . '_power',         $lbl . ' Leistung',    'F', 'NRG.Watt',   false, 'power',  'FC4 ' . ($base + 8)];
+            $cats[] = [$key . '_energy_import', $lbl . ' Energie Ein', 'F', 'NRG.kWh', true,  'energy', 'FC4 ' . ($base + 10) . ' (F64 Wh)'];
+            $cats[] = [$key . '_energy_export', $lbl . ' Energie Aus', 'F', 'NRG.kWh', true,  'energy', 'FC4 ' . ($base + 14) . ' (F64 Wh)'];
         }
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (inkl. N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'FC4 1000'],
-                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'FC4 1002'],
-                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'FC4 1004'],
-                ['u_n',    'Spannung N',  'F', 'MHB.V', false, 'voltage', 'FC4 1006'],
+                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1000'],
+                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1002'],
+                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1004'],
+                ['u_n',    'Spannung N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 1006'],
             ]],
             'GroupCurrentPhase' => ['caption' => 'Strom je Phase (Kategorie Grid, inkl. N)', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'MHB.A', false, 'current', 'FC4 1072'],
-                ['i_l2', 'Strom L2', 'F', 'MHB.A', false, 'current', 'FC4 1074'],
-                ['i_l3', 'Strom L3', 'F', 'MHB.A', false, 'current', 'FC4 1076'],
-                ['i_n',  'Strom N',  'F', 'MHB.A', false, 'current', 'FC4 1078'],
+                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 1072'],
+                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 1074'],
+                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 1076'],
+                ['i_n',  'Strom N',  'F', 'NRG.Ampere', false, 'current', 'FC4 1078'],
             ]],
             'GroupGoeSensors'    => ['caption' => 'Stromsensoren 1-6 (Strom/Leistung/Leistungsfaktor)', 'vars' => $sensors],
             'GroupGoeCategories' => ['caption' => 'Kategorien Home/Car/Relais/Solar/Akku (Leistung + Energie)', 'vars' => $cats],
@@ -1883,9 +1883,9 @@ class InexogyDriver implements MeterDriverInterface
     {
         // KEINE Frequenz — die API liefert keine.
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'MHB.W',   true,  'total',  'Inexogy values.power /1000'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'MHB.kWh', true,  'energy', 'Inexogy values.energy /1e10'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'MHB.kWh', true,  'energy', 'Inexogy values.energyOut /1e10'],
+            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'Inexogy values.power /1000'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'Inexogy values.energy /1e10'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'Inexogy values.energyOut /1e10'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
@@ -1894,14 +1894,14 @@ class InexogyDriver implements MeterDriverInterface
     {
         return [
             'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'MHB.V', false, 'voltage', 'Inexogy voltage1 /1000'],
-                ['u_l2_n', 'Spannung L2', 'F', 'MHB.V', false, 'voltage', 'Inexogy voltage2 /1000'],
-                ['u_l3_n', 'Spannung L3', 'F', 'MHB.V', false, 'voltage', 'Inexogy voltage3 /1000'],
+                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage1 /1000'],
+                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage2 /1000'],
+                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage3 /1000'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'MHB.W', false, 'power', 'Inexogy power1 /1000'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'MHB.W', false, 'power', 'Inexogy power2 /1000'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'MHB.W', false, 'power', 'Inexogy power3 /1000'],
+                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'Inexogy power1 /1000'],
+                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'Inexogy power2 /1000'],
+                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'Inexogy power3 /1000'],
             ]],
         ];
     }
@@ -2808,9 +2808,9 @@ class MeterHub extends IPSModule
         $defs = [];
         foreach ($this->FunctionAssignments() as $a) {
             $slug = preg_replace('/[^a-z0-9]+/', '_', strtolower($a['key']));
-            $defs[] = ['fn_' . $slug . '_power',  $a['label'] . ' — Leistung',       'F', 'MHB.W',   true, 'function', $a['icon'], $a['power']];
-            $defs[] = ['fn_' . $slug . '_import', $a['label'] . ' — Bezug',          'F', 'MHB.kWh', true, 'function', $a['icon'], $a['import']];
-            $defs[] = ['fn_' . $slug . '_export', $a['label'] . ' — Einspeisung',    'F', 'MHB.kWh', true, 'function', $a['icon'], $a['export']];
+            $defs[] = ['fn_' . $slug . '_power',  $a['label'] . ' — Leistung',       'F', 'NRG.Watt',   true, 'function', $a['icon'], $a['power']];
+            $defs[] = ['fn_' . $slug . '_import', $a['label'] . ' — Bezug',          'F', 'NRG.kWh', true, 'function', $a['icon'], $a['import']];
+            $defs[] = ['fn_' . $slug . '_export', $a['label'] . ' — Einspeisung',    'F', 'NRG.kWh', true, 'function', $a['icon'], $a['export']];
         }
         return $defs;
     }
@@ -3027,7 +3027,7 @@ class MeterHub extends IPSModule
 
         // Energie in Wh: statt kWh-Profil das Wh-Profil setzen (×1000 macht
         // SetVarEnergyWh beim Schreiben).
-        if ($profile === 'MHB.kWh' && $this->ReadPropertyBoolean('EnergyUnitWh')) {
+        if ($profile === 'NRG.kWh' && $this->ReadPropertyBoolean('EnergyUnitWh')) {
             $profile = 'MHB.Wh';
         }
         if ($profile !== '' && @IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
@@ -3176,17 +3176,23 @@ class MeterHub extends IPSModule
 
     private function CreateProfiles()
     {
-        // Gemeinsame MeterHub-Profile (für beide Treiber).
-        $this->ensureProfile('MHB.V',       ' V',    1, 'Electricity');
-        $this->ensureProfile('MHB.A',       ' A',    1, 'Electricity');
-        $this->ensureProfile('MHB.W',       ' W',    0, 'Electricity');
+        // Gemeinsame NRG-Stack-Profile (Verbund-Konvention 24.07.2026): nur
+        // anlegen, wenn sie fehlen — MeterHub ist NICHT Eigentümer und darf
+        // Digits/Suffix nicht bei jedem ApplyChanges neu erzwingen, sonst
+        // "kämpft" es mit anderen NRG-Stack-Modulen um dieselbe Definition.
+        $this->ensureSharedProfile('NRG.Volt',    ' V',   1, 'Electricity');
+        $this->ensureSharedProfile('NRG.Ampere',  ' A',   1, 'Electricity');
+        $this->ensureSharedProfile('NRG.Watt',    ' W',   0, 'Electricity');
+        $this->ensureSharedProfile('NRG.kWh',     ' kWh', 1, 'Electricity');
+        $this->ensureSharedProfile('NRG.Percent', ' %',   1, '');
+
+        // Modulspezifische Profile (MeterHub bleibt Eigentümer, Digits/Suffix
+        // werden bei jedem ApplyChanges durchgesetzt).
         $this->ensureProfile('MHB.VA',      ' VA',   0, '');
         $this->ensureProfile('MHB.var',     ' var',  0, '');
         $this->ensureProfile('MHB.Hz',      ' Hz',   2, '');
-        $this->ensureProfile('MHB.kWh',     ' kWh',  1, 'Electricity');
         $this->ensureProfile('MHB.Wh',      ' Wh',   0, 'Electricity');
         $this->ensureProfile('MHB.PF',      '',      2, '');
-        $this->ensureProfile('MHB.Percent', ' %',    1, '');
 
         // Treiber-spezifische Zusatzprofile (Wert-/Bereichsprofile).
         $driver = $this->GetDriver();
@@ -3217,6 +3223,27 @@ class MeterHub extends IPSModule
         if (!IPS_VariableProfileExists($name)) {
             IPS_CreateVariableProfile($name, VARIABLETYPE_FLOAT);
         }
+        IPS_SetVariableProfileDigits($name, $digits);
+        IPS_SetVariableProfileText($name, '', $suffix);
+        if ($icon !== '') {
+            IPS_SetVariableProfileIcon($name, $icon);
+        }
+    }
+
+    /**
+     * Gemeinsames NRG-Stack-Profil: legt es nur an, wenn es fehlt, und rührt
+     * eine bereits vorhandene Definition nicht mehr an. Anders als
+     * `ensureProfile()` (modulspezifisch, Digits/Suffix werden durchgesetzt)
+     * ist MeterHub hier nicht Eigentümer — ein anderes NRG-Stack-Modul könnte
+     * dasselbe Profil bereits mit denselben Vorgaben angelegt haben, und ein
+     * fortlaufendes Überschreiben wäre ein stiller Konflikt um die Deutungshoheit.
+     */
+    private function ensureSharedProfile(string $name, string $suffix, int $digits, string $icon)
+    {
+        if (IPS_VariableProfileExists($name)) {
+            return;
+        }
+        IPS_CreateVariableProfile($name, VARIABLETYPE_FLOAT);
         IPS_SetVariableProfileDigits($name, $digits);
         IPS_SetVariableProfileText($name, '', $suffix);
         if ($icon !== '') {

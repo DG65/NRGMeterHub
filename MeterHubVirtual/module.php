@@ -254,7 +254,7 @@ class MeterHubVirtual extends IPSModule
         $defs  = [];
         foreach ($kids as $parent => $list) {
             $n = $nodes[$parent];
-            foreach ([['power', 'MHB.W', 'Leistung'], ['imp', 'MHB.kWh', 'Bezug'], ['exp', 'MHB.kWh', 'Einspeisung']] as [$f, $prof, $lbl]) {
+            foreach ([['power', 'NRG.Watt', 'Leistung'], ['imp', 'NRG.kWh', 'Bezug'], ['exp', 'NRG.kWh', 'Einspeisung']] as [$f, $prof, $lbl]) {
                 // Summe der untergeordneten Zähler
                 $defs[] = [$parent . '_sum_' . $f, $n['name'] . ': ' . $lbl . ' untergeordnet', $prof, $f, 'sum', $parent];
                 // Rest nur, wenn der Knoten einen eigenen Zähler hat
@@ -306,12 +306,19 @@ class MeterHubVirtual extends IPSModule
         }
     }
 
+    /**
+     * Gemeinsame NRG-Stack-Profile: nur anlegen, wenn sie fehlen (Verbund-
+     * Konvention 24.07.2026). MeterHubVirtual ist nicht Eigentümer — ein
+     * anderes NRG-Stack-Modul kann dieselbe Definition schon angelegt haben;
+     * ein fortlaufendes Überschreiben wäre ein stiller Konflikt.
+     */
     private function CreateProfiles()
     {
-        foreach ([['MHB.W', ' W', 0], ['MHB.kWh', ' kWh', 1]] as [$n, $suf, $dig]) {
-            if (!IPS_VariableProfileExists($n)) {
-                IPS_CreateVariableProfile($n, VARIABLETYPE_FLOAT);
+        foreach ([['NRG.Watt', ' W', 0], ['NRG.kWh', ' kWh', 1]] as [$n, $suf, $dig]) {
+            if (IPS_VariableProfileExists($n)) {
+                continue;
             }
+            IPS_CreateVariableProfile($n, VARIABLETYPE_FLOAT);
             IPS_SetVariableProfileDigits($n, $dig);
             IPS_SetVariableProfileText($n, '', $suf);
         }

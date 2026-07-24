@@ -63,14 +63,20 @@ function IPS_CreateVariable($t) {
 }
 function IPS_SetVariableCustomProfile($id, $p) { $GLOBALS['VAR'][$id]['VariableCustomProfile'] = $p; }
 function IPS_DeleteVariable($id) { unset($GLOBALS['OBJ'][$id], $GLOBALS['VAR'][$id]); }
-function IPS_VariableProfileExists($n) { return in_array($n, ['MHB.W', 'MHB.kWh', 'MHB.A'], true); }
-function IPS_GetVariableProfile($n) {
-    $suf = ['MHB.W' => ' W', 'MHB.kWh' => ' kWh', 'MHB.A' => ' A'];
-    return ['Suffix' => $suf[$n] ?? ''];
-}
-function IPS_CreateVariableProfile($n, $t) {}
-function IPS_SetVariableProfileDigits($n, $d) {}
-function IPS_SetVariableProfileText($n, $a, $b) {}
+// Echte, zustandsbehaftete Profil-Registry (statt fixer Whitelist) — nötig,
+// um zu verifizieren, dass ensureSharedProfile() ein bereits vorhandenes
+// Profil NICHT überschreibt (Verbund-Konvention: kein Eigentümer-Modul).
+$GLOBALS['PROFILES'] = [
+    'MHB.W'   => ['Digits' => 0, 'Suffix' => ' W'],
+    'MHB.kWh' => ['Digits' => 1, 'Suffix' => ' kWh'],
+    'MHB.A'   => ['Digits' => 1, 'Suffix' => ' A'],
+];
+function IPS_VariableProfileExists($n) { return isset($GLOBALS['PROFILES'][$n]); }
+function IPS_GetVariableProfile($n) { return $GLOBALS['PROFILES'][$n] ?? ['Suffix' => '']; }
+function IPS_CreateVariableProfile($n, $t) { $GLOBALS['PROFILES'][$n] = $GLOBALS['PROFILES'][$n] ?? ['Digits' => 0, 'Suffix' => '']; }
+function IPS_SetVariableProfileDigits($n, $d) { $GLOBALS['PROFILES'][$n]['Digits'] = $d; }
+function IPS_SetVariableProfileText($n, $a, $b) { $GLOBALS['PROFILES'][$n]['Suffix'] = $b; }
+function IPS_SetVariableProfileIcon($n, $i) { $GLOBALS['PROFILES'][$n]['Icon'] = $i; }
 function IPS_GetInstanceListByModuleID($guid) {
     $out = [];
     foreach ($GLOBALS['INSTMOD'] as $iid => $g) { if ($g === $guid) { $out[] = $iid; } }
@@ -267,6 +273,43 @@ check('sourceCount = 2 Kinder', ($a0['sourceCount'] ?? -1) === 2, 'ist ' . ($a0[
 // authority/latency MÜSSEN auch je Zuordnung stehen (InverterHub filtert dort).
 check('authority je Zuordnung', ($a0['authority'] ?? '') === 'auxiliary');
 check('latency je Zuordnung',   ($a0['latency'] ?? '') === 'realtime');
+
+echo "\n9) NRG-Stack-Profile: gemeinsam, aber eigentümerlos\n";
+// MeterHubVirtual hat oben (Block 1-8) mehrfach ApplyChanges() durchlaufen —
+// NRG.Watt/NRG.kWh müssen dabei mit den korrekten Werten entstanden sein.
+check('NRG.Watt entstanden (0 Nachkommastellen, " W")',
+    ($GLOBALS['PROFILES']['NRG.Watt'] ?? null) === ['Digits' => 0, 'Suffix' => ' W'],
+    json_encode($GLOBALS['PROFILES']['NRG.Watt'] ?? null));
+check('NRG.kWh entstanden (1 Nachkommastelle, " kWh")',
+    ($GLOBALS['PROFILES']['NRG.kWh'] ?? null) === ['Digits' => 1, 'Suffix' => ' kWh'],
+    json_encode($GLOBALS['PROFILES']['NRG.kWh'] ?? null));
+
+// Die eigentliche Pointe der Konvention: Ein ANDERES NRG-Stack-Modul hat
+// NRG.Watt bereits mit abweichenden Werten angelegt — MeterHub darf das
+// beim nächsten ApplyChanges NICHT zurechtbiegen (kein Eigentümer-Modul).
+$GLOBALS['PROFILES']['NRG.Watt'] = ['Digits' => 9, 'Suffix' => ' FREMD'];
+$ensureShared = new ReflectionMethod('MeterHub', 'ensureSharedProfile');
+$hubForProfile = new MeterHub(999);
+$ensureShared->invoke($hubForProfile, 'NRG.Watt', ' W', 0, 'Electricity');
+check('fremd angelegtes NRG.Watt bleibt unangetastet',
+    $GLOBALS['PROFILES']['NRG.Watt'] === ['Digits' => 9, 'Suffix' => ' FREMD'],
+    json_encode($GLOBALS['PROFILES']['NRG.Watt']));
+
+// Gegenprobe: fehlt das Profil komplett, legt MeterHub es korrekt an.
+unset($GLOBALS['PROFILES']['NRG.Ampere']);
+$ensureShared->invoke($hubForProfile, 'NRG.Ampere', ' A', 1, 'Electricity');
+check('fehlendes NRG.Ampere wird korrekt angelegt',
+    ($GLOBALS['PROFILES']['NRG.Ampere'] ?? null) === ['Digits' => 1, 'Suffix' => ' A', 'Icon' => 'Electricity'],
+    json_encode($GLOBALS['PROFILES']['NRG.Ampere'] ?? null));
+
+// Modulspezifische (nicht geteilte) Profile bleiben im alten Verhalten:
+// MeterHub IST Eigentümer und setzt Digits/Suffix bei jedem Aufruf durch.
+$GLOBALS['PROFILES']['MHB.Hz'] = ['Digits' => 9, 'Suffix' => ' FREMD'];
+$ensureOwn = new ReflectionMethod('MeterHub', 'ensureProfile');
+$ensureOwn->invoke($hubForProfile, 'MHB.Hz', ' Hz', 2, '');
+check('modulspezifisches MHB.Hz wird weiterhin durchgesetzt',
+    ($GLOBALS['PROFILES']['MHB.Hz'] ?? null) === ['Digits' => 2, 'Suffix' => ' Hz'],
+    json_encode($GLOBALS['PROFILES']['MHB.Hz'] ?? null));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

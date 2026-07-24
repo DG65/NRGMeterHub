@@ -311,6 +311,36 @@ Consumer-/Access-Token in Attributen; `InexogyPassword` wird nach erfolgreichem 
 sowohl als Property geleert (`IPS_SetProperty` + `IPS_ApplyChanges`) als auch im offenen
 Formular (`UpdateFormField`), damit kein Klartext-Rest sichtbar bleibt.
 
+## Gemeinsame NRG-Stack-Profile (Verbund-Konvention 24.07.2026)
+
+Sechs physikalische Grundgrößen bekommen einen gemeinsamen `NRG.*`-Präfix statt eines
+Profils je Modul: `NRG.Watt`, `NRG.kWh`, `NRG.Ampere`, `NRG.Volt`, `NRG.Percent`,
+`NRG.Celsius`. MeterHub führt davon aktuell fünf (kein Temperatursensor, daher kein
+`NRG.Celsius`). Modulspezifische Status-/Enum-Profile bleiben beim eigenen `MHB.*`-Präfix:
+`MHB.Hz`, `MHB.VA`, `MHB.var`, `MHB.PF`, `MHB.Wh` (Wh ist nicht in den sechs, nur kWh),
+`MHB.PhaseSeq` (Enum).
+
+**Anlage ist idempotent, MeterHub ist NICHT Eigentümer:** `ensureSharedProfile()` (Pendant zu
+`ensureProfile()`, das für die modulspezifischen Profile weiterhin Digits/Suffix bei jedem
+`ApplyChanges` durchsetzt) prüft nur `IPS_VariableProfileExists()` und legt **ausschließlich
+bei Fehlen** an — eine bereits von einem anderen NRG-Stack-Modul angelegte Definition wird
+**nicht** überschrieben. Das ist eine bewusste Verschärfung gegenüber dem sonst in diesem
+Repo üblichen Muster (durchsetzendes `ensureProfile()`): Für ein Profil, das mehrere Module
+teilen, wäre fortlaufendes Überschreiben ein stiller Konflikt um die Deutungshoheit.
+
+**Migration bestehender Instanzen läuft automatisch, kein manueller Schritt nötig.**
+`RegisterVar()`/`RegisterVariables()` vergleichen bei jedem `ApplyChanges` das Ziel-Profil
+der Variablendefinition gegen `VariableCustomProfile` der existierenden Variable und rufen
+bei Abweichung `IPS_SetVariableCustomProfile()` — das war schon vor dieser Änderung so
+(kein neues Verhalten) und migriert bestehende `MHB.W`/`MHB.V`/`MHB.A`/`MHB.kWh`/
+`MHB.Percent`-Variablen beim nächsten Zyklus automatisch auf `NRG.*`. Die alten Profile
+werden dabei nicht gelöscht (könnten anderswo noch referenziert sein), nur nicht mehr aktiv
+gepflegt.
+
+Verifiziert in `.tools/test-virtual.php` (Block 9): ein fremd mit abweichenden Werten
+angelegtes `NRG.Watt` bleibt bei erneutem `ensureSharedProfile()`-Aufruf unangetastet; ein
+fehlendes Profil wird korrekt angelegt; modulspezifische Profile werden weiterhin durchgesetzt.
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.18.0-beta.1 (2026-07-24)
+
+- **Gemeinsame NRG-Stack-Profile** (Verbund-Konvention): Die fünf bei MeterHub verwendeten
+  physikalischen Grundgrößen wechseln von modulspezifischen auf gemeinsame Profile —
+  `MHB.W → NRG.Watt`, `MHB.kWh → NRG.kWh`, `MHB.V → NRG.Volt`, `MHB.A → NRG.Ampere`,
+  `MHB.Percent → NRG.Percent`. Modulspezifisch bleiben `MHB.Hz`, `MHB.VA`, `MHB.var`,
+  `MHB.PF`, `MHB.Wh`, `MHB.PhaseSeq`.
+- **Bestehende Instanzen migrieren automatisch** beim nächsten `ApplyChanges` — kein manueller
+  Schritt nötig. Alte Profile werden nicht gelöscht, nur nicht mehr aktiv gepflegt.
+- **Neue gemeinsame Profile sind eigentümerlos:** `ensureSharedProfile()` legt sie nur an,
+  wenn sie fehlen, und überschreibt eine bereits von einem anderen NRG-Stack-Modul angelegte
+  Definition nicht mehr — anders als das bisherige `ensureProfile()` für modulspezifische
+  Profile, das Digits/Suffix weiterhin bei jedem `ApplyChanges` durchsetzt.
+- `.tools/test-virtual.php` prüft die Eigentümerlosigkeit jetzt direkt (43 Prüfungen): ein
+  fremd mit abweichenden Werten angelegtes `NRG.Watt` bleibt unangetastet, ein fehlendes wird
+  korrekt angelegt, modulspezifische Profile werden weiterhin durchgesetzt.
+
 ## 0.17.0-beta.1 (2026-07-23)
 
 - **Vertragsversionierung `contractVersion` (Verbund-Konvention).** `MHUB_GetFunctions` und
