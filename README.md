@@ -4,8 +4,8 @@ IP-Symcon-Modul, das Energiezähler verschiedener Hersteller direkt per **Modbus
 ausliest — ein gemeinsames Treibergerüst statt eines Moduls pro Hersteller, analog
 zum [InverterHub](https://github.com/DG65/InverterHub).
 
-**Teil der DG65 Energie-Suite** — welche Modulstände zusammen getestet sind, listet
-[SUITE.md im EMS-Repo](https://github.com/DG65/EMS/blob/main/SUITE.md).
+**Teil des NRG-Stack** — welche Modulstände zusammenpassen, listet
+[SUITE.md](https://github.com/DG65/EMS/blob/main/SUITE.md).
 
 **Status: Beta.** Die Register-Zuordnungen basieren auf den öffentlich verfügbaren
 Modbus-Protokolldokumenten der Hersteller (Siemens Gerätehandbuch L1V30415167A, Janitza

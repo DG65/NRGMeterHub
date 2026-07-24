@@ -8,7 +8,7 @@
 > [Beta-Tester gesucht] MeterHub — ein Modbus-TCP-Modul für Energiezähler: Siemens PAC2200, Janitza UMG, Shelly Pro 3EM, go-e Controller, Eastron, Carlo Gavazzi, Phoenix Contact, WhatWatt u. a. (+ Netzwerksuche + virtuelle Zähler)
 
 **Bilder:** `virtuelle-zaehler.png` an der markierten Stelle, `suite.png` im Abschnitt
-„Die Modulfamilie". Beide liegen neben dieser Datei; Screenshots aus der eigenen Anlage
+„Der NRG-Stack". Beide liegen neben dieser Datei; Screenshots aus der eigenen Anlage
 (Konfigurationsmaske, angelegte Variablen, Suchlauf) sind wie beim InverterHub sinnvoll —
 die habe ich nicht, die musst Du beisteuern.
 
@@ -150,11 +150,11 @@ Wer eine Modbus-Adressliste oder eine funktionierende Symcon-Vorlage dafür hat:
 baue ich die Treiber. Geraten wird nicht — falsche Registeradressen liefern still falsche
 Werte, und das ist schlimmer als ein fehlender Zähler.
 
-## Die Modulfamilie
+## Der NRG-Stack
 
-MeterHub steht nicht allein. Über die Jahre ist ein ganzer Baukasten entstanden, dessen Teile
-zusammenarbeiten — aber **jedes Modul läuft auch für sich**. Es gibt keine
-Pflichtabhängigkeiten: Fehlt der Partner, fällt nur dessen Zusatzfunktion weg.
+MeterHub steht nicht allein. Über die Jahre ist unter dem Namen **NRG-Stack** ein ganzer
+Baukasten entstanden, dessen Teile zusammenarbeiten — aber **jedes Modul läuft auch für sich**.
+Es gibt keine Pflichtabhängigkeiten: Fehlt der Partner, fällt nur dessen Zusatzfunktion weg.
 
 > **[hier `suite.png` einfügen]**
 

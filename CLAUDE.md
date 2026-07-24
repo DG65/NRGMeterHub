@@ -292,6 +292,25 @@ Intern werden alle Quellen auf dieselbe Zeilenstruktur normalisiert (siehe
 `MeterHubAssignments()` / `HeishaAssignments()` in `InverterHubTile` und `InverterHubEnergy`).
 Ein neuer Partner heißt also: eine Einleseschicht ergänzen, nicht die Verarbeitung anfassen.
 
+## Zugangsdaten bei Cloud-/API-Zählern (Verbund-Konvention 23.07.2026)
+
+MeterHubs Inexogy-Anbindung (`InexogyClient` in `MeterHub/module.php`) ist die Referenz­
+implementierung dieser verbundweiten Regel — nichts hier anzupassen, nur zur Einordnung:
+
+1. **Handshake-/Token-Verfahren bevorzugen.** Existiert eines, dient das Passwort nur dem
+   einmaligen Handshake und wird danach **nicht gespeichert** — nur Token/Secret bleiben liegen.
+2. Ein Passwort wird nur dauerhaft gespeichert, wenn es wirklich wiederholt gebraucht wird
+   (kein Token-Verfahren verfügbar). Handshake-Weg hat Vorrang.
+3. **Speicherort: `RegisterAttributeString`, nicht Property** — nicht im Formular sichtbar.
+4. **Technischer Vorbehalt:** IP-Symcon verschlüsselt nicht at rest. „Sicher" heißt hier „nicht
+   im Formular/Log/Anzeigetext sichtbar", nicht „verschlüsselt".
+5. Formulareingabe als `PasswordTextBox`, Wert nach dem Handshake sofort geleert.
+
+Umgesetzt in `InexogyLogin()`: E-Mail/Passwort nur für den OAuth-1.0a-Handshake, danach nur
+Consumer-/Access-Token in Attributen; `InexogyPassword` wird nach erfolgreichem Handshake
+sowohl als Property geleert (`IPS_SetProperty` + `IPS_ApplyChanges`) als auch im offenen
+Formular (`UpdateFormField`), damit kein Klartext-Rest sichtbar bleibt.
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide
