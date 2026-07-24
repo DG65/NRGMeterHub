@@ -341,6 +341,61 @@ Verifiziert in `.tools/test-virtual.php` (Block 9): ein fremd mit abweichenden W
 angelegtes `NRG.Watt` bleibt bei erneutem `ensureSharedProfile()`-Aufruf unangetastet; ein
 fehlendes Profil wird korrekt angelegt; modulspezifische Profile werden weiterhin durchgesetzt.
 
+## Einheitliche Formular-Optik (Verbund-Konvention 24.07.2026) — geplant, noch nicht umgesetzt
+
+Standard für alle NRG-Stack-Module (Details: `EMS/SUITE.md`, „Einheitliche Formular-Optik").
+Reihenfolge von oben:
+
+1. **„🆕 Neu in Version X.Y"** — aufgeklappt, **pro Version** dismissible (ein Attribut merkt
+   die zuletzt bestätigte Version; erscheint bei jeder neuen Version wieder). Keine
+   Versionsnummer im Panel-Inhalt — die steht nur in der Caption.
+2. **„📖 Dokumentation & Hilfe"** — eingeklappt. Hier, nicht im News-Panel, gehört die
+   Versionsnummer als Text hin.
+3. **Fachpanels** — neue/wichtige Felder mit `🆕`-Präfix im Label kennzeichnen.
+4. **Symcon-Forum-Hinweis** nach den Haupteinstellungen, **einmalig** dismissible (kein
+   Versionsbezug, bleibt weg sobald bestätigt).
+
+**Referenzimplementierung: InverterHub** (`InverterHub/module.php`, gelesen 24.07.2026) —
+Mechanik, keine Wort-für-Wort-Vorlage (nicht alle vier Teile sind dort schon vollständig
+umgesetzt, z. B. steht die Versionsnummer dort noch nicht sichtbar im Doku-Panel):
+
+```php
+private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';   // einmalig (Forum-Hinweis)
+// News-Panel: Attribut 'SeenNews' speichert die zuletzt bestätigte NEWS_VERSION (pro Version)
+private function newsBanner() {
+    if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) { return null; }
+    // … Panel mit Bullet-Liste + Button 'Verstanden – nicht mehr anzeigen' …
+    return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true, …];
+}
+// im Formular ganz vorn einhängen:
+$banner = $this->newsBanner();
+if ($banner !== null) { array_unshift($form['elements'], $banner); }
+
+public function AckNews() {
+    $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+    $this->UpdateFormField('NewsPanel', 'visible', false);   // NIE IPS_SetProperty+ApplyChanges
+}
+```
+
+Der Forum-Hinweis folgt demselben Muster mit einem `bool`-Attribut statt einem Versionsstring.
+**Wichtig:** ausschließlich `UpdateFormField` + Attribut — kein `IPS_SetProperty`/
+`IPS_ApplyChanges` im Dismiss-Handler (Store-Review-Regel, siehe `check-standalone`-Nachbarn
+in diesem Dokument).
+
+**Bei MeterHub noch nicht umgesetzt** — drei Gründe, keiner davon ein Einwand gegen die
+Konvention selbst:
+- Ausdrücklich als nicht eilig markiert („bei Gelegenheit nachziehen").
+- **Blockierende Abhängigkeit für Teil 4:** Der Forum-Hinweis bräuchte einen echten Link zum
+  MeterHub-Thread — der Entwurf in `.forum/ankuendigung.md` ist noch nicht veröffentlicht,
+  es gibt also noch keine URL zum Verlinken.
+- MeterHub/MeterHubDiscovery/MeterHubVirtual haben **kein separates `form.json`** — alle drei
+  bauen ihr Formular bereits vollständig in `GetConfigurationForm()` (PHP), wie InverterHubs
+  Referenz. Struktur passt also direkt hinein, sobald angegangen.
+
+**Wenn umgesetzt wird:** News-Panel-Inhalt aus dem CHANGELOG-Eintrag der jeweiligen Version
+ableiten (nicht neu verfassen), Versionsnummer aus `library.json`/`Konstante` ins Doku-Panel
+ziehen, Forum-Hinweis erst nach Veröffentlichung des Threads einbauen.
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide
