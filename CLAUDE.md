@@ -344,6 +344,17 @@ fehlendes Profil wird korrekt angelegt; modulspezifische Profile werden weiterhi
 ## Einheitliche Formular-Optik (Verbund-Konvention 24.07.2026) — geplant, noch nicht umgesetzt
 
 Standard für alle NRG-Stack-Module (Details: `EMS/SUITE.md`, „Einheitliche Formular-Optik").
+
+**Pflege ist Pflicht bei jedem Fix/Update, nicht nur bei großen Releases** (Ergänzung Dietmar,
+24.07.2026): Bei **jeder** Änderung an einem Formular kurz prüfen, ob dort etwas ins
+News-Panel gehört (ein neues Feld, ein geändertes Verhalten) — das Ergebnis darf „nein" sein,
+aber die Prüfung muss stattfinden, nicht nur bei größeren Versionssprüngen.
+
+**Layout-Qualität allgemein** (dieselbe Ergänzung): logische Gruppierung der Felder,
+Bedienung Schritt für Schritt ohne Scroll-Zickzack (verwandte Einstellungen nicht über
+mehrere weit auseinanderliegende Panels verstreuen), Feldkanten auf einer Linie statt kreuz
+und quer (einheitliche Spaltenbreiten innerhalb eines Panels).
+
 Reihenfolge von oben:
 
 1. **„🆕 Neu in Version X.Y"** — aufgeklappt, **pro Version** dismissible (ein Attribut merkt
