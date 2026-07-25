@@ -130,7 +130,7 @@ Alle Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Man
 
 Über die **Modulverwaltung** → Modul hinzufügen → GitHub-Repository:
 
-`https://github.com/DG65/MeterHub` (Zweig **beta**)
+`https://github.com/DG65/NRGMeterHub` (Zweig **beta**)
 
 Im Symcon Module Store ist das Modul noch nicht — der Beta-Zweig ist der schnellere Weg zu
 Korrekturen.

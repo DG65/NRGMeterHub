@@ -259,7 +259,7 @@ Zuordnungen und Variablen-IDs als JSON liefert.
 Über die IP-Symcon Modulverwaltung „Hinzufügen" mit der URL dieses Repositories:
 
 ```
-https://github.com/DG65/MeterHub
+https://github.com/DG65/NRGMeterHub
 ```
 
 Solange sich MeterHub in der Testphase befindet, in der Modulverwaltung den Zweig **`beta`**

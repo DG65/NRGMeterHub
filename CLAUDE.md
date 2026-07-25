@@ -4,7 +4,7 @@
 
 An diesen Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet:
 
-- **MeterHub** (dieses Repo): Energiezähler per Modbus TCP — https://github.com/DG65/MeterHub
+- **MeterHub** (dieses Repo): Energiezähler per Modbus TCP — https://github.com/DG65/NRGMeterHub
 - **InverterHub**: Wechselrichter per Modbus TCP — https://github.com/DG65/InverterHub
   (lokale Arbeitskopie: `../InverterHub`)
 - **Prognose** (Suite EnergiePrognose): PV- und Verbrauchsprognose —
