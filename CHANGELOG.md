@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.20.5-beta.1 (2026-07-25)
+
+- **Fix: Inexogy-Registrierung (Schritt 1/4) schickte ihre Nutzdaten nie im POST-Body,
+  sondern immer im Query-String der URL** — unabhängig von der HTTP-Methode. Live gemeldet als
+  „HTTP 500 – 500 Internal Server Error" bei jedem Anmeldeversuch. `registerConsumer()` ist der
+  einzige der sechs `http()`-Aufrufe, der eine POST-Anfrage mit echten Nutzdaten sendet (die
+  übrigen POST-Aufrufe signieren einen leeren Body, GET-Aufrufe gehören ohnehin in den
+  Query-String) — Inexogy bekam also eine leere Anfrage ohne das erwartete `client`-Feld.
+  Fix: `http()` unterscheidet jetzt nach Methode — GET weiterhin Query-String, alles andere
+  `CURLOPT_POSTFIELDS` (form-kodiert). Betrifft ausschließlich `registerConsumer()`; die
+  übrigen fünf Aufrufe verhalten sich unverändert (leerer Body bzw. GET-Query-String wie
+  bisher). Kein Testaufbau in diesem Repo prüft den echten Netzwerkpfad (kein Netzzugriff im
+  Testlauf) — Verifikation über einen erneuten Live-Anmeldeversuch.
+
 ## 0.20.4-beta.1 (2026-07-25)
 
 - **Inexogy-Fehlermeldungen nennen jetzt den konkreten HTTP-/Netzwerkfehler**, nicht mehr nur

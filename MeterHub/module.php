@@ -1761,14 +1761,32 @@ class MHUB_InexogyClient
         return 'OAuth ' . implode(', ', $parts);
     }
 
-    /** HTTP-Request mit optionalem OAuth-Header. Rückgabe: [httpCode, body]. */
-    private function http(string $method, string $url, array $queryParams = [], string $authHeader = ''): array
+    /**
+     * HTTP-Request mit optionalem OAuth-Header. Rückgabe: [httpCode, body].
+     * $params geht bei GET als Query-String an die URL (korrekte GET-
+     * Semantik), bei jeder anderen Methode als form-kodierter Body
+     * (CURLOPT_POSTFIELDS) — vorher landete es unabhängig von der Methode
+     * IMMER im Query-String, auch bei POST. Für registerConsumer() (POST
+     * mit echten Nutzdaten, kein leerer signierter Body wie die übrigen
+     * POST-Aufrufe) bedeutete das: Inexogy bekam eine leere Anfrage ohne
+     * das erwartete "client"-Feld — Ursache eines live gemeldeten HTTP 500
+     * bei der Registrierung (Schritt 1/4).
+     */
+    private function http(string $method, string $url, array $params = [], string $authHeader = ''): array
     {
-        $full = $url . (empty($queryParams) ? '' : '?' . http_build_query($queryParams));
-        $ch = curl_init($full);
+        $method = strtoupper($method);
+        if ($method === 'GET') {
+            $full = $url . (empty($params) ? '' : '?' . http_build_query($params));
+            $ch = curl_init($full);
+        } else {
+            $ch = curl_init($url);
+            if (!empty($params)) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params));
+            }
+        }
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         if ($authHeader !== '') {
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: ' . $authHeader]);
         }
