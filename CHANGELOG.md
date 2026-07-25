@@ -1,6 +1,21 @@
 # Changelog
 
-## 0.20.8-beta.1 (2026-07-25)
+## 0.20.9-beta.1 (2026-07-25)
+
+- **Korrektur zu 0.20.8: `module.json["name"]` zurückgesetzt.** Das Feld ist entgegen der
+  Annahme in 0.20.8 KEIN Anzeigename, sondern der PHP-Klassenname, den IP-Symcon per
+  Reflection sucht — beim tatsächlichen Neuladen des Moduls (`MC_DeleteModule`+
+  `MC_CreateModule`) hätte das bei allen drei MeterHub-Modulen zu „Class NRGMeterHub… does not
+  exist" geführt (live bereits so bei ChargerHub/MigrationsHub/InverterHub eingetreten, deren
+  Umbenennung als — fälschliches — Vorbild diente). Betraf hier nur den Code-Stand, nicht die
+  Live-Installation: MeterHub wurde zwischen 0.20.8 und dieser Korrektur nicht aktualisiert,
+  alle sieben Instanzen liefen durchgehend weiter.
+  `MeterHub/module.json`, `MeterHubDiscovery/module.json`, `MeterHubVirtual/module.json`
+  „name" wieder auf `MeterHub`/`MeterHubDiscovery`/`MeterHubVirtual` — die NRG-präfixierten
+  Namen bleiben als zusätzlicher Eintrag in `aliases`. `library.json["name"]` (reines
+  Anzeigefeld, unkritisch) bleibt bei „NRGMeterHub for IP-Symcon".
+
+## 0.20.8-beta.1 (2026-07-25) — teilweise zurückgenommen, siehe 0.20.9
 
 - **Modulname auf NRG-Präfix aktualisiert** (Verbund-Entscheidung Dietmars, analog zu
   ChargerHub Commit 5e9ea21): `library.json` „name" → „NRGMeterHub for IP-Symcon";
@@ -9,7 +24,8 @@
   mit dem alten Namen zusätzlich in `aliases` erhalten. **Unangetastet: GUIDs (`id`), Präfixe
   (`MHUB`/`MHUBD`/`MHUBV`), Idents und die PHP-Klassennamen** (`MeterHub`/`MeterHubDiscovery`/
   `MeterHubVirtual` bleiben in `module.php` exakt so, wie im Verbund vorgegeben). Reine
-  Anzeigenamen-Änderung.
+  Anzeigenamen-Änderung. **Die `module.json["name"]`-Teile dieser Änderung waren falsch — siehe
+  Korrektur in 0.20.9.**
 
 ## 0.20.7-beta.1 (2026-07-25)
 
