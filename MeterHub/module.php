@@ -1701,6 +1701,10 @@ class MHUB_InexogyClient
     private $consumerSecret;
     private $token;         // Access-Token (oder Request-Token im Handshake)
     private $tokenSecret;
+    // Diagnosedetail des letzten http()-Aufrufs (curl-Fehler oder
+    // HTTP-Status samt Antwortanfang) — für eine aussagekräftige
+    // Fehlermeldung, wenn ein Handshake-Schritt fehlschlägt.
+    private $lastError = '';
 
     public function __construct(string $consumerKey = '', string $consumerSecret = '', string $token = '', string $tokenSecret = '')
     {
@@ -1770,8 +1774,22 @@ class MHUB_InexogyClient
         }
         $body = curl_exec($ch);
         $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
         curl_close($ch);
+        // Netzwerkfehler (DNS, Timeout, Verbindung abgelehnt …) und eine
+        // echte HTTP-Antwort brauchen unterschiedliche Diagnose — beides
+        // wird sonst gleich zu "false" verworfen und ist nicht mehr
+        // unterscheidbar, sobald ein Schritt fehlschlägt.
+        $this->lastError = $err !== ''
+            ? 'Netzwerkfehler: ' . $err
+            : 'HTTP ' . $code . ($body !== false && $body !== '' ? ' – ' . substr($body, 0, 200) : ' (leere Antwort)');
         return [$code, $body === false ? '' : $body];
+    }
+
+    /** Diagnosedetail des zuletzt fehlgeschlagenen http()-Aufrufs. */
+    public function getLastError(): string
+    {
+        return $this->lastError;
     }
 
     // --- Handshake-Schritte (nur beim Login aufgerufen) --------------------
@@ -2717,20 +2735,20 @@ class MeterHub extends IPSModule
 
         $c = new MHUB_InexogyClient();
         if (!$c->registerConsumer('IP-Symcon MeterHub ' . $this->InstanceID)) {
-            $say('❌ Anmeldung fehlgeschlagen bei der Registrierung (Schritt 1/4). Ist die Inexogy-API erreichbar?');
+            $say('❌ Anmeldung fehlgeschlagen bei der Registrierung (Schritt 1/4). Ist die Inexogy-API erreichbar? (' . $c->getLastError() . ')');
             return;
         }
         if (!$c->fetchRequestToken()) {
-            $say('❌ Anmeldung fehlgeschlagen beim Anforderungs-Token (Schritt 2/4).');
+            $say('❌ Anmeldung fehlgeschlagen beim Anforderungs-Token (Schritt 2/4). (' . $c->getLastError() . ')');
             return;
         }
         $verifier = $c->authorize($email, $pass);
         if ($verifier === '') {
-            $say('❌ Anmeldung fehlgeschlagen bei der Autorisierung (Schritt 3/4). E-Mail oder Passwort falsch?');
+            $say('❌ Anmeldung fehlgeschlagen bei der Autorisierung (Schritt 3/4). E-Mail oder Passwort falsch? (' . $c->getLastError() . ')');
             return;
         }
         if (!$c->fetchAccessToken($verifier)) {
-            $say('❌ Anmeldung fehlgeschlagen beim Zugriffs-Token (Schritt 4/4).');
+            $say('❌ Anmeldung fehlgeschlagen beim Zugriffs-Token (Schritt 4/4). (' . $c->getLastError() . ')');
             return;
         }
 

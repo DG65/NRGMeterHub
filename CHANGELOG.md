@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.20.4-beta.1 (2026-07-25)
+
+- **Inexogy-Fehlermeldungen nennen jetzt den konkreten HTTP-/Netzwerkfehler**, nicht mehr nur
+  „fehlgeschlagen". Auslöser: Dietmars gemeldeter Fehlschlag bei Schritt 1/4 (Registrierung,
+  noch vor jeder E-Mail/Passwort-Prüfung) ließ offen, ob DNS-Fehler, Timeout oder eine echte
+  4xx/5xx-Antwort von Inexogy die Ursache war — `http()` verwarf `curl_error()` und den
+  Antwort-Body bislang komplett. Jetzt merkt sich `MHUB_InexogyClient` das Diagnosedetail des
+  letzten Aufrufs (`getLastError()`) und alle vier Handshake-Fehlermeldungen hängen es an —
+  landet dank der vorigen Version auch im Systemprotokoll. Rein additiv, kein geänderter
+  Ablauf bei Erfolg.
+
 ## 0.20.3-beta.1 (2026-07-25)
 
 - **Inexogy-Anmeldung protokolliert Fehlschläge jetzt zusätzlich im Systemprotokoll**
