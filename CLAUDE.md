@@ -462,6 +462,52 @@ Konvention selbst:
 ableiten (nicht neu verfassen), Versionsnummer aus `library.json`/`Konstante` ins Doku-Panel
 ziehen, Forum-Hinweis erst nach Veröffentlichung des Threads einbauen.
 
+## Formularfelder live umschalten: `onChange` + `UpdateFormField`, nicht `PropertyCondition`
+
+**Auslöser:** Dietmar legte eine Inexogy-Instanz an und sah weiterhin das Host-Feld
+(IP-Adresse) — für einen Cloud-Zähler nichts Sinnvolles. Ursache: Das Verbindungspanel
+(`InexogyEmail`/… vs. `Host`/`Port`/`UnitId` in `GetConfigurationForm()`) wählte ein reiner
+PHP-`if`/`else` auf den **gespeicherten** Zählertyp — die Funktion läuft aber nur beim Öffnen
+der Maske, nicht bei jeder Auswahländerung. Wer im offenen Formular auf „Inexogy" umschaltete,
+sah also weiter das alte Panel samt IP-Pflichtregex.
+
+**Zwei mögliche Techniken, eine davon unverifiziert:** IP-Symcon kennt `"visible": {"type":
+"PropertyCondition", "property": …, "value": …}` (belegt in `EMS/EMS/form.json`) — dort aber
+nur mit **einzelnem Wert** (`true`/`2`), nie mit Array oder Negation. Für „sichtbar bei genau
+einem von 19 Zählertyp-Werten, unsichtbar bei den anderen 18" hätte das eine ungeprüfte Annahme
+gebraucht (Array-Wert? `!=`? `Or`-Wrapper?) — laut offizieller Doku und Community-Suche nicht
+belegt. Statt zu raten: die **dokumentierte** Alternative aus dem Symcon-Forum verwendet, die
+für beliebig viele Quellwerte funktioniert, ohne Negation zu brauchen — `onChange` am
+Select-Feld ruft eine PHP-Methode, die beide Feldgruppen per `UpdateFormField('name',
+'visible', …)` umschaltet:
+
+```php
+['type' => 'Select', 'name' => 'Meter', 'onChange' => 'MHUB_OnChangeMeter($id, $Meter);', …]
+
+public function OnChangeMeter($meter) {
+    $isCloud = in_array($meter, self::CLOUD_METERS, true);
+    foreach ([...Inexogy-Feldnamen...] as $f) { $this->UpdateFormField($f, 'visible', $isCloud); }
+    $this->UpdateFormField('Host', 'visible', !$isCloud);
+    $this->UpdateFormField('Host', 'validate', $isCloud ? '' : '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$');
+    …
+}
+```
+
+**Beide Feldgruppen stehen dafür immer im Formular** (nicht mehr per PHP-`if` weggelassen),
+Anfangszustand weiter aus dem gespeicherten Wert berechnet. **Wichtig:** Nicht nur `'visible'`
+umschalten — auch ein `'validate'`-Regex (wie beim Host-Feld) bleibt sonst möglicherweise an
+einem unsichtbaren Feld aktiv und blockiert „Übernehmen" weiterhin still. `'validate' => ''`
+beim Ausblenden entschärft das zusätzlich, unabhängig davon, ob Symcon versteckte Felder
+überhaupt noch prüft. `$Meter` als Parameter im `onChange`-String liefert den *gerade
+gewählten, noch ungespeicherten* Wert — dasselbe Muster wie `$ScanRoot`/`$ScanFilter` bei
+`MHUBV_ScanMeters($id, …)` in `MeterHubVirtual/module.php`.
+
+**Wo das Muster noch fehlt:** `MeasureMode` (kombiniert/je Phase) schaltet die
+Funktionszuordnungs-Felder bisher ebenfalls nur bei „Übernehmen" um (siehe Label „Nach dem
+Umschalten einmal Übernehmen …" in `GetConfigurationForm()`) — bewusst nicht mitgezogen, da
+nicht gemeldet und ein größerer Umbau (Felder je Phase vs. gesamt sind strukturell
+verschieden, nicht nur ein-/ausblendbar).
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide

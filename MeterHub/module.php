@@ -2378,33 +2378,36 @@ class MeterHub extends IPSModule
 
         // Verbindungspanel je nach Transport: Cloud-Anmeldung (Inexogy) oder
         // Modbus-TCP-Adresse. Bei Cloud sind Host/Port/UnitId gegenstandslos.
-        if ($isCloud) {
-            // Platzhalter mit Wert '' immer vorhalten: Ohne ihn lehnt das
-            // Formular „Übernehmen" schon vor der ersten Anmeldung ab, weil
-            // der Property-Standardwert '' dann in keiner Option steckt
-            // (gemeldeter Fehler „Aktueller Wert '' ist nicht verfügbar").
-            $meterOpts = [['caption' => '— bitte zuerst anmelden —', 'value' => '']];
-            $curUID = $this->ReadPropertyString('InexogyMeterID');
-            if ($curUID !== '') {
-                $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];
-            }
-            $connectionItems = [
-                ['type' => 'Label', 'caption' => '🔐 Anmeldung bei Inexogy (ehem. Discovergy). E-Mail und Passwort deines my.inexogy.com-Kontos eintragen, übernehmen, dann „Anmelden". Das Passwort wird nur einmal für die Anmeldung benutzt, danach automatisch gelöscht — gespeichert werden ausschließlich Zugriffs-Token (nicht im Klartext).'],
-                ['type' => 'ValidationTextBox', 'name' => 'InexogyEmail', 'caption' => 'E-Mail (Inexogy-Konto)'],
-                ['type' => 'PasswordTextBox', 'name' => 'InexogyPassword', 'caption' => 'Passwort (wird nach der Anmeldung gelöscht)'],
-                ['type' => 'Button', 'caption' => '🔑  Anmelden und Zähler abrufen', 'onClick' => 'MHUB_InexogyLogin($id);'],
-                ['type' => 'Label', 'name' => 'InexogyResult', 'caption' => '', 'visible' => false],
-                ['type' => 'Select', 'name' => 'InexogyMeterID', 'caption' => 'Zähler-UID', 'options' => $meterOpts],
-                ['type' => 'Label', 'caption' => 'ℹ️ Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
-                ['type' => 'Label', 'caption' => '→ Umstieg von einem anderen Discovergy-/Inexogy-Modul mit Übernahme der Messhistorie? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann mit MigrationsHub adoptieren, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene Historie.'],
-            ];
-        } else {
-            $connectionItems = [
-                ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
-                ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
-            ];
+        //
+        // Beide Feldgruppen stehen IMMER im Formular, nur die Sichtbarkeit
+        // wechselt — und zwar sofort beim Umschalten des „Zählertyp"-Felds
+        // (OnChangeMeter(), per 'onChange' an der Meter-Auswahl unten), nicht
+        // erst nach „Übernehmen". Grund: GetConfigurationForm() läuft nur
+        // beim Öffnen der Maske; ein reiner PHP-if/else auf den GESPEICHERTEN
+        // Zählertyp hätte beim Umschalten auf „Inexogy" im selben Formular
+        // weiterhin das Host-Feld samt IP-Pflichtformat gezeigt — mit nichts
+        // Sinnvollem, was man dort eintragen könnte, und „Übernehmen" bliebe
+        // blockiert. Das Host-Feld bekommt sein 'validate' deshalb ebenfalls
+        // über OnChangeMeter() geleert, nicht nur 'visible' — falls die
+        // Regex-Prüfung auch an unsichtbaren Feldern noch greifen sollte.
+        $meterOpts = [['caption' => '— bitte zuerst anmelden —', 'value' => '']];
+        $curUID = $this->ReadPropertyString('InexogyMeterID');
+        if ($curUID !== '') {
+            $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];
         }
+        $connectionItems = [
+            ['type' => 'Label', 'name' => 'InexogyIntro', 'visible' => $isCloud, 'caption' => '🔐 Anmeldung bei Inexogy (ehem. Discovergy). E-Mail und Passwort deines my.inexogy.com-Kontos eintragen, übernehmen, dann „Anmelden". Das Passwort wird nur einmal für die Anmeldung benutzt, danach automatisch gelöscht — gespeichert werden ausschließlich Zugriffs-Token (nicht im Klartext).'],
+            ['type' => 'ValidationTextBox', 'name' => 'InexogyEmail', 'visible' => $isCloud, 'caption' => 'E-Mail (Inexogy-Konto)'],
+            ['type' => 'PasswordTextBox', 'name' => 'InexogyPassword', 'visible' => $isCloud, 'caption' => 'Passwort (wird nach der Anmeldung gelöscht)'],
+            ['type' => 'Button', 'name' => 'InexogyLoginButton', 'visible' => $isCloud, 'caption' => '🔑  Anmelden und Zähler abrufen', 'onClick' => 'MHUB_InexogyLogin($id);'],
+            ['type' => 'Label', 'name' => 'InexogyResult', 'caption' => '', 'visible' => false],
+            ['type' => 'Select', 'name' => 'InexogyMeterID', 'visible' => $isCloud, 'caption' => 'Zähler-UID', 'options' => $meterOpts],
+            ['type' => 'Label', 'name' => 'InexogyHintPoll', 'visible' => $isCloud, 'caption' => 'ℹ️ Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
+            ['type' => 'Label', 'name' => 'InexogyHintMigration', 'visible' => $isCloud, 'caption' => '→ Umstieg von einem anderen Discovergy-/Inexogy-Modul mit Übernahme der Messhistorie? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann mit MigrationsHub adoptieren, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene Historie.'],
+            ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud, 'caption' => 'IP-Adresse', 'validate' => $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+            ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud, 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+            ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud, 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
+        ];
 
         $groupItems = [];
         foreach ($driver->getOptionalGroups() as $propName => $group) {
@@ -2510,9 +2513,10 @@ class MeterHub extends IPSModule
                     'caption' => 'Kommunikation aktiv',
                 ],
                 [
-                    'type'    => 'Select',
-                    'name'    => 'Meter',
-                    'caption' => 'Zählertyp',
+                    'type'     => 'Select',
+                    'name'     => 'Meter',
+                    'caption'  => 'Zählertyp',
+                    'onChange' => 'MHUB_OnChangeMeter($id, $Meter);',
                     'options' => [
                         ['caption' => 'Siemens SENTRON PAC2200', 'value' => 'siemens_pac2200'],
                         ['caption' => 'Janitza UMG 604(-PRO)',   'value' => 'janitza_umg604'],
@@ -2604,13 +2608,38 @@ class MeterHub extends IPSModule
                 ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'MHUB_ReadFast($id); MHUB_ReadSlow($id);'],
             ],
             'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte IP-Adresse eintragen.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung vervollständigen (IP-Adresse bzw. Inexogy-Anmeldung).'],
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
                 ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – Zähler nicht erreichbar.'],
             ],
         ];
 
         return json_encode($form);
+    }
+
+    /**
+     * Blendet beim Umschalten des Zählertyps sofort die passende
+     * Verbindungsart ein/aus — ohne "Übernehmen" abzuwarten. Ohne das würde
+     * ein frisch auf Inexogy umgeschaltetes Formular weiterhin das
+     * Host-Feld samt IP-Pflichtformat zeigen (GetConfigurationForm() läuft
+     * nur beim Öffnen der Maske, nicht bei jeder Auswahländerung), mit
+     * nichts Sinnvollem, was man dort eintragen könnte.
+     */
+    public function OnChangeMeter($meter)
+    {
+        $isCloud = in_array($meter, self::CLOUD_METERS, true);
+        foreach (['InexogyIntro', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration'] as $f) {
+            $this->UpdateFormField($f, 'visible', $isCloud);
+        }
+        if (!$isCloud) {
+            $this->UpdateFormField('InexogyResult', 'visible', false);
+        }
+        $this->UpdateFormField('Host', 'visible', !$isCloud);
+        // Nicht nur ausblenden, auch die Pflicht-Regex entschärfen — falls
+        // sie an einem unsichtbaren Feld trotzdem noch griffe.
+        $this->UpdateFormField('Host', 'validate', $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
+        $this->UpdateFormField('Port', 'visible', !$isCloud);
+        $this->UpdateFormField('UnitId', 'visible', !$isCloud);
     }
 
     // -----------------------------------------------------------------------

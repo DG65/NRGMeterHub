@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.20.2-beta.1 (2026-07-25)
+
+- **Fix: Neuanlage einer Inexogy-Instanz zeigte weiterhin das Host-Feld (IP-Adresse)**, obwohl
+  dort für einen Cloud-Zähler nichts Sinnvolles einzutragen ist. Ursache: Das Verbindungspanel
+  (Host/Port/Unit-ID vs. Inexogy-Anmeldung) wurde bisher über einen reinen PHP-`if`/`else` auf
+  den GESPEICHERTEN Zählertyp gewählt — `GetConfigurationForm()` läuft aber nur beim Öffnen der
+  Maske, nicht bei jeder Auswahländerung. Wer im offenen Formular von einem Modbus-Zähler auf
+  „Inexogy" umschaltete, sah also weiterhin das Host-Feld samt IP-Pflichtformat.
+  Fix: beide Feldgruppen stehen jetzt immer im Formular, die Sichtbarkeit wechselt sofort über
+  ein `onChange` an der Zählertyp-Auswahl (`OnChangeMeter()`, per `UpdateFormField`) — wie bei
+  „Übernehmen" bereits an anderer Stelle üblich. Das Host-Feld verliert beim Umschalten auf
+  Inexogy zusätzlich seine IP-Pflicht-Regex (`validate`), nicht nur die Sichtbarkeit.
+  Gefunden über eine Live-Rückmeldung Dietmars beim Versuch, einen Inexogy-Zähler anzulegen.
+
 ## 0.20.1-beta.1 (2026-07-25)
 
 - **Fix: „Übernehmen" einer frisch angelegten Inexogy-Instanz schlug fehl**, solange noch
