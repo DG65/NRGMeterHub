@@ -6,9 +6,9 @@
 // die passenden Datenpunkt-Gruppen und Register freigeschaltet.
 //
 // Aufbau analog zu InverterHub:
-//   ModbusTcpClient        — gemeinsame Modbus-TCP-Grundfunktionen
-//   MeterDriverInterface   — Vertrag, den jeder Zähler-Treiber erfüllt
-//   Pac2200Driver          — Siemens SENTRON PAC2200
+//   MHUB_ModbusTcpClient        — gemeinsame Modbus-TCP-Grundfunktionen
+//   MHUB_MeterDriverInterface   — Vertrag, den jeder Zähler-Treiber erfüllt
+//   MHUB_Pac2200Driver          — Siemens SENTRON PAC2200
 //   Umg604Driver           — Janitza UMG 604(-PRO)
 //   MeterHub               — Hauptmodul, lädt den Treiber laut Meter-Property
 //
@@ -16,7 +16,7 @@
 // schlanker als beim InverterHub.
 // ===========================================================================
 
-class ModbusTcpClient
+class MHUB_ModbusTcpClient
 {
     public $host;
     public $port;
@@ -163,10 +163,10 @@ class ModbusTcpClient
 }
 
 // ---------------------------------------------------------------------------
-// MeterDriverInterface — Vertrag, den jeder Zähler-Treiber erfüllt
+// MHUB_MeterDriverInterface — Vertrag, den jeder Zähler-Treiber erfüllt
 // ---------------------------------------------------------------------------
 
-interface MeterDriverInterface
+interface MHUB_MeterDriverInterface
 {
     /**
      * Immer aktive Basisvariablen.
@@ -194,12 +194,12 @@ interface MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// Pac2200Driver — Siemens SENTRON PAC2200
+// MHUB_Pac2200Driver — Siemens SENTRON PAC2200
 // Float32-Messgrößen ab Register 1, Energiezähler als Double ab Register 801.
 // Registeradressen laut Gerätehandbuch L1V30415167A (FC 0x03).
 // ---------------------------------------------------------------------------
 
-class Pac2200Driver implements MeterDriverInterface
+class MHUB_Pac2200Driver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -339,7 +339,7 @@ class Pac2200Driver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// JanitzaClassicDriver — klassische Janitza-UMG-Registerkarte (19000er-Block)
+// MHUB_JanitzaClassicDriver — klassische Janitza-UMG-Registerkarte (19000er-Block)
 // Deckt UMG 604, 605-PRO, 509-PRO, 512-PRO, 806, 96PA und 801 ab — alle nutzen
 // dieselbe feste Firmware-Karte: Float32-Messgrößen ab Register 19000, Energie
 // als Float32 (Wh) bei 19068 (Bezug) / 19076 (Abgabe), Netzqualität (THD) ab
@@ -348,7 +348,7 @@ class Pac2200Driver implements MeterDriverInterface
 // Modell dieser Familie führt — z. B. der UMG 96PA nicht).
 // ---------------------------------------------------------------------------
 
-class JanitzaClassicDriver implements MeterDriverInterface
+class MHUB_JanitzaClassicDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -521,7 +521,7 @@ class JanitzaClassicDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// Umg800Driver — Janitza UMG 800 (neue Generation)
+// MHUB_Umg800Driver — Janitza UMG 800 (neue Generation)
 // Der UMG 800 hat eine frei konfigurierbare Modbus-Registerkarte; dieser
 // Treiber folgt der ausgelieferten Werks-Standardzuordnung (VirtualMeter
 // „Group19"). Sie liegt zwar auch im 19000er-Bereich, ist aber ANDERS
@@ -530,7 +530,7 @@ class JanitzaClassicDriver implements MeterDriverInterface
 // Wurde die Modbus-Zuordnung im Gerät geändert, stimmen diese Adressen nicht.
 // ---------------------------------------------------------------------------
 
-class Umg800Driver implements MeterDriverInterface
+class MHUB_Umg800Driver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -692,12 +692,12 @@ class Umg800Driver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// EastronSdmDriver — Eastron SDM72D-M v2
+// MHUB_EastronSdmDriver — Eastron SDM72D-M v2
 // FC 0x04 (Input Register), Float32 Big-Endian, Basisadresse 0. Energie in kWh.
 // Registerkarte laut IP-Symcon-Forum-Vorlage / Eastron-Handbuch.
 // ---------------------------------------------------------------------------
 
-class EastronSdmDriver implements MeterDriverInterface
+class MHUB_EastronSdmDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -831,13 +831,13 @@ class EastronSdmDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// WhatWattDriver — WhatWatt Smart Meter
+// MHUB_WhatWattDriver — WhatWatt Smart Meter
 // FC 0x04, Float32 (Momentanwerte, Energie-Summen) + Double (Tarif-Energie),
 // Big-Endian. Wirkleistung getrennt als Bezug (501) und Abgabe (505) →
 // Gesamt = Bezug − Abgabe. Keine Frequenz in der Vorlage.
 // ---------------------------------------------------------------------------
 
-class WhatWattDriver implements MeterDriverInterface
+class MHUB_WhatWattDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -937,11 +937,11 @@ class WhatWattDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// PhoenixEem375Driver — Phoenix Contact EEM-EM375
+// MHUB_PhoenixEem375Driver — Phoenix Contact EEM-EM375
 // FC 0x04, Float32 Big-Endian, Basisadresse 4096. Nur Bezugsenergie (Wh).
 // ---------------------------------------------------------------------------
 
-class PhoenixEem375Driver implements MeterDriverInterface
+class MHUB_PhoenixEem375Driver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1021,12 +1021,12 @@ class PhoenixEem375Driver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// PhoenixEemXmDriver — Phoenix Contact EEM-XM (xMxxx-Reihe)
+// MHUB_PhoenixEemXmDriver — Phoenix Contact EEM-XM (xMxxx-Reihe)
 // FC 0x04, Float32, Basisadresse 32774. Anordnung weicht vom EM375 ab; einige
 // XM-Geräte liefern die Wörter getauscht — ggf. den WordSwap-Schalter nutzen.
 // ---------------------------------------------------------------------------
 
-class PhoenixEemXmDriver implements MeterDriverInterface
+class MHUB_PhoenixEemXmDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1106,13 +1106,13 @@ class PhoenixEemXmDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// CarloGavazziDriver — Carlo Gavazzi EM24 / EM300 / ET340
+// MHUB_CarloGavazziDriver — Carlo Gavazzi EM24 / EM300 / ET340
 // FC 0x04, Int32 mit getauschter Wortreihenfolge (CDAB), Skalierung:
 // U ×0,1 V · I ×0,001 A · P ×0,1 W · f ×0,1 Hz · Energie ×0,1 kWh.
 // Registerkarte nach OpenEMS (io.openems.edge.meter.carlo.gavazzi.em300).
 // ---------------------------------------------------------------------------
 
-class CarloGavazziDriver implements MeterDriverInterface
+class MHUB_CarloGavazziDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1218,13 +1218,13 @@ class CarloGavazziDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// SocomecCountisDriver — Socomec Countis E23/E24/E27/E28/E34/E44 (EXPERIMENTELL)
+// MHUB_SocomecCountisDriver — Socomec Countis E23/E24/E27/E28/E34/E44 (EXPERIMENTELL)
 // FC 0x03, Big-Endian; U als UInt32 ×0,01 V, I UInt32 ×0,001 A, f UInt32
 // ×0,001 Hz, P/Q Int32 ×10 W/var, Energie UInt32 ×0,01 kWh. Skalen nach
 // OpenEMS abgeleitet — an echtem Gerät prüfen (v. a. Leistungs-Skala).
 // ---------------------------------------------------------------------------
 
-class SocomecCountisDriver implements MeterDriverInterface
+class MHUB_SocomecCountisDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1310,14 +1310,14 @@ class SocomecCountisDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// MbsProfessionalDriver — MBS Professional 3-75 M-Bus/Modbus-Gateway (EXPERIMENTELL)
+// MHUB_MbsProfessionalDriver — MBS Professional 3-75 M-Bus/Modbus-Gateway (EXPERIMENTELL)
 // FC 0x03, Big-Endian. Aus den IP-Symcon-Forum-Vorlagen abgeleitet: Bezug/
 // Abgabe als UInt32 ×0,001 kWh, Wirkleistung Int32 (W), Spannung/Frequenz
 // UInt16 ×0,1. Integer-Typgrößen aus den Vorlagen abgeleitet — an echtem
 // Gateway prüfen.
 // ---------------------------------------------------------------------------
 
-class MbsProfessionalDriver implements MeterDriverInterface
+class MHUB_MbsProfessionalDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1384,7 +1384,7 @@ class MbsProfessionalDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// ShellyPro3emDriver — Shelly Pro 3EM
+// MHUB_ShellyPro3emDriver — Shelly Pro 3EM
 // FC 0x04 (Input Register), Float32 mit GETAUSCHTER Wortreihenfolge (CDAB).
 // Wire-Adresse = Doku-Registernummer − 30000: EM-Messwerte ab 1011
 // (Gesamtleistung 1013, Frequenz 1033, Phasen 1020/40/60 …), EMData-Energie
@@ -1392,7 +1392,7 @@ class MbsProfessionalDriver implements MeterDriverInterface
 // Modbus TCP muss am Gerät aktiviert sein (Einstellungen → Modbus, tcp/502).
 // ---------------------------------------------------------------------------
 
-class ShellyPro3emDriver implements MeterDriverInterface
+class MHUB_ShellyPro3emDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1528,7 +1528,7 @@ class ShellyPro3emDriver implements MeterDriverInterface
 // Vorzeichen: am Gerät bestätigt − = Einspeisung, passt zur Konvention.
 // ---------------------------------------------------------------------------
 
-class GoeControllerDriver implements MeterDriverInterface
+class MHUB_GoeControllerDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1675,8 +1675,8 @@ class GoeControllerDriver implements MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// InexogyClient — OAuth-1.0a-Transport für die Inexogy-Cloud-API (ehem.
-// Discovergy). Das Gegenstück zu ModbusTcpClient für Cloud-Zähler: ein Treiber
+// MHUB_InexogyClient — OAuth-1.0a-Transport für die Inexogy-Cloud-API (ehem.
+// Discovergy). Das Gegenstück zu MHUB_ModbusTcpClient für Cloud-Zähler: ein Treiber
 // bekommt statt des Modbus-Clients diese Instanz und ruft getLastReading().
 //
 // Auth (an api.inexogy.com/docs geprüft, mit dem Verbund abgestimmt): Es gibt
@@ -1693,7 +1693,7 @@ class GoeControllerDriver implements MeterDriverInterface
 // Die Signierung ist in reinem PHP (hash_hmac), keine externe Bibliothek.
 // ---------------------------------------------------------------------------
 
-class InexogyClient
+class MHUB_InexogyClient
 {
     const BASE = 'https://api.inexogy.com/public/v1';
 
@@ -1864,8 +1864,8 @@ class InexogyClient
 }
 
 // ---------------------------------------------------------------------------
-// InexogyDriver — Cloud-Zähler über die Inexogy-API. Bekommt statt des
-// ModbusTcpClient einen InexogyClient. Feldstruktur und Skalierung aus dem
+// MHUB_InexogyDriver — Cloud-Zähler über die Inexogy-API. Bekommt statt des
+// MHUB_ModbusTcpClient einen MHUB_InexogyClient. Feldstruktur und Skalierung aus dem
 // öffentlichen Quellcode des Alt-Moduls (elueckel/Discovergy_Smartmeter)
 // verifiziert und gegen die Live-Werte von Dietmars Zähler gegengeprüft:
 //   energy   /10^10 → kWh (Bezug, kumulativ)
@@ -1877,7 +1877,7 @@ class InexogyClient
 // Messung; die Rechnung macht das EMS/Tibber.
 // ---------------------------------------------------------------------------
 
-class InexogyDriver implements MeterDriverInterface
+class MHUB_InexogyDriver implements MHUB_MeterDriverInterface
 {
     public function getBaseVars()
     {
@@ -1969,26 +1969,26 @@ class InexogyDriver implements MeterDriverInterface
 class MeterHub extends IPSModule
 {
     private const DRIVERS = [
-        'siemens_pac2200' => 'Pac2200Driver',
-        'janitza_umg604'  => 'JanitzaClassicDriver',
-        'janitza_umg605'  => 'JanitzaClassicDriver',
-        'janitza_umg509'  => 'JanitzaClassicDriver',
-        'janitza_umg512'  => 'JanitzaClassicDriver',
-        'janitza_umg806'  => 'JanitzaClassicDriver',
-        'janitza_umg96pa' => 'JanitzaClassicDriver',
-        'janitza_umg801'  => 'JanitzaClassicDriver',
-        'janitza_umg800'  => 'Umg800Driver',
-        'eastron_sdm72d'  => 'EastronSdmDriver',
-        'eastron_sdm630'  => 'EastronSdmDriver',
-        'whatwatt'        => 'WhatWattDriver',
-        'phoenix_eem375'  => 'PhoenixEem375Driver',
-        'phoenix_eemxm'   => 'PhoenixEemXmDriver',
-        'carlo_gavazzi_em' => 'CarloGavazziDriver',
-        'socomec_countis'  => 'SocomecCountisDriver',
-        'mbs_professional' => 'MbsProfessionalDriver',
-        'shelly_pro3em'    => 'ShellyPro3emDriver',
-        'goe_controller'   => 'GoeControllerDriver',
-        'inexogy'          => 'InexogyDriver',
+        'siemens_pac2200' => 'MHUB_Pac2200Driver',
+        'janitza_umg604'  => 'MHUB_JanitzaClassicDriver',
+        'janitza_umg605'  => 'MHUB_JanitzaClassicDriver',
+        'janitza_umg509'  => 'MHUB_JanitzaClassicDriver',
+        'janitza_umg512'  => 'MHUB_JanitzaClassicDriver',
+        'janitza_umg806'  => 'MHUB_JanitzaClassicDriver',
+        'janitza_umg96pa' => 'MHUB_JanitzaClassicDriver',
+        'janitza_umg801'  => 'MHUB_JanitzaClassicDriver',
+        'janitza_umg800'  => 'MHUB_Umg800Driver',
+        'eastron_sdm72d'  => 'MHUB_EastronSdmDriver',
+        'eastron_sdm630'  => 'MHUB_EastronSdmDriver',
+        'whatwatt'        => 'MHUB_WhatWattDriver',
+        'phoenix_eem375'  => 'MHUB_PhoenixEem375Driver',
+        'phoenix_eemxm'   => 'MHUB_PhoenixEemXmDriver',
+        'carlo_gavazzi_em' => 'MHUB_CarloGavazziDriver',
+        'socomec_countis'  => 'MHUB_SocomecCountisDriver',
+        'mbs_professional' => 'MHUB_MbsProfessionalDriver',
+        'shelly_pro3em'    => 'MHUB_ShellyPro3emDriver',
+        'goe_controller'   => 'MHUB_GoeControllerDriver',
+        'inexogy'          => 'MHUB_InexogyDriver',
     ];
 
     private const METER_LABELS = [
@@ -2624,9 +2624,9 @@ class MeterHub extends IPSModule
         return $this->driver;
     }
 
-    private function GetModbusClient(): ModbusTcpClient
+    private function GetModbusClient(): MHUB_ModbusTcpClient
     {
-        $mb = new ModbusTcpClient(
+        $mb = new MHUB_ModbusTcpClient(
             $this->ReadPropertyString('Host'),
             $this->ReadPropertyInteger('Port'),
             $this->ReadPropertyInteger('UnitId')
@@ -2636,14 +2636,14 @@ class MeterHub extends IPSModule
     }
 
     /**
-     * Transport passend zum Zählertyp: für Cloud-Zähler der InexogyClient (aus
+     * Transport passend zum Zählertyp: für Cloud-Zähler der MHUB_InexogyClient (aus
      * den gespeicherten Tokens), sonst der Modbus-Client. Der Treiber bekommt
      * diesen als ersten Parameter und weiß, wie er ihn benutzt.
      */
     private function GetTransport()
     {
         if (in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
-            return new InexogyClient(
+            return new MHUB_InexogyClient(
                 $this->ReadAttributeString('InexogyConsumerKey'),
                 $this->ReadAttributeString('InexogyConsumerSecret'),
                 $this->ReadAttributeString('InexogyToken'),
@@ -2678,7 +2678,7 @@ class MeterHub extends IPSModule
             return;
         }
 
-        $c = new InexogyClient();
+        $c = new MHUB_InexogyClient();
         if (!$c->registerConsumer('IP-Symcon MeterHub ' . $this->InstanceID)) {
             $say('❌ Anmeldung fehlgeschlagen bei der Registrierung (Schritt 1/4). Ist die Inexogy-API erreichbar?');
             return;
@@ -2829,7 +2829,7 @@ class MeterHub extends IPSModule
 
     // Zähler, deren Werte NICHT lokal-echtzeitnah, sondern über eine Cloud-API
     // mit Sekunden-Latenz kommen. Bestimmt das Vertragsfeld `latency` und den
-    // Transport (InexogyClient statt ModbusTcpClient). Modbus-Zähler sind alle
+    // Transport (MHUB_InexogyClient statt MHUB_ModbusTcpClient). Modbus-Zähler sind alle
     // 'realtime'.
     private const CLOUD_METERS = ['inexogy'];
 

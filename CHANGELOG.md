@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.19.0-beta.1 (2026-07-25)
+
+- **Fix: globale Klassennamen kollidierten mit ChargerHub und InverterHub.** Der erste echte
+  EMS-Discovery-Test lud mehrere NRG-Stack-Module im selben PHP-Prozess und traf auf
+  `Fatal error: Cannot redeclare class ModbusTcpClient` — drei Module hatten unabhängig
+  voneinander eine gleichnamige globale Klasse deklariert. Alle 13 globalen Klassen/
+  Interfaces in diesem Repo (bisher ohne Präfix: `ModbusTcpClient`, `MeterDriverInterface`,
+  zehn `<Hersteller>Driver`-Klassen, `InexogyClient`, `InexogyDriver`) tragen jetzt den
+  Präfix `MHUB_`. Kein `class_exists()`-Guard — das hätte die Kollision nur kaschiert
+  (zufällig gewinnt, wer zuerst lädt); Umbenennung beseitigt sie strukturell.
+  **Verhaltensneutral:** reines Symbol-Renaming, keine Logikänderung. Betrifft nur, wer
+  direkt gegen diese internen Klassennamen programmiert hätte (niemand außerhalb dieses
+  Moduls — die Klassen sind kein Bestandteil des `MHUB_GetFunctions`-Vertrags).
+  Die drei Modul-Klassen (`MeterHub`/`MeterHubDiscovery`/`MeterHubVirtual`) bleiben
+  unpräfixiert — ihr Name muss dem `module.json`-Feld `name` entsprechen.
+- Neue Verbund-Konvention in CLAUDE.md: globale Klassennamen brauchen einen Modul-Präfix,
+  genau wie Idents und Variablenprofile. Vor jeder neuen globalen Hilfsklasse kurz prüfen,
+  ob der naheliegende Name in einem anderen Verbund-Modul schon vergeben ist.
+- Rename verifiziert per wortgrenzen-basiertem Ersatz (`\bKlassenname\b`, trifft nackte
+  Bezeichner UND die Zeichenketten in `MeterHub::DRIVERS`), Klassengrenzen-Prüfstand und
+  alle Testgerüste laufen unverändert grün.
+
 ## 0.18.0-beta.1 (2026-07-24)
 
 - **Gemeinsame NRG-Stack-Profile** (Verbund-Konvention): Die fünf bei MeterHub verwendeten

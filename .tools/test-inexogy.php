@@ -31,7 +31,7 @@ function check($label, $cond, $detail = '') {
 
 // ==========================================================================
 echo "1) OAuth-Prozentkodierung (RFC 3986)\n";
-$enc = new ReflectionMethod('InexogyClient', 'enc');
+$enc = new ReflectionMethod('MHUB_InexogyClient', 'enc');
 $e = fn($s) => $enc->invoke(null, $s);
 check('Leerzeichen → %20', $e('a b') === 'a%20b', $e('a b'));
 check('Tilde bleibt ~',    $e('a~b') === 'a~b', $e('a~b'));
@@ -44,8 +44,8 @@ echo "\n2) OAuth-Signatur deterministisch (fixe nonce/timestamp)\n";
 // authHeader ist privat; über Reflection mit fixierten oauth-Parametern
 // aufrufen, sodass das Ergebnis reproduzierbar ist. Zwei gleiche Aufrufe müssen
 // dieselbe Signatur ergeben; ein geänderter Parameter eine andere.
-$c = new InexogyClient('ck', 'csecret', 'tok', 'tsecret');
-$ah = new ReflectionMethod('InexogyClient', 'authHeader');
+$c = new MHUB_InexogyClient('ck', 'csecret', 'tok', 'tsecret');
+$ah = new ReflectionMethod('MHUB_InexogyClient', 'authHeader');
 $fixed = ['oauth_nonce' => 'abc123', 'oauth_timestamp' => '1700000000'];
 $h1 = $ah->invoke($c, 'GET', 'https://api.inexogy.com/public/v1/last_reading', ['meterId' => 'XYZ'], $fixed);
 $h2 = $ah->invoke($c, 'GET', 'https://api.inexogy.com/public/v1/last_reading', ['meterId' => 'XYZ'], $fixed);
@@ -90,7 +90,7 @@ class HubStub {
     public function SetVarEnergykWh($i, $v) { $this->vals[$i] = round($v, 4); }
 }
 
-$drv = new InexogyDriver();
+$drv = new MHUB_InexogyDriver();
 
 // Fall A: klassische Feldnamen (power1/voltage1), Werte wie bei Dietmar.
 $cs = new ClientStub();

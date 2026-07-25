@@ -64,13 +64,17 @@ Die eigentliche Datenauslese-Instanz. Ein Modul, ein `Zählertyp`-Auswahlfeld �
 gewähltem Zähler werden die passenden Datenpunkt-Gruppen (Schalter) und Register
 freigeschaltet. Architektur:
 
-- **`ModbusTcpClient`** — gemeinsame Modbus-TCP-Grundfunktionen (Read Holding/Input
+- **`MHUB_ModbusTcpClient`** — gemeinsame Modbus-TCP-Grundfunktionen (Read Holding/Input
   Register, Datentyp-Hilfen inkl. Float32 und 64-Bit-Double), von allen Treibern genutzt.
-- **`MeterDriverInterface`** — Vertrag, den jeder Zähler-Treiber erfüllt (Basisvariablen,
+- **`MHUB_MeterDriverInterface`** — Vertrag, den jeder Zähler-Treiber erfüllt (Basisvariablen,
   optionale Gruppen, Profile, `readFast`/`readSlow`). Zähler werden nur gelesen.
-- **Treiber je Registerkarte** — `Pac2200Driver` (Siemens), `JanitzaClassicDriver`
-  (klassische Janitza-Karte, deckt UMG 604/605/509/512/806/96PA/801 ab) und `Umg800Driver`
+- **Treiber je Registerkarte** — `MHUB_Pac2200Driver` (Siemens), `MHUB_JanitzaClassicDriver`
+  (klassische Janitza-Karte, deckt UMG 604/605/509/512/806/96PA/801 ab) und `MHUB_Umg800Driver`
   (UMG 800). Jeder Treiber kapselt Registeradressen, Datentypen und Blockaufteilung.
+
+Alle globalen Klassennamen tragen bewusst den `MHUB_`-Präfix (Verbund-Konvention seit
+25.07.2026) — ohne Präfix kollidieren gleichnamige Hilfsklassen, sobald ein Konsument (das
+EMS) mehrere NRG-Stack-Module im selben PHP-Prozess lädt.
 
 Einrichtung: Instanz anlegen, Zählertyp wählen, IP-Adresse (und bei Bedarf Port/Unit-ID)
 eintragen, gewünschte Datenpunkt-Gruppen aktivieren, übernehmen.

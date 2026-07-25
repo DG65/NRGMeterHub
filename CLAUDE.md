@@ -120,8 +120,32 @@ Die Analyse arbeitet auf PHP-Token, nicht auf Textsuche — Kommentare und Zeich
 keine Fundstellen vortäuschen.
 
 **Praktische Konsequenz für die Arbeit an Treiberdateien:** Vor einem Textersatz in
-`MeterHub/module.php` (12 Treiberklassen) prüfen, in welcher Klasse die Fundstelle liegt.
+`MeterHub/module.php` (13 Treiberklassen) prüfen, in welcher Klasse die Fundstelle liegt.
 `Edit` mit eindeutigem Kontext statt `replace_all`, danach dieses Skript laufen lassen.
+
+## Globale Klassennamen brauchen einen Modul-Präfix (Verbund-Konvention 25.07.2026)
+
+**Auslöser:** Der erste echte EMS-Discovery-Test lud MeterHub, ChargerHub und InverterHub im
+selben PHP-Prozess — alle drei hatten unabhängig voneinander eine globale Klasse
+`ModbusTcpClient` deklariert. Solange die Module einzeln liefen, nie ein Problem; sobald ein
+Konsument mehrere lädt: `Fatal error: Cannot redeclare class ModbusTcpClient`. Ein
+`class_exists()`-Guard hätte das nur kaschiert (zufällig gewinnt, wer zuerst lädt — eine
+stille Fehlerquelle statt eines klaren Fehlers), deshalb Umbenennung statt Guard.
+
+**Alle 13 globalen Nicht-Modul-Klassen/-Interfaces in diesem Repo tragen den Präfix
+`MHUB_`:** `MHUB_ModbusTcpClient`, `MHUB_MeterDriverInterface`, `MHUB_InexogyClient`,
+`MHUB_InexogyDriver` und die zehn `MHUB_<Hersteller>Driver`-Klassen. **Ausnahme:** die drei
+Modul-Klassen `MeterHub`/`MeterHubDiscovery`/`MeterHubVirtual` bleiben unpräfixiert — ihr
+Name muss exakt dem `name`-Feld der jeweiligen `module.json` entsprechen (siehe
+[[ips-module-pitfalls]]), ein Präfix würde die Instanzerzeugung brechen.
+
+**Vor jeder neuen globalen Hilfsklasse** (Modbus-/HTTP-Client, Interface, Treiber) kurz
+prüfen, ob der naheliegende Name schon vergeben sein könnte, und gleich mit `MHUB_` anlegen
+— nicht erst, wenn der nächste Konsument beide Module lädt und es kracht. Umbenennungen sind
+mit `.tools/check-class-scope.php` (Klassengrenzen) und den `.tools/test-*.php`-Prüfständen
+sicher zu verifizieren: wortgrenzen-basierter Ersatz (`\bKlassenname\b`) trifft sowohl nackte
+Bezeichner (`new X`, `implements X`) als auch die Zählertyp→Treiber-Zuordnung in
+`MeterHub::DRIVERS`, wo die Klassennamen als Zeichenketten stehen.
 
 ## Emoji-Regel (Verbund-Entscheidung 23.07.2026, permissiv)
 
@@ -294,7 +318,7 @@ Ein neuer Partner heißt also: eine Einleseschicht ergänzen, nicht die Verarbei
 
 ## Zugangsdaten bei Cloud-/API-Zählern (Verbund-Konvention 23.07.2026)
 
-MeterHubs Inexogy-Anbindung (`InexogyClient` in `MeterHub/module.php`) ist die Referenz­
+MeterHubs Inexogy-Anbindung (`MHUB_InexogyClient` in `MeterHub/module.php`) ist die Referenz­
 implementierung dieser verbundweiten Regel — nichts hier anzupassen, nur zur Einordnung:
 
 1. **Handshake-/Token-Verfahren bevorzugen.** Existiert eines, dient das Passwort nur dem
