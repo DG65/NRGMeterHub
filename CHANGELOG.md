@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.20.6-beta.1 (2026-07-25)
+
+- **Registrierungsschritt (Schritt 1/4) setzt jetzt `Content-Type`/`Accept` explizit**, wie in
+  der offiziellen Inexogy-API-Doku (`api.inexogy.com/docs`) für `/oauth1/consumer_token`
+  gefordert — bislang schickte `http()` bei diesem Aufruf (unauthentifiziert, kein
+  OAuth-Header) gar keine eigenen Header, nur den von curl automatisch aus dem String-Body
+  abgeleiteten `Content-Type`. `http()` bekommt dafür einen fünften, optionalen Parameter für
+  zusätzliche Header. Auslöser: Dietmars Hinweis, dass das Inexogy-Web-Portal normal
+  funktioniert — spricht gegen einen allgemeinen Ausfall und für ein Detail im
+  Request-Format des API-Endpunkts, das nach Gegenprüfung mit der Doku näher an die
+  Spezifikation gebracht wurde.
+
 ## 0.20.5-beta.1 (2026-07-25)
 
 - **Fix: Inexogy-Registrierung (Schritt 1/4) schickte ihre Nutzdaten nie im POST-Body,

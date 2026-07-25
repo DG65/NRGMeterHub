@@ -1772,7 +1772,7 @@ class MHUB_InexogyClient
      * das erwartete "client"-Feld — Ursache eines live gemeldeten HTTP 500
      * bei der Registrierung (Schritt 1/4).
      */
-    private function http(string $method, string $url, array $params = [], string $authHeader = ''): array
+    private function http(string $method, string $url, array $params = [], string $authHeader = '', array $extraHeaders = []): array
     {
         $method = strtoupper($method);
         if ($method === 'GET') {
@@ -1787,8 +1787,12 @@ class MHUB_InexogyClient
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 15);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+        $headers = $extraHeaders;
         if ($authHeader !== '') {
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: ' . $authHeader]);
+            $headers[] = 'Authorization: ' . $authHeader;
+        }
+        if ($headers) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
         $body = curl_exec($ch);
         $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -1815,7 +1819,14 @@ class MHUB_InexogyClient
     /** Schritt 1: Consumer-Token selbst registrieren. Setzt Key/Secret. */
     public function registerConsumer(string $clientName): bool
     {
-        [$code, $body] = $this->http('POST', self::BASE . '/oauth1/consumer_token', ['client' => $clientName]);
+        // Content-Type und Accept exakt wie in der offiziellen Doku
+        // (api.inexogy.com/docs) für diesen Schritt gefordert — curl würde
+        // Content-Type bei einem String-Body zwar automatisch mitschicken,
+        // hier aber lieber ausdrücklich statt implizit.
+        [$code, $body] = $this->http('POST', self::BASE . '/oauth1/consumer_token', ['client' => $clientName], '', [
+            'Content-Type: application/x-www-form-urlencoded',
+            'Accept: text/html, image/gif, image/jpeg, *; q=.2, */*; q=.2',
+        ]);
         $j = json_decode($body, true);
         if ($code === 200 && isset($j['key'], $j['secret'])) {
             $this->consumerKey    = $j['key'];
