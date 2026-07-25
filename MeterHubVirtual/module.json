@@ -1,9 +1,11 @@
 {
   "id": "{ADF18291-2E60-4354-92F5-B96863C127C8}",
-  "name": "MeterHubVirtual",
+  "name": "NRGMeterHubVirtual",
   "type": 3,
   "vendor": "",
   "aliases": [
+    "MeterHubVirtual",
+    "NRGMeterHubVirtual",
     "MeterHub Virtuelle Zähler",
     "Virtueller Zähler"
   ],

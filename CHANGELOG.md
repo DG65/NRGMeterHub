@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.20.8-beta.1 (2026-07-25)
+
+- **Modulname auf NRG-Präfix aktualisiert** (Verbund-Entscheidung Dietmars, analog zu
+  ChargerHub Commit 5e9ea21): `library.json` „name" → „NRGMeterHub for IP-Symcon";
+  `MeterHub/module.json` „name" → „NRGMeterHub", `MeterHubDiscovery/module.json` „name" →
+  „NRGMeterHubDiscovery", `MeterHubVirtual/module.json` „name" → „NRGMeterHubVirtual" — jeweils
+  mit dem alten Namen zusätzlich in `aliases` erhalten. **Unangetastet: GUIDs (`id`), Präfixe
+  (`MHUB`/`MHUBD`/`MHUBV`), Idents und die PHP-Klassennamen** (`MeterHub`/`MeterHubDiscovery`/
+  `MeterHubVirtual` bleiben in `module.php` exakt so, wie im Verbund vorgegeben). Reine
+  Anzeigenamen-Änderung.
+
 ## 0.20.7-beta.1 (2026-07-25)
 
 - **Fix: Fatal Error beim Datenlesen jeder Inexogy-Instanz** — „Call to undefined method
