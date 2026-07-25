@@ -193,9 +193,14 @@ eindeutig gemacht.
 
 Dabei wird geprüft: Datenpunkte ohne verwertbare Einheit werden übersprungen, bereits
 eingetragene nicht doppelt vorgeschlagen, und **Ausgaben virtueller Zähler bleiben
-ausgeschlossen** — sonst flösse ein berechneter Wert wieder als Quelle ein. Zusätzlich wird
-gemeldet, wenn ein Energiezähler nicht archiviert ist oder eine Leistung seit über einer Woche
-nicht aktualisiert wurde.
+ausgeschlossen** — sonst flösse ein berechneter Wert wieder als Quelle ein. Ebenso bleiben
+**Variablen aus bekannten NRG-Stack-Modulen** außen vor (EMS, InverterHub, ChargerHub,
+Prognose, Tibber Grid Rewards, StromGedacht, HeishaMon, Tessie, MigrationsHub, Gleitender
+Mittelwert, SteuerboxHub, GoodweET) — sie sind dort schon korrekt eingebunden, und ein
+berechneter Wert (z. B. eine vom EMS ermittelte Hauslast) dürfte sonst versehentlich in eine
+Berechnung zurückfließen, aus der er selbst stammt. Zusätzlich wird gemeldet, wenn ein
+Energiezähler nicht archiviert ist oder eine Leistung seit über einer Woche nicht aktualisiert
+wurde.
 
 In einer gewachsenen Installation findet der Suchlauf schnell dreistellig viele Datenpunkte.
 Vier **Filter** engen ihn ein — Suchbereich (nur unterhalb eines Objekts), Namensbestandteil,

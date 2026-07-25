@@ -82,6 +82,9 @@ function IPS_GetInstanceListByModuleID($guid) {
     foreach ($GLOBALS['INSTMOD'] as $iid => $g) { if ($g === $guid) { $out[] = $iid; } }
     return $out;
 }
+function IPS_GetInstance($iid) {
+    return ['ModuleInfo' => ['ModuleID' => $GLOBALS['INSTMOD'][$iid] ?? '']];
+}
 function IPS_CreateInstance($guid) {
     $id = $GLOBALS['NEXTID']++;
     obj($id, 1, 'neue Instanz', 0);
@@ -245,6 +248,25 @@ check('nur mit Energiezähler', !in_array('Steckdose Küche', $energie, true), i
 $aktiv = $run(0, '', false, true);
 check('Karteileiche ausgeblendet', !in_array('Steckdose Keller', $aktiv, true), implode(' | ', $aktiv));
 check('Zeilenzahl wächst mit', ($GLOBALS['FORMFIELDS']['Nodes']['rowCount'] ?? 0) >= 12);
+
+echo "\n6b) Ausschluss bekannter NRG-Stack-Module\n";
+// Genau der Fall, der an Dietmars Installation den 197-Zeilen-Befund erzeugt
+// hat: eine W-Variable, die innerhalb einer EMS-Instanz liegt (auch verschachtelt
+// über eine Kategorie), darf nicht als "Fremdzähler" auftauchen — auch wenn
+// Profil/Suffix technisch passen. Ein normales Gerät direkt daneben schon.
+$emsRoot = obj(900, 1, 'Energy Management System', 10);
+$GLOBALS['INSTMOD'][900] = '{31C61A7B-28C4-4F97-9651-1A64B3469E3C}'; // echte EMS-GUID
+$emsCat  = obj(901, 0, 'Berechnete Werte', $emsRoot);
+vari(902, 'Hauslast (berechnet)', $emsCat, '', 'MHB.W', 1234.0);
+$realDevice = obj(910, 0, 'Kaffeemaschine', 10);
+vari(911, 'Leistung', $realDevice, '', 'MHB.W', 800.0);
+
+$afterEms = $run(0, '', false, false);
+check('EMS-Variable NICHT im Suchlauf', !in_array('Energy Management System', $afterEms, true), implode(' | ', $afterEms));
+check('echtes Gerät daneben weiter gefunden', in_array('Kaffeemaschine', $afterEms, true), implode(' | ', $afterEms));
+$GLOBALS['FORMFIELDS'] = [];
+$fresh->ScanMeters(0, '', false, false);
+check('Meldungstext nennt den Verbund-Ausschluss', str_contains($GLOBALS['FORMFIELDS']['ScanResult']['caption'] ?? '', 'NRG-Stack-Modulen'));
 
 echo "\n7) Rückkopplungsschutz\n";
 $feedback = $run(0, '', false, false);

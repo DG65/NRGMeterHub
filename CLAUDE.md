@@ -226,6 +226,37 @@ Syntaxcheck allein genügt für dieses Modul nachweislich nicht.
 ruft dessen `ApplyChanges()` auf. Damit ist der Test kein Selbstgespräch des Hauptmoduls,
 sondern deckt genau die Stelle ab, an der die beiden Module sich einig sein müssen.
 
+## Zählersuche schließt bekannte NRG-Stack-Module aus (Verbund-Entscheidung 25.07.2026)
+
+**Auslöser:** Erster Praxistest an Dietmars Installation. Der Suchbereich war auf seine
+Geräte-Wurzelkategorie gesetzt — praktisch die ganze Installation — und der Suchlauf fand
+neben echten Steckdosen/Schaltern auch 197 Zeilen, von denen viele interne, berechnete
+Variablen anderer NRG-Stack-Module waren (EMS-Hauslast, PV-Prognose, Tibber-Erlöse, Batterie-
+Aggregate …). Technisch korrekt gefunden (W/kWh-Profil vorhanden), fachlich aber kein
+Fremdzähler. Dietmars Begründung für den Ausschluss: (1) diese Werte sind „im NRG-Stack schon
+beheimatet", tauchen an ihrer eigentlichen Stelle korrekt auf; (2) Zirkularitätsrisiko — eine
+vom EMS berechnete Hauslast, die selbst aus MeterHub-Rohdaten stammt, könnte sonst in einen
+virtuellen Zähler einfließen, der wieder in dieselbe Berechnung zurückwirkt.
+
+**Umsetzung:** `MHUBV::EXCLUDED_NRG_STACK_MODULES` — eine Liste bekannter Modul-GUIDs, live an
+Dietmars Installation abgelesen (`IPS_GetModuleList()` + `IPS_GetModule()`, gefiltert auf
+`URL` mit `github.com/DG65` oder bekanntes Präfix), **nicht geraten**. `BelongsToExcludedModule()`
+läuft von der Kandidaten-Variable bis zur Wurzel und prüft jede Vorfahren-Instanz gegen die
+Liste — nicht nur die nächste, falls Instanzen verschachtelt sind (z. B. hinter einem
+I/O-Splitter). Läuft in `ScanMeters()` bewusst **nach** den billigen Filtern (schon
+verwendet, kein W/kWh-Profil, außerhalb des Suchbereichs) — der Elternketten-Walk ist der
+teuerste Schritt und soll nur Kandidaten treffen, die alle anderen Filter schon passiert haben.
+
+**Bewusst NICHT ausgeschlossen:** MeterHub selbst — dessen Instanzen sind der Zweck der Suche,
+nicht das, wovor sie schützen soll. `MeterHubVirtual` ist über den bestehenden
+`$ownOutputs`-Mechanismus bereits präziser abgedeckt (nur die tatsächlichen Ausgabevariablen,
+nicht die ganze Instanz).
+
+**Pflege:** Bei jedem neuen NRG-Stack-Mitglied die Liste ergänzen — sonst taucht dessen Modul
+unbemerkt wieder als „Fremdzähler" im Suchlauf auf. Verifiziert in `.tools/test-virtual.php`
+(Block 6b): eine Variable innerhalb einer simulierten EMS-Instanz wird nicht vorgeschlagen,
+ein echtes Gerät direkt daneben schon.
+
 ## Konvention für `*_GetFunctions`-Verträge (Referenz für neue Partnermodule)
 
 `MHUB_GetFunctions($id)` ist die Referenzimplementierung dieses Musters. Wer ein weiteres

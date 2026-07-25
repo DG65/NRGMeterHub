@@ -383,6 +383,71 @@ class MeterHubVirtual extends IPSModule
         return '';
     }
 
+    // Bekannte NRG-Stack-Module (Verbund-Entscheidung 25.07.2026, Dietmar): Ihre
+    // Variablen sollen der Suchlauf NICHT als „Fremdzähler" vorschlagen. Zwei
+    // Gründe — (1) sie sind „im NRG-Stack beheimatet", tauchen an ihrer
+    // eigentlichen Stelle schon korrekt auf; (2) Zirkularität: eine vom EMS
+    // berechnete Hauslast, die selbst aus MeterHub-Rohdaten stammt, würde sonst
+    // in einen virtuellen Zähler einfließen können, der wieder in dieselbe
+    // Berechnung zurückwirkt (Doppelzählung, im Extremfall eine Kette).
+    //
+    // Bewusst NICHT gelistet: MeterHub selbst (`{BAB8E05C-…}`) — dessen
+    // Instanzen sind der Suchlauf-Zweck, nicht das, wovor er schützen soll.
+    // MeterHubVirtual (dieses Modul) ist über den bestehenden `$ownOutputs`-
+    // Mechanismus bereits präziser abgedeckt (schließt nur die tatsächlichen
+    // Ausgabevariablen aus, nicht die ganze Instanz).
+    //
+    // GUIDs am 25.07.2026 live an Dietmars Installation abgelesen
+    // (IPS_GetModuleList() + IPS_GetModule()), nicht geraten. Bei einem neuen
+    // NRG-Stack-Mitglied hier ergänzen — sonst taucht dessen Modul unbemerkt
+    // wieder als „Fremdzähler" im Suchlauf auf.
+    private const EXCLUDED_NRG_STACK_MODULES = [
+        '{31C61A7B-28C4-4F97-9651-1A64B3469E3C}', // EMS
+        '{BBE2C593-1A91-426D-A714-29A9C7E87589}', // InverterHub
+        '{9A2E5C7F-3B1D-4A6E-8C9F-2D5B7E1A4C8F}', // InverterHubTile
+        '{C3E7A1F4-9B2D-4E6A-8F1C-7A5B3D9E2C08}', // InverterHubEnergy
+        '{7B1F9A34-6C52-4E8D-9A1B-4F3E2D7C6A19}', // InverterHubMonitor
+        '{447C2BD6-5299-445A-9A08-5F29C50C9DB1}', // InverterHubDiscovery
+        '{9256C34E-5CFD-4F37-8BFE-E65390EBB37C}', // ChargerHub
+        '{613D9807-B975-91B2-C6BD-FDD3654EF87E}', // ChargerHubDiscovery
+        '{1919151A-3C0F-4C09-B906-291638EC1469}', // HeishaMon
+        '{7F7B979E-0D9F-4E4A-9C0D-2A3B1B0A4D21}', // TessieConfigurator
+        '{3F1F7E31-8BA0-4B8F-9B62-47DAD7A0B6C9}', // TessieVehicle
+        '{ACAFF26A-C6AB-4D45-B51B-3832BE5C2CFA}', // TessieVehicleTile
+        '{E92F62F4-88A6-4C6E-9F0D-E76C3B1C9A01}', // TibberGridReward
+        '{D5A8C3A1-2222-4A55-8888-123456789003}', // StromGedacht Widget
+        '{E9B65213-BA33-426D-8486-D350A7DFCFEF}', // StromGedachtTile
+        '{257DD4E8-9705-462E-89FC-56D0A1038353}', // PVPrognose
+        '{DC5AD508-507F-40EA-8630-0959AED83050}', // Lastprognose
+        '{330717BB-E309-41A2-90A8-FDA3179ED948}', // MigrationsHub
+        '{83996C8A-1C77-424B-81D3-0A4AFFE54263}', // RollingAverage (GleitenderMittelwert)
+        '{B76BE0BA-DF99-4B81-81BD-636A610011EE}', // SteuerboxHub
+        '{1C4B7E2A-8F3D-5A9C-4E1B-7D2F9A3C6E8B}', // GoodweET
+        '{3E8A1D5C-9F2B-4C7A-6E3D-1B5F8A2C4E7D}', // GoodweETTile
+    ];
+
+    /**
+     * Gehört $vid (direkt oder über eine Kette von Kategorien/Instanzen) zu
+     * einer bekannten NRG-Stack-Instanz? Läuft bis zur Wurzel durch — nicht nur
+     * bis zur nächsten Instanz —, falls Instanzen ineinander verschachtelt
+     * sind (z. B. hinter einem I/O-Splitter).
+     */
+    private function BelongsToExcludedModule(int $vid): bool
+    {
+        $pid = IPS_GetParent($vid);
+        while ($pid > 0) {
+            $o = IPS_GetObject($pid);
+            if ($o['ObjectType'] === 1) {
+                $mid = @IPS_GetInstance($pid)['ModuleInfo']['ModuleID'] ?? '';
+                if (in_array($mid, self::EXCLUDED_NRG_STACK_MODULES, true)) {
+                    return true;
+                }
+            }
+            $pid = $o['ParentID'];
+        }
+        return false;
+    }
+
     /** Gerätename: der nächste übergeordnete Container/Instanz der Variable. */
     private function DeviceOf(int $vid): array
     {
@@ -483,7 +548,7 @@ class MeterHubVirtual extends IPSModule
         }
 
         $devices = [];
-        $skipped = ['einheit' => 0, 'schonverwendet' => 0, 'virtuell' => 0, 'bereich' => 0, 'name' => 0];
+        $skipped = ['einheit' => 0, 'schonverwendet' => 0, 'virtuell' => 0, 'bereich' => 0, 'name' => 0, 'verbund' => 0];
 
         foreach (IPS_GetVariableList() as $vid) {
             if (isset($ownOutputs[$vid])) { $skipped['virtuell']++; continue; }
@@ -491,6 +556,9 @@ class MeterHubVirtual extends IPSModule
             $kind = $this->Classify($vid);
             if ($kind === '') { $skipped['einheit']++; continue; }
             if (!$this->IsBelow($vid, $root)) { $skipped['bereich']++; continue; }
+            // Teurere Prüfung (läuft die Elternkette hoch) bewusst zuletzt,
+            // erst nachdem die billigen Filter schon aussortiert haben.
+            if ($this->BelongsToExcludedModule($vid)) { $skipped['verbund']++; continue; }
 
             [$did, $dname] = $this->DeviceOf($vid);
             if ($filter !== '' && mb_stripos($dname, $filter) === false && mb_stripos(IPS_GetName($vid), $filter) === false) {
@@ -567,8 +635,8 @@ class MeterHubVirtual extends IPSModule
             ? "🔎 $added Gerät(e) gefunden und unten eingetragen — bitte prüfen, verdrahten („hängt hinter“) und mit „Übernehmen“ bestätigen. Nichts wurde bereits gespeichert."
             : '🔎 Keine neuen Geräte gefunden.';
         $msg .= "\nSuchbereich: " . ($scope ? implode(', ', $scope) : 'ganze Installation, ungefiltert');
-        $msg .= sprintf("\nÜbersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler, %d außerhalb des Suchbereichs, %d durch den Namensfilter, %d ohne Energiezähler, %d länger als 7 Tage still.",
-            $skipped['einheit'], $skipped['schonverwendet'], $skipped['virtuell'],
+        $msg .= sprintf("\nÜbersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler, %d aus anderen NRG-Stack-Modulen, %d außerhalb des Suchbereichs, %d durch den Namensfilter, %d ohne Energiezähler, %d länger als 7 Tage still.",
+            $skipped['einheit'], $skipped['schonverwendet'], $skipped['virtuell'], $skipped['verbund'],
             $skipped['bereich'], $skipped['name'], $filteredOut['ohneenergie'], $filteredOut['inaktiv']);
         if ($added === 0 && ($filteredOut['ohneenergie'] + $filteredOut['inaktiv'] + $skipped['bereich'] + $skipped['name']) > 0) {
             $msg .= "\n💡 Es wurde etwas gefunden, aber wegfiltriert — probeweise einen Filter lockern.";
@@ -703,6 +771,7 @@ class MeterHubVirtual extends IPSModule
                     'type' => 'ExpansionPanel', 'caption' => '🔌  Verdrahtung', 'expanded' => true,
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Zähler im System automatisch suchen: Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil (Steckdosen, Licht- und Jalousieschalter, Zwischenzähler …), gruppiert sie nach Gerät und übernimmt den Gerätenamen als Bezeichnung. Die Funde werden nur vorgeschlagen — gespeichert wird erst mit „Übernehmen“.'],
+                        ['type' => 'Label', 'caption' => 'Variablen aus bekannten NRG-Stack-Modulen (EMS, InverterHub, ChargerHub, Prognose, Tibber Grid Rewards …) werden dabei übersprungen — sie sind dort schon korrekt eingebunden, und ein berechneter Wert (z. B. eine vom EMS ermittelte Hauslast) dürfte sonst versehentlich in eine Berechnung zurückfließen, aus der er selbst stammt.'],
                         ['type' => 'Label', 'caption' => 'In einer gewachsenen Installation findet die Suche schnell dreistellig viele Datenpunkte. Die Filter engen sie ein; sie wirken sofort beim Klick, auch ohne vorher zu übernehmen.'],
                         ['type' => 'SelectObject', 'name' => 'ScanRoot', 'caption' => 'Nur in diesem Bereich suchen (leer = ganze Installation)'],
                         ['type' => 'ValidationTextBox', 'name' => 'ScanFilter', 'caption' => 'Nur Geräte, deren Name das hier enthält (leer = alle)'],

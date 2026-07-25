@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.20.0-beta.1 (2026-07-25)
+
+- **Zählersuche schließt bekannte NRG-Stack-Module aus.** Der erste Praxistest an Dietmars
+  Installation fand neben echten Steckdosen/Schaltern auch 197 Zeilen, viele davon interne,
+  berechnete Variablen anderer NRG-Stack-Module (EMS-Hauslast, PV-Prognose, Tibber-Erlöse,
+  Batterie-Aggregate …) — technisch korrekt gefunden (W/kWh-Profil vorhanden), fachlich aber
+  kein Fremdzähler. Eine Variable aus einer bekannten NRG-Stack-Modul-Instanz (EMS,
+  InverterHub, ChargerHub, Prognose, Tibber Grid Rewards, StromGedacht, HeishaMon, Tessie,
+  MigrationsHub, Gleitender Mittelwert, SteuerboxHub, GoodweET) wird jetzt übersprungen —
+  sowohl wegen doppelter Buchführung als auch wegen echtem Zirkularitätsrisiko: eine vom EMS
+  berechnete Hauslast, die selbst aus MeterHub-Rohdaten stammt, könnte sonst in einen
+  virtuellen Zähler einfließen, der wieder in dieselbe Berechnung zurückwirkt.
+- Erkennung über eine Liste bekannter Modul-GUIDs, **live an der Installation abgelesen**
+  (nicht geraten), läuft die Elternkette bis zur Wurzel hoch — nicht nur bis zur nächsten
+  Instanz, falls Instanzen verschachtelt sind. MeterHub selbst bleibt bewusst ausgenommen
+  (dessen Instanzen sind der Zweck der Suche); `MeterHubVirtual` war über den bestehenden
+  Rückkopplungsschutz schon präziser abgedeckt.
+- Ergebnismeldung und Doku-Panel nennen den neuen Ausschlussgrund. `.tools/test-virtual.php`
+  prüft ihn mit einer simulierten EMS-Instanz (46 Prüfungen insgesamt).
+
 ## 0.19.0-beta.1 (2026-07-25)
 
 - **Fix: globale Klassennamen kollidierten mit ChargerHub und InverterHub.** Der erste echte
