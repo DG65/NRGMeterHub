@@ -2379,7 +2379,11 @@ class MeterHub extends IPSModule
         // Verbindungspanel je nach Transport: Cloud-Anmeldung (Inexogy) oder
         // Modbus-TCP-Adresse. Bei Cloud sind Host/Port/UnitId gegenstandslos.
         if ($isCloud) {
-            $meterOpts = [];
+            // Platzhalter mit Wert '' immer vorhalten: Ohne ihn lehnt das
+            // Formular „Übernehmen" schon vor der ersten Anmeldung ab, weil
+            // der Property-Standardwert '' dann in keiner Option steckt
+            // (gemeldeter Fehler „Aktueller Wert '' ist nicht verfügbar").
+            $meterOpts = [['caption' => '— bitte zuerst anmelden —', 'value' => '']];
             $curUID = $this->ReadPropertyString('InexogyMeterID');
             if ($curUID !== '') {
                 $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];

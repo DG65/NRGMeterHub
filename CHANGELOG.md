@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.20.1-beta.1 (2026-07-25)
+
+- **Fix: „Übernehmen" einer frisch angelegten Inexogy-Instanz schlug fehl**, solange noch
+  nicht angemeldet war — Meldung „Aktueller Wert '' ist nicht verfügbar". Ursache: das
+  Auswahlfeld „Zähler-UID" (`InexogyMeterID`, Standardwert `''`) bekam seine Optionsliste erst
+  nach erfolgreichem Login befüllt; vorher war sie leer, ohne einen Eintrag für den leeren
+  Startwert. Fix: ein Platzhalter-Eintrag „— bitte zuerst anmelden —" (Wert `''`) ist jetzt
+  immer vorhanden, unabhängig vom Anmeldestatus. Gefunden über eine Live-Meldung an Dietmars
+  Installation (Instanz #49738).
+
 ## 0.20.0-beta.1 (2026-07-25)
 
 - **Zählersuche schließt bekannte NRG-Stack-Module aus.** Der erste Praxistest an Dietmars
