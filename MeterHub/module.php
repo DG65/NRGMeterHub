@@ -2225,7 +2225,7 @@ class MeterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
-        $this->GetDriver()->readSlow($this->GetModbusClient(), $this);
+        $this->GetDriver()->readSlow($this->GetTransport(), $this);
         $this->UpdateMirrors();
     }
 

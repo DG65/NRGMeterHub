@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.7-beta.1 (2026-07-25)
+
+- **Fix: Fatal Error beim Datenlesen jeder Inexogy-Instanz** — „Call to undefined method
+  MHUB_ModbusTcpClient::getLastReading()". Ursache: `ReadSlow()` reichte dem Treiber
+  unbedingt einen `GetModbusClient()` durch, statt wie `ReadFast()` über `GetTransport()` nach
+  Zählertyp zu unterscheiden — der Inexogy-Treiber bekam damit immer einen Modbus-Client statt
+  des `MHUB_InexogyClient`. Betraf ausschließlich den langsamen Lesezyklus (Energiezähler) von
+  Cloud-Zählern; der schnelle Zyklus (Leistung) über `ReadFast()` war schon vorher korrekt.
+  Bislang unbemerkt, weil dies live der erste tatsächlich funktionierende Inexogy-Login war —
+  ein Ein-Zeilen-Fix (`GetModbusClient()` → `GetTransport()`), verhält sich für alle
+  Modbus-Zählertypen identisch wie zuvor (`GetTransport()` liefert dort exakt denselben
+  Modbus-Client).
+
 ## 0.20.6-beta.1 (2026-07-25)
 
 - **Registrierungsschritt (Schritt 1/4) setzt jetzt `Content-Type`/`Accept` explizit**, wie in
