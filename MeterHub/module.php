@@ -2700,9 +2700,13 @@ class MeterHub extends IPSModule
      */
     public function InexogyLogin()
     {
+        // Zusätzlich ins Systemprotokoll: die Meldung im Formular verschwindet
+        // mit dem Schließen der Maske, ist also für eine spätere Fehlersuche
+        // (Fernwartung, andere Sitzung) nicht mehr auffindbar.
         $say = function (string $m) {
             $this->UpdateFormField('InexogyResult', 'caption', $m);
             $this->UpdateFormField('InexogyResult', 'visible', true);
+            trigger_error('InexogyLogin #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
         };
         $email = trim($this->ReadPropertyString('InexogyEmail'));
         $pass  = (string)$this->ReadPropertyString('InexogyPassword');

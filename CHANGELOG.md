@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.20.3-beta.1 (2026-07-25)
+
+- **Inexogy-Anmeldung protokolliert Fehlschläge jetzt zusätzlich im Systemprotokoll**
+  (`trigger_error`), nicht mehr nur als Text im offenen Konfigurationsformular. Auslöser: beim
+  Versuch, den fehlgeschlagenen Login an #22570 fernzudiagnostizieren, stellte sich heraus,
+  dass die einzige Fehlermeldung in der Maske selbst steckte — mit dem Schließen unwiederbring-
+  lich weg, für eine spätere oder entfernte Fehlersuche also unauffindbar. Rein additiv, keine
+  Änderung an Ablauf oder Erfolgsfall.
+
 ## 0.20.2-beta.1 (2026-07-25)
 
 - **Fix: Neuanlage einer Inexogy-Instanz zeigte weiterhin das Host-Feld (IP-Adresse)**, obwohl
