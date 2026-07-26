@@ -85,10 +85,18 @@ class MeterHubDiscovery extends IPSModule
         parent::ApplyChanges();
         // Versteckte Abbruch-Flagge für laufende Scans (thread-sicher über
         // GetValue/SetValue — der „Abbrechen"-Button läuft in einem eigenen
-        // Thread und setzt sie, die Scan-Schleifen prüfen sie). In ApplyChanges
-        // registriert, damit auch bestehende Instanzen sie nach dem Update haben.
-        $this->RegisterVariableBoolean('ScanAbort', 'Scan-Abbruch', '', 100);
-        IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
+        // Thread und setzt sie, die Scan-Schleifen prüfen sie). Nur bei echter
+        // Neuanlage registrieren (Verbund-Erkenntnis, SUITE.md „IP-Symcon-
+        // Stolpersteine" Punkt 3): RegisterVariableXXX() bedingungslos bei
+        // JEDEM ApplyChanges() für eine bereits bestehende Variable erneut
+        // aufzurufen kollidiert mit der Ident-Eindeutigkeit und lässt die
+        // ganze Transaktion abbrechen. Bestehende Instanzen bekommen die
+        // Variable trotzdem einmalig nachgezogen, da IPS_GetObjectIDByIdent()
+        // erst nach der ersten erfolgreichen Anlage etwas findet.
+        if (!@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
+            $this->RegisterVariableBoolean('ScanAbort', 'Scan-Abbruch', '', 100);
+            IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
+        }
     }
 
     // true, wenn während eines laufenden Scans „Abbrechen" geklickt wurde.

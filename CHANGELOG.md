@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.20.10-beta.1 (2026-07-25)
+
+- **Fix: `MeterHubDiscovery` registrierte `ScanAbort` bei jedem `ApplyChanges()` erneut**, statt
+  nur bei der ersten Anlage — genau das Muster, das SUITE.md (DG65/NRGEMS) unter
+  „IP-Symcon-Stolpersteine" Punkt 3 verbundweit als Ident-Kollisionsrisiko dokumentiert
+  (`RegisterVariableXXX()` bedingungslos auf eine bereits bestehende Variable). Jetzt hinter
+  `if (!@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID))` — bestehende Instanzen
+  bekommen die Variable weiterhin einmalig nachgezogen, danach ist der Aufruf ein No-Op statt
+  eines wiederholten Registrierungsversuchs. Gegen die restlichen fünf Punkte der Liste
+  geprüft: Punkte 1/2 (`RequestAction`/`IPS_SetVariableCustomAction`) betreffen dieses Repo
+  nicht (keine schreibbaren/aktionsfähigen Variablen); `MeterHub`s und `MeterHubVirtual`s
+  eigene Variablenregistrierung (`RegisterVar()`) nutzt ohnehin schon `IPS_CreateVariable()`
+  mit demselben „nur bei Fehlen anlegen"-Muster, nicht die eingebauten
+  `RegisterVariableXXX()`-Funktionen — dort bestand das Risiko strukturell nicht.
+
 ## 0.20.9-beta.1 (2026-07-25)
 
 - **Korrektur zu 0.20.8: `module.json["name"]` zurückgesetzt.** Das Feld ist entgegen der
