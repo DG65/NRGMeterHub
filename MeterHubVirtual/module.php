@@ -178,7 +178,8 @@ class MeterHubVirtual extends IPSModule
             }
         }
 
-        $nodes = $this->Nodes();
+        $nodes    = $this->Nodes();
+        $childMap = $this->Children($nodes);
 
         // Elternbezug muss existieren, und niemand ist sein eigener Vorfahr.
         foreach ($nodes as $k => $n) {
@@ -203,7 +204,7 @@ class MeterHubVirtual extends IPSModule
 
         // Gemischte Einheiten innerhalb einer Rechnung ergeben stillschweigend
         // falsche Werte — daher aktiv prüfen statt nur zu dokumentieren.
-        foreach ($this->Children($nodes) as $parent => $kids) {
+        foreach ($childMap as $parent => $kids) {
             foreach ([['power', 'Leistung'], ['imp', 'Bezug'], ['exp', 'Einspeisung']] as [$f, $lbl]) {
                 $units = [];
                 foreach (array_merge([$parent], $kids) as $k) {
@@ -225,7 +226,31 @@ class MeterHubVirtual extends IPSModule
             }
         }
 
+        // Sicherheitsnetz gegen den 25.07.2026-Vorfall (#16933): Eine
+        // Verdrahtung ohne einen einzigen Knoten mit Kindern ergibt in
+        // OutputDefs() KEINE Summe/Rest-Ausgabe mehr — RegisterVariables()
+        // würde das sonst als "nichts ist mehr gültig" lesen und JEDE schon
+        // vorhandene Ausgabevariable auf einen Schlag löschen, auch wenn nur
+        // eine einzelne, unbeteiligte Zeile geändert wurde. Nur relevant,
+        // wenn es überhaupt schon Ausgaben gibt — eine brandneue, noch nie
+        // verdrahtete Instanz hat keine und wird hierdurch nicht blockiert.
+        if (empty($childMap) && $this->HasExistingOutputs()) {
+            $errors[] = 'Die aktuelle Verdrahtung ergibt keine einzige Summe-/Rest-Ausgabe mehr — kein Zähler hat mehr Kinder. Vorhandene Ausgabevariablen bleiben deshalb unangetastet, bis das behoben ist. Prüfen, ob eine Zeile versehentlich ihr „hängt hinter“ verloren hat.';
+        }
+
         return $errors;
+    }
+
+    /** Hat die Instanz schon mindestens eine registrierte Ausgabevariable? */
+    private function HasExistingOutputs(): bool
+    {
+        foreach (IPS_GetChildrenIDs($this->InstanceID) as $cid) {
+            $o = IPS_GetObject($cid);
+            if ($o['ObjectType'] === 2 && $o['ObjectIdent'] !== '') {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Einheit (Profil-Suffix) einer Variable, leer wenn unbekannt. */
@@ -268,7 +293,16 @@ class MeterHubVirtual extends IPSModule
 
     private function RegisterVariables(array $errors)
     {
-        $defs  = $errors ? [] : $this->OutputDefs();
+        // Solange Validate() Fehler meldet, wird NICHTS angefasst — weder
+        // gelöscht noch neu angelegt. Vorher lief die Löschrunde unten auch
+        // im Fehlerfall durch (mit $defs=[], also "nichts ist mehr gültig"),
+        // was am 25.07.2026 #16933 alle Ausgabevariablen gekostet hat, obwohl
+        // nur eine einzelne, dead-reference-Zeile betroffen war. Lieber
+        // vorübergehend veraltete Werte behalten als sie fälschlich löschen.
+        if ($errors) {
+            return;
+        }
+        $defs  = $this->OutputDefs();
         $valid = [];
         foreach ($defs as $d) {
             $valid[$d[0]] = true;

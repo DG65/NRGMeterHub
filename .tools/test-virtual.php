@@ -333,5 +333,61 @@ check('modulspezifisches MHB.Hz wird weiterhin durchgesetzt',
     ($GLOBALS['PROFILES']['MHB.Hz'] ?? null) === ['Digits' => 2, 'Suffix' => ' Hz'],
     json_encode($GLOBALS['PROFILES']['MHB.Hz'] ?? null));
 
+echo "\n10) Sicherheitsnetz gegen den 25.07.2026-Vorfall (#16933)\n";
+// Nachstellung des realen Vorfalls: eine Instanz mit funktionierender
+// Verdrahtung (Summe/Rest existieren) verliert die Verdrahtung — vorher
+// wurden dabei ALLE Ausgabevariablen auf einen Schlag geloescht, obwohl nur
+// eine einzelne Zeile betroffen war.
+$before = [];
+foreach (IPS_GetChildrenIDs($new) as $c) { $before[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
+check('Ausgangslage: Ausgaben vorhanden', isset($before['hausanschluss_sum_power']), implode(', ', array_keys($before)));
+
+// 10a) Verdrahtung komplett flach machen (kein Knoten hat mehr Kinder) —
+// genau der Zustand, der RegisterVariables() vorher "nichts ist mehr
+// gueltig" lesen liess.
+$flatNodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
+foreach ($flatNodes as &$r) { $r['Parent'] = ''; }
+unset($r);
+IPS_SetProperty($new, 'Nodes', json_encode($flatNodes));
+$GLOBALS['MODOBJ'][$new]->ApplyChanges();
+check('10a: Status = Fehler (201)', ($GLOBALS['STATUS'][$new] ?? 0) === 201, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
+$after10a = [];
+foreach (IPS_GetChildrenIDs($new) as $c) { $after10a[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
+check('10a: vorhandene Ausgaben NICHT geloescht', $after10a === $before, 'vorher=' . implode(',', array_keys($before)) . ' nachher=' . implode(',', array_keys($after10a)));
+$check10aErr = (new ReflectionMethod('MeterHubVirtual', 'Validate'))->invoke($GLOBALS['MODOBJ'][$new]);
+check('10a: Fehlermeldung nennt die Ursache', !empty($check10aErr) && str_contains(implode(' ', $check10aErr), 'keine einzige Summe'), implode(' | ', $check10aErr));
+
+// 10b) Verdrahtung reparieren, aber zusaetzlich einen echten Fehler
+// einbauen (verweist auf geloeschte Variable) — unabhaengig vom
+// Flach-Fall muss JEDER Validate()-Fehler die Loeschung verhindern.
+$fixedNodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
+foreach ($fixedNodes as &$r) {
+    if (($r['Key'] ?? '') !== 'hausanschluss') { $r['Parent'] = 'hausanschluss'; }
+}
+unset($r);
+$fixedNodes[0]['EnergyExportID'] = 999999; // existiert nicht
+IPS_SetProperty($new, 'Nodes', json_encode($fixedNodes));
+$GLOBALS['MODOBJ'][$new]->ApplyChanges();
+check('10b: Status = Fehler (201)', ($GLOBALS['STATUS'][$new] ?? 0) === 201, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
+$after10b = [];
+foreach (IPS_GetChildrenIDs($new) as $c) { $after10b[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
+check('10b: vorhandene Ausgaben NICHT geloescht (allgemeiner Fehlerfall)', $after10b === $before, 'nachher=' . implode(',', array_keys($after10b)));
+
+// 10c) Gegenprobe: Verdrahtung sauber reparieren (kein Fehler mehr) — jetzt
+// MUSS RegisterVariables() wieder normal arbeiten, damit das Sicherheitsnetz
+// nicht zur Dauerblockade wird.
+$cleanNodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
+foreach ($cleanNodes as &$r) {
+    if (($r['Key'] ?? '') !== 'hausanschluss') { $r['Parent'] = 'hausanschluss'; }
+    $r['EnergyExportID'] = ($r['Key'] ?? '') === 'hausanschluss' ? 105 : (int)$r['EnergyExportID'];
+}
+unset($r);
+IPS_SetProperty($new, 'Nodes', json_encode($cleanNodes));
+$GLOBALS['MODOBJ'][$new]->ApplyChanges();
+check('10c: nach Reparatur wieder aktiv (102)', ($GLOBALS['STATUS'][$new] ?? 0) === 102, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
+$after10c = [];
+foreach (IPS_GetChildrenIDs($new) as $c) { $after10c[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
+check('10c: Ausgaben nach Reparatur weiter vorhanden', isset($after10c['hausanschluss_sum_power']), implode(',', array_keys($after10c)));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

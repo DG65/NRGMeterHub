@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.20.11-beta.1 (2026-07-25)
+
+- **Fix: `MeterHubVirtual` löschte bei einer fehlerhaften oder flachen Verdrahtung ALLE
+  vorhandenen Ausgabevariablen auf einen Schlag**, statt nur die einer tatsächlich geänderten
+  Zeile — genau der Mechanismus, der am 25.07.2026 #16933 zerlegt hat (eine einzelne
+  Zeilen-Entfernung wischte die komplette Instanz leer, weil die Verdrahtung danach flach war
+  und `OutputDefs()` nichts mehr lieferte). Proaktiv aufgegriffen im Zuge des neuen
+  Verbund-Zielbilds „Zuverlässigkeit ohne KI-Krücke" (SUITE.md) — der Fix war schon während des
+  Vorfalls entworfen, aber wegen der Tragweite zurückgestellt.
+  - `RegisterVariables()` fasst jetzt **nichts mehr an**, solange `Validate()` auch nur einen
+    Fehler meldet — weder Löschung noch Neuanlage. Vorher lief die Löschrunde im Fehlerfall
+    trotzdem durch (mit einer leeren „gültig"-Menge), was jeden Fehlerzustand potenziell zur
+    Komplettlöschung machte.
+  - `Validate()` erkennt jetzt zusätzlich den Fall „Verdrahtung ergibt keine einzige
+    Summe-/Rest-Ausgabe mehr" (kein Knoten hat mehr Kinder) als eigenen, klartextlichen Fehler
+    — aber nur, wenn die Instanz bereits Ausgaben hat (`HasExistingOutputs()`); eine
+    brandneue, nie verdrahtete Instanz wird dadurch nicht blockiert.
+  - `.tools/test-virtual.php` Block 10 stellt den realen Vorfall nach (Verdrahtung flach
+    machen → Ausgaben bleiben erhalten, Fehlermeldung erklärt warum), prüft zusätzlich den
+    allgemeinen Fall (unabhängiger Fehler bei sonst intakter Verdrahtung schützt ebenso) und
+    die Gegenprobe (nach Reparatur funktioniert alles wieder normal) — 8 neue Prüfungen.
+
 ## 0.20.10-beta.1 (2026-07-25)
 
 - **Fix: `MeterHubDiscovery` registrierte `ScanAbort` bei jedem `ApplyChanges()` erneut**, statt

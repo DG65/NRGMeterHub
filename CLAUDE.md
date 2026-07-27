@@ -508,6 +508,39 @@ Umschalten einmal Übernehmen …" in `GetConfigurationForm()`) — bewusst nich
 nicht gemeldet und ein größerer Umbau (Felder je Phase vs. gesamt sind strukturell
 verschieden, nicht nur ein-/ausblendbar).
 
+## MeterHubVirtual: Bereinigung nie bei Fehlerzustand ausführen (Vorfall 25.07.2026)
+
+**Auslöser:** An Dietmars Installation eine einzelne tote Zeile aus der Verdrahtung von
+#16933 entfernt (196 statt 197 Zeilen) — direkt danach hatte die Instanz **null** Kinder mehr.
+Ursache: `RegisterVariables(array $errors)` berechnete `$defs = $errors ? [] : OutputDefs();`
+und löschte danach jede vorhandene Ausgabevariable, deren Ident nicht in `$defs` steckte —
+unabhängig davon, ob überhaupt diese eine Zeile betroffen war. Da an dieser Installation
+**alle** Zeilen `Parent=''` hatten (flache Verdrahtung, kein Knoten hat Kinder), war
+`OutputDefs()` schon vorher permanent leer — jedes erfolgreiche `ApplyChanges()` hätte die
+Instanz jederzeit leerräumen können, nicht nur dieses eine Mal.
+
+**Fix (zwei Teile, siehe `RegisterVariables()`/`Validate()` im Code):**
+
+1. `RegisterVariables()` fasst **nichts** an (weder Löschung noch Neuanlage), solange
+   `Validate()` irgendeinen Fehler meldet. Ein Fehlerzustand darf nur zu veralteten, aber
+   niemals zu gelöschten Ausgaben führen.
+2. `Validate()` erkennt zusätzlich „Verdrahtung ergibt keine einzige Summe-/Rest-Ausgabe mehr"
+   (kein Knoten hat mehr Kinder) als eigenen Fehler — aber nur, wenn die Instanz **bereits**
+   Ausgaben hat (`HasExistingOutputs()`), damit eine brandneue, nie verdrahtete Instanz nicht
+   blockiert wird.
+
+**Wieder-hochgezogen als proaktiver Fix, nicht erst auf erneute Meldung gewartet** — passend
+zum Verbund-Zielbild „Zuverlässigkeit ohne KI-Krücke" (SUITE.md, DG65/NRGEMS): der Entwurf
+stand schon während des Vorfalls, wurde aber wegen der Tragweite zurückgestellt, bis eine
+zweite Session ohne Live-Daten-Risiko (die betroffene Instanz war da bereits gelöscht) die
+Umsetzung erlaubte.
+
+**Verifiziert in `.tools/test-virtual.php` Block 10:** stellt den realen Vorfall nach (flache
+Verdrahtung → Ausgaben bleiben erhalten statt gelöscht, Fehlermeldung erklärt warum), prüft
+zusätzlich den allgemeinen Fall (unabhängiger Fehler bei sonst intakter Verdrahtung schützt
+ebenso) sowie die Gegenprobe (nach Reparatur läuft alles normal weiter, das Sicherheitsnetz
+wird nicht zur Dauerblockade).
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide
