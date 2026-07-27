@@ -606,6 +606,14 @@ ausgeliefert wird.
   **UMG 800** weicht ab (frei konfigurierbare Werkskarte, Summen an anderer Stelle).
 - Als **experimentell** markierte Treiber (Socomec, MBS) sind aus Vorlagen abgeleitet und
   nicht hardwareverifiziert — das gehört sichtbar ins Dropdown und in die README.
+- **Gegenrecherche statt Neuentwurf (27.07.2026, Verbund-Erwartung „aktives Engagement"):**
+  Für Socomec Countis gegen die offizielle E23-Kommunikationstabelle gegengeprüft (über eine
+  Drittquelle, da socomec.fr/us automatisierte Abrufe blockt) — sieben Register
+  (Spannung/Strom je Phase, Frequenz, Wirkleistung gesamt) stimmen exakt mit dem bestehenden,
+  von OpenEMS abgeleiteten Treiber überein. Der Energiezähler weicht von der (unvollständigen)
+  Drittquelle ab — **nicht blind übernommen**, sondern als offene Frage im Treiber-Kommentar
+  dokumentiert (`MHUB_SocomecCountisDriver` in `MeterHub/module.php`). Gegenrecherche ersetzt
+  keine Hardwareverifikation, senkt aber das Risiko, bevor „experimentell" fällt.
 
 ## Nützliches beim Testen am Live-IPS
 

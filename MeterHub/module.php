@@ -1222,6 +1222,19 @@ class MHUB_CarloGavazziDriver implements MHUB_MeterDriverInterface
 // FC 0x03, Big-Endian; U als UInt32 ×0,01 V, I UInt32 ×0,001 A, f UInt32
 // ×0,001 Hz, P/Q Int32 ×10 W/var, Energie UInt32 ×0,01 kWh. Skalen nach
 // OpenEMS abgeleitet — an echtem Gerät prüfen (v. a. Leistungs-Skala).
+//
+// Gegenrecherche 27.07.2026 (offizielle Socomec-Countis-E23-Kommunikations-
+// tabelle über eine Drittquelle, da socomec.fr/us automatisierte Abrufe
+// blockt): U_L1/L2/L3, I_L1/L2/L3, Frequenz und Wirkleistung gesamt
+// (0xC558–0xC568, sieben unabhängig geprüfte Register) stimmen exakt —
+// starkes Indiz, dass dieser Block korrekt ist. Der Energiezähler
+// (0xC702/0xC708 hier) weicht von der Drittquelle ab (dort „ea+" bei
+// 50770 = 0xC652, ~176 Register Differenz) — die Quelle war aber selbst
+// unvollständig („mehr Register, Vollversion nötig"), könnte also ein
+// anderes Energiefeld (Tarif/rücksetzbar) meinen. Nicht blind übernommen
+// (Lehre aus dem Shelly-Pro-3EM-Vorfall, siehe CLAUDE.md „Registerkarten:
+// erst messen, dann glauben") — bleibt offen für eine echte Gegenprobe an
+// Hardware oder der vollständigen Herstellertabelle.
 // ---------------------------------------------------------------------------
 
 class MHUB_SocomecCountisDriver implements MHUB_MeterDriverInterface
