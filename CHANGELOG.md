@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.20.12-beta.1 (2026-07-27)
+
+- **Klarstellender Hinweis vor der Zählertyp-Auswahl** — Verbund-Erkenntnis (EMS,
+  GoodWe-Netzmesspunkt-Formular 27.07.2026): ein implizit vorausgewählter Hersteller kann
+  leicht als „der" Weg statt als bloß einer von mehreren gelesen werden. Betraf MeterHub
+  konkret: der Property-Standardwert `Meter` ist `siemens_pac2200` — wer eine Instanz von Hand
+  anlegt (statt über `MeterHubDiscovery`, das den echten Zählertyp korrekt setzt), sah bisher
+  ein Formular mit „Siemens SENTRON PAC2200" bereits ausgewählt, ohne erklärenden Hinweis
+  außerhalb des standardmäßig eingeklappten Doku-Panels. Neues, immer sichtbares Label direkt
+  über der Auswahl: macht deutlich, dass die Vorauswahl nur ein Platzhalter ist (19
+  gleichwertige Optionen), und weist auf die Inexogy-Cloud-Alternative für Nutzer ohne
+  eigenen Modbus-Zähler hin. Reine Formularänderung, kein Verhalten geändert.
+
 ## 0.20.11-beta.1 (2026-07-25)
 
 - **Fix: `MeterHubVirtual` löschte bei einer fehlerhaften oder flachen Verdrahtung ALLE

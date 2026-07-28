@@ -2572,6 +2572,16 @@ class MeterHub extends IPSModule
                     'name'    => 'Active',
                     'caption' => 'Kommunikation aktiv',
                 ],
+                // Immer sichtbar (nicht im eingeklappten Doku-Panel versteckt):
+                // Wer eine Instanz von Hand anlegt statt über MeterHubDiscovery,
+                // sieht sonst ein Formular mit „Siemens SENTRON PAC2200" bereits
+                // vorausgewählt — ohne diesen Hinweis liest sich das leicht als
+                // Empfehlung/Standardfall statt als bloßer technischer
+                // Platzhalter (19 gleichwertige Optionen, PAC2200 ist keine
+                // davon ausgezeichnet). Verbund-Erkenntnis 27.07.2026 (EMS,
+                // GoodWe-Netzmesspunkt-Formular): implizit ein Hersteller als
+                // „der" Weg dargestellt, obwohl nur einer von mehreren.
+                ['type' => 'Label', 'caption' => '👉 Zuerst den tatsächlichen Zählertyp wählen — die Vorauswahl unten ist nur ein technischer Platzhalter, keine Empfehlung. Kein eigener Modbus-Zähler? „Inexogy / Discovergy" nutzt stattdessen die Cloud-API. Die Verbindungsfelder darunter passen sich automatisch an die Auswahl an.'],
                 [
                     'type'     => 'Select',
                     'name'     => 'Meter',
