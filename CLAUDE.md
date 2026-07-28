@@ -252,6 +252,24 @@ nicht das, wovor sie schützen soll. `MeterHubVirtual` ist über den bestehenden
 `$ownOutputs`-Mechanismus bereits präziser abgedeckt (nur die tatsächlichen Ausgabevariablen,
 nicht die ganze Instanz).
 
+## Grundregel: keine eigene Anlage als Norm annehmen (Verbund-Konvention 27.07.2026)
+
+Volle Herleitung/Beispiele in `EMS/SUITE.md` — hier nur die Prüffrage für dieses Repo: **„Gilt
+das für JEDEN Nutzer, oder nur für meine/Dietmars eigene Anlage?"** Bei jedem neuen
+Formularfeld/Default/Hilfetext anwenden. Ausgelöst durch denselben Fehler an mehreren
+NRG-Stack-Modulen unabhängig (EMS: „Goodwe SmartMeter (Pflicht)" obwohl nur ein Beispiel;
+ChargerHub; hier: `Meter`-Standardwert `siemens_pac2200` stand in der manuellen
+Instanz-Anlage ohne Hinweis, dass es nur ein Platzhalter ist — behoben mit einem immer
+sichtbaren Label vor der Auswahl, siehe Changelog 0.20.12).
+
+**Bei dieser Gelegenheit (27.07.2026) gegen alle drei Module durchgeprüft, keine weiteren
+Funde:** Property-Standardwerte in `MeterHub`/`MeterHubVirtual`/`MeterHubDiscovery` sind
+durchgehend generisch (`Port` 502 = Modbus-Standard, `UnitId` 1 = verbreiteter Werks-Default,
+`Host`/`ScanFilter`/`NameTemplate` leer) — keine eigenen IDs, PLZ-Gebiete oder
+Vertrags-/Teilnahme-Flags hartkodiert. `MeterHubDiscovery`s IP-Bereichsvorschlag
+(`guessLocalSubnetPrefix()`) wird zur Laufzeit aus dem eigenen Netzwerkinterface abgeleitet,
+nicht als fester Wert im Code hinterlegt — genau das von der Regel geforderte Verhalten.
+
 **Pflege:** Bei jedem neuen NRG-Stack-Mitglied die Liste ergänzen — sonst taucht dessen Modul
 unbemerkt wieder als „Fremdzähler" im Suchlauf auf. Verifiziert in `.tools/test-virtual.php`
 (Block 6b): eine Variable innerhalb einer simulierten EMS-Instanz wird nicht vorgeschlagen,
