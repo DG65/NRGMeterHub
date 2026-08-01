@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.21.0-beta.1 (2026-07-29)
+
+- **MeterHubDiscovery erkennt Alt-Instanzen anderer Module an derselben IP/Unit-ID und
+  bereitet die Übernahme über MigrationsHub vor.** Dietmars Wunsch: Migration soll Teil des
+  normalen Geräte-Scans werden statt separates Werkzeug — Zähler finden und Historie
+  übernehmen soll für jeden Hersteller ohne manuellen Eingriff funktionieren. Mit
+  MigrationsHub abgestimmt (deren neue `MIGHUB_FindLegacyCandidates()`/
+  `MIGHUB_PrefillMigration()`, optionale Kopplung hinter `function_exists()`, kein
+  Pflicht-Partnermodul):
+  - Fund-Liste zeigt eine neue Spalte „Alt-Instanz gefunden", wenn MigrationsHub eine
+    passende Alt-Instanz (Fremdmodul, gleiche IP+Unit-ID) kennt.
+  - Bei einem Treffer kommt die neu erstellte MeterHub-Instanz automatisch mit
+    „Kommunikation aktiv = AUS" — verhindert von vornherein die überlappende Historie, die
+    der Doku-Hinweis aus 0.20.10 bisher nur beschrieb.
+  - Neuer Knopf „Migration vorbereiten": verknüpft die erste erstellte Zielinstanz mit
+    passender Alt-Instanz in MigrationsHub (legt bei Bedarf eine Instanz an, wiederverwendet
+    eine vorhandene) und springt per `OpenObjectButton` dorthin. Bewusst nur EIN Treffer je
+    Klick — Simulieren/Bestätigen/Ausführen bleiben in MigrationsHub bewusst manuelle
+    Schritte (Sicherheitskette bei einem destruktiven Vorgang), ein zweiter Aufruf vor
+    Abschluss würde die noch unbestätigte Zuordnung überschreiben.
+  - `Configurator`-Formularelement unterstützt laut offizieller Doku keine interaktiven
+    Spalten/Buttons je Zeile — deshalb eigener Button unterhalb der Liste statt eines
+    Felds direkt in der Zeile.
+  - Neuer Prüfstand `.tools/test-discovery-migration.php` (20 Prüfungen): Verhalten mit und
+    ohne installiertes MigrationsHub, Formular-Felder (legacy-Spalte, `Active`-Override),
+    Ende-zu-Ende-Ablauf von `PrepareMigration()` inkl. Wiederverwendung der
+    MigrationsHub-Instanz bei mehreren Aufrufen.
+
 ## 0.20.12-beta.1 (2026-07-27)
 
 - **Klarstellender Hinweis vor der Zählertyp-Auswahl** — Verbund-Erkenntnis (EMS,

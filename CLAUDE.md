@@ -66,6 +66,39 @@ Drei Invarianten der Kopplung (identisch in der CLAUDE.md von InverterHub):
    `+` = Einspeisung.
 3. **`form.json` nicht maschinell umformatieren** (siehe Commit-Regeln unten).
 
+## Kopplung an MigrationsHub (Verbund-Konvention 29.07.2026)
+
+Optionale Kopplung, mit MigrationsHub abgestimmt (kein Pflicht-Partnermodul, alles hinter
+`function_exists()`) — `MeterHubDiscovery::LegacyCandidateFor()`/`PrepareMigration()` in
+`MeterHubDiscovery/module.php`. Anlass: Dietmars Wunsch, dass Migration Teil des normalen
+Geräte-Scans wird statt separates Werkzeug — „Wallbox/Zähler finden und Zähler bereitstellen"
+muss ohne manuellen Eingriff funktionieren, für jeden Hersteller.
+
+**Vertrag:** `MIGHUB_FindLegacyCandidates($id, string $host, int $port=0, int $unitId=0):
+array` (Match-Schlüssel Host+Unit-ID, **nie über den Namen** — MigrationsHub selbst ist zweimal
+auf Namens-Fallen reingelaufen), `MIGHUB_PrefillMigration($id, $oldInstanceID,
+$newInstanceID): void` (setzt Source/Target auf einer MigrationsHub-Instanz, stößt NICHT
+automatisch Simulieren/Ausführen an — bewusste Sicherheitskette bei einem destruktiven
+Vorgang, bleibt Nutzeraktion im MigrationsHub-Formular).
+
+**Bewusst nur ein Treffer je `PrepareMigration()`-Aufruf:** ein zweiter Aufruf vor Abschluss
+der ersten Migration würde die noch unbestätigte Source/Target-Zuordnung auf derselben
+MigrationsHub-Instanz überschreiben. Bei mehreren gefundenen Alt-Instanzen erst die laufende
+Migration abschließen, dann erneut klicken.
+
+**`Configurator` (das Formularelement der Fund-Liste) hat laut offizieller Doku keine
+interaktiven Spalten/Buttons je Zeile** — nur Anzeige plus die eingebaute Erstellen-Aktion.
+Deshalb ein eigener Button unterhalb der Liste statt eines Elements in der Zeile selbst;
+`PrepareMigration()` findet die passende(n) Zeile(n) serverseitig erneut (Scan-Ergebnisse +
+bereits erstellte Instanzen), nicht über eine Zeilenauswahl im Formular.
+
+**Bei Treffer kommt die neu erstellte Instanz automatisch mit `Active=false`** — verhindert
+von vornherein die überlappende Historie, die der allgemeine Migrations-Hinweis (0.20.10)
+bisher nur beschrieb, ohne es zu erzwingen.
+
+Verifiziert in `.tools/test-discovery-migration.php` (20 Prüfungen, eigener Prüfstand mit
+IPSModule-Stub nach demselben Muster wie `test-virtual.php`).
+
 ## Hilfsordner im Wurzelverzeichnis müssen mit einem Punkt beginnen
 
 Die Store-Prüfung von IP-Symcon behandelt **jeden sichtbaren Ordner im Repo-Wurzelverzeichnis
