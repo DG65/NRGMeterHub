@@ -3001,6 +3001,67 @@ class MeterHub extends IPSModule
         ]);
     }
 
+    /**
+     * Bekannte Ident-Zuordnung eines Alt-Moduls auf diese MeterHub-Instanz,
+     * für MigrationsHubs zentrale Übernahme (Verbund-Vertrag 29.07.2026,
+     * gemeinsam mit MigrationsHub/ChargerHub/InverterHub abgestimmt).
+     * Reine Auskunft — MeterHub reparentet/benennt selbst nichts um, das
+     * bleibt bei MigrationsHub (inkl. Nutzer-Review vor der Ausführung).
+     * Rückgabe nur für erkannte Treffer: ['altIdent' => ['ident' =>
+     * 'neuerIdent', 'type' => VARIABLETYPE_*], ...]. $foreignIdents muss
+     * übergeben werden, weil manche Alt-Module dasselbe Feld je nach
+     * Firmware/Version unterschiedlich benennen — ohne die tatsächlich
+     * vorhandenen Idents der Alt-Instanz ließe sich das nicht auflösen.
+     */
+    public function GetIdentMapping(string $foreignModuleGUID, array $foreignIdents): array
+    {
+        // Alt-Modul-Idents live an Dietmars Installation abgelesen (Modul
+        // "Discovergy_Smartmeter" von elueckel, GUID unten) — NICHT zu
+        // verwechseln mit Inexogys Cloud-API-JSON-Feldnamen (teils andere
+        // Schreibweise, siehe MHUB_InexogyDriver::readFast()); das hier
+        // sind die Idents des tatsächlich INSTALLIERTEN Alt-Moduls.
+        static $known = [
+            '{C0F160B2-0B9D-2AAE-0527-C0FA4BDEE743}' => [
+                'energy'    => 'energy_import',
+                'energyout' => 'energy_export',
+                'power'     => 'power_total',
+                'phase1'    => 'p_l1',
+                'phase2'    => 'p_l2',
+                'phase3'    => 'p_l3',
+                'voltage1'  => 'u_l1_n',
+                'voltage2'  => 'u_l2_n',
+                'voltage3'  => 'u_l3_n',
+            ],
+        ];
+        if (!isset($known[$foreignModuleGUID])) {
+            return [];
+        }
+
+        // Ziel-Idents dieser Instanz einsammeln (Basis + alle optionalen
+        // Gruppen, unabhängig davon, ob die Gruppe aktuell aktiviert ist —
+        // RegisterVar() legt die Variable bei Bedarf ohnehin neu an).
+        $driver = $this->GetDriver();
+        $validTypes = [];
+        foreach ($driver->getBaseVars() as $v) {
+            $validTypes[$v[0]] = $this->VarTypeFor($v[2]);
+        }
+        foreach ($driver->getOptionalGroups() as $group) {
+            foreach ($group['vars'] as $v) {
+                $validTypes[$v[0]] = $this->VarTypeFor($v[2]);
+            }
+        }
+
+        $out = [];
+        foreach ($foreignIdents as $fi) {
+            $newIdent = $known[$foreignModuleGUID][$fi] ?? null;
+            if ($newIdent === null || !isset($validTypes[$newIdent])) {
+                continue;
+            }
+            $out[$fi] = ['ident' => $newIdent, 'type' => $validTypes[$newIdent]];
+        }
+        return $out;
+    }
+
     // -----------------------------------------------------------------------
     // Variablen-Registrierung (generisch, treiberunabhängig)
     // -----------------------------------------------------------------------
@@ -3097,17 +3158,23 @@ class MeterHub extends IPSModule
         }
     }
 
+    /** Kurzcode (F/I/B/S) aus den Variablendefinitionen -> IPS-Variablentyp. */
+    private function VarTypeFor(string $shortType): int
+    {
+        return [
+            'F' => VARIABLETYPE_FLOAT,
+            'I' => VARIABLETYPE_INTEGER,
+            'B' => VARIABLETYPE_BOOLEAN,
+            'S' => VARIABLETYPE_STRING,
+        ][$shortType] ?? VARIABLETYPE_FLOAT;
+    }
+
     private function RegisterVar(array $def, int $pos)
     {
         [$ident, $caption, $type, $profile, $archive, $group] = $def;
         $reg = isset($def[6]) ? $def[6] : '';
 
-        $vtype = [
-            'F' => VARIABLETYPE_FLOAT,
-            'I' => VARIABLETYPE_INTEGER,
-            'B' => VARIABLETYPE_BOOLEAN,
-            'S' => VARIABLETYPE_STRING,
-        ][$type];
+        $vtype = $this->VarTypeFor($type);
 
         $vid = $this->FindVarByIdent($ident);
         if ($vid && IPS_GetVariable($vid)['VariableType'] !== $vtype) {

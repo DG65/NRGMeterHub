@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.21.1-beta.1 (2026-07-29)
+
+- **Neuer Verbund-Vertrag `MHUB_GetIdentMapping($id, string $foreignModuleGUID, array
+  $foreignIdents): array`** — für MigrationsHubs zentrale Alt-Instanz-Übernahme, gemeinsam mit
+  MigrationsHub/ChargerHub/InverterHub abgestimmt. Auslöser: MigrationsHub reparentete Alt-
+  Variablen bisher „blind" per Preflight-Sonde (Wegwerf-Variable anhängen, prüfen ob sie eine
+  `ApplyChanges()` übersteht), weil `PruneForeignObjects()` — bei uns wie bei anderen Hub-
+  Modulen — jede Kind-Variable mit unbekanntem Ident sofort löscht. Reine Auskunftsfunktion:
+  MeterHub reparentet/benennt selbst nichts um, das bleibt komplett bei MigrationsHub
+  (inkl. deren „Zuordnung prüfen"-Schritt mit Nutzer-Bestätigung vor der Ausführung).
+  `$foreignIdents` (die tatsächlich vorhandenen Idents der Alt-Instanz) sind nötig, weil
+  manche Alt-Module dasselbe Feld je nach Firmware/Version unterschiedlich benennen — eine
+  Zuordnung allein nach Modul-GUID wäre nicht eindeutig. Erster echter Eintrag: das alte
+  `Discovergy_Smartmeter`-Modul (elueckel), Idents live an Dietmars vorheriger Installation
+  abgelesen (`energy`→`energy_import`, `energyout`→`energy_export`, `power`→`power_total`,
+  `phase1-3`→`p_l1-3`, `voltage1-3`→`u_l1-3_n`). Neuer Prüfstand
+  `.tools/test-ident-mapping.php` (9 Prüfungen).
+
 ## 0.21.0-beta.1 (2026-07-29)
 
 - **MeterHubDiscovery erkennt Alt-Instanzen anderer Module an derselben IP/Unit-ID und

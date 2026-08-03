@@ -99,6 +99,28 @@ bisher nur beschrieb, ohne es zu erzwingen.
 Verifiziert in `.tools/test-discovery-migration.php` (20 Prüfungen, eigener Prüfstand mit
 IPSModule-Stub nach demselben Muster wie `test-virtual.php`).
 
+**Zweiter Teil des Vertrags — `MHUB_GetIdentMapping($id, string $foreignModuleGUID, array
+$foreignIdents): array`** (`MeterHub/module.php`, `GetIdentMapping()`): löst genau die
+Preflight-Sonden-Fragilität, die MigrationsHub bei der eigentlichen Übernahme (Reparenting)
+hatte — `PruneForeignObjects()` löscht bei uns wie bei anderen Hub-Modulen jede Kind-Variable
+mit unbekanntem Ident sofort, MigrationsHub musste das bisher per Wegwerf-Variable+
+`ApplyChanges()`-Testlauf erraten. Reine Auskunft, **MeterHub reparentet/benennt selbst
+nichts um** — das bleibt komplett bei MigrationsHub inkl. deren Nutzer-Review vor der
+Ausführung (bewusst so entschieden, nicht die zuerst diskutierte
+`AdoptFromLegacyInstance($identMap)`-Variante, die MeterHub selbst hätte reparenten lassen —
+Ident-Entscheidungshoheit bleibt zentral bei MigrationsHub, siehe auch die Grundsatzfrage
+weiter oben im Verbund).
+
+`$foreignIdents` (die tatsächlich vorhandenen Idents der Alt-Instanz) sind Pflicht, nicht
+optional: manche Alt-Module benennen dasselbe Feld je nach Firmware/Version unterschiedlich
+(unser eigener Inexogy-Treiber behandelt genau deshalb sowohl `power1/2/3` als auch
+`phase1Power/2Power/3Power` als dieselbe Größe) — eine Zuordnung allein nach Modul-GUID wäre
+nicht eindeutig auflösbar. Bekannte Alt-Modul-Tabelle ist bewusst **statisch im Code**
+(`static $known` in `GetIdentMapping()`), nicht dynamisch — neue Alt-Module dort ergänzen,
+Idents nur aus einer echten, live abgelesenen Installation übernehmen (nicht aus der
+Modul-Doku raten, siehe „Registerkarten: erst messen, dann glauben" unten). Verifiziert in
+`.tools/test-ident-mapping.php` (9 Prüfungen).
+
 ## Hilfsordner im Wurzelverzeichnis müssen mit einem Punkt beginnen
 
 Die Store-Prüfung von IP-Symcon behandelt **jeden sichtbaren Ordner im Repo-Wurzelverzeichnis
