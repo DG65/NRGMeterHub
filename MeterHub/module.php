@@ -2194,6 +2194,8 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyString('InexogyEmail', '');
         $this->RegisterPropertyString('InexogyPassword', '');
         $this->RegisterPropertyString('InexogyMeterID', '');
+        // Lastgang-Nachtrag ins Archiv (10.08.2026, Dietmars Abrechnungszähler).
+        $this->RegisterPropertyInteger('InexogyBackfillDays', 7);
         $this->RegisterAttributeString('InexogyConsumerKey', '');
         $this->RegisterAttributeString('InexogyConsumerSecret', '');
         $this->RegisterAttributeString('InexogyToken', '');
@@ -2488,6 +2490,10 @@ class MeterHub extends IPSModule
             ['type' => 'Select', 'name' => 'InexogyMeterID', 'visible' => $isCloud, 'caption' => 'Zähler-UID', 'options' => $meterOpts],
             ['type' => 'Label', 'name' => 'InexogyHintPoll', 'visible' => $isCloud, 'caption' => 'ℹ️ Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
             ['type' => 'Label', 'name' => 'InexogyHintMigration', 'visible' => $isCloud, 'caption' => '→ Umstieg von einem anderen Discovergy-/Inexogy-Modul mit Übernahme der Messhistorie? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann mit MigrationsHub adoptieren, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene Historie.'],
+            ['type' => 'Label', 'name' => 'InexogyHintBackfill', 'visible' => $isCloud, 'caption' => '📊 Lastgang (15-Minuten-Werte) nachtragen: füllt das Archiv von „Wirkarbeit Bezug/Abgabe" (und „Wirkleistung gesamt") rückwirkend mit den echten Zählerständen aus dem Inexogy-Lastgang — genauer als der laufende Abfragetakt, z. B. zur Kontrolle einer Abrechnung.'],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyBackfillDays', 'visible' => $isCloud, 'caption' => 'Lastgang der letzten … Tage nachtragen', 'minimum' => 1, 'maximum' => 30],
+            ['type' => 'Button', 'name' => 'InexogyBackfillButton', 'visible' => $isCloud, 'caption' => '📊  Lastgang jetzt ins Archiv nachtragen', 'onClick' => 'MHUB_BackfillInexogyArchive($id);'],
+            ['type' => 'Label', 'name' => 'InexogyBackfillResult', 'caption' => '', 'visible' => false],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud, 'caption' => 'IP-Adresse', 'validate' => $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud, 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud, 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -2723,11 +2729,12 @@ class MeterHub extends IPSModule
     public function OnChangeMeter($meter)
     {
         $isCloud = in_array($meter, self::CLOUD_METERS, true);
-        foreach (['InexogyIntro', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration'] as $f) {
+        foreach (['InexogyIntro', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton'] as $f) {
             $this->UpdateFormField($f, 'visible', $isCloud);
         }
         if (!$isCloud) {
             $this->UpdateFormField('InexogyResult', 'visible', false);
+            $this->UpdateFormField('InexogyBackfillResult', 'visible', false);
         }
         $this->UpdateFormField('Host', 'visible', !$isCloud);
         // Nicht nur ausblenden, auch die Pflicht-Regex entschärfen — falls
@@ -2887,6 +2894,99 @@ class MeterHub extends IPSModule
             $out[] = "$t energy=" . var_export($e, true) . " energyOut=" . var_export($eo, true) . " power=" . var_export($p, true);
         }
         trigger_error("DIAGNOSE-INEXOGY-READINGS\n" . implode("\n", $out), E_USER_WARNING);
+    }
+
+    /**
+     * Trägt den Inexogy-Lastgang rückwirkend ins Symcon-Archiv der
+     * vorhandenen energy_import/energy_export/power_total-Variablen
+     * nach — Dietmars Anlass: Inexogy ist sein Abrechnungszähler,
+     * der laufende Abfragetakt reicht nicht für eine Rechnungskontrolle.
+     * Werte sind live gegengeprüft kumulativ (wie /last_reading; die
+     * Differenz zweier Nachbarwerte reproduziert exakt das separat
+     * gemeldete power-Feld, siehe MHUB_DiagnoseInexogyReadings()) —
+     * werden also als normale archivierte Zählerstände eingetragen,
+     * kein Delta-Rechnen nötig. Bereits archivierte Zeitpunkte werden
+     * von AC_AddLoggedValues() überschrieben, nicht dupliziert.
+     */
+    public function BackfillInexogyArchive()
+    {
+        $say = function (string $m) {
+            $this->UpdateFormField('InexogyBackfillResult', 'caption', $m);
+            $this->UpdateFormField('InexogyBackfillResult', 'visible', true);
+            trigger_error('BackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
+        };
+        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+            $say('❌ Keine Inexogy-Instanz.');
+            return;
+        }
+        $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        if (count($archiveIDs) === 0) {
+            $say('❌ Kein Archiv-Modul (Archive Control) auf dieser Installation gefunden.');
+            return;
+        }
+        $archiveID = $archiveIDs[0];
+
+        $days = max(1, $this->ReadPropertyInteger('InexogyBackfillDays'));
+        $to   = time() * 1000;
+        $from = $to - $days * 86400 * 1000;
+
+        $c = $this->GetTransport();
+        $readings = $c->getReadings($this->ReadPropertyString('InexogyMeterID'), $from, $to, 'fifteen_minutes');
+        if (count($readings) === 0) {
+            $say('❌ Keine Lastgang-Daten von Inexogy erhalten. (' . $c->getLastError() . ')');
+            return;
+        }
+
+        // Feld → [Ziel-Ident, Rohwert-Skalierung] — dieselben Skalen wie
+        // MHUB_InexogyDriver::readFast()/readSlow(), damit live abgefragte
+        // und nachgetragene Werte konsistent bleiben.
+        $fields = [
+            'energy'    => ['ident' => 'energy_import', 'scale' => 1e10],
+            'energyOut' => ['ident' => 'energy_export', 'scale' => 1e10],
+            'power'     => ['ident' => 'power_total',   'scale' => 1000.0],
+        ];
+
+        $out = ["Zeitraum: " . date('Y-m-d H:i', (int)($from / 1000)) . ' – ' . date('Y-m-d H:i', (int)($to / 1000)) . " ({$days} Tage), {" . count($readings) . '} Lastgang-Einträge'];
+        foreach ($fields as $field => $t) {
+            $vid = $this->FindVarByIdent($t['ident']);
+            if (!$vid) {
+                $out[] = $t['ident'] . ': Variable nicht vorhanden, übersprungen.';
+                continue;
+            }
+            // Schon archivierte Zeitpunkte auslassen statt blind erneut
+            // einzutragen — ob AC_AddLoggedValues() bei einer Kollision
+            // überschreibt oder dupliziert, ist nicht dokumentiert; bei
+            // Abrechnungsdaten darf nichts doppelt gezählt werden. Bei
+            // wiederholten/überlappenden Läufen (z. B. wöchentlich mit
+            // 7 Tagen rückwirkend) bleibt so nur der jeweils neue Teil übrig.
+            $existing = [];
+            foreach (AC_GetLoggedValues($archiveID, $vid, (int)($from / 1000), (int)($to / 1000), 0) as $e) {
+                $existing[$e['TimeStamp']] = true;
+            }
+            $datasets = [];
+            foreach ($readings as $r) {
+                $raw = $r['values'][$field] ?? null;
+                if ($raw === null) {
+                    continue;
+                }
+                $ts = (int)(($r['time'] ?? 0) / 1000);
+                if (isset($existing[$ts])) {
+                    continue;
+                }
+                $datasets[] = ['TimeStamp' => $ts, 'Value' => $raw / $t['scale']];
+            }
+            if (count($datasets) === 0) {
+                $out[] = $t['ident'] . ': keine neuen Werte (schon archiviert oder kein Feld im Zeitraum).';
+                continue;
+            }
+            $ok = AC_AddLoggedValues($archiveID, $vid, $datasets);
+            if ($ok) {
+                AC_ReAggregateVariable($archiveID, $vid);
+            }
+            $out[] = $t['ident'] . " (#$vid): " . count($datasets) . ' neue Werte ' . ($ok ? 'nachgetragen ✅' : 'fehlgeschlagen ❌') .
+                ' (' . count($existing) . ' bereits vorhanden, übersprungen)';
+        }
+        $say(implode("\n", $out));
     }
 
     // Öffentlicher Wrapper, damit Treiber prüfen können, ob eine optionale

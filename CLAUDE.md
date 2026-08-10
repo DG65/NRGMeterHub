@@ -688,6 +688,31 @@ ausgeliefert wird.
   dokumentiert (`MHUB_SocomecCountisDriver` in `MeterHub/module.php`). Gegenrecherche ersetzt
   keine Hardwareverifikation, senkt aber das Risiko, bevor „experimentell" fällt.
 
+## Historische Werte rückwirkend ins Archiv eintragen (10.08.2026)
+
+Anlass: Inexogy als Dietmars Abrechnungszähler, `/last_reading` liefert nur den Momentanwert,
+`/readings` (siehe `ref-inexogy-api`-Memory) den Lastgang. Muster in
+`MHUB_BackfillInexogyArchive()` (`MeterHub/module.php`), wiederverwendbar für jede künftige
+Cloud-API mit historischen Werten:
+
+1. **`AC_AddLoggedValues(int $ArchivInstanzID, int $VariableID, array $Datasets)`** —
+   `$Datasets` = Liste von `['TimeStamp' => unixSekunden, 'Value' => …]`. Danach ist die
+   Aggregation der Variable laut Doku ungültig, `AC_ReAggregateVariable()` nachschieben.
+2. **Vor dem Schreiben auf Zeitstempel-Kollisionen prüfen** — `AC_AddLoggedValues()`s
+   Verhalten bei einem bereits archivierten Zeitpunkt (überschreiben vs. duplizieren) ist
+   nirgends dokumentiert; die Symcon-Community behilft sich durchgehend mit demselben
+   Schutzmuster: vorab `AC_GetLoggedValues(int $ArchivInstanzID, int $VariableID, int
+   $StartTime, int $EndTime, int $Limit)` (Limit `0` = kein Limit, hartes Maximum 10.000)
+   abfragen, vorhandene `TimeStamp`s in ein Lookup-Set packen, nur neue Zeitpunkte
+   eintragen. Bei Abrechnungsdaten (wie hier) ist das kein Stilthema — eine Dopplung würde
+   den Verbrauch verfälschen.
+3. **Kumulativ vs. Intervalldelta live gegenprüfen, nicht annehmen.** Undokumentierte
+   API-Felder mit identischem Namen wie ein bereits bekannter Momentanwert-Endpunkt (hier:
+   `values.energy` in `/readings` vs. `/last_reading`) MÜSSEN nicht dieselbe Semantik haben.
+   Verifiziert über eine unabhängige Gegenprobe: die Differenz zweier benachbarter
+   Lastgang-Werte reproduzierte exakt das im selben Datensatz mitgelieferte `power`-Feld —
+   erst danach als kumulativ behandelt.
+
 ## Nützliches beim Testen am Live-IPS
 
 - `php_eval` (MCP `ips-automation`) **gibt Rückgabewerte nicht aus**. Zuverlässigster Weg zur

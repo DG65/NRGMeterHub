@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.22.0-beta.1 (2026-08-10)
+
+- **Neu: Inexogy-Lastgang rückwirkend ins Archiv nachtragen** (`MHUB_BackfillInexogyArchive($id)`,
+  neuer Knopf im Formular). Dietmars Anlass: Inexogy ist sein Abrechnungszähler, der laufende
+  Abfragetakt reicht nicht, um eine Rechnung im Detail zu kontrollieren.
+  Live gegengeprüft, bevor gebaut wurde (nicht angenommen): die Werte aus `/readings` sind
+  kumulative Zählerstände wie `/last_reading`, keine Intervalldeltas — die Differenz zweier
+  Nachbarwerte reproduziert exakt das separat gemeldete `power`-Feld derselben Antwort. Werden
+  also als normale archivierte Zählerstände eingetragen (`AC_AddLoggedValues`), kein
+  Delta-Rechnen nötig. Trägt `Wirkarbeit Bezug`/`Wirkarbeit Abgabe`/`Wirkleistung gesamt` nach,
+  einstellbarer Zeitraum (Tage rückwirkend, Default 7). Bereits archivierte Zeitpunkte werden
+  vorab per `AC_GetLoggedValues` ermittelt und übersprungen — ob `AC_AddLoggedValues` bei einer
+  Zeitstempel-Kollision überschreibt oder dupliziert, ist nicht dokumentiert, und bei
+  Abrechnungsdaten darf nichts doppelt gezählt werden. Nach jedem Nachtrag `AC_ReAggregateVariable`
+  (laut Doku sonst veraltete Tages-/Monatssummen).
+- Vorstufe dazu (0.21.4/0.21.3/0.21.2): `resolution=15min` war der falsche API-Wert (Server
+  verlangt `fifteen_minutes`, siehe `pydiscovergy/const.py`-Enum), gefunden über die
+  `getLastError()`-Diagnose statt durch Raten.
+
 ## 0.21.4-beta.1 (2026-08-10)
 
 - **Fix: `resolution=15min` war der falsche Parameterwert für `/readings`.** Der Live-Fehler
