@@ -1925,12 +1925,15 @@ class MHUB_InexogyClient
     /**
      * Lastgang (Intervallmessungen) eines Zählers über einen Zeitraum.
      * $fromMs/$toMs in Millisekunden (Discovergy/Inexogy-Konvention, wie
-     * bei allen Zeitangaben dieser API). $resolution z. B. '15min', 'raw'.
+     * bei allen Zeitangaben dieser API). $resolution eines von: raw,
+     * three_minutes, fifteen_minutes, one_hour, one_day, one_week,
+     * one_month, one_year (live per HTTP 400 gegengeprüft, NICHT die
+     * Kurzform "15min" — siehe pydiscovergy/const.py Resolution-Enum).
      * Rückgabe: Liste von ['time' => ms, 'values' => [...]] oder [] bei
      * Fehlschlag — Semantik der values (kumulativ vs. Intervalldelta)
      * noch nicht verifiziert, siehe MHUB_DiagnoseInexogyReadings().
      */
-    public function getReadings(string $meterId, int $fromMs, ?int $toMs, string $resolution = '15min'): array
+    public function getReadings(string $meterId, int $fromMs, ?int $toMs, string $resolution = 'fifteen_minutes'): array
     {
         $url = self::BASE . '/readings';
         $params = ['meterId' => $meterId, 'from' => $fromMs, 'resolution' => $resolution];
@@ -2874,7 +2877,7 @@ class MeterHub extends IPSModule
         // API erst mit Verzögerung berichtet oder ein schmales Fenster
         // selbst schon leer/fehlerhaft beantwortet wird.
         $from = $to - 48 * 3600 * 1000;
-        $readings = $c->getReadings($this->ReadPropertyString('InexogyMeterID'), $from, $to, '15min');
+        $readings = $c->getReadings($this->ReadPropertyString('InexogyMeterID'), $from, $to, 'fifteen_minutes');
         $out = ['count=' . count($readings) . ' letzterFehler=' . $c->getLastError()];
         foreach (array_slice($readings, 0, 4) as $r) {
             $t = date('H:i', (int)(($r['time'] ?? 0) / 1000));

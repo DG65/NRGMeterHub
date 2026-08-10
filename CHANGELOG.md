@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.4-beta.1 (2026-08-10)
+
+- **Fix: `resolution=15min` war der falsche Parameterwert für `/readings`.** Der Live-Fehler
+  war dank 0.21.3s `getLastError()`-Ausgabe sofort sichtbar: `HTTP 400 – Invalid value for
+  parameter resolution: 15min`. In der Referenzquelle (`pydiscovergy/const.py`,
+  `Resolution`-Enum) direkt nachgesehen statt weiter zu raten — gültige Werte sind `raw`,
+  `three_minutes`, `fifteen_minutes`, `one_hour`, `one_day`, `one_week`, `one_month`,
+  `one_year`. `getReadings()`-Default und `DiagnoseInexogyReadings()` auf `fifteen_minutes`
+  korrigiert.
+
 ## 0.21.3-beta.1 (2026-08-10)
 
 - **`DiagnoseInexogyReadings()` nachgebessert**, nachdem der erste Live-Lauf `count=0` ohne
