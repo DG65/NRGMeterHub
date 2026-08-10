@@ -1921,6 +1921,27 @@ class MHUB_InexogyClient
         $j = json_decode($body, true);
         return ($code === 200 && isset($j['values']) && is_array($j['values'])) ? $j['values'] : null;
     }
+
+    /**
+     * Lastgang (Intervallmessungen) eines Zählers über einen Zeitraum.
+     * $fromMs/$toMs in Millisekunden (Discovergy/Inexogy-Konvention, wie
+     * bei allen Zeitangaben dieser API). $resolution z. B. '15min', 'raw'.
+     * Rückgabe: Liste von ['time' => ms, 'values' => [...]] oder [] bei
+     * Fehlschlag — Semantik der values (kumulativ vs. Intervalldelta)
+     * noch nicht verifiziert, siehe MHUB_DiagnoseInexogyReadings().
+     */
+    public function getReadings(string $meterId, int $fromMs, ?int $toMs, string $resolution = '15min'): array
+    {
+        $url = self::BASE . '/readings';
+        $params = ['meterId' => $meterId, 'from' => $fromMs, 'resolution' => $resolution];
+        if ($toMs !== null) {
+            $params['to'] = $toMs;
+        }
+        $hdr = $this->authHeader('GET', $url, $params);
+        [$code, $body] = $this->http('GET', $url, $params, $hdr);
+        $j = json_decode($body, true);
+        return ($code === 200 && is_array($j)) ? $j : [];
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2832,6 +2853,34 @@ class MeterHub extends IPSModule
         $lines[] = 'Bitte unten die Zähler-UID wählen und übernehmen.';
         $this->UpdateFormField('InexogyMeterID', 'options', json_encode($opts));
         $say(implode("\n", $lines));
+    }
+
+    /**
+     * Einmalige Diagnose (29.07.2026): prüft live, ob /readings kumulative
+     * Zählerstände liefert (wie /last_reading) oder Intervalldeltas —
+     * entscheidet, wie ein künftiger Lastgang-Archiv-Nachtrag rechnen
+     * muss. Nur für Inexogy-Instanzen mit vorhandenem Token. Meldet über
+     * trigger_error, keine Änderung an Formular/Konfiguration.
+     */
+    public function DiagnoseInexogyReadings()
+    {
+        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+            trigger_error('DiagnoseInexogyReadings: keine Inexogy-Instanz.', E_USER_WARNING);
+            return;
+        }
+        $c = $this->GetTransport();
+        $to = time() * 1000;
+        $from = $to - 6 * 3600 * 1000; // letzte 6 Stunden
+        $readings = $c->getReadings($this->ReadPropertyString('InexogyMeterID'), $from, $to, '15min');
+        $out = ['count=' . count($readings)];
+        foreach (array_slice($readings, 0, 4) as $r) {
+            $t = date('H:i', (int)(($r['time'] ?? 0) / 1000));
+            $e = $r['values']['energy'] ?? null;
+            $eo = $r['values']['energyOut'] ?? null;
+            $p = $r['values']['power'] ?? null;
+            $out[] = "$t energy=" . var_export($e, true) . " energyOut=" . var_export($eo, true) . " power=" . var_export($p, true);
+        }
+        trigger_error("DIAGNOSE-INEXOGY-READINGS\n" . implode("\n", $out), E_USER_WARNING);
     }
 
     // Öffentlicher Wrapper, damit Treiber prüfen können, ob eine optionale

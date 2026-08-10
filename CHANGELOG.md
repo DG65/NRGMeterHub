@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.21.2-beta.1 (2026-08-04)
+
+- **Vorarbeit für Lastgang-Nachtrag ins Archiv (Inexogy).** Auslöser: Dietmars Abrechnungszähler
+  läuft über Inexogy, `/last_reading` liefert aber nur den aktuellen Momentanwert, keinen
+  Lastgang zur Rechnungskontrolle. Recherchiert (zwei unabhängige Open-Source-Clients
+  gegengeprüft, PHP `andig/discovergy` und Python `jpbede/pydiscovergy`, da die offizielle Doku
+  unter api.inexogy.com/docs den Endpunkt nicht dokumentiert): Der Lastgang ist über die
+  bestehende OAuth1-Verbindung ohne Web-Portal-Umweg erreichbar — `GET /public/v1/readings`
+  (Parameter `meterId`, `from`/`to` in Millisekunden, `resolution` z. B. `15min`), signiert wie
+  der bereits funktionierende `/last_reading`-Aufruf.
+  Neu: `MHUB_InexogyClient::getReadings()` (Client-Methode) und `MHUB_DiagnoseInexogyReadings($id)`
+  (Diagnosefunktion, meldet die letzten Lastgang-Einträge samt Rohwerten ins Systemprotokoll —
+  ändert nichts an Formular/Konfiguration). **Bewusst noch kein Archiv-Nachtrag gebaut:** ob
+  `/readings` kumulative Zählerstände liefert (wie `/last_reading`) oder Intervalldeltas, ist
+  noch nicht live verifiziert — entscheidet aber, wie `AC_AddLoggedValues()` rechnen muss.
+  Auch `AC_AddLoggedValues($InstanceID, $VariableID, [['TimeStamp'=>…, 'Value'=>…], …])` gegen
+  die offizielle Doku geprüft (inkl. Hinweis: danach `AC_ReAggregateVariable()` nötig, sonst
+  bleiben aggregierte Werte veraltet).
+
 ## 0.21.1-beta.1 (2026-07-29)
 
 - **Neuer Verbund-Vertrag `MHUB_GetIdentMapping($id, string $foreignModuleGUID, array
