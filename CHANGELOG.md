@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.3-beta.1 (2026-08-10)
+
+- **`DiagnoseInexogyReadings()` nachgebessert**, nachdem der erste Live-Lauf `count=0` ohne
+  erkennbaren Grund meldete: `getLastError()` (aus der Login-Diagnose 0.20.3 bereits vorhanden)
+  jetzt mit ausgegeben, damit ein HTTP-Fehler von einer echt leeren Antwort unterscheidbar
+  ist. Zeitfenster von 6 auf 48 Stunden geweitet, falls die API erst mit Verzögerung berichtet
+  oder ein schmales Fenster selbst schon leer/fehlerhaft beantwortet.
+
 ## 0.21.2-beta.1 (2026-08-04)
 
 - **Vorarbeit für Lastgang-Nachtrag ins Archiv (Inexogy).** Auslöser: Dietmars Abrechnungszähler

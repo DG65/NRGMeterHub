@@ -2870,9 +2870,12 @@ class MeterHub extends IPSModule
         }
         $c = $this->GetTransport();
         $to = time() * 1000;
-        $from = $to - 6 * 3600 * 1000; // letzte 6 Stunden
+        // Bewusst weiter als "letzte paar Stunden" gefasst — falls die
+        // API erst mit Verzögerung berichtet oder ein schmales Fenster
+        // selbst schon leer/fehlerhaft beantwortet wird.
+        $from = $to - 48 * 3600 * 1000;
         $readings = $c->getReadings($this->ReadPropertyString('InexogyMeterID'), $from, $to, '15min');
-        $out = ['count=' . count($readings)];
+        $out = ['count=' . count($readings) . ' letzterFehler=' . $c->getLastError()];
         foreach (array_slice($readings, 0, 4) as $r) {
             $t = date('H:i', (int)(($r['time'] ?? 0) / 1000));
             $e = $r['values']['energy'] ?? null;
