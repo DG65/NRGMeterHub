@@ -2490,8 +2490,8 @@ class MeterHub extends IPSModule
             ['type' => 'Select', 'name' => 'InexogyMeterID', 'visible' => $isCloud, 'caption' => 'Zähler-UID', 'options' => $meterOpts],
             ['type' => 'Label', 'name' => 'InexogyHintPoll', 'visible' => $isCloud, 'caption' => 'ℹ️ Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
             ['type' => 'Label', 'name' => 'InexogyHintMigration', 'visible' => $isCloud, 'caption' => '→ Umstieg von einem anderen Discovergy-/Inexogy-Modul mit Übernahme der Messhistorie? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann mit MigrationsHub adoptieren, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene Historie.'],
-            ['type' => 'Label', 'name' => 'InexogyHintBackfill', 'visible' => $isCloud, 'caption' => '📊 Lastgang (15-Minuten-Werte) nachtragen: füllt das Archiv von „Wirkarbeit Bezug/Abgabe" (und „Wirkleistung gesamt") rückwirkend mit den echten Zählerständen aus dem Inexogy-Lastgang — genauer als der laufende Abfragetakt, z. B. zur Kontrolle einer Abrechnung.'],
-            ['type' => 'NumberSpinner', 'name' => 'InexogyBackfillDays', 'visible' => $isCloud, 'caption' => 'Lastgang der letzten … Tage nachtragen', 'minimum' => 1, 'maximum' => 30],
+            ['type' => 'Label', 'name' => 'InexogyHintBackfill', 'visible' => $isCloud, 'caption' => '📊 Lastgang (15-Minuten-Werte) nachtragen: füllt das Archiv von „Wirkarbeit Bezug/Abgabe" (und „Wirkleistung gesamt") rückwirkend mit den echten Zählerständen aus dem Inexogy-Lastgang — genauer als der laufende Abfragetakt, z. B. zur Kontrolle einer Abrechnung. Auch für größere Rückstände (mehrere Monate) geeignet — läuft dann intern in Blöcken, kann etwas dauern. Erneutes Klicken (z. B. wöchentlich) trägt nur die inzwischen neu hinzugekommenen Werte nach.'],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyBackfillDays', 'visible' => $isCloud, 'caption' => 'Lastgang der letzten … Tage nachtragen', 'minimum' => 1, 'maximum' => 730],
             ['type' => 'Button', 'name' => 'InexogyBackfillButton', 'visible' => $isCloud, 'caption' => '📊  Lastgang jetzt ins Archiv nachtragen', 'onClick' => 'MHUB_BackfillInexogyArchive($id);'],
             ['type' => 'Label', 'name' => 'InexogyBackfillResult', 'caption' => '', 'visible' => false],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud, 'caption' => 'IP-Adresse', 'validate' => $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
@@ -2896,6 +2896,14 @@ class MeterHub extends IPSModule
         trigger_error("DIAGNOSE-INEXOGY-READINGS\n" . implode("\n", $out), E_USER_WARNING);
     }
 
+    // Bewusst in Blöcken statt einem einzigen Abruf über den ganzen
+    // Zeitraum: hält jede /readings-Anfrage handhabbar UND bleibt sicher
+    // unter dem dokumentierten 10.000er-Limit von AC_GetLoggedValues()
+    // je Aufruf, das sonst bei mehrmonatigen Rückständen (Dietmars
+    // Anwendungsfall "seit Jahresanfang") den Dopplungsschutz unbemerkt
+    // hätte lückenhaft werden lassen können.
+    private const INEXOGY_BACKFILL_CHUNK_DAYS = 30;
+
     /**
      * Trägt den Inexogy-Lastgang rückwirkend ins Symcon-Archiv der
      * vorhandenen energy_import/energy_export/power_total-Variablen
@@ -2905,8 +2913,7 @@ class MeterHub extends IPSModule
      * Differenz zweier Nachbarwerte reproduziert exakt das separat
      * gemeldete power-Feld, siehe MHUB_DiagnoseInexogyReadings()) —
      * werden also als normale archivierte Zählerstände eingetragen,
-     * kein Delta-Rechnen nötig. Bereits archivierte Zeitpunkte werden
-     * von AC_AddLoggedValues() überschrieben, nicht dupliziert.
+     * kein Delta-Rechnen nötig.
      */
     public function BackfillInexogyArchive()
     {
@@ -2926,17 +2933,6 @@ class MeterHub extends IPSModule
         }
         $archiveID = $archiveIDs[0];
 
-        $days = max(1, $this->ReadPropertyInteger('InexogyBackfillDays'));
-        $to   = time() * 1000;
-        $from = $to - $days * 86400 * 1000;
-
-        $c = $this->GetTransport();
-        $readings = $c->getReadings($this->ReadPropertyString('InexogyMeterID'), $from, $to, 'fifteen_minutes');
-        if (count($readings) === 0) {
-            $say('❌ Keine Lastgang-Daten von Inexogy erhalten. (' . $c->getLastError() . ')');
-            return;
-        }
-
         // Feld → [Ziel-Ident, Rohwert-Skalierung] — dieselben Skalen wie
         // MHUB_InexogyDriver::readFast()/readSlow(), damit live abgefragte
         // und nachgetragene Werte konsistent bleiben.
@@ -2945,46 +2941,87 @@ class MeterHub extends IPSModule
             'energyOut' => ['ident' => 'energy_export', 'scale' => 1e10],
             'power'     => ['ident' => 'power_total',   'scale' => 1000.0],
         ];
-
-        $out = ["Zeitraum: " . date('Y-m-d H:i', (int)($from / 1000)) . ' – ' . date('Y-m-d H:i', (int)($to / 1000)) . " ({$days} Tage), {" . count($readings) . '} Lastgang-Einträge'];
+        $vids = [];
         foreach ($fields as $field => $t) {
             $vid = $this->FindVarByIdent($t['ident']);
-            if (!$vid) {
+            if ($vid) {
+                $vids[$field] = $vid;
+            }
+        }
+        if (count($vids) === 0) {
+            $say('❌ Keine Zielvariable (energy_import/energy_export/power_total) vorhanden.');
+            return;
+        }
+
+        $days       = max(1, $this->ReadPropertyInteger('InexogyBackfillDays'));
+        $toOverall  = time();
+        $fromOverall = $toOverall - $days * 86400;
+        $chunkDays  = self::INEXOGY_BACKFILL_CHUNK_DAYS;
+        $meterId    = $this->ReadPropertyString('InexogyMeterID');
+        $c          = $this->GetTransport();
+
+        $totals   = array_fill_keys(array_keys($vids), ['new' => 0, 'existing' => 0]);
+        $emptyChunks = [];
+        $chunkFrom = $fromOverall;
+        while ($chunkFrom < $toOverall) {
+            $chunkTo  = min($chunkFrom + $chunkDays * 86400, $toOverall);
+            $readings = $c->getReadings($meterId, $chunkFrom * 1000, $chunkTo * 1000, 'fifteen_minutes');
+            if (count($readings) === 0) {
+                $emptyChunks[] = date('Y-m-d', $chunkFrom) . '–' . date('Y-m-d', $chunkTo) . ' (' . $c->getLastError() . ')';
+                $chunkFrom = $chunkTo;
+                continue;
+            }
+            foreach ($vids as $field => $vid) {
+                // Schon archivierte Zeitpunkte je Block auslassen statt
+                // blind erneut einzutragen — ob AC_AddLoggedValues() bei
+                // einer Kollision überschreibt oder dupliziert, ist nicht
+                // dokumentiert; bei Abrechnungsdaten darf nichts doppelt
+                // gezählt werden. Macht wiederholte/überlappende Läufe
+                // (z. B. wöchentlich erneut mit größerem Rückstand) sicher.
+                $existing = [];
+                foreach (AC_GetLoggedValues($archiveID, $vid, $chunkFrom, $chunkTo, 0) as $e) {
+                    $existing[$e['TimeStamp']] = true;
+                }
+                $datasets = [];
+                foreach ($readings as $r) {
+                    $raw = $r['values'][$field] ?? null;
+                    if ($raw === null) {
+                        continue;
+                    }
+                    $ts = (int)(($r['time'] ?? 0) / 1000);
+                    if (isset($existing[$ts])) {
+                        $totals[$field]['existing']++;
+                        continue;
+                    }
+                    $datasets[] = ['TimeStamp' => $ts, 'Value' => $raw / $fields[$field]['scale']];
+                }
+                if (count($datasets) > 0 && AC_AddLoggedValues($archiveID, $vid, $datasets)) {
+                    $totals[$field]['new'] += count($datasets);
+                }
+            }
+            $chunkFrom = $chunkTo;
+        }
+
+        // Aggregation erst einmal am Ende neu bilden, nicht je Block —
+        // AC_ReAggregateVariable() bezieht sich ohnehin auf die ganze
+        // Variable, wiederholtes Aufrufen je Block wäre nur unnötige Last.
+        foreach ($vids as $field => $vid) {
+            if ($totals[$field]['new'] > 0) {
+                AC_ReAggregateVariable($archiveID, $vid);
+            }
+        }
+
+        $out = ["Zeitraum: " . date('Y-m-d', $fromOverall) . ' – ' . date('Y-m-d', $toOverall) . " ({$days} Tage, in {$chunkDays}-Tage-Blöcken verarbeitet)"];
+        foreach ($fields as $field => $t) {
+            if (!isset($vids[$field])) {
                 $out[] = $t['ident'] . ': Variable nicht vorhanden, übersprungen.';
                 continue;
             }
-            // Schon archivierte Zeitpunkte auslassen statt blind erneut
-            // einzutragen — ob AC_AddLoggedValues() bei einer Kollision
-            // überschreibt oder dupliziert, ist nicht dokumentiert; bei
-            // Abrechnungsdaten darf nichts doppelt gezählt werden. Bei
-            // wiederholten/überlappenden Läufen (z. B. wöchentlich mit
-            // 7 Tagen rückwirkend) bleibt so nur der jeweils neue Teil übrig.
-            $existing = [];
-            foreach (AC_GetLoggedValues($archiveID, $vid, (int)($from / 1000), (int)($to / 1000), 0) as $e) {
-                $existing[$e['TimeStamp']] = true;
-            }
-            $datasets = [];
-            foreach ($readings as $r) {
-                $raw = $r['values'][$field] ?? null;
-                if ($raw === null) {
-                    continue;
-                }
-                $ts = (int)(($r['time'] ?? 0) / 1000);
-                if (isset($existing[$ts])) {
-                    continue;
-                }
-                $datasets[] = ['TimeStamp' => $ts, 'Value' => $raw / $t['scale']];
-            }
-            if (count($datasets) === 0) {
-                $out[] = $t['ident'] . ': keine neuen Werte (schon archiviert oder kein Feld im Zeitraum).';
-                continue;
-            }
-            $ok = AC_AddLoggedValues($archiveID, $vid, $datasets);
-            if ($ok) {
-                AC_ReAggregateVariable($archiveID, $vid);
-            }
-            $out[] = $t['ident'] . " (#$vid): " . count($datasets) . ' neue Werte ' . ($ok ? 'nachgetragen ✅' : 'fehlgeschlagen ❌') .
-                ' (' . count($existing) . ' bereits vorhanden, übersprungen)';
+            $out[] = $t['ident'] . ' (#' . $vids[$field] . '): ' . $totals[$field]['new'] . ' neue Werte nachgetragen (' .
+                $totals[$field]['existing'] . ' schon vorhanden, übersprungen)';
+        }
+        if ($emptyChunks) {
+            $out[] = 'Ohne Daten von Inexogy: ' . implode('; ', $emptyChunks);
         }
         $say(implode("\n", $out));
     }

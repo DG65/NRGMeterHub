@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.1-beta.1 (2026-08-10)
+
+- **Lastgang-Nachtrag jetzt für mehrmonatige Rückstände geeignet** (Dietmars Anschlussfrage:
+  „ab 01.01.2026" nachtragen — bislang auf 30 Tage begrenzt). `MHUB_BackfillInexogyArchive()`
+  verarbeitet den angeforderten Zeitraum jetzt in 30-Tage-Blöcken statt in einem Rutsch: hält
+  jede `/readings`-Anfrage handhabbar und bleibt sicher unter dem dokumentierten 10.000er-Limit
+  von `AC_GetLoggedValues()` je Aufruf, das bei einem einzigen Abruf über mehrere Monate den
+  Dopplungsschutz unbemerkt hätte lückenhaft werden lassen können. „Tage rückwirkend"-Obergrenze
+  von 30 auf 730 angehoben. `AC_ReAggregateVariable()` läuft jetzt einmal je Variable am Ende
+  statt je Block (unnötige wiederholte Last vermieden). Blöcke ohne Inexogy-Daten (z. B. vor
+  Kontoeröffnung) werden gemeldet, nicht stillschweigend übersprungen.
+
 ## 0.22.0-beta.1 (2026-08-10)
 
 - **Neu: Inexogy-Lastgang rückwirkend ins Archiv nachtragen** (`MHUB_BackfillInexogyArchive($id)`,
