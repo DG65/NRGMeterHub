@@ -11,7 +11,7 @@ ausliest — ein gemeinsames Treibergerüst statt eines Moduls pro Hersteller, a
 zum [InverterHub](https://github.com/DG65/InverterHub).
 
 **Teil des NRG-Stack** — welche Modulstände zusammenpassen, listet
-[SUITE.md](https://github.com/DG65/EMS/blob/main/SUITE.md).
+[SUITE.md](https://github.com/DG65/NRGEMS/blob/main/SUITE.md).
 
 **Status: Beta.** Die Register-Zuordnungen basieren auf den öffentlich verfügbaren
 Modbus-Protokolldokumenten der Hersteller (Siemens Gerätehandbuch L1V30415167A, Janitza
