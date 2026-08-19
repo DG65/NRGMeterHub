@@ -1,5 +1,11 @@
 # MeterHub
 
+![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.22.1--beta.1-blue)
+![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
+![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
+[![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
+
 IP-Symcon-Modul, das Energiezähler verschiedener Hersteller direkt per **Modbus TCP**
 ausliest — ein gemeinsames Treibergerüst statt eines Moduls pro Hersteller, analog
 zum [InverterHub](https://github.com/DG65/InverterHub).
@@ -273,4 +279,6 @@ Register/Ident und beobachteter vs. erwarteter Wert.
 
 ## Lizenz
 
-MIT, siehe [LICENSE](LICENSE).
+PolyForm Noncommercial 1.0.0 — private/nicht-kommerzielle Nutzung ist frei, gewerbliche
+Nutzung erfordert eine gesonderte Lizenz vom Rechteinhaber (DG65). Vollständiger Text:
+[LICENSE](LICENSE). Spenden sind willkommen: [paypal.me/DietmarGureth](https://paypal.me/DietmarGureth).
