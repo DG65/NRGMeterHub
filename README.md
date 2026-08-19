@@ -8,7 +8,7 @@
 
 IP-Symcon-Modul, das Energiezähler verschiedener Hersteller direkt per **Modbus TCP**
 ausliest — ein gemeinsames Treibergerüst statt eines Moduls pro Hersteller, analog
-zum [InverterHub](https://github.com/DG65/InverterHub).
+zum [InverterHub](https://github.com/DG65/NRGInverterHub).
 
 **Teil des NRG-Stack** — welche Modulstände zusammenpassen, listet
 [SUITE.md](https://github.com/DG65/NRGEMS/blob/main/SUITE.md).
@@ -245,7 +245,7 @@ Zähler er steckt** — und unter welchem Kürzel.
 MeterHub hat ein eng verwandtes Schwester-Repository:
 
 - **MeterHub** (dieses Repo): Energiezähler per Modbus TCP
-- **[InverterHub](https://github.com/DG65/InverterHub)**: Wechselrichter per Modbus TCP —
+- **[InverterHub](https://github.com/DG65/NRGInverterHub)**: Wechselrichter per Modbus TCP —
   gleiches Treibergerüst, gleiche Bedienlogik
 
 Beide Module sind **eigenständig lauffähig**; die Kopplung ist **beidseitig optional**. Fehlt

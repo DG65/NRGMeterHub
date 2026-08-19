@@ -5,13 +5,13 @@
 An diesen Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet:
 
 - **MeterHub** (dieses Repo): Energiezähler per Modbus TCP — https://github.com/DG65/NRGMeterHub
-- **InverterHub**: Wechselrichter per Modbus TCP — https://github.com/DG65/InverterHub
+- **InverterHub**: Wechselrichter per Modbus TCP — https://github.com/DG65/NRGInverterHub
   (lokale Arbeitskopie: `../InverterHub`)
 - **Prognose** (Suite EnergiePrognose): PV- und Verbrauchsprognose —
-  https://github.com/DG65/Prognose (lokale Arbeitskopie: `../Prognose`)
-- **ChargerHub**: Wallboxen per Modbus TCP — https://github.com/DG65/ChargerHub
+  https://github.com/DG65/NRGPrognose (lokale Arbeitskopie: `../Prognose`)
+- **ChargerHub**: Wallboxen per Modbus TCP — https://github.com/DG65/NRGChargerHub
 - **MigrationsHub**: Übernahme von Bestandsgeräten samt Archivwerten —
-  https://github.com/DG65/MigrationsHub
+  https://github.com/DG65/NRGMigrationsHub
 - **EMS**: Energiemanagement, Steuerungshoheit über den Verbund
 
 **MeterHub koppelt direkt nur an InverterHub.** Zum Prognose-Repo besteht derzeit keine
