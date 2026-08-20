@@ -13,12 +13,15 @@ An diesen Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeit
 - **MigrationsHub**: Übernahme von Bestandsgeräten samt Archivwerten —
   https://github.com/DG65/NRGMigrationsHub
 - **EMS**: Energiemanagement, Steuerungshoheit über den Verbund
+- **WPHub**: Panasonic Comfort Cloud (Wärmepumpe) — liest seit 20.08.2026 optional/lesend
+  unseren `MHUB_GetFunctions($id)`-Vertrag (siehe unten)
 
-**MeterHub koppelt direkt nur an InverterHub.** Zum Prognose-Repo besteht derzeit keine
-Verbindung; es ist hier nur zur Orientierung genannt, weil an allen dreien parallel gearbeitet
-wird. Die Prognose ist ihrerseits an den `InverterHubMonitor` gekoppelt (Vertrag dort:
-`PVF_Get*`). Sollte MeterHub jemals Prognosewerte einbeziehen, ist das vorher mit der
-Prognose-Sitzung abzustimmen — nichts eigenmächtig in fremden Repos anlegen.
+**MeterHub koppelt direkt an InverterHub und (seit 20.08.2026, rein lesend) WPHub.** Zum
+Prognose-Repo besteht derzeit keine Verbindung; es ist hier nur zur Orientierung genannt, weil
+an allen dreien parallel gearbeitet wird. Die Prognose ist ihrerseits an den
+`InverterHubMonitor` gekoppelt (Vertrag dort: `PVF_Get*`). Sollte MeterHub jemals
+Prognosewerte einbeziehen, ist das vorher mit der Prognose-Sitzung abzustimmen — nichts
+eigenmächtig in fremden Repos anlegen.
 
 **ChargerHub und MigrationsHub** sind seit dem 21.07.2026 eigene Repos mit eigenen Sitzungen,
 zunächst als Gerüst (v0.1.0) ohne Fachlogik. Für MeterHub folgt daraus vor allem eines: Ein
@@ -32,7 +35,8 @@ steuert sie nicht.
 Modul-Sitzungen werden von ihm direkt angesprochen, wenn es um **modulspezifische** Aufgaben
 geht; alles Übergreifende läuft über ihn. Sitzung-zu-Sitzung-Nachrichten bleiben deshalb dem
 vorbehalten, was zwei Module technisch unmittelbar verbindet — beim MeterHub ist das die
-Kopplung an InverterHub (Kachel und Sankey). Keine unaufgeforderten Rundnachrichten an neue
+Kopplung an InverterHub (Kachel und Sankey) und, seit 20.08.2026, WPHub als lesender
+`MHUB_GetFunctions`-Konsument (siehe unten). Keine unaufgeforderten Rundnachrichten an neue
 Sitzungen; wenn eine andere Sitzung etwas von hier braucht, geht das über Dietmar.
 
 ## Kopplung an InverterHub
@@ -55,6 +59,14 @@ das ein `function_exists('MHUB_GetFunctions')`-Guard ab.
 Ebenso gilt: Neue Funktionen im Vokabular `FUNCTIONS` brauchen einen Eintrag in
 `MHUB_TYPE_MAP` der Kachel, sonst fallen sie dort stillschweigend raus. Kernwerte (`grid`,
 `house`, `pv`, `battery`, `none`) sind dort bewusst **nicht** gemappt.
+
+**Zweiter Konsument seit 20.08.2026: WPHub.** Rein lesend, hinter
+`function_exists('MHUB_GetFunctions')`, kein eigenes Vertragsfeld — sucht in allen
+MeterHub-Instanzen nach `assignments[].function === 'heatpump'` und bietet dem Nutzer eine
+Ein-Klick-Übernahme von `powerID`/`energyImportID` in die eigenen `Ext_PowerVariable`/
+`Ext_EnergyVariable`-Felder an (nie automatisch). Genutzte Felder: `function`, `label`,
+`powerID`, `energyImportID`. Eine Änderung an `MHUB_GetFunctions` betrifft also **beide**
+Konsumenten (InverterHubTile **und** WPHub), nicht nur die Kachel.
 
 Drei Invarianten der Kopplung (identisch in der CLAUDE.md von InverterHub):
 
