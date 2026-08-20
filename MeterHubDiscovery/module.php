@@ -345,6 +345,16 @@ class MeterHubDiscovery extends IPSModule
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
         $this->WriteAttributeInteger('LastScanTs', time());
         $this->SetStatus(102);
+        // Stolperfalle 12 (SUITE.md, EMS-Fund 20.08.2026): ein per RequestAction/
+        // onClick aufgerufener Button aktualisiert ein bereits offenes Formular
+        // NICHT automatisch — Labels, die nur beim ersten Formularaufbau
+        // berechnet wurden, frieren ein. UpdateFormField() ist die gezielte
+        // Lösung; das bestehende ReloadForm() (unten, ohnehin für BtnScan/
+        // BtnAbort nötig) ist die von InverterHub live bestätigte gleichwertige
+        // Alternative — baut aber das ganze Formular neu. Hier bewusst beides:
+        // UpdateFormField zuerst (billig, gezielt), ReloadForm bleibt für die
+        // Button-Sichtbarkeit ohnehin bestehen.
+        @$this->UpdateFormField('ScanSummary', 'caption', $this->ScanSummaryLine());
         $this->ReloadForm();
     }
 

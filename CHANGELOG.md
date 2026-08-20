@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.4-beta.1 (2026-08-20)
+
+- **MeterHubDiscovery: `ScanSummaryLine()` zusätzlich per `UpdateFormField()` aktualisiert**
+  (SUITE.md-Stolperfalle 12, EMS-Fund an Dietmars Live-Anlage: ein Formular-Button aktualisiert
+  ein bereits offenes Formular nicht automatisch, nur beim ersten Aufbau berechnete Labels
+  frieren sonst ein). Bei uns bestand dieser Bug real nicht — `Discover()` ruft am Ende bereits
+  `ReloadForm()` auf (ursprünglich für BtnScan/BtnAbort), das laut SUITE.md von InverterHub live
+  als gleichwertige, aber teurere Alternative bestätigt ist. `UpdateFormField()` zusätzlich
+  ergänzt: gezielter/billiger, und macht die Kopfzeile unabhängig davon, ob `ReloadForm()` an
+  dieser Stelle je entfällt.
+
 ## 0.22.3-beta.1 (2026-08-20)
 
 - **MeterHubDiscovery: einheitliche Status-Kopfzeile nach Verbund-Konvention** (SUITE.md,
