@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.22.5-beta.1 (2026-08-20)
+
+- **Alle Formular-Buttons gegen die neue, verbindliche Verbund-Konvention „Sichtbare
+  Rückmeldung bei jeder Aktion" (SUITE.md, 20.08.2026) durchgeprüft** — jeden Button
+  angeklickt-gedacht: sieht man ohne Formular-Neuöffnen, dass etwas passiert ist? Sechs von
+  neun Buttons hatten das bereits (InexogyLogin, BackfillInexogyArchive, CreateVirtual,
+  PrepareMigration, AbortScan, ScanMeters — alle mit benanntem Ergebnis-Label). Drei Lücken
+  gefunden und geschlossen:
+  - **MeterHub „Verbindung testen / Daten sofort lesen"** rief bisher nur still
+    `ReadFast()`/`ReadSlow()` auf (kein Ergebnistext, und beide brechen bei `Active=false`
+    zusätzlich unbemerkt ab — der Knopf tat bei einer neu angelegten, noch inaktiven Instanz
+    also buchstäblich nichts). Neue Methode `MHUB_TestConnection($id)` bündelt beide, bewusst
+    OHNE den `Active`-Guard (ein manueller Test soll gerade auch vor dem Aktivieren
+    funktionieren), `onClick` jetzt `echo MHUB_TestConnection($id);` (Muster 1 — Ergebnis-Popup).
+  - **MeterHubVirtual „Jetzt neu berechnen"** rief `Recalc()` still auf. `Recalc()` gibt jetzt
+    einen Ergebnistext zurück (Anzahl aktualisierter Ausgaben), `onClick` jetzt
+    `echo MHUBV_Recalc($id);`. Timer- und interner Aufruf verwerfen den Rückgabewert einfach,
+    kein Verhaltensunterschied dort.
+  - **MeterHubDiscovery „Netzwerk durchsuchen"** zeigte beim Validierungsfehler (Start-/End-IP
+    leer) nur einen Status-Code (104), keinen Text im offenen Formular. Jetzt zusätzlich
+    `UpdateFormField('ScanSummary', …)` — bewusst ohne `ReloadForm()` an dieser Stelle, das
+    würde gerade erst getippte, noch nicht übernommene Werte in genau den Feldern verwerfen,
+    die der Nutzer korrigieren soll.
+
 ## 0.22.4-beta.1 (2026-08-20)
 
 - **MeterHubDiscovery: `ScanSummaryLine()` zusätzlich per `UpdateFormField()` aktualisiert**

@@ -2268,6 +2268,26 @@ class MeterHub extends IPSModule
         $this->UpdateMirrors();
     }
 
+    /**
+     * Formular-Knopf „Verbindung testen / Daten sofort lesen" (Verbund-
+     * Konvention „Sichtbare Rückmeldung bei jeder Aktion", 20.08.2026,
+     * Muster 1 — Rückgabetext statt stillem Aufruf). Bewusst OHNE den
+     * `Active`-Guard von ReadFast()/ReadSlow(): ein manueller Verbindungstest
+     * soll gerade auch bei einer neu angelegten, noch inaktiven Instanz
+     * funktionieren — vorher hatte der Knopf dort schlicht nichts getan (und
+     * das auch noch ohne jede Rückmeldung, doppelt irreführend).
+     */
+    public function TestConnection(): string
+    {
+        $ok = $this->GetDriver()->readFast($this->GetTransport(), $this);
+        $this->SetStatus($ok ? 102 : 201);
+        $this->GetDriver()->readSlow($this->GetTransport(), $this);
+        $this->UpdateMirrors();
+        return $ok
+            ? '✅ Verbindung erfolgreich, Werte aktualisiert (' . date('H:i:s') . ' Uhr).'
+            : '❌ Verbindung fehlgeschlagen — Host/Port/Unit-ID/Zählertyp prüfen.';
+    }
+
     // -----------------------------------------------------------------------
     // Brücke zu MeterHubVirtual
     //
@@ -2706,7 +2726,7 @@ class MeterHub extends IPSModule
                 ],
             ],
             'actions' => [
-                ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'MHUB_ReadFast($id); MHUB_ReadSlow($id);'],
+                ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo MHUB_TestConnection($id);'],
             ],
             'status' => [
                 ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung vervollständigen (IP-Adresse bzw. Inexogy-Anmeldung).'],

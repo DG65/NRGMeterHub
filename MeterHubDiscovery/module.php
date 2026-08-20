@@ -296,6 +296,11 @@ class MeterHubDiscovery extends IPSModule
 
         if ($start === '' || $end === '') {
             $this->SetStatus(104);
+            // Gezielt per UpdateFormField, kein ReloadForm() hier: das würde auch
+            // gerade erst getippte, noch nicht übernommene Werte in RangeStart/
+            // RangeEnd wieder verwerfen — also genau die Felder, die der Nutzer
+            // jetzt korrigieren soll.
+            @$this->UpdateFormField('ScanSummary', 'caption', '❌ Start-/End-IP fehlt — bitte beide Felder ausfüllen und übernehmen.');
             return;
         }
 

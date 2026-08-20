@@ -362,14 +362,21 @@ class MeterHubVirtual extends IPSModule
     // Berechnung
     // -----------------------------------------------------------------------
 
-    public function Recalc()
+    /**
+     * Rückgabe ist ein für den Formular-Knopf lesbarer Ergebnistext (Verbund-
+     * Konvention „Sichtbare Rückmeldung bei jeder Aktion", 20.08.2026) — der
+     * Aufruf über Timer/`$this->Recalc()` verwirft ihn einfach, das ist ohne
+     * Nebenwirkung.
+     */
+    public function Recalc(): string
     {
         if (!$this->ReadPropertyBoolean('Active')) {
-            return;
+            return 'ℹ️ Instanz ist deaktiviert, es wurde nichts berechnet.';
         }
         $nodes = $this->Nodes();
         $kids  = $this->Children($nodes);
 
+        $count = 0;
         foreach ($this->OutputDefs() as [$ident, , , $field, $kind, $parent]) {
             $sum = 0.0;
             foreach ($kids[$parent] as $k) {
@@ -386,8 +393,13 @@ class MeterHubVirtual extends IPSModule
             $vid = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
             if ($vid && is_finite($val)) {
                 SetValueFloat($vid, $val);
+                $count++;
             }
         }
+
+        return $count > 0
+            ? "✅ Neu berechnet: $count Ausgabe(n) aktualisiert (" . date('H:i:s') . ' Uhr).'
+            : 'ℹ️ Keine Ausgabe zum Berechnen vorhanden — erst oben verdrahten und übernehmen.';
     }
 
     // -----------------------------------------------------------------------
@@ -838,7 +850,7 @@ class MeterHubVirtual extends IPSModule
                 ],
             ],
             'actions' => [
-                ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'MHUBV_Recalc($id);'],
+                ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'echo MHUBV_Recalc($id);'],
             ],
             'status' => [
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Berechnung aktiv.'],
