@@ -58,6 +58,26 @@ class MeterHubDiscovery extends IPSModule
         $this->RegisterPropertyString('NameTemplate', '');
         $this->RegisterPropertyString('IgnoreIPs', '');
         $this->RegisterAttributeString('ResultsJSON', '[]');
+        // Für die Status-Kopfzeile (siehe ScanSummaryLine()) — Verbund-Konvention
+        // „Einheitliche Verbund-Status-Kopfzeile" (SUITE.md, 20.08.2026).
+        $this->RegisterAttributeInteger('LastScanTs', 0);
+    }
+
+    /**
+     * Kopfzeile fürs Suchbereich-Panel nach der Verbund-Konvention „Einheitliche
+     * Verbund-Status-Kopfzeile" (SUITE.md, 20.08.2026, Referenz: EMS'
+     * getDiscoverySummaryLine()). Direkt unter dem Suche-Button: eine Zeile,
+     * Icon + Kernzahl + Zeitstempel statt technischem Fließtext.
+     */
+    private function ScanSummaryLine(): string
+    {
+        $ts = $this->ReadAttributeInteger('LastScanTs');
+        if ($ts === 0) {
+            return 'ℹ️ Noch nicht gesucht — Button oben drücken.';
+        }
+        $count = count(json_decode($this->ReadAttributeString('ResultsJSON'), true) ?: []);
+        $icon  = $count > 0 ? '✅' : '⚠️';
+        return sprintf('%s %d Zähler gefunden (zuletzt %s Uhr).', $icon, $count, date('H:i:s', $ts));
     }
 
     // Ermittelt heuristisch die ersten drei Oktette des lokalen Subnetzes
@@ -199,6 +219,7 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'Label', 'caption' => 'Diese Adressen werden bei der Suche komplett übersprungen — z. B. andere Modbus-Geräte, die sonst fälschlich erscheinen würden.'],
                         ['type' => 'Button', 'name' => 'BtnScan',  'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'MHUBD_Discover($id);'],
                         ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Suche abbrechen', 'onClick' => 'MHUBD_AbortScan($id);', 'visible' => false],
+                        ['type' => 'Label', 'name' => 'ScanSummary', 'caption' => $this->ScanSummaryLine()],
                         [
                             'type'          => 'ProgressBar',
                             'name'          => 'ScanProgress',
@@ -322,6 +343,7 @@ class MeterHubDiscovery extends IPSModule
         }
 
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
+        $this->WriteAttributeInteger('LastScanTs', time());
         $this->SetStatus(102);
         $this->ReloadForm();
     }

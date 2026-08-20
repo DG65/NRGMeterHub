@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.3-beta.1 (2026-08-20)
+
+- **MeterHubDiscovery: einheitliche Status-Kopfzeile nach Verbund-Konvention** (SUITE.md,
+  „Einheitliche Verbund-Status-Kopfzeile", 20.08.2026, Referenz: EMS'
+  `getDiscoverySummaryLine()`). Direkt unter dem Suche-Button steht jetzt eine Zeile
+  „✅/⚠️/ℹ️ N Zähler gefunden (zuletzt HH:MM:SS Uhr)." statt eines nur transienten
+  Fortschrittsbalken-Textes, der beim erneuten Öffnen des Formulars wieder verschwand. Neues
+  Attribut `LastScanTs` (Zeitstempel des letzten Suchlaufs, auch bei Abbruch gesetzt).
+  `.tools/test-discovery-migration.php`s IPSModule-Stub um `RegisterAttributeInteger`/
+  `ReadAttributeInteger`/`WriteAttributeInteger` ergänzt (bisher nur String-Varianten
+  vorhanden).
+
 ## 0.22.2-beta.1 (2026-08-20)
 
 - **README-Badge-Zeile nach Verbund-Konvention (EMS/SUITE.md, „README-Badges", 18.08.2026).**
