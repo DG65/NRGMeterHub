@@ -267,6 +267,9 @@ class MeterHubDiscovery extends IPSModule
                     ],
                 ],
             ],
+            'actions' => [
+                ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
+            ],
             'status' => [
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
                 ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Such-IP-Bereich eintragen.'],

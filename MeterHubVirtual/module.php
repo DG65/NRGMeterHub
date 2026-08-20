@@ -851,6 +851,7 @@ class MeterHubVirtual extends IPSModule
             ],
             'actions' => [
                 ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'echo MHUBV_Recalc($id);'],
+                ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
             ],
             'status' => [
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Berechnung aktiv.'],

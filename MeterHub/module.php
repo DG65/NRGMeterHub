@@ -2727,6 +2727,7 @@ class MeterHub extends IPSModule
             ],
             'actions' => [
                 ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo MHUB_TestConnection($id);'],
+                ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
             ],
             'status' => [
                 ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung vervollständigen (IP-Adresse bzw. Inexogy-Anmeldung).'],

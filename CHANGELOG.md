@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.6-beta.1 (2026-08-20)
+
+- **Neu in allen drei Modulen: Formular-Knopf „🔄 Übernehmen erzwingen (ohne Formularänderung)"**
+  (EMS-Angebot, keine Pflicht-Konvention, Referenz `EMS_ApplyChanges`/0.22.4) — ruft direkt
+  `IPS_ApplyChanges($id)` auf, mit Bestätigungsdialog (`'confirm'`, gegen die offizielle
+  Button-Dokumentation verifiziert) und Rückmeldung per `echo` (Muster 1 der „Sichtbare
+  Rückmeldung"-Konvention). Praktisch nach jedem Modul-Update über die Modulverwaltung, wenn
+  eine Instanz die neue Version übernehmen soll, ohne dass sich an ihrer Konfiguration etwas
+  geändert hat.
+
 ## 0.22.5-beta.1 (2026-08-20)
 
 - **Alle Formular-Buttons gegen die neue, verbindliche Verbund-Konvention „Sichtbare
