@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.2-beta.1 (2026-08-20)
+
+- **README-Badge-Zeile nach Verbund-Konvention (EMS/SUITE.md, „README-Badges", 18.08.2026).**
+  Symcon | Modul-Version | Symcon-Version | Lizenz | Check-Style-CI | PayPal, direkt unter der
+  H1-Überschrift, wie in `EMS/README.md` als Referenz vorgegeben. Der Lizenz-Badge nutzt einen
+  eigenen shields.io-Text (`License-PolyForm_Noncommercial_1.0.0-lightgrey`), da PolyForm kein
+  vorgefertigtes Preset hat.
+- **Neu: `.github/workflows/check-style.yml`** (`php -l` über alle PHP-Dateien bei Push/PR) —
+  gab es bisher nicht, war also Voraussetzung für einen echten (nicht vorgetäuschten)
+  Check-Style-Badge. Identisch zur Referenzumsetzung in `EMS/.github/workflows/check-style.yml`.
+
 ## 0.22.1-beta.1 (2026-08-10)
 
 - **Lastgang-Nachtrag jetzt für mehrmonatige Rückstände geeignet** (Dietmars Anschlussfrage:
