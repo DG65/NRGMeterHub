@@ -2196,6 +2196,19 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyString('InexogyMeterID', '');
         // Lastgang-Nachtrag ins Archiv (10.08.2026, Dietmars Abrechnungszähler).
         $this->RegisterPropertyInteger('InexogyBackfillDays', 7);
+        // Automatischer täglicher Nachtrag (27.08.2026): die laufende
+        // Live-Abfrage (power_total/energy_*) lief schon immer automatisch
+        // über FastTimer/SlowTimer — der Archiv-Nachtrag bisher nur auf
+        // Knopfdruck. Kleiner Tage-Wert als Default, da täglich (nicht wie
+        // beim manuellen Knopf ein einmaliger großer Rückstand): 3 Tage
+        // decken Inexogys eigene Nachmeldeverzögerung sicher ab, ohne bei
+        // jedem Lauf unnötig viele längst archivierte Blöcke erneut
+        // abzufragen (der Dopplungsschutz überspringt sie zwar, aber jeder
+        // Block ist ein eigener API-Aufruf).
+        $this->RegisterPropertyBoolean('InexogyAutoBackfillEnabled', false);
+        $this->RegisterPropertyString('InexogyAutoBackfillTime', '{"hour":4,"minute":0,"second":0}');
+        $this->RegisterPropertyInteger('InexogyAutoBackfillDays', 3);
+        $this->RegisterAttributeString('InexogyAutoBackfillLastRunDate', '');
         $this->RegisterAttributeString('InexogyConsumerKey', '');
         $this->RegisterAttributeString('InexogyConsumerSecret', '');
         $this->RegisterAttributeString('InexogyToken', '');
@@ -2266,6 +2279,7 @@ class MeterHub extends IPSModule
         }
         $this->GetDriver()->readSlow($this->GetTransport(), $this);
         $this->UpdateMirrors();
+        $this->MaybeAutoBackfillInexogy();
     }
 
     /**
@@ -2514,6 +2528,10 @@ class MeterHub extends IPSModule
             ['type' => 'NumberSpinner', 'name' => 'InexogyBackfillDays', 'visible' => $isCloud, 'caption' => 'Lastgang der letzten … Tage nachtragen', 'minimum' => 1, 'maximum' => 730],
             ['type' => 'Button', 'name' => 'InexogyBackfillButton', 'visible' => $isCloud, 'caption' => '📊  Lastgang jetzt ins Archiv nachtragen', 'onClick' => 'MHUB_BackfillInexogyArchive($id);'],
             ['type' => 'Label', 'name' => 'InexogyBackfillResult', 'caption' => '', 'visible' => false],
+            ['type' => 'Label', 'name' => 'InexogyHintAutoBackfill', 'visible' => $isCloud, 'caption' => '🆕 Der obige Nachtrag lässt sich auch automatisch täglich ausführen — praktisch, damit die Kontrolle nicht vom manuellen Klicken abhängt.'],
+            ['type' => 'CheckBox', 'name' => 'InexogyAutoBackfillEnabled', 'visible' => $isCloud, 'caption' => 'Lastgang automatisch täglich nachtragen'],
+            ['type' => 'SelectTime', 'name' => 'InexogyAutoBackfillTime', 'visible' => $isCloud, 'caption' => 'Uhrzeit (frühestens ab, tatsächlicher Lauf innerhalb des Abfragetakts danach)'],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillDays', 'visible' => $isCloud, 'caption' => 'dabei jeweils die letzten … Tage prüfen', 'minimum' => 1, 'maximum' => 30],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud, 'caption' => 'IP-Adresse', 'validate' => $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud, 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud, 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -2710,7 +2728,7 @@ class MeterHub extends IPSModule
                         [
                             'type'    => 'CheckBox',
                             'name'    => 'PowerInvert',
-                            'caption' => 'Wirkleistung invertieren — falls Bezug/Einspeisung vertauscht angezeigt werden',
+                            'caption' => 'Bezug/Einspeisung vertauscht — invertiert Wirkleistung und tauscht die Energiezähler',
                         ],
                         [
                             'type'    => 'CheckBox',
@@ -2750,7 +2768,7 @@ class MeterHub extends IPSModule
     public function OnChangeMeter($meter)
     {
         $isCloud = in_array($meter, self::CLOUD_METERS, true);
-        foreach (['InexogyIntro', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton'] as $f) {
+        foreach (['InexogyIntro', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton', 'InexogyHintAutoBackfill', 'InexogyAutoBackfillEnabled', 'InexogyAutoBackfillTime', 'InexogyAutoBackfillDays'] as $f) {
             $this->UpdateFormField($f, 'visible', $isCloud);
         }
         if (!$isCloud) {
@@ -2938,19 +2956,68 @@ class MeterHub extends IPSModule
      */
     public function BackfillInexogyArchive()
     {
-        $say = function (string $m) {
-            $this->UpdateFormField('InexogyBackfillResult', 'caption', $m);
-            $this->UpdateFormField('InexogyBackfillResult', 'visible', true);
-            trigger_error('BackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
-        };
+        $days = max(1, $this->ReadPropertyInteger('InexogyBackfillDays'));
+        $m    = $this->DoBackfillInexogyArchive($days);
+        $this->UpdateFormField('InexogyBackfillResult', 'caption', $m);
+        $this->UpdateFormField('InexogyBackfillResult', 'visible', true);
+        trigger_error('BackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
+    }
+
+    /**
+     * Prüft bei jedem ReadSlow()-Takt, ob der tägliche automatische
+     * Lastgang-Nachtrag fällig ist (Dietmars Wunsch 27.08.2026: bisher war
+     * BackfillInexogyArchive() ausschließlich über den Formular-Knopf
+     * erreichbar — die laufende Live-Abfrage (power_total/energy_*, siehe
+     * ReadFast()/ReadSlow()) lief zwar bereits automatisch, der
+     * Archiv-Nachtrag aber nie von selbst). Kein eigener Timer/Event nötig:
+     * die ohnehin laufende SlowTimer (Default 60s) reicht für eine
+     * „einmal täglich ab HH:MM"-Prüfung völlig aus, ein Attribut verhindert
+     * Mehrfachauslösung am selben Tag.
+     */
+    private function MaybeAutoBackfillInexogy(): void
+    {
         if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
-            $say('❌ Keine Inexogy-Instanz.');
             return;
+        }
+        if (!$this->ReadPropertyBoolean('InexogyAutoBackfillEnabled')) {
+            return;
+        }
+        $today = date('Y-m-d');
+        if ($this->ReadAttributeString('InexogyAutoBackfillLastRunDate') === $today) {
+            return;
+        }
+        $t = json_decode($this->ReadPropertyString('InexogyAutoBackfillTime'), true);
+        $targetSec = (int) ($t['hour'] ?? 4) * 3600 + (int) ($t['minute'] ?? 0) * 60 + (int) ($t['second'] ?? 0);
+        $nowSec = (int) date('H') * 3600 + (int) date('i') * 60 + (int) date('s');
+        if ($nowSec < $targetSec) {
+            return;
+        }
+        // Vor dem eigentlichen Nachtrag merken, nicht danach — ein
+        // Absturz/Timeout mitten im Nachtrag soll nicht zu stündlichen
+        // Wiederholungsversuchen führen, sondern erst wieder morgen.
+        $this->WriteAttributeString('InexogyAutoBackfillLastRunDate', $today);
+        $days = max(1, $this->ReadPropertyInteger('InexogyAutoBackfillDays'));
+        $m    = $this->DoBackfillInexogyArchive($days);
+        trigger_error('AutoBackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
+    }
+
+    /**
+     * Gemeinsamer Kern für den manuellen Knopf (BackfillInexogyArchive())
+     * und den automatischen täglichen Lauf (MaybeAutoBackfillInexogy()) —
+     * bewusst NICHT als zusätzlicher Parameter an BackfillInexogyArchive()
+     * selbst, das ist eine bereits veröffentlichte MHUB_-Funktion (siehe
+     * CLAUDE.md, "PREFIX_-Funktionen sind fixer Arität" — ein optionaler
+     * Parameter würde dort den bestehenden Formular-Knopf brechen, der sie
+     * einarmig aufruft).
+     */
+    private function DoBackfillInexogyArchive(int $days): string
+    {
+        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+            return '❌ Keine Inexogy-Instanz.';
         }
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) === 0) {
-            $say('❌ Kein Archiv-Modul (Archive Control) auf dieser Installation gefunden.');
-            return;
+            return '❌ Kein Archiv-Modul (Archive Control) auf dieser Installation gefunden.';
         }
         $archiveID = $archiveIDs[0];
 
@@ -2970,11 +3037,9 @@ class MeterHub extends IPSModule
             }
         }
         if (count($vids) === 0) {
-            $say('❌ Keine Zielvariable (energy_import/energy_export/power_total) vorhanden.');
-            return;
+            return '❌ Keine Zielvariable (energy_import/energy_export/power_total) vorhanden.';
         }
 
-        $days       = max(1, $this->ReadPropertyInteger('InexogyBackfillDays'));
         $toOverall  = time();
         $fromOverall = $toOverall - $days * 86400;
         $chunkDays  = self::INEXOGY_BACKFILL_CHUNK_DAYS;
@@ -3044,7 +3109,7 @@ class MeterHub extends IPSModule
         if ($emptyChunks) {
             $out[] = 'Ohne Daten von Inexogy: ' . implode('; ', $emptyChunks);
         }
-        $say(implode("\n", $out));
+        return implode("\n", $out);
     }
 
     // Öffentlicher Wrapper, damit Treiber prüfen können, ob eine optionale
@@ -3513,7 +3578,7 @@ class MeterHub extends IPSModule
         if (!is_finite($wh)) {
             $wh = 0.0;
         }
-        $vid = $this->FindVarByIdent($ident);
+        $vid = $this->FindVarByIdent($this->EnergyIdentForInvert($ident));
         if (!$vid) {
             return;
         }
@@ -3531,7 +3596,7 @@ class MeterHub extends IPSModule
         if (!is_finite($kwh)) {
             $kwh = 0.0;
         }
-        $vid = $this->FindVarByIdent($ident);
+        $vid = $this->FindVarByIdent($this->EnergyIdentForInvert($ident));
         if (!$vid) {
             return;
         }
@@ -3540,6 +3605,40 @@ class MeterHub extends IPSModule
         } else {
             SetValueFloat($vid, $kwh);
         }
+    }
+
+    /**
+     * `PowerInvert` vertauscht bisher nur das Vorzeichen von `power_total`
+     * (EIN signierter Wert, Bezug/Einspeisung als +/−). Die Energiezähler
+     * sind aber ZWEI getrennte, immer positive Zählerstände (Bezug/Abgabe) —
+     * bei vertauschter Anschlussrichtung muss hier nicht das Vorzeichen,
+     * sondern das ZIEL vertauscht werden: ein als „Bezug" gelesener Wert
+     * landet dann in der Abgabe-Variable und umgekehrt. Live gefunden
+     * (Dietmars Inexogy-Instanz, 21.08.2026): `PowerInvert` korrigierte die
+     * Leistung, das Dashboard zeigte über die Energiezähler aber weiter
+     * Einspeisung statt Bezug an.
+     *
+     * Betrifft ALLE Treiber mit `energy_import`/`energy_export`-Paaren
+     * (inkl. Tarif-/Phasen-Varianten wie `energy_import_t1`,
+     * `energy_export_l1`), nicht nur Inexogy — der Fehler lag im
+     * gemeinsamen Setter, nicht im Inexogy-Treiber selbst. Nur tauschen,
+     * wenn die Gegenrichtung beim aktuellen Zähler überhaupt existiert
+     * (z. B. Phoenix EEM hat nur `energy_import`, keine Gegenrichtung) —
+     * sonst würde der Wert ins Leere geschrieben und die Variable einfriert.
+     */
+    private function EnergyIdentForInvert(string $ident): string
+    {
+        if (!$this->ReadPropertyBoolean('PowerInvert')) {
+            return $ident;
+        }
+        if (str_contains($ident, 'energy_import')) {
+            $swapped = str_replace('energy_import', 'energy_export', $ident);
+        } elseif (str_contains($ident, 'energy_export')) {
+            $swapped = str_replace('energy_export', 'energy_import', $ident);
+        } else {
+            return $ident;
+        }
+        return $this->FindVarByIdent($swapped) ? $swapped : $ident;
     }
 
     public function SetVarInt(string $ident, int $value)

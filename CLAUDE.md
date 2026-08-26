@@ -725,6 +725,44 @@ Cloud-API mit historischen Werten:
    Lastgang-Werte reproduzierte exakt das im selben Datensatz mitgelieferte `power`-Feld —
    erst danach als kumulativ behandelt.
 
+**Automatischer täglicher Lauf (27.08.2026):** Dietmar wies darauf hin, dass die laufende
+Live-Abfrage (`power_total`/`energy_*` über `FastTimer`/`SlowTimer`, siehe `ReadFast()`/
+`ReadSlow()`) zwar schon immer automatisch lief — der Archiv-Nachtrag selbst aber
+ausschließlich über den Formular-Knopf erreichbar war, nirgends von selbst. Fix:
+`MaybeAutoBackfillInexogy()`, aufgerufen am Ende von `ReadSlow()`. Kein eigener
+Timer/Event — die ohnehin laufende `SlowTimer` (Default 60 s) reicht für eine
+„einmal täglich ab HH:MM"-Prüfung, ein Attribut (`InexogyAutoBackfillLastRunDate`)
+verhindert Mehrfachauslösung am selben Tag. Uhrzeit-Eingabe über das Formularelement
+`SelectTime` (JSON-Property `{"hour":…,"minute":…,"second":…}`, gegen die offizielle
+SDK-Doku verifiziert, nicht geraten).
+
+**Wichtig für künftige Änderungen an `BackfillInexogyArchive()`:** Die Methode ist
+öffentlich (`MHUB_BackfillInexogyArchive($id)`, vom Formular-Knopf einarmig aufgerufen) —
+ein zusätzlicher Parameter für die Tage-Anzahl hätte laut „PREFIX_-Funktionen sind fixer
+Arität" (siehe unten) den bestehenden Knopf gebrochen. Deshalb Kern-Logik in
+`DoBackfillInexogyArchive(int $days): string` (private) ausgelagert; sowohl der
+öffentliche Knopf-Handler als auch `MaybeAutoBackfillInexogy()` rufen diese mit ihrer
+jeweils eigenen Tage-Zahl auf (`InexogyBackfillDays` vs. `InexogyAutoBackfillDays`,
+Default 3 — täglicher Lauf, daher bewusst klein, im Unterschied zum manuellen
+Einmal-Rückstand).
+
+## `PowerInvert` galt bisher nur für die Leistung, nicht die Energiezähler (21.08.2026)
+
+Live gefunden (Dietmars Inexogy-Instanz, gemeldet über das Dashboard-Team): `PowerInvert`
+drehte nur das Vorzeichen von `power_total` (ein signierter Wert, +/− für Bezug/Einspeisung).
+Die beiden Energiezähler (`energy_import`/`energy_export`, auch die Tarif-/Phasen-Varianten
+wie `energy_import_t1`/`energy_export_l1`) sind aber getrennte, immer positive Zählerstände —
+bei vertauschter Anschlussrichtung muss dort das ZIEL vertauscht werden (Bezug↔Abgabe), kein
+Vorzeichen. `EnergyIdentForInvert()` (`MeterHub/module.php`) übersetzt das: bei aktivem
+`PowerInvert` wird `energy_import` beim Schreiben auf `energy_export` umgeleitet und
+umgekehrt — aber nur, wenn die Gegenrichtung bei diesem Treiber überhaupt existiert (z. B.
+Phoenix EEM hat nur `energy_import`, keine Gegenrichtung; sonst würde der Wert ins Leere
+geschrieben und die Variable einfriert). Betraf schon immer ALLE Treiber mit einem
+`energy_import`/`energy_export`-Paar, nicht nur Inexogy — der Fehler lag im gemeinsamen
+Setter (`SetVarEnergyWh()`/`SetVarEnergykWh()`), nicht in einem einzelnen Treiber. Verifiziert
+in `.tools/test-powerinvert.php` (eigener, leichtgewichtiger IPSModule-Stub, kein
+Objektbaum/Treiber nötig — nur Property/Attribut/Variablenwerte).
+
 ## Nützliches beim Testen am Live-IPS
 
 - `php_eval` (MCP `ips-automation`) **gibt Rückgabewerte nicht aus**. Zuverlässigster Weg zur

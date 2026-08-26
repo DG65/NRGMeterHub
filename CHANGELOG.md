@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.22.7-beta.1 (2026-08-27)
+
+- **Fix: `PowerInvert` galt bisher nur für `power_total`, nicht für die Energiezähler.**
+  Live an Dietmars Inexogy-Instanz aufgefallen (Dashboard-Team, 21.08.2026): eine vertauschte
+  Anschlussrichtung ließ sich für die Leistung korrigieren, die Energiezähler
+  (`energy_import`/`energy_export`, auch Tarif-/Phasen-Varianten) blieben aber vertauscht.
+  `EnergyIdentForInvert()` leitet den Schreibzugriff jetzt bei aktivem `PowerInvert` auf die
+  jeweils andere Richtung um — nur wenn diese beim Treiber existiert, sonst bleibt der Wert
+  auf seinem ursprünglichen Ident (kein Datenverlust bei Zählern mit nur einer Richtung, z. B.
+  Phoenix EEM). Betraf alle Treiber mit `energy_import`/`energy_export`-Paar, nicht nur
+  Inexogy. Neuer Prüfstand `.tools/test-powerinvert.php`.
+- **Neu: Lastgang-Nachtrag lässt sich jetzt automatisch täglich ausführen**, statt nur über
+  den Formular-Knopf. Neue Felder „Lastgang automatisch täglich nachtragen" (Checkbox),
+  Uhrzeit (`SelectTime`) und Tage-Rückstand je automatischem Lauf. Läuft über die ohnehin
+  aktive `SlowTimer` mit, kein neuer Timer/Event nötig. Neuer Prüfstand
+  `.tools/test-auto-backfill.php` (Auslöse-Logik, ohne Netzwerkzugriff).
+
 ## 0.22.6-beta.1 (2026-08-20)
 
 - **Neu in allen drei Modulen: Formular-Knopf „🔄 Übernehmen erzwingen (ohne Formularänderung)"**
