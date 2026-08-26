@@ -2518,6 +2518,21 @@ class MeterHub extends IPSModule
         if ($curUID !== '') {
             $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];
         }
+        // Archiv-Wasserstand einmal beim Formularaufbau berechnen (Dietmars
+        // Wunsch 27.08.2026: „Zeitstempel des letzten vorhandenen
+        // Datensatzes anzeigen"). UpdateInexogyArchiveStatusField() hält das
+        // danach bei jedem tatsächlichen Nachtrag aktuell — hier nur der
+        // Anfangszustand beim Öffnen der Maske.
+        $archiveStatusCaption = '';
+        $archiveStatusVisible = false;
+        if ($isCloud) {
+            [$watermark, $watermarkErr] = $this->InexogyArchiveWatermark();
+            if ($watermarkErr === null && $watermark > 0) {
+                $ageMin = (int) round((time() - $watermark) / 60);
+                $archiveStatusCaption = '📊 Archiv-Lastgang vollständig bis ' . date('d.m.Y H:i', $watermark) . " Uhr (vor $ageMin Min.).";
+                $archiveStatusVisible = true;
+            }
+        }
         $connectionItems = [
             ['type' => 'Label', 'name' => 'InexogyIntro', 'visible' => $isCloud, 'caption' => '🔐 Anmeldung bei Inexogy (ehem. Discovergy). E-Mail und Passwort deines my.inexogy.com-Kontos eintragen, übernehmen, dann „Anmelden". Das Passwort wird nur einmal für die Anmeldung benutzt, danach automatisch gelöscht — gespeichert werden ausschließlich Zugriffs-Token (nicht im Klartext).'],
             ['type' => 'ValidationTextBox', 'name' => 'InexogyEmail', 'visible' => $isCloud, 'caption' => 'E-Mail (Inexogy-Konto)'],
@@ -2531,6 +2546,7 @@ class MeterHub extends IPSModule
             ['type' => 'NumberSpinner', 'name' => 'InexogyBackfillDays', 'visible' => $isCloud, 'caption' => 'Lastgang der letzten … Tage nachtragen', 'minimum' => 1, 'maximum' => 730],
             ['type' => 'Button', 'name' => 'InexogyBackfillButton', 'visible' => $isCloud, 'caption' => '📊  Lastgang jetzt ins Archiv nachtragen', 'onClick' => 'MHUB_BackfillInexogyArchive($id);'],
             ['type' => 'Label', 'name' => 'InexogyBackfillResult', 'caption' => '', 'visible' => false],
+            ['type' => 'Label', 'name' => 'InexogyArchiveStatus', 'caption' => $archiveStatusCaption, 'visible' => $archiveStatusVisible],
             ['type' => 'Label', 'name' => 'InexogyHintAutoBackfill', 'visible' => $isCloud, 'caption' => '🆕 Der obige Nachtrag lässt sich auch automatisch wiederkehrend ausführen — praktisch, damit die Kontrolle nicht vom manuellen Klicken abhängt. 15 Minuten reichen: Inexogy liefert den Lastgang ohnehin nur in 15-Minuten-Werten, öfter fragen bringt keine frischeren Daten. Jeder Lauf sieht vorher im Archiv nach, was schon da ist, und holt gezielt nur das Fehlende — meist nur die letzten 15 Minuten, nicht mehr.'],
             ['type' => 'CheckBox', 'name' => 'InexogyAutoBackfillEnabled', 'visible' => $isCloud, 'caption' => 'Lastgang automatisch wiederkehrend nachtragen'],
             ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillIntervalMin', 'visible' => $isCloud, 'caption' => 'alle … Minuten', 'minimum' => 15, 'maximum' => 1440],
@@ -2777,6 +2793,7 @@ class MeterHub extends IPSModule
         if (!$isCloud) {
             $this->UpdateFormField('InexogyResult', 'visible', false);
             $this->UpdateFormField('InexogyBackfillResult', 'visible', false);
+            $this->UpdateFormField('InexogyArchiveStatus', 'visible', false);
         }
         $this->UpdateFormField('Host', 'visible', !$isCloud);
         // Nicht nur ausblenden, auch die Pflicht-Regex entschärfen — falls
@@ -2963,6 +2980,7 @@ class MeterHub extends IPSModule
         $m    = $this->DoBackfillInexogyArchive(time() - $days * 86400, time());
         $this->UpdateFormField('InexogyBackfillResult', 'caption', $m);
         $this->UpdateFormField('InexogyBackfillResult', 'visible', true);
+        $this->UpdateInexogyArchiveStatusField();
         trigger_error('BackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
     }
 
@@ -3002,6 +3020,7 @@ class MeterHub extends IPSModule
         // erst wieder nach dem nächsten vollen Intervall.
         $this->WriteAttributeInteger('InexogyAutoBackfillLastRunTs', time());
         $m = $this->DoAutoBackfillInexogyArchive();
+        $this->UpdateInexogyArchiveStatusField();
         trigger_error('AutoBackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
     }
 
@@ -3047,12 +3066,43 @@ class MeterHub extends IPSModule
      */
     private function ComputeAutoBackfillRange(): array
     {
+        [$watermark, $error] = $this->InexogyArchiveWatermark();
+        if ($error !== null) {
+            return [0, 0, $error];
+        }
+        $now     = time();
+        $capDays = max(1, $this->ReadPropertyInteger('InexogyAutoBackfillDays'));
+        $capFrom = $now - $capDays * 86400;
+        $from    = max($capFrom, $watermark - 1800);
+        if ($from >= $now) {
+            return [0, 0, 'ℹ️ Archiv bereits auf dem neuesten Stand.'];
+        }
+        return [$from, $now, null];
+    }
+
+    /**
+     * Liefert `[$watermarkTs, $error]` — der neueste Zeitstempel, der für
+     * ALLE DREI Zielvariablen (`energy_import`/`energy_export`/
+     * `power_total`) bereits im Archiv steht (Minimum über die drei, s.
+     * `ComputeAutoBackfillRange()`), oder `[0, $errorText]` bei fehlendem
+     * Archiv-Modul/fehlenden Zielvariablen. Dietmars Wunsch (27.08.2026):
+     * „Zeitstempel des letzten vorhandenen Datensatzes anzeigen" — im
+     * eigenen Formular (`InexogyArchiveStatus`-Label) UND über
+     * `GetFunctions()` als `archiveWatermarkTs` für Konsumenten wie das
+     * Dashboard, dessen Strompreis-Diagramm auf denselben archivierten
+     * Energiezählern aufbaut und deshalb genau diese Verzögerung erbt.
+     * `AC_GetLoggedValues(..., 0, $now, 1)` kostet je Variable nur EINEN
+     * Datensatz (absteigend sortiert laut SDK-Doku, Limit=1 = der
+     * neueste) — kein Scan der Historie.
+     */
+    private function InexogyArchiveWatermark(): array
+    {
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) === 0) {
-            return [0, 0, '❌ Kein Archiv-Modul (Archive Control) auf dieser Installation gefunden.'];
+            return [0, '❌ Kein Archiv-Modul (Archive Control) auf dieser Installation gefunden.'];
         }
         $archiveID = $archiveIDs[0];
-        $now = time();
+        $now       = time();
 
         $watermark = null;
         foreach (['energy_import', 'energy_export', 'power_total'] as $ident) {
@@ -3067,16 +3117,33 @@ class MeterHub extends IPSModule
             }
         }
         if ($watermark === null) {
-            return [0, 0, '❌ Keine Zielvariable (energy_import/energy_export/power_total) vorhanden.'];
+            return [0, '❌ Keine Zielvariable (energy_import/energy_export/power_total) vorhanden.'];
         }
+        return [$watermark, null];
+    }
 
-        $capDays = max(1, $this->ReadPropertyInteger('InexogyAutoBackfillDays'));
-        $capFrom = $now - $capDays * 86400;
-        $from    = max($capFrom, $watermark - 1800);
-        if ($from >= $now) {
-            return [0, 0, 'ℹ️ Archiv bereits auf dem neuesten Stand.'];
+    /**
+     * Formular-Anzeige des Archiv-Wasserstands (siehe `InexogyArchiveWatermark()`).
+     * `visible=false`/leer, solange nichts archiviert ist — kein Text, der
+     * einen Stand vorgaukelt, den es noch nicht gibt.
+     */
+    private function UpdateInexogyArchiveStatusField(): void
+    {
+        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+            return;
         }
-        return [$from, $now, null];
+        [$watermark, $error] = $this->InexogyArchiveWatermark();
+        if ($error !== null || $watermark === 0) {
+            $this->UpdateFormField('InexogyArchiveStatus', 'visible', false);
+            return;
+        }
+        $ageMin = (int) round((time() - $watermark) / 60);
+        $this->UpdateFormField(
+            'InexogyArchiveStatus',
+            'caption',
+            '📊 Archiv-Lastgang vollständig bis ' . date('d.m.Y H:i', $watermark) . " Uhr (vor $ageMin Min.)."
+        );
+        $this->UpdateFormField('InexogyArchiveStatus', 'visible', true);
     }
 
     /**
@@ -3324,6 +3391,19 @@ class MeterHub extends IPSModule
         $latency      = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true) ? 'delayed' : 'realtime';
         $authority    = $this->ReadPropertyBoolean('BillingGrade') ? 'billing' : 'auxiliary';
         $pollInterval = $this->ReadPropertyInteger('IntervalFast');
+        // Nur für 'delayed' (Cloud-)Zähler sinnvoll — ein lokaler Echtzeit-
+        // Zähler archiviert praktisch verzögerungsfrei, dafür extra
+        // Archiv-Abfragen zu verursachen brächte keinen Erkenntnisgewinn.
+        // Dietmars Wunsch (27.08.2026): der Zeitstempel des letzten
+        // vollständig archivierten Datensatzes soll auch Konsumenten wie
+        // dem Dashboard zur Verfügung stehen (dessen Strompreis-Diagramm
+        // auf denselben archivierten Energiezählern aufbaut und deshalb
+        // genau diese Verzögerung erbt) — siehe InexogyArchiveWatermark().
+        $archiveWatermarkTs = null;
+        if ($latency === 'delayed') {
+            [$wm, $wmErr] = $this->InexogyArchiveWatermark();
+            $archiveWatermarkTs = ($wmErr === null && $wm > 0) ? $wm : null;
+        }
 
         $list = [];
         foreach ($this->FunctionAssignments() as $a) {
@@ -3345,20 +3425,25 @@ class MeterHub extends IPSModule
                 'latency'         => $latency,
                 'authority'       => $authority,
                 'pollInterval'    => $pollInterval,
+                'archiveWatermarkTs' => $archiveWatermarkTs,
             ];
         }
         return json_encode([
             // Vertragsversion (Verbund-Konvention): 1.0 = Ur-Vertrag,
-            // 1.1 = latency/authority/pollInterval/energyKind-Erweiterung.
-            // Additiv; Major nur bei Bruch, volle Kompatibilität innerhalb
-            // derselben Major. Fehlt das Feld, ist konservativ '1.0' anzunehmen.
-            'contractVersion' => '1.1',
+            // 1.1 = latency/authority/pollInterval/energyKind-Erweiterung,
+            // 1.2 = archiveWatermarkTs (Zeitstempel des letzten vollständig
+            // archivierten Datensatzes, nur bei latency='delayed' gesetzt,
+            // sonst null). Additiv; Major nur bei Bruch, volle Kompatibilität
+            // innerhalb derselben Major. Fehlt das Feld, ist konservativ die
+            // jeweils niedrigere Version anzunehmen.
+            'contractVersion' => '1.2',
             'instanceID'  => $this->InstanceID,
             'meter'       => $this->ReadPropertyString('Meter'),
             'measureMode' => $this->ReadPropertyString('MeasureMode'),
             'latency'     => $latency,
             'authority'   => $authority,
             'pollInterval'=> $pollInterval,
+            'archiveWatermarkTs' => $archiveWatermarkTs,
             'assignments' => $list,
         ]);
     }

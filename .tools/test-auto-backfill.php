@@ -182,6 +182,26 @@ $GLOBALS['ARCHIVE_LATEST'] = [701 => $future, 702 => $future, 703 => $future];
 [$from, $to, $err] = range_($h700);
 check('Meldung statt Bereich', $err === 'ℹ️ Archiv bereits auf dem neuesten Stand.', (string) $err);
 
+// ---------------------------------------------------------------------------
+echo "\n9) GetFunctions() meldet den Wasserstand als archiveWatermarkTs (Dashboard-Konsum)\n";
+$wm9 = time() - 12 * 60;
+$GLOBALS['ARCHIVE_LATEST'] = [701 => $wm9, 702 => $wm9, 703 => $wm9];
+$gf = json_decode($h700->GetFunctions(), true);
+check('contractVersion = 1.2', ($gf['contractVersion'] ?? '') === '1.2', (string) ($gf['contractVersion'] ?? ''));
+check('archiveWatermarkTs auf oberster Ebene gesetzt', abs(($gf['archiveWatermarkTs'] ?? 0) - $wm9) <= 2, json_encode($gf['archiveWatermarkTs'] ?? null));
+
+echo "\n  9b) Echtzeit-Zähler (kein Cloud-Zähler) -> archiveWatermarkTs bleibt null, keine unnötige Archiv-Abfrage\n";
+$GLOBALS['PROP'][750] = ['Meter' => 'siemens_pac2200'];
+obj(751, 750, 'energy_import');
+obj(752, 750, 'energy_export');
+obj(753, 750, 'power_total');
+$GLOBALS['OBJ'][750] = ['ObjectType' => 1, 'ObjectIdent' => '', 'ParentID' => 0];
+$GLOBALS['ARCHIVE_LATEST'][751] = $wm9; // waere vorhanden, darf aber fuer Echtzeit-Zaehler gar nicht erst abgefragt werden
+$h750 = new MeterHub(750); $h750->Create();
+$gf750 = json_decode($h750->GetFunctions(), true);
+check('archiveWatermarkTs = null für realtime-Zähler', array_key_exists('archiveWatermarkTs', $gf750) && $gf750['archiveWatermarkTs'] === null, var_export($gf750['archiveWatermarkTs'] ?? '(fehlt)', true));
+check('latency = realtime', ($gf750['latency'] ?? '') === 'realtime');
+
 echo "\n  8e) Kein Archiv-Modul installiert -> klare Fehlermeldung, kein Absturz\n";
 $GLOBALS['ARCHIVE_IDS'] = [];
 [$from, $to, $err] = range_($h700);

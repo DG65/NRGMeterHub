@@ -371,6 +371,7 @@ Dazu auf **Instanz-Ebene** (neben `instanceID`/`meter`/`measureMode`), abgestimm
 | `authority` | `'billing'` (geeichter, abrechnungsverbindlicher Zähler am Netzübergabepunkt) oder `'auxiliary'` (Hilfszähler) |
 | `pollInterval` | reale Aktualisierungsrate in Sekunden |
 | `sourceCount` | nur MHUBV: Zahl der beteiligten Quellen eines Rest-/Summenknotens (Güte) |
+| `archiveWatermarkTs` | nur bei `latency: 'delayed'`: Unix-Zeitstempel des letzten **vollständig archivierten** Datensatzes, sonst `null`. Bei `'realtime'` bewusst `null` statt eines Werts — dort ist Archiv praktisch verzögerungsfrei, eine Abfrage brächte keinen Erkenntnisgewinn |
 
 **`latency` und `authority` sind orthogonal, keine Gegenteile** — alle vier Kombinationen
 existieren real: Inexogy (billing+delayed), lokaler Shelly am NAP (auxiliary+realtime), ein
@@ -380,9 +381,18 @@ Defaults bei fehlenden Feldern (alter Anbieter): `latency→realtime`, `authorit
 `energyKind→counter`. Konsumentenbedingung für „der abrechnungsgenaue Netzzähler": `function ==
 'grid' && authority == 'billing'`, mit Rückfall, wenn keiner vorhanden.
 
+**Herkunft von `archiveWatermarkTs` (27.08.2026):** Dietmars Wunsch, den Zeitstempel des
+letzten vorhandenen Lastgang-Datensatzes sichtbar zu machen — im eigenen Formular UND für
+Konsumenten wie das Dashboard, dessen Strompreis-Diagramm auf denselben archivierten
+MeterHub-Energiezählern aufbaut und deshalb dieselbe Backfill-Verzögerung erbt (siehe
+"Automatischer wiederkehrender Lauf" oben). Berechnung teilt sich MeterHub selbst mit
+`InexogyArchiveWatermark()` (Minimum über `energy_import`/`energy_export`/`power_total`,
+je nur ein `AC_GetLoggedValues(..., Limit=1)`-Aufruf).
+
 **Vertragsversionierung (Verbund-Konvention 23.07.2026, Manifest `DG65/EMS/SUITE.md`):**
 `contractVersion` ist ein `'Major.Minor'`-String — **1.0** = Ur-Vertrag (function/label/…/
-measured), **1.1** = die latency/authority/pollInterval/energyKind/sourceCount-Erweiterung.
+measured), **1.1** = die latency/authority/pollInterval/energyKind/sourceCount-Erweiterung,
+**1.2** = `archiveWatermarkTs` (MeterHub, 27.08.2026).
 **Major nur bei Bruch;** volle Kompatibilität ist nur innerhalb derselben Major garantiert
 (blue'Log-Prinzip). Additiv erweitern hebt die Minor, nie die Major. Fehlt das Feld (alter
 Anbieter), ist konservativ `'1.0'` anzunehmen. Ein Konsument, der eine höhere Major braucht als

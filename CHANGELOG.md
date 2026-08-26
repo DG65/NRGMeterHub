@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.23.0-beta.1 (2026-08-27)
+
+- **Neu: Zeitstempel des letzten archivierten Lastgang-Datensatzes sichtbar.** Dietmars
+  Wunsch: anzeigen, wie aktuell der Inexogy-Lastgang im Archiv tatsächlich ist. Im eigenen
+  Formular als neues Label „📊 Archiv-Lastgang vollständig bis … Uhr" (nach jedem Nachtrag,
+  manuell oder automatisch, aktualisiert). Zusätzlich als neues Feld `archiveWatermarkTs`
+  in `MHUB_GetFunctions()` (`contractVersion` 1.1 → 1.2, additiv) — nur bei
+  `latency: 'delayed'` gesetzt, sonst `null`, damit z. B. das Dashboard denselben Stand im
+  Strompreis-Diagramm anzeigen kann, das auf denselben archivierten Energiezählern
+  aufbaut. Sechs neue Prüffälle in `.tools/test-auto-backfill.php`.
+
 ## 0.22.9-beta.1 (2026-08-27)
 
 - **Automatischer Lastgang-Nachtrag: fester Rückblick durch Nachsehen ersetzt.** Dietmars
