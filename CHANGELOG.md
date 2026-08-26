@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.22.9-beta.1 (2026-08-27)
+
+- **Automatischer Lastgang-Nachtrag: fester Rückblick durch Nachsehen ersetzt.** Dietmars
+  Rückfrage: "wie wäre es nachzusehen, welche Daten schon da sind, und nur das Notwendige
+  zu holen?" Neue `ComputeAutoBackfillRange()` ermittelt je Zielvariable den tatsächlich
+  neuesten archivierten Zeitstempel (`AC_GetLoggedValues(..., Limit=1)`, laut Doku
+  absteigend sortiert — kostet nur einen Datensatz, kein Historien-Scan) und holt nur den
+  seither fehlenden Zeitraum, mit 30 Minuten Sicherheitsabstand statt eines festen
+  Tage-Fensters. `InexogyAutoBackfillDays` wirkt jetzt nur noch als Obergrenze für den
+  Fall einer größeren Lücke (erster Lauf, längerer Ausfall), nicht mehr als Fenstergröße
+  bei jedem Takt — deshalb Default wieder auf 3 Tage angehoben (Maximum 30), ohne dass das
+  die laufenden Kosten erhöht. `DoBackfillInexogyArchive()` intern auf exakte Zeitstempel
+  statt Tage-Anzahl umgestellt (keine Tages-Rundung mehr, die den Vorteil der
+  Minuten-genauen Ermittlung zunichtegemacht hätte) — betrifft nur die private
+  Implementierung, nicht die veröffentlichte `MHUB_BackfillInexogyArchive($id)`-Signatur.
+  Neue Prüffälle in `.tools/test-auto-backfill.php` (8a–8f), vollständig ohne echten
+  API-Zugriff.
+
 ## 0.22.8-beta.1 (2026-08-27)
 
 - **Automatischer Lastgang-Nachtrag überarbeitet: wiederkehrend statt einmal täglich.**

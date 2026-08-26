@@ -2196,24 +2196,21 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyString('InexogyMeterID', '');
         // Lastgang-Nachtrag ins Archiv (10.08.2026, Dietmars Abrechnungszähler).
         $this->RegisterPropertyInteger('InexogyBackfillDays', 7);
-        // Automatischer wiederkehrender Nachtrag (27.08.2026, überarbeitet
-        // nach Dietmars Rückfrage "warum nicht alle 15 Min. die letzten 30
-        // Tage"): die laufende Live-Abfrage (power_total/energy_*) lief
-        // schon immer automatisch über FastTimer/SlowTimer — der
-        // Archiv-Nachtrag bisher nur auf Knopfdruck. 15 Minuten als
-        // Standard-Takt ist genau richtig, weil Inexogys /readings ohnehin
-        // nur 15-Minuten-Werte liefert (öfter fragen bringt keine
-        // frischeren Daten). Der Rückblick bleibt aber bewusst klein
-        // (Default 1 Tag statt 30): deckt jede Verzögerung/jeden Aussetzer
-        // bei Inexogy oder Symcon sicher ab, ohne bei jedem 15-Minuten-Takt
-        // ~30-mal mehr Daten von Inexogy zu holen und lokal aus dem Archiv
-        // gegenzuprüfen als nötig — das würde Inexogys API unnötig
-        // belasten (Rate-Limiting-Risiko) und das Symcon-Archiv, ohne die
-        // Daten dadurch frischer zu machen (frischer als der 15-Minuten-Takt
-        // der Quelle geht ohnehin nicht).
+        // Automatischer wiederkehrender Nachtrag (27.08.2026, zweimal auf
+        // Dietmars Rückfragen hin überarbeitet — siehe
+        // DoAutoBackfillInexogyArchive()): die laufende Live-Abfrage
+        // (power_total/energy_*) lief schon immer automatisch über
+        // FastTimer/SlowTimer, der Archiv-Nachtrag bisher nur auf
+        // Knopfdruck. 15 Minuten als Standard-Takt ist genau richtig, weil
+        // Inexogys /readings ohnehin nur 15-Minuten-Werte liefert (öfter
+        // fragen bringt keine frischeren Daten). InexogyAutoBackfillDays
+        // ist KEIN fester Rückblick je Lauf mehr, sondern nur die
+        // Obergrenze für den Fall einer größeren Lücke (z. B. nach einem
+        // Ausfall) — der Normalfall ermittelt den tatsächlich fehlenden
+        // Zeitraum aus dem Archiv selbst.
         $this->RegisterPropertyBoolean('InexogyAutoBackfillEnabled', false);
         $this->RegisterPropertyInteger('InexogyAutoBackfillIntervalMin', 15);
-        $this->RegisterPropertyInteger('InexogyAutoBackfillDays', 1);
+        $this->RegisterPropertyInteger('InexogyAutoBackfillDays', 3);
         $this->RegisterAttributeInteger('InexogyAutoBackfillLastRunTs', 0);
         $this->RegisterAttributeString('InexogyConsumerKey', '');
         $this->RegisterAttributeString('InexogyConsumerSecret', '');
@@ -2534,10 +2531,10 @@ class MeterHub extends IPSModule
             ['type' => 'NumberSpinner', 'name' => 'InexogyBackfillDays', 'visible' => $isCloud, 'caption' => 'Lastgang der letzten … Tage nachtragen', 'minimum' => 1, 'maximum' => 730],
             ['type' => 'Button', 'name' => 'InexogyBackfillButton', 'visible' => $isCloud, 'caption' => '📊  Lastgang jetzt ins Archiv nachtragen', 'onClick' => 'MHUB_BackfillInexogyArchive($id);'],
             ['type' => 'Label', 'name' => 'InexogyBackfillResult', 'caption' => '', 'visible' => false],
-            ['type' => 'Label', 'name' => 'InexogyHintAutoBackfill', 'visible' => $isCloud, 'caption' => '🆕 Der obige Nachtrag lässt sich auch automatisch wiederkehrend ausführen — praktisch, damit die Kontrolle nicht vom manuellen Klicken abhängt. 15 Minuten reichen: Inexogy liefert den Lastgang ohnehin nur in 15-Minuten-Werten, öfter fragen bringt keine frischeren Daten. Der Rückblick bleibt bewusst klein — er soll nur kurze Aussetzer abdecken, nicht jedes Mal die ganze Historie erneut prüfen.'],
+            ['type' => 'Label', 'name' => 'InexogyHintAutoBackfill', 'visible' => $isCloud, 'caption' => '🆕 Der obige Nachtrag lässt sich auch automatisch wiederkehrend ausführen — praktisch, damit die Kontrolle nicht vom manuellen Klicken abhängt. 15 Minuten reichen: Inexogy liefert den Lastgang ohnehin nur in 15-Minuten-Werten, öfter fragen bringt keine frischeren Daten. Jeder Lauf sieht vorher im Archiv nach, was schon da ist, und holt gezielt nur das Fehlende — meist nur die letzten 15 Minuten, nicht mehr.'],
             ['type' => 'CheckBox', 'name' => 'InexogyAutoBackfillEnabled', 'visible' => $isCloud, 'caption' => 'Lastgang automatisch wiederkehrend nachtragen'],
             ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillIntervalMin', 'visible' => $isCloud, 'caption' => 'alle … Minuten', 'minimum' => 15, 'maximum' => 1440],
-            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillDays', 'visible' => $isCloud, 'caption' => 'dabei jeweils die letzten … Tage prüfen', 'minimum' => 1, 'maximum' => 7],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillDays', 'visible' => $isCloud, 'caption' => 'Obergrenze bei größerer Lücke (z. B. nach einem Ausfall): höchstens … Tage zurück', 'minimum' => 1, 'maximum' => 30],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud, 'caption' => 'IP-Adresse', 'validate' => $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud, 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud, 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -2963,7 +2960,7 @@ class MeterHub extends IPSModule
     public function BackfillInexogyArchive()
     {
         $days = max(1, $this->ReadPropertyInteger('InexogyBackfillDays'));
-        $m    = $this->DoBackfillInexogyArchive($days);
+        $m    = $this->DoBackfillInexogyArchive(time() - $days * 86400, time());
         $this->UpdateFormField('InexogyBackfillResult', 'caption', $m);
         $this->UpdateFormField('InexogyBackfillResult', 'visible', true);
         trigger_error('BackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
@@ -2979,18 +2976,12 @@ class MeterHub extends IPSModule
      * die ohnehin laufende SlowTimer (Default 60s) reicht, um ein
      * „mindestens N Minuten seit dem letzten Lauf"-Intervall zu prüfen.
      *
-     * Ursprünglich als „einmal täglich ab HH:MM" gebaut, dann auf Dietmars
-     * Rückfrage hin überarbeitet ("warum nicht alle 15 Min. die letzten 30
-     * Tage, es passiert ja ohnehin nichts"): 15 Minuten als Standard-Takt
-     * ist richtig — Inexogys /readings liefert ohnehin nur 15-Minuten-Werte,
-     * öfter fragen bringt keine frischeren Daten. Ein großer Rückblick
-     * (30 Tage) bei JEDEM Takt wäre aber echte Verschwendung gewesen: bei
-     * 96 Läufen/Tag hätte das ~276.000 Zeilen täglich von Inexogy geholt
-     * und dreimal (je Zielvariable) aus dem lokalen Archiv zum
-     * Dopplungsabgleich zurückgelesen — nur um praktisch immer "kenn ich
-     * schon" zu finden, ohne die Daten dadurch frischer zu machen (siehe
-     * CLAUDE.md-Abschnitt zu diesem Feature). Deshalb: Takt wiederkehrend
-     * und kurz, Rückblick klein.
+     * Zweimal überarbeitet, beide Male auf Dietmars Rückfrage hin:
+     * (1) "einmal täglich ab HH:MM" → wiederkehrend alle N Minuten, weil
+     * Inexogys /readings ohnehin nur 15-Minuten-Werte liefert. (2) fester
+     * Tage-Rückblick bei jedem Takt → siehe DoAutoBackfillInexogyArchive():
+     * "erst nachsehen, was schon da ist, dann nur das Fehlende holen" statt
+     * statisch N Tage jedes Mal neu abzufragen.
      */
     private function MaybeAutoBackfillInexogy(): void
     {
@@ -3010,21 +3001,98 @@ class MeterHub extends IPSModule
         // Endlosschleife aus Sofort-Wiederholungsversuchen führen, sondern
         // erst wieder nach dem nächsten vollen Intervall.
         $this->WriteAttributeInteger('InexogyAutoBackfillLastRunTs', time());
-        $days = max(1, $this->ReadPropertyInteger('InexogyAutoBackfillDays'));
-        $m    = $this->DoBackfillInexogyArchive($days);
+        $m = $this->DoAutoBackfillInexogyArchive();
         trigger_error('AutoBackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
     }
 
     /**
-     * Gemeinsamer Kern für den manuellen Knopf (BackfillInexogyArchive())
-     * und den automatischen täglichen Lauf (MaybeAutoBackfillInexogy()) —
-     * bewusst NICHT als zusätzlicher Parameter an BackfillInexogyArchive()
-     * selbst, das ist eine bereits veröffentlichte MHUB_-Funktion (siehe
-     * CLAUDE.md, "PREFIX_-Funktionen sind fixer Arität" — ein optionaler
-     * Parameter würde dort den bestehenden Formular-Knopf brechen, der sie
-     * einarmig aufruft).
+     * Ermittelt den bereits archivierten Stand je Zielvariable und holt nur
+     * das seither Fehlende, statt bei jedem Takt einen festen Zeitraum neu
+     * abzufragen (Dietmars Rückfrage 27.08.2026: "wie wäre es nachzusehen,
+     * welche Daten schon da sind, und nur das Notwendige zu holen?").
+     * `AC_GetLoggedValues(..., 0, $now, 1)` kostet dafür nur EINEN
+     * Datensatz je Variable (die Ausgabe ist laut Doku absteigend sortiert,
+     * Limit=1 liefert also exakt den neuesten) — kein Scan der ganzen
+     * Historie. Das Minimum über alle Zielvariablen entscheidet (falls eine
+     * hinterherhinkt, holt der Lauf für alle gemeinsam nach). Ein kleiner
+     * Sicherheitsabstand (30 Minuten, zwei Inexogy-Intervalle) fängt einen
+     * knapp verpassten oder nachträglich korrigierten Wert ab — der
+     * bestehende Dopplungsschutz in DoBackfillInexogyArchive() macht
+     * überlappendes Nachfragen ohnehin gefahrlos.
+     *
+     * `InexogyAutoBackfillDays` ist damit keine feste Fenstergröße mehr,
+     * sondern eine Obergrenze: greift nur, wenn noch nie archiviert wurde
+     * oder eine größere Lücke besteht (z. B. nach einem längeren Ausfall) —
+     * verhindert, dass eine sehr alte/fehlende Archivmarke einen
+     * unbeabsichtigt riesigen Nachtrag auslöst.
+     *
+     * Bereichsermittlung bewusst in ComputeAutoBackfillRange() ausgelagert,
+     * getrennt vom eigentlichen Netzwerkzugriff — lässt sich dadurch isoliert
+     * prüfen (.tools/test-auto-backfill.php), ohne einen echten
+     * API-Aufruf zu benötigen.
      */
-    private function DoBackfillInexogyArchive(int $days): string
+    private function DoAutoBackfillInexogyArchive(): string
+    {
+        [$from, $to, $error] = $this->ComputeAutoBackfillRange();
+        if ($error !== null) {
+            return $error;
+        }
+        return $this->DoBackfillInexogyArchive($from, $to);
+    }
+
+    /**
+     * Liefert `[$from, $to, $error]` — bei Erfolg `$error === null` und
+     * `[$from, $to]` der tatsächlich fehlende Zeitraum; sonst `$error` als
+     * anzuzeigender Text und `$from`/`$to` bedeutungslos (0).
+     */
+    private function ComputeAutoBackfillRange(): array
+    {
+        $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        if (count($archiveIDs) === 0) {
+            return [0, 0, '❌ Kein Archiv-Modul (Archive Control) auf dieser Installation gefunden.'];
+        }
+        $archiveID = $archiveIDs[0];
+        $now = time();
+
+        $watermark = null;
+        foreach (['energy_import', 'energy_export', 'power_total'] as $ident) {
+            $vid = $this->FindVarByIdent($ident);
+            if (!$vid) {
+                continue;
+            }
+            $latest = AC_GetLoggedValues($archiveID, $vid, 0, $now, 1);
+            $ts = (int) ($latest[0]['TimeStamp'] ?? 0);
+            if ($watermark === null || $ts < $watermark) {
+                $watermark = $ts;
+            }
+        }
+        if ($watermark === null) {
+            return [0, 0, '❌ Keine Zielvariable (energy_import/energy_export/power_total) vorhanden.'];
+        }
+
+        $capDays = max(1, $this->ReadPropertyInteger('InexogyAutoBackfillDays'));
+        $capFrom = $now - $capDays * 86400;
+        $from    = max($capFrom, $watermark - 1800);
+        if ($from >= $now) {
+            return [0, 0, 'ℹ️ Archiv bereits auf dem neuesten Stand.'];
+        }
+        return [$from, $now, null];
+    }
+
+    /**
+     * Gemeinsamer Kern für den manuellen Knopf (BackfillInexogyArchive())
+     * und den automatischen wiederkehrenden Lauf
+     * (DoAutoBackfillInexogyArchive()) — bewusst NICHT als zusätzlicher
+     * Parameter an BackfillInexogyArchive() selbst, das ist eine bereits
+     * veröffentlichte MHUB_-Funktion (siehe CLAUDE.md, "PREFIX_-Funktionen
+     * sind fixer Arität" — ein zusätzlicher Parameter würde dort den
+     * bestehenden Formular-Knopf brechen, der sie einarmig aufruft). Nimmt
+     * bewusst einen exakten Zeitstempel statt einer Tage-Anzahl entgegen —
+     * der automatische Pfad braucht Minuten-Genauigkeit (siehe
+     * DoAutoBackfillInexogyArchive()), eine Tage-Rundung hätte dessen
+     * ganzen Vorteil zunichtegemacht.
+     */
+    private function DoBackfillInexogyArchive(int $fromOverall, int $toOverall): string
     {
         if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
             return '❌ Keine Inexogy-Instanz.';
@@ -3054,8 +3122,6 @@ class MeterHub extends IPSModule
             return '❌ Keine Zielvariable (energy_import/energy_export/power_total) vorhanden.';
         }
 
-        $toOverall  = time();
-        $fromOverall = $toOverall - $days * 86400;
         $chunkDays  = self::INEXOGY_BACKFILL_CHUNK_DAYS;
         $meterId    = $this->ReadPropertyString('InexogyMeterID');
         $c          = $this->GetTransport();
@@ -3111,7 +3177,11 @@ class MeterHub extends IPSModule
             }
         }
 
-        $out = ["Zeitraum: " . date('Y-m-d', $fromOverall) . ' – ' . date('Y-m-d', $toOverall) . " ({$days} Tage, in {$chunkDays}-Tage-Blöcken verarbeitet)"];
+        $spanH = round(($toOverall - $fromOverall) / 3600, 1);
+        $range = $spanH < 48
+            ? date('Y-m-d H:i', $fromOverall) . ' – ' . date('Y-m-d H:i', $toOverall) . " ({$spanH} h)"
+            : date('Y-m-d', $fromOverall) . ' – ' . date('Y-m-d', $toOverall);
+        $out = ["Zeitraum: $range, in {$chunkDays}-Tage-Blöcken verarbeitet"];
         foreach ($fields as $field => $t) {
             if (!isset($vids[$field])) {
                 $out[] = $t['ident'] . ': Variable nicht vorhanden, übersprungen.';

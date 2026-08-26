@@ -758,6 +758,41 @@ unabhängige Stellschrauben. Häufiger fragen hilft nur, wenn die Quelle auch ta
 so oft neue Daten hat — ein größeres Fenster bei gleicher Frequenz bringt dagegen nur
 mehr redundante Arbeit, keine frischeren Werte.
 
+**Dritte Fassung, noch am selben Tag (Dietmars zweite Rückfrage): fester Rückblick durch
+Nachsehen ersetzt.** „Wie wäre es nachzusehen, welche Daten schon da sind, und nur das
+Notwendige zu holen?" — ein fester Tage-Wert (auch ein kleiner) fragt bei jedem Takt einen
+Bereich ab, der zu über 99 % schon archiviert ist. `ComputeAutoBackfillRange()` ermittelt
+stattdessen je Zielvariable den **tatsächlich neuesten archivierten Zeitstempel** und holt
+nur, was seither fehlt:
+
+- **`AC_GetLoggedValues($archiveID, $vid, 0, $now, 1)` kostet dafür nur EINEN Datensatz.**
+  Laut SDK-Doku ist die Ausgabe absteigend sortiert (neuester zuerst) — `Limit=1` liefert
+  also exakt den neuesten Eintrag, kein Scan der Historie nötig (gegen die offizielle Doku
+  verifiziert, nicht angenommen).
+- **Minimum über alle Zielvariablen** (`energy_import`/`energy_export`/`power_total`):
+  hinkt eine hinterher, holt der Lauf alle drei gemeinsam nach — verhindert eine
+  auseinanderlaufende Historie.
+- **30 Minuten Sicherheitsabstand** (zwei Inexogy-Intervalle) vor dem ermittelten Stand,
+  nicht mehr — fängt einen knapp verpassten/nachträglich korrigierten Wert ab, ohne bei
+  jedem Takt unnötig viel erneut abzufragen. Der bestehende Dopplungsschutz in
+  `DoBackfillInexogyArchive()` macht die Überlappung ohnehin gefahrlos.
+- **`InexogyAutoBackfillDays` ist damit keine Fenstergröße mehr, sondern eine
+  Obergrenze** — greift nur beim allerersten Lauf (noch nichts archiviert) oder nach
+  einer größeren Lücke (z. B. mehrtägiger Ausfall). Deshalb wieder auf 3 Tage (Maximum 30)
+  angehoben, ohne dass das die Kosten im Normalfall erhöht — die Obergrenze wird ja fast
+  nie gezogen.
+- **`DoBackfillInexogyArchive()` nimmt jetzt `(int $fromTs, int $toTs)` statt
+  `int $days`** — eine Tage-Rundung hätte den ganzen Gewinn der Minuten-genauen
+  Bereichsermittlung zunichtegemacht (ein 20-Minuten-Rückstand wäre auf einen vollen Tag
+  aufgerundet worden). Blieb intern `private`, betrifft also nicht die veröffentlichte
+  `MHUB_BackfillInexogyArchive($id)`-Signatur.
+
+Bereichsermittlung bewusst von der eigentlichen Netzwerkabfrage getrennt
+(`ComputeAutoBackfillRange()` vs. `DoAutoBackfillInexogyArchive()`/
+`DoBackfillInexogyArchive()`) — lässt sich dadurch in `.tools/test-auto-backfill.php`
+(Fälle 8a–8f) vollständig ohne echten API-Zugriff prüfen: Wasserstand normal/uneinheitlich/
+nie archiviert/in der Zukunft, fehlendes Archiv-Modul, fehlende Zielvariablen.
+
 **Wichtig für künftige Änderungen an `BackfillInexogyArchive()`:** Die Methode ist
 öffentlich (`MHUB_BackfillInexogyArchive($id)`, vom Formular-Knopf einarmig aufgerufen) —
 ein zusätzlicher Parameter für die Tage-Anzahl hätte laut „PREFIX_-Funktionen sind fixer

@@ -14,7 +14,29 @@ const VARIABLETYPE_FLOAT = 2;
 
 $GLOBALS['PROP'] = [];
 $GLOBALS['ATTR'] = [];
-function IPS_GetInstanceListByModuleID($guid) { return []; } // kein Archiv-Modul im Test -> DoBackfillInexogyArchive() bricht früh ab, unschädlich für diesen Prüfstand
+$GLOBALS['OBJ']  = [];      // id => ['ObjectType', 'ObjectIdent', 'ParentID'] -- fuer FindVarByIdent()
+$GLOBALS['ARCHIVE_IDS'] = [];    // [] = kein Archiv-Modul installiert (Standardfall fuer die Intervall-Tests oben)
+$GLOBALS['ARCHIVE_LATEST'] = []; // vid => letzter bekannter TimeStamp, fuer AC_GetLoggedValues(..., Limit=1)
+
+function IPS_GetInstanceListByModuleID($guid) { return $GLOBALS['ARCHIVE_IDS']; }
+function IPS_GetObject($id) { return $GLOBALS['OBJ'][$id] ?? null; }
+function IPS_GetChildrenIDs($id) {
+    $out = [];
+    foreach ($GLOBALS['OBJ'] as $k => $o) { if ($o['ParentID'] == $id) { $out[] = $k; } }
+    return $out;
+}
+// Bildet nur nach, was ComputeAutoBackfillRange() tatsächlich nutzt: den
+// per Limit=1 abgefragten neuesten Datensatz je Variable (AC_GetLoggedValues
+// ist laut SDK-Doku absteigend sortiert -- Limit=1 liefert also exakt den
+// neuesten TimeStamp, kein Scan der Historie nötig).
+function AC_GetLoggedValues($archiveID, $vid, $start, $end, $limit) {
+    if (!isset($GLOBALS['ARCHIVE_LATEST'][$vid])) { return []; }
+    return [['TimeStamp' => $GLOBALS['ARCHIVE_LATEST'][$vid], 'Value' => 0]];
+}
+function obj($id, $parent, $ident) {
+    $GLOBALS['OBJ'][$id] = ['ObjectType' => 2, 'ObjectIdent' => $ident, 'ParentID' => $parent];
+    return $id;
+}
 
 class IPSModule
 {
@@ -116,6 +138,60 @@ $recentTs = time() - 5 * 60; // 5 Min. her -- bei "0 Min. Intervall" faelschlich
 $setTs->invoke($h600, 'InexogyAutoBackfillLastRunTs', $recentTs);
 tick($h600);
 check('Lauf-Zeitstempel unverändert (Minimum 15 Min. greift)', lastRunTs($h600) === $recentTs, 'ist ' . lastRunTs($h600));
+
+function range_(MeterHub $hub): array {
+    $m = new ReflectionMethod($hub, 'ComputeAutoBackfillRange');
+    return $m->invoke($hub);
+}
+
+// ---------------------------------------------------------------------------
+echo "\n8) Nachsehen statt raten: Bereich richtet sich nach dem, was schon archiviert ist\n";
+// Dietmars eigentliche Rückfrage (27.08.2026): "wie wäre es nachzusehen,
+// welche Daten schon da sind, und nur das Notwendige zu holen?" -- diese und
+// die folgenden Fälle prüfen genau das, isoliert vom Netzwerkzugriff.
+$GLOBALS['ARCHIVE_IDS'] = [9999];
+obj(701, 700, 'energy_import');
+obj(702, 700, 'energy_export');
+obj(703, 700, 'power_total');
+$GLOBALS['OBJ'][700] = ['ObjectType' => 1, 'ObjectIdent' => '', 'ParentID' => 0]; // Instanz selbst
+$GLOBALS['PROP'][700] = ['Meter' => 'inexogy', 'InexogyAutoBackfillDays' => 3];
+$h700 = new MeterHub(700); $h700->Create();
+
+echo "  8a) Alle drei Variablen 20 Min. alt -> Bereich beginnt kurz davor (20 Min. + 30 Min. Puffer), nicht bei der Obergrenze\n";
+$watermark = time() - 20 * 60;
+$GLOBALS['ARCHIVE_LATEST'] = [701 => $watermark, 702 => $watermark, 703 => $watermark];
+[$from, $to, $err] = range_($h700);
+check('kein Fehler', $err === null, (string) $err);
+check('from = watermark - 30 Min., nicht -3 Tage', abs($from - ($watermark - 1800)) <= 2, "from=$from erwartet~=" . ($watermark - 1800));
+check('to = jetzt', abs($to - time()) <= 2);
+
+echo "\n  8b) Eine Variable hinkt weiter hinterher als die anderen -> Minimum entscheidet (alle drei gemeinsam nachholen)\n";
+$now = time();
+$GLOBALS['ARCHIVE_LATEST'] = [701 => $now - 5 * 60, 702 => $now - 5 * 60, 703 => $now - 6 * 3600];
+[$from, $to, $err] = range_($h700);
+check('from richtet sich nach der ältesten (power_total)', abs($from - ($now - 6 * 3600 - 1800)) <= 2, "from=$from");
+
+echo "\n  8c) Noch nie archiviert (Zeitstempel 0) -> Obergrenze (InexogyAutoBackfillDays) greift, kein unbegrenzter Nachtrag\n";
+$GLOBALS['ARCHIVE_LATEST'] = [701 => 0, 702 => 0, 703 => 0];
+[$from, $to, $err] = range_($h700);
+check('from = jetzt - 3 Tage (konfigurierte Obergrenze)', abs($from - (time() - 3 * 86400)) <= 2, "from=$from");
+
+echo "\n  8d) Bereits aktuell (Watermark liegt in der Zukunft, z. B. direkt nach einem Lauf) -> kein Nachtrag ausgelöst\n";
+$future = time() + 3600;
+$GLOBALS['ARCHIVE_LATEST'] = [701 => $future, 702 => $future, 703 => $future];
+[$from, $to, $err] = range_($h700);
+check('Meldung statt Bereich', $err === 'ℹ️ Archiv bereits auf dem neuesten Stand.', (string) $err);
+
+echo "\n  8e) Kein Archiv-Modul installiert -> klare Fehlermeldung, kein Absturz\n";
+$GLOBALS['ARCHIVE_IDS'] = [];
+[$from, $to, $err] = range_($h700);
+check('Fehlermeldung: kein Archiv-Modul', str_contains((string) $err, 'Archiv-Modul'), (string) $err);
+
+echo "\n  8f) Keine der drei Zielvariablen vorhanden -> klare Fehlermeldung, kein Absturz\n";
+$GLOBALS['ARCHIVE_IDS'] = [9999];
+$GLOBALS['OBJ'] = ['700' => ['ObjectType' => 1, 'ObjectIdent' => '', 'ParentID' => 0]]; // Variablen entfernt
+[$from, $to, $err] = range_($h700);
+check('Fehlermeldung: keine Zielvariable', str_contains((string) $err, 'Zielvariable'), (string) $err);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
