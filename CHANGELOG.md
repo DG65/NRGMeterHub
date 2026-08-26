@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.8-beta.1 (2026-08-27)
+
+- **Automatischer Lastgang-Nachtrag überarbeitet: wiederkehrend statt einmal täglich.**
+  Auf Dietmars Rückfrage ("warum nicht alle 15 Min. die letzten 30 Tage, es passiert ja
+  ohnehin nichts?") noch am selben Tag umgebaut. Der 15-Minuten-Takt war richtig gedacht
+  (Inexogy liefert ohnehin nur 15-Minuten-Werte) — ein 30-Tage-Rückblick bei jedem Takt
+  wäre aber unnötige Last gewesen (~276.000 Zeilen täglich von Inexogy geholt und lokal
+  gegengeprüft, nur um praktisch immer "kenn ich schon" zu finden). Jetzt: „alle …
+  Minuten" (`NumberSpinner`, Default 15, Minimum 15 statt fixer Uhrzeit), Rückblick klein
+  gehalten (Default 1 Tag, Maximum 7 statt 30). Details/Herleitung in CLAUDE.md.
+
 ## 0.22.7-beta.1 (2026-08-27)
 
 - **Fix: `PowerInvert` galt bisher nur für `power_total`, nicht für die Energiezähler.**

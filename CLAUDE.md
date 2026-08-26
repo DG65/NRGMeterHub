@@ -725,16 +725,38 @@ Cloud-API mit historischen Werten:
    Lastgang-Werte reproduzierte exakt das im selben Datensatz mitgelieferte `power`-Feld —
    erst danach als kumulativ behandelt.
 
-**Automatischer täglicher Lauf (27.08.2026):** Dietmar wies darauf hin, dass die laufende
-Live-Abfrage (`power_total`/`energy_*` über `FastTimer`/`SlowTimer`, siehe `ReadFast()`/
-`ReadSlow()`) zwar schon immer automatisch lief — der Archiv-Nachtrag selbst aber
-ausschließlich über den Formular-Knopf erreichbar war, nirgends von selbst. Fix:
-`MaybeAutoBackfillInexogy()`, aufgerufen am Ende von `ReadSlow()`. Kein eigener
-Timer/Event — die ohnehin laufende `SlowTimer` (Default 60 s) reicht für eine
-„einmal täglich ab HH:MM"-Prüfung, ein Attribut (`InexogyAutoBackfillLastRunDate`)
-verhindert Mehrfachauslösung am selben Tag. Uhrzeit-Eingabe über das Formularelement
-`SelectTime` (JSON-Property `{"hour":…,"minute":…,"second":…}`, gegen die offizielle
-SDK-Doku verifiziert, nicht geraten).
+**Automatischer wiederkehrender Lauf (27.08.2026, noch am selben Tag überarbeitet):**
+Dietmar wies darauf hin, dass die laufende Live-Abfrage (`power_total`/`energy_*` über
+`FastTimer`/`SlowTimer`, siehe `ReadFast()`/`ReadSlow()`) zwar schon immer automatisch
+lief — der Archiv-Nachtrag selbst aber ausschließlich über den Formular-Knopf erreichbar
+war, nirgends von selbst. Fix: `MaybeAutoBackfillInexogy()`, aufgerufen am Ende von
+`ReadSlow()`. Kein eigener Timer/Event — die ohnehin laufende `SlowTimer` (Default 60 s)
+reicht, um ein „mindestens N Minuten seit dem letzten Lauf"-Intervall zu prüfen; ein
+Attribut (`InexogyAutoBackfillLastRunTs`, Unix-Zeit) hält den letzten Lauf fest.
+
+**Erste Fassung war „einmal täglich ab HH:MM" (`SelectTime`-Formularelement) — noch am
+selben Tag auf Dietmars Rückfrage hin verworfen:** „Warum nicht alle 15 Min. die letzten
+30 Tage holen, es passiert ja ohnehin nichts?" Die Antwort in zwei Teilen, beide wichtig
+für künftige Änderungen an diesem Feature:
+
+- **Die Taktfrage (15 Minuten) war richtig gedacht** — Inexogys `/readings` liefert
+  ohnehin nur 15-Minuten-Werte (siehe `resolution=fifteen_minutes` oben), öfter fragen
+  bringt keine frischeren Daten. `InexogyAutoBackfillIntervalMin` (Default 15, Minimum
+  15) setzt das um.
+- **Der Rückblick (30 Tage) bei JEDEM Takt wäre die eigentliche Verschwendung gewesen.**
+  Bei 96 Läufen/Tag hätte ein 30-Tage-Fenster ~276.000 Zeilen täglich von Inexogy geholt
+  und dreimal (je Zielvariable: `energy_import`/`energy_export`/`power_total`) aus dem
+  lokalen Symcon-Archiv zum Dopplungsabgleich zurückgelesen — praktisch immer nur um
+  „kenn ich schon" festzustellen, ohne die Daten dadurch frischer zu machen (frischer als
+  der 15-Minuten-Takt der Quelle geht ohnehin nicht). Reales Risiko: unnötige Last auf
+  Inexogys API (Rate-Limiting) und dem lokalen Archiv. `InexogyAutoBackfillDays` blieb
+  deshalb klein (Default 1, Maximum 7) — genug, um eine kurze Störung bei Inexogy oder
+  Symcon abzudecken, nicht um bei jedem Takt die halbe Historie erneut zu prüfen.
+
+**Merksatz für ähnliche Fälle:** Takt-Frequenz und Rückblick-Fenster sind zwei
+unabhängige Stellschrauben. Häufiger fragen hilft nur, wenn die Quelle auch tatsächlich
+so oft neue Daten hat — ein größeres Fenster bei gleicher Frequenz bringt dagegen nur
+mehr redundante Arbeit, keine frischeren Werte.
 
 **Wichtig für künftige Änderungen an `BackfillInexogyArchive()`:** Die Methode ist
 öffentlich (`MHUB_BackfillInexogyArchive($id)`, vom Formular-Knopf einarmig aufgerufen) —

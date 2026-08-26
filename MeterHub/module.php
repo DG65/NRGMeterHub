@@ -2196,19 +2196,25 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyString('InexogyMeterID', '');
         // Lastgang-Nachtrag ins Archiv (10.08.2026, Dietmars Abrechnungszähler).
         $this->RegisterPropertyInteger('InexogyBackfillDays', 7);
-        // Automatischer täglicher Nachtrag (27.08.2026): die laufende
-        // Live-Abfrage (power_total/energy_*) lief schon immer automatisch
-        // über FastTimer/SlowTimer — der Archiv-Nachtrag bisher nur auf
-        // Knopfdruck. Kleiner Tage-Wert als Default, da täglich (nicht wie
-        // beim manuellen Knopf ein einmaliger großer Rückstand): 3 Tage
-        // decken Inexogys eigene Nachmeldeverzögerung sicher ab, ohne bei
-        // jedem Lauf unnötig viele längst archivierte Blöcke erneut
-        // abzufragen (der Dopplungsschutz überspringt sie zwar, aber jeder
-        // Block ist ein eigener API-Aufruf).
+        // Automatischer wiederkehrender Nachtrag (27.08.2026, überarbeitet
+        // nach Dietmars Rückfrage "warum nicht alle 15 Min. die letzten 30
+        // Tage"): die laufende Live-Abfrage (power_total/energy_*) lief
+        // schon immer automatisch über FastTimer/SlowTimer — der
+        // Archiv-Nachtrag bisher nur auf Knopfdruck. 15 Minuten als
+        // Standard-Takt ist genau richtig, weil Inexogys /readings ohnehin
+        // nur 15-Minuten-Werte liefert (öfter fragen bringt keine
+        // frischeren Daten). Der Rückblick bleibt aber bewusst klein
+        // (Default 1 Tag statt 30): deckt jede Verzögerung/jeden Aussetzer
+        // bei Inexogy oder Symcon sicher ab, ohne bei jedem 15-Minuten-Takt
+        // ~30-mal mehr Daten von Inexogy zu holen und lokal aus dem Archiv
+        // gegenzuprüfen als nötig — das würde Inexogys API unnötig
+        // belasten (Rate-Limiting-Risiko) und das Symcon-Archiv, ohne die
+        // Daten dadurch frischer zu machen (frischer als der 15-Minuten-Takt
+        // der Quelle geht ohnehin nicht).
         $this->RegisterPropertyBoolean('InexogyAutoBackfillEnabled', false);
-        $this->RegisterPropertyString('InexogyAutoBackfillTime', '{"hour":4,"minute":0,"second":0}');
-        $this->RegisterPropertyInteger('InexogyAutoBackfillDays', 3);
-        $this->RegisterAttributeString('InexogyAutoBackfillLastRunDate', '');
+        $this->RegisterPropertyInteger('InexogyAutoBackfillIntervalMin', 15);
+        $this->RegisterPropertyInteger('InexogyAutoBackfillDays', 1);
+        $this->RegisterAttributeInteger('InexogyAutoBackfillLastRunTs', 0);
         $this->RegisterAttributeString('InexogyConsumerKey', '');
         $this->RegisterAttributeString('InexogyConsumerSecret', '');
         $this->RegisterAttributeString('InexogyToken', '');
@@ -2528,10 +2534,10 @@ class MeterHub extends IPSModule
             ['type' => 'NumberSpinner', 'name' => 'InexogyBackfillDays', 'visible' => $isCloud, 'caption' => 'Lastgang der letzten … Tage nachtragen', 'minimum' => 1, 'maximum' => 730],
             ['type' => 'Button', 'name' => 'InexogyBackfillButton', 'visible' => $isCloud, 'caption' => '📊  Lastgang jetzt ins Archiv nachtragen', 'onClick' => 'MHUB_BackfillInexogyArchive($id);'],
             ['type' => 'Label', 'name' => 'InexogyBackfillResult', 'caption' => '', 'visible' => false],
-            ['type' => 'Label', 'name' => 'InexogyHintAutoBackfill', 'visible' => $isCloud, 'caption' => '🆕 Der obige Nachtrag lässt sich auch automatisch täglich ausführen — praktisch, damit die Kontrolle nicht vom manuellen Klicken abhängt.'],
-            ['type' => 'CheckBox', 'name' => 'InexogyAutoBackfillEnabled', 'visible' => $isCloud, 'caption' => 'Lastgang automatisch täglich nachtragen'],
-            ['type' => 'SelectTime', 'name' => 'InexogyAutoBackfillTime', 'visible' => $isCloud, 'caption' => 'Uhrzeit (frühestens ab, tatsächlicher Lauf innerhalb des Abfragetakts danach)'],
-            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillDays', 'visible' => $isCloud, 'caption' => 'dabei jeweils die letzten … Tage prüfen', 'minimum' => 1, 'maximum' => 30],
+            ['type' => 'Label', 'name' => 'InexogyHintAutoBackfill', 'visible' => $isCloud, 'caption' => '🆕 Der obige Nachtrag lässt sich auch automatisch wiederkehrend ausführen — praktisch, damit die Kontrolle nicht vom manuellen Klicken abhängt. 15 Minuten reichen: Inexogy liefert den Lastgang ohnehin nur in 15-Minuten-Werten, öfter fragen bringt keine frischeren Daten. Der Rückblick bleibt bewusst klein — er soll nur kurze Aussetzer abdecken, nicht jedes Mal die ganze Historie erneut prüfen.'],
+            ['type' => 'CheckBox', 'name' => 'InexogyAutoBackfillEnabled', 'visible' => $isCloud, 'caption' => 'Lastgang automatisch wiederkehrend nachtragen'],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillIntervalMin', 'visible' => $isCloud, 'caption' => 'alle … Minuten', 'minimum' => 15, 'maximum' => 1440],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillDays', 'visible' => $isCloud, 'caption' => 'dabei jeweils die letzten … Tage prüfen', 'minimum' => 1, 'maximum' => 7],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud, 'caption' => 'IP-Adresse', 'validate' => $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud, 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud, 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -2768,7 +2774,7 @@ class MeterHub extends IPSModule
     public function OnChangeMeter($meter)
     {
         $isCloud = in_array($meter, self::CLOUD_METERS, true);
-        foreach (['InexogyIntro', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton', 'InexogyHintAutoBackfill', 'InexogyAutoBackfillEnabled', 'InexogyAutoBackfillTime', 'InexogyAutoBackfillDays'] as $f) {
+        foreach (['InexogyIntro', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton', 'InexogyHintAutoBackfill', 'InexogyAutoBackfillEnabled', 'InexogyAutoBackfillIntervalMin', 'InexogyAutoBackfillDays'] as $f) {
             $this->UpdateFormField($f, 'visible', $isCloud);
         }
         if (!$isCloud) {
@@ -2964,15 +2970,27 @@ class MeterHub extends IPSModule
     }
 
     /**
-     * Prüft bei jedem ReadSlow()-Takt, ob der tägliche automatische
+     * Prüft bei jedem ReadSlow()-Takt, ob der wiederkehrende automatische
      * Lastgang-Nachtrag fällig ist (Dietmars Wunsch 27.08.2026: bisher war
      * BackfillInexogyArchive() ausschließlich über den Formular-Knopf
      * erreichbar — die laufende Live-Abfrage (power_total/energy_*, siehe
      * ReadFast()/ReadSlow()) lief zwar bereits automatisch, der
      * Archiv-Nachtrag aber nie von selbst). Kein eigener Timer/Event nötig:
-     * die ohnehin laufende SlowTimer (Default 60s) reicht für eine
-     * „einmal täglich ab HH:MM"-Prüfung völlig aus, ein Attribut verhindert
-     * Mehrfachauslösung am selben Tag.
+     * die ohnehin laufende SlowTimer (Default 60s) reicht, um ein
+     * „mindestens N Minuten seit dem letzten Lauf"-Intervall zu prüfen.
+     *
+     * Ursprünglich als „einmal täglich ab HH:MM" gebaut, dann auf Dietmars
+     * Rückfrage hin überarbeitet ("warum nicht alle 15 Min. die letzten 30
+     * Tage, es passiert ja ohnehin nichts"): 15 Minuten als Standard-Takt
+     * ist richtig — Inexogys /readings liefert ohnehin nur 15-Minuten-Werte,
+     * öfter fragen bringt keine frischeren Daten. Ein großer Rückblick
+     * (30 Tage) bei JEDEM Takt wäre aber echte Verschwendung gewesen: bei
+     * 96 Läufen/Tag hätte das ~276.000 Zeilen täglich von Inexogy geholt
+     * und dreimal (je Zielvariable) aus dem lokalen Archiv zum
+     * Dopplungsabgleich zurückgelesen — nur um praktisch immer "kenn ich
+     * schon" zu finden, ohne die Daten dadurch frischer zu machen (siehe
+     * CLAUDE.md-Abschnitt zu diesem Feature). Deshalb: Takt wiederkehrend
+     * und kurz, Rückblick klein.
      */
     private function MaybeAutoBackfillInexogy(): void
     {
@@ -2982,20 +3000,16 @@ class MeterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('InexogyAutoBackfillEnabled')) {
             return;
         }
-        $today = date('Y-m-d');
-        if ($this->ReadAttributeString('InexogyAutoBackfillLastRunDate') === $today) {
-            return;
-        }
-        $t = json_decode($this->ReadPropertyString('InexogyAutoBackfillTime'), true);
-        $targetSec = (int) ($t['hour'] ?? 4) * 3600 + (int) ($t['minute'] ?? 0) * 60 + (int) ($t['second'] ?? 0);
-        $nowSec = (int) date('H') * 3600 + (int) date('i') * 60 + (int) date('s');
-        if ($nowSec < $targetSec) {
+        $intervalSec = max(15, $this->ReadPropertyInteger('InexogyAutoBackfillIntervalMin')) * 60;
+        $lastRun     = $this->ReadAttributeInteger('InexogyAutoBackfillLastRunTs');
+        if ($lastRun > 0 && (time() - $lastRun) < $intervalSec) {
             return;
         }
         // Vor dem eigentlichen Nachtrag merken, nicht danach — ein
-        // Absturz/Timeout mitten im Nachtrag soll nicht zu stündlichen
-        // Wiederholungsversuchen führen, sondern erst wieder morgen.
-        $this->WriteAttributeString('InexogyAutoBackfillLastRunDate', $today);
+        // Absturz/Timeout mitten im Nachtrag soll nicht zu einer
+        // Endlosschleife aus Sofort-Wiederholungsversuchen führen, sondern
+        // erst wieder nach dem nächsten vollen Intervall.
+        $this->WriteAttributeInteger('InexogyAutoBackfillLastRunTs', time());
         $days = max(1, $this->ReadPropertyInteger('InexogyAutoBackfillDays'));
         $m    = $this->DoBackfillInexogyArchive($days);
         trigger_error('AutoBackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
