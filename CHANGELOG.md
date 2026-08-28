@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.23.1-beta.1 (2026-08-28)
+
+- **StrukturHub in die NRG-Stack-Ausschlussliste der Zählersuche aufgenommen**
+  (`MHUBV::EXCLUDED_NRG_STACK_MODULES`, GUID von der StrukturHub-Sitzung gemeldet) —
+  Verbund-Pflegeregel: jedes neue Verbund-Mitglied eintragen, sonst tauchen dessen
+  Variablen als vermeintliche „Fremdzähler" im Suchlauf von MeterHubVirtual auf.
+
 ## 0.23.0-beta.1 (2026-08-27)
 
 - **Neu: Zeitstempel des letzten archivierten Lastgang-Datensatzes sichtbar.** Dietmars

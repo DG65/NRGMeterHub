@@ -470,6 +470,7 @@ class MeterHubVirtual extends IPSModule
         '{B76BE0BA-DF99-4B81-81BD-636A610011EE}', // SteuerboxHub
         '{1C4B7E2A-8F3D-5A9C-4E1B-7D2F9A3C6E8B}', // GoodweET
         '{3E8A1D5C-9F2B-4C7A-6E3D-1B5F8A2C4E7D}', // GoodweETTile
+        '{CA700334-0982-F356-0617-6952868137E9}', // StrukturHub (GUID von der StrukturHub-Sitzung gemeldet, 28.08.2026)
     ];
 
     /**
