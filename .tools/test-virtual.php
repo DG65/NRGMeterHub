@@ -124,6 +124,7 @@ class IPSModule
     protected function SetTimerInterval($n, $i) {}
     protected function SetStatus($s) { $GLOBALS['STATUS'][$this->InstanceID] = $s; }
     protected function SetVisualizationType($t) {}
+    protected function SendDebug($sender, $msg, $format) {}
     public function UpdateFormField($f, $p, $v) { $GLOBALS['FORMFIELDS'][$f][$p] = $v; }
     protected function ReloadForm() {}
     protected function RegisterAttributeString($n, $v) { $this->defs['@' . $n] = $v; }
@@ -270,6 +271,27 @@ check('echtes Gerät daneben weiter gefunden', in_array('Kaffeemaschine', $after
 $GLOBALS['FORMFIELDS'] = [];
 $fresh->ScanMeters(0, '', false, false);
 check('Meldungstext nennt den Verbund-Ausschluss', str_contains($GLOBALS['FORMFIELDS']['ScanResult']['caption'] ?? '', 'NRG-Stack-Modulen'));
+
+echo "\n6c) Neue Darstellungen (IPS 7+/8) statt Profile — Testerfund von Sepp, 30.08.2026\n";
+// KNX-Watt-Variablen und Shellys mit Darstellung statt klassischem Profil
+// fielen komplett durch den Suchlauf. Zwei reale Formen (live an Dietmars
+// Anlage abgelesen): Darstellung mit direktem SUFFIX, und Darstellung, die
+// ein Alt-Profil referenziert.
+$presDev1 = obj(920, 0, 'KNX Aktor Neu', 10);
+vari(921, 'Wirkleistung', $presDev1, '', '', 1500.0);
+$GLOBALS['VAR'][921]['VariableCustomPresentation'] = ['SUFFIX' => ' W', 'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}'];
+$presDev2 = obj(930, 0, 'Shelly Neu', 10);
+vari(931, 'Energie', $presDev2, '', '', 42.0);
+$GLOBALS['VAR'][931]['VariablePresentation'] = ['PROFILE' => 'MHB.kWh', 'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}'];
+// Gegenprobe: Darstellung mit fremdem Suffix darf NICHT auftauchen.
+$presDev3 = obj(940, 0, 'Thermostat Neu', 10);
+vari(941, 'Temperatur', $presDev3, '', '', 21.5);
+$GLOBALS['VAR'][941]['VariableCustomPresentation'] = ['SUFFIX' => ' °C', 'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}'];
+
+$presScan = $run(0, '', false, false);
+check('Darstellung mit SUFFIX " W" gefunden', in_array('KNX Aktor Neu', $presScan, true), implode(' | ', $presScan));
+check('Darstellung mit PROFILE-Referenz (kWh) gefunden', in_array('Shelly Neu', $presScan, true), implode(' | ', $presScan));
+check('Darstellung mit °C-Suffix NICHT gefunden', !in_array('Thermostat Neu', $presScan, true), implode(' | ', $presScan));
 
 echo "\n7) Rückkopplungsschutz\n";
 $feedback = $run(0, '', false, false);

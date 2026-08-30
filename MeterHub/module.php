@@ -3021,7 +3021,17 @@ class MeterHub extends IPSModule
         $this->WriteAttributeInteger('InexogyAutoBackfillLastRunTs', time());
         $m = $this->DoAutoBackfillInexogyArchive();
         $this->UpdateInexogyArchiveStatusField();
-        trigger_error('AutoBackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
+        // trigger_error im Timer-Kontext protokolliert der TimerPool als
+        // FEHLER (❌) — beim viertelstündlichen Normalfall ("0 neue Werte"/
+        // "bereits aktuell") stand dadurch alle 15 Minuten ein rotes
+        // Nicht-Problem in Dietmars Log (live gesehen 30.08.2026). Deshalb:
+        // echte Fehler (❌-Meldungen) weiter laut, der Normalfall nur noch
+        // ins Instanz-Debug.
+        if (str_starts_with($m, '❌')) {
+            trigger_error('AutoBackfillInexogyArchive #' . $this->InstanceID . ': ' . $m, E_USER_NOTICE);
+        } else {
+            $this->SendDebug('AutoBackfill', $m, 0);
+        }
     }
 
     /**

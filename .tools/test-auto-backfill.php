@@ -55,6 +55,7 @@ class IPSModule
     protected function SetTimerInterval($n, $i) {}
     protected function SetStatus($s) {}
     protected function SetVisualizationType($t) {}
+    protected function SendDebug($sender, $msg, $format) {}
     public function UpdateFormField($f, $p, $v) {}
     protected function ReloadForm() {}
     protected function RegisterAttributeString($n, $v) { $this->defs['@' . $n] = $v; }

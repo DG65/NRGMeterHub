@@ -253,7 +253,18 @@ class MeterHubVirtual extends IPSModule
         return false;
     }
 
-    /** Einheit (Profil-Suffix) einer Variable, leer wenn unbekannt. */
+    /**
+     * Einheit einer Variable, leer wenn unbekannt. Erst klassisches Profil,
+     * dann die neuen Darstellungen (IPS 7+/8) — Tester-Fund von Sepp
+     * (30.08.2026): KNX-Watt-Variablen und Shellys mit Darstellung statt
+     * Profil fielen komplett durch den Suchlauf, nur Alt-Profil-Variablen
+     * (kWh) wurden gefunden. Eine Darstellung trägt die Einheit entweder
+     * direkt als SUFFIX ({"SUFFIX":" W","PRESENTATION":"{GUID}"}) oder
+     * referenziert ein Alt-Profil ({"PROFILE":"~...","PRESENTATION":...}) —
+     * beide Formen live an Dietmars Anlage verifiziert, nicht geraten.
+     * Ältere IPS-Kerne liefern die Presentation-Felder gar nicht, deshalb
+     * durchgehend mit ?? abgesichert.
+     */
     private function UnitOf(int $vid): string
     {
         $v = @IPS_GetVariable($vid);
@@ -261,10 +272,23 @@ class MeterHubVirtual extends IPSModule
             return '';
         }
         $p = $v['VariableCustomProfile'] !== '' ? $v['VariableCustomProfile'] : $v['VariableProfile'];
-        if ($p === '' || !IPS_VariableProfileExists($p)) {
-            return '';
+        if ($p !== '' && IPS_VariableProfileExists($p)) {
+            return trim(IPS_GetVariableProfile($p)['Suffix']);
         }
-        return trim(IPS_GetVariableProfile($p)['Suffix']);
+        $pres = [];
+        if (is_array($v['VariableCustomPresentation'] ?? null) && count($v['VariableCustomPresentation']) > 0) {
+            $pres = $v['VariableCustomPresentation'];
+        } elseif (is_array($v['VariablePresentation'] ?? null) && count($v['VariablePresentation']) > 0) {
+            $pres = $v['VariablePresentation'];
+        }
+        if (trim((string) ($pres['SUFFIX'] ?? '')) !== '') {
+            return trim((string) $pres['SUFFIX']);
+        }
+        $pp = (string) ($pres['PROFILE'] ?? '');
+        if ($pp !== '' && IPS_VariableProfileExists($pp)) {
+            return trim(IPS_GetVariableProfile($pp)['Suffix']);
+        }
+        return '';
     }
 
     // -----------------------------------------------------------------------

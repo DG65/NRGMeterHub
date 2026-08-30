@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.23.2-beta.1 (2026-08-30)
+
+- **Fix: Die Zählersuche (MeterHubVirtual) erkennt jetzt auch Variablen mit den neuen
+  „Darstellungen" (IPS 7+/8), nicht nur klassische Profile.** Testerfund von Sepp: KNX-Watt-
+  Variablen und Shellys mit Darstellung statt Profil fielen komplett durch den Suchlauf,
+  nur Alt-Profil-Variablen (z. B. KNX-kWh) wurden gefunden. `UnitOf()` liest jetzt zusätzlich
+  `VariableCustomPresentation`/`VariablePresentation` — sowohl die Form mit direktem `SUFFIX`
+  (" W", " kWh") als auch die Form, die intern ein Alt-Profil referenziert (`PROFILE`-Feld);
+  beide Formen live verifiziert, ältere IPS-Kerne ohne diese Felder bleiben abgesichert.
+  Drei neue Prüffälle in `.tools/test-virtual.php` (6c).
+- **Fix: Der automatische Lastgang-Nachtrag protokollierte alle 15 Minuten einen
+  vermeintlichen Fehler.** `trigger_error` im Timer-Kontext erscheint im Symcon-Log als
+  ❌-Eintrag des TimerPools — auch beim völlig normalen „0 neue Werte"-Lauf. Jetzt: echte
+  Fehler (❌-Meldungen) weiter im Log, der Normalfall nur noch im Instanz-Debug.
+
 ## 0.23.1-beta.1 (2026-08-28)
 
 - **StrukturHub in die NRG-Stack-Ausschlussliste der Zählersuche aufgenommen**
