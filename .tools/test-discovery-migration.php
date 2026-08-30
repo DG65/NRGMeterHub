@@ -63,6 +63,7 @@ class IPSModule
     public function GetValue($n) { return false; }
     public function SetValue($n, $v) {}
     protected function RegisterTimer($n, $i, $s) {}
+    protected function SendDebug($sender, $msg, $format) {}
 }
 
 require_once dirname(__DIR__) . '/MeterHubDiscovery/module.php';
@@ -93,9 +94,14 @@ check('Meldung: MigrationsHub nicht installiert', str_contains($GLOBALS['FORMFIE
 // Bedingung verpackt, sonst hebt PHP die Funktionsdefinition beim Parsen an
 // den Dateianfang und Abschnitt 1 könnte sie nie als "fehlend" sehen.
 $GLOBALS['MIGHUB_PREFILL_CALLS'] = [];
+$GLOBALS['MIGHUB_FIND_CALLS'] = [];
 if (!function_exists('MIGHUB_FindLegacyCandidates')) {
-    function MIGHUB_FindLegacyCandidates($id, string $host, int $port = 0, int $unitId = 0): array {
-        if ($host === '10.0.0.5' && $unitId === 1) {
+    // Spiegelt die ECHTE Kernel-Wrapper-Signatur: 5 Parameter, ALLE Pflicht —
+    // PREFIX_-Wrapper honorieren PHP-Defaults nicht (SUITE.md-Stolperstein;
+    // genau so brach der 4-Arg-Aufruf am 30.08.2026 live Dietmars Formular).
+    function MIGHUB_FindLegacyCandidates($id, string $host, int $port, int $unitId, int $excludeInstanceID): array {
+        $GLOBALS['MIGHUB_FIND_CALLS'][] = [$id, $host, $port, $unitId, $excludeInstanceID];
+        if ($host === '10.0.0.5' && $unitId === 1 && $excludeInstanceID !== 555) {
             return [['instanceID' => 555, 'name' => 'Alter Zähler (Fremdmodul)']];
         }
         return [];
@@ -105,14 +111,31 @@ if (!function_exists('MIGHUB_FindLegacyCandidates')) {
     }
 }
 
+echo "\n1b) Funktionen vorhanden, aber keine MigrationsHub-INSTANZ -> kein Treffer, kein Fehlaufruf\n";
+// LegacyCandidateFor() braucht eine MigrationsHub-Instanz als Dispatch-Ziel
+// (der Kernel-Wrapper dispatcht auf die übergebene Instanz-ID) und legt
+// bewusst keine an — GetConfigurationForm() darf keine Instanzen erzeugen.
+$legacy = $ref->invoke($d, '10.0.0.5', 1);
+check('kein Treffer ohne MigrationsHub-Instanz', $legacy === ['id' => 0, 'name' => '']);
+check('kein MIGHUB-Aufruf abgesetzt', count($GLOBALS['MIGHUB_FIND_CALLS']) === 0);
+
 echo "\n2) Mit MigrationsHub — Alt-Instanz gefunden\n";
 obj(555, 1, 'Alter Zähler (Fremdmodul)', 0);
 $GLOBALS['INSTMOD'][555] = '{SOME-OTHER-GUID}';
+// Vorhandene MigrationsHub-Instanz als Dispatch-Ziel.
+$migPre = IPS_CreateInstance(G_MIGHUB);
 
 $legacy = $ref->invoke($d, '10.0.0.5', 1);
 check('Alt-Instanz #555 gefunden', $legacy['id'] === 555 && $legacy['name'] === 'Alter Zähler (Fremdmodul)');
+check('Aufruf dispatcht auf die MigrationsHub-Instanz, NICHT die eigene',
+    ($GLOBALS['MIGHUB_FIND_CALLS'][0][0] ?? 0) === $migPre, json_encode($GLOBALS['MIGHUB_FIND_CALLS'][0] ?? null));
+check('excludeInstanceID (5. Argument) wird übergeben', array_key_exists(4, $GLOBALS['MIGHUB_FIND_CALLS'][0] ?? []));
 $noMatch = $ref->invoke($d, '10.0.0.9', 1);
 check('andere IP liefert nichts', $noMatch === ['id' => 0, 'name' => '']);
+// Selbstausschluss: die eigene frisch angelegte Instanz darf nicht als
+// Alt-Instanz zurückkommen.
+$selfEx = $ref->invoke($d, '10.0.0.5', 1, 555);
+check('excludeInstanceID schließt den Kandidaten aus', $selfEx === ['id' => 0, 'name' => '']);
 
 echo "\n3) GetConfigurationForm: Active=false + legacy-Spalte bei Treffer\n";
 $GLOBALS['ATTR'][1]['ResultsJSON'] = json_encode([
@@ -153,11 +176,13 @@ $d3->PrepareMigration();
 check('Ziel-Instanz nachträglich deaktiviert', IPS_GetProperty($target, 'Active') === false);
 check('ApplyChanges auf Ziel-Instanz aufgerufen', ($GLOBALS['APPLIED'][$target] ?? 0) === 1);
 $migIDs = IPS_GetInstanceListByModuleID(G_MIGHUB);
-check('MigrationsHub-Instanz angelegt', count($migIDs) === 1, 'count=' . count($migIDs));
+check('genau eine MigrationsHub-Instanz (vorhandene wiederverwendet, keine zweite angelegt)', count($migIDs) === 1, 'count=' . count($migIDs));
 check('PrefillMigration mit korrekten IDs aufgerufen',
     count($GLOBALS['MIGHUB_PREFILL_CALLS']) === 1
     && $GLOBALS['MIGHUB_PREFILL_CALLS'][0][1] === 555
     && $GLOBALS['MIGHUB_PREFILL_CALLS'][0][2] === $target);
+$lastFind = end($GLOBALS['MIGHUB_FIND_CALLS']);
+check('PrepareMigration übergibt die Zielinstanz als excludeInstanceID', ($lastFind[4] ?? -1) === $target, json_encode($lastFind));
 check('OpenObjectButton zeigt auf MigrationsHub-Instanz',
     ($GLOBALS['FORMFIELDS']['BtnOpenMigration']['objectID'] ?? null) === $migIDs[0]
     && ($GLOBALS['FORMFIELDS']['BtnOpenMigration']['visible'] ?? null) === true);

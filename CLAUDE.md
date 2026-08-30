@@ -86,12 +86,29 @@ Optionale Kopplung, mit MigrationsHub abgestimmt (kein Pflicht-Partnermodul, all
 Geräte-Scans wird statt separates Werkzeug — „Wallbox/Zähler finden und Zähler bereitstellen"
 muss ohne manuellen Eingriff funktionieren, für jeden Hersteller.
 
-**Vertrag:** `MIGHUB_FindLegacyCandidates($id, string $host, int $port=0, int $unitId=0):
-array` (Match-Schlüssel Host+Unit-ID, **nie über den Namen** — MigrationsHub selbst ist zweimal
-auf Namens-Fallen reingelaufen), `MIGHUB_PrefillMigration($id, $oldInstanceID,
+**Vertrag:** `MIGHUB_FindLegacyCandidates($id, string $host, int $port, int $unitId,
+int $excludeInstanceID): array` (Match-Schlüssel Host+Unit-ID, **nie über den Namen** —
+MigrationsHub selbst ist zweimal auf Namens-Fallen reingelaufen; `$excludeInstanceID` =
+die eigene frisch angelegte Zielinstanz, damit sie nicht als vermeintliche Alt-Instanz
+zurückkommt), `MIGHUB_PrefillMigration($id, $oldInstanceID,
 $newInstanceID): void` (setzt Source/Target auf einer MigrationsHub-Instanz, stößt NICHT
 automatisch Simulieren/Ausführen an — bewusste Sicherheitskette bei einem destruktiven
 Vorgang, bleibt Nutzeraktion im MigrationsHub-Formular).
+
+**Live-Bruch 30.08.2026 — zwei Lehren, beide im Code verankert
+(`LegacyCandidateFor()`):** Als MigrationsHub an Dietmars Anlage erstmals wirklich
+installiert war, tötete unser Aufruf das komplette Konfigurationsformular
+(`ArgumentCountError`): MigrationsHub hatte der veröffentlichten Funktion einen 5.
+Parameter gegeben (mit PHP-Default — aber PREFIX_-Wrapper honorieren Defaults nicht,
+SUITE.md-Stolperstein, alle Argumente sind Pflicht), und wir übergaben zusätzlich die
+FALSCHE Dispatch-Instanz (`$this->InstanceID` statt einer MigrationsHub-Instanz — nie
+aufgefallen, weil `function_exists()` bis dahin immer false war und der Fehlpfad nie
+lief). Konsequenzen: (1) Aufruf jetzt in `try/catch (\Throwable)` — ein `@` hält
+Fatals nachweislich nicht auf; ein künftiger Vertragsbruch des Partnermoduls degradiert
+zu „kein Kandidat" statt das Formular zu töten. (2) `LegacyCandidateFor()` legt bewusst
+KEINE MigrationsHub-Instanz an (GetConfigurationForm() darf keine Instanzen erzeugen);
+`PrepareMigration()` legt sie beim ersten Klick VOR der Kandidatensuche an — sonst
+Henne-Ei (keine Instanz → keine Kandidaten → nie eine Instanz).
 
 **Bewusst nur ein Treffer je `PrepareMigration()`-Aufruf:** ein zweiter Aufruf vor Abschluss
 der ersten Migration würde die noch unbestätigte Source/Target-Zuordnung auf derselben

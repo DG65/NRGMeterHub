@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.23.3-beta.1 (2026-08-30)
+
+- **Fix: MeterHubDiscoverys Konfigurationsformular stürzte ab, sobald MigrationsHub
+  installiert ist** (`ArgumentCountError` bei `MIGHUB_FindLegacyCandidates`, live bei
+  Dietmar). Zwei Ursachen, beide behoben: MigrationsHub erwartet inzwischen ein 5.
+  Argument (`$excludeInstanceID` — PREFIX_-Wrapper honorieren PHP-Defaults nicht, alle
+  Argumente Pflicht), und wir übergaben als Dispatch-Ziel die eigene Discovery-Instanz
+  statt einer MigrationsHub-Instanz (nie aufgefallen, weil der Pfad ohne installiertes
+  MigrationsHub nie lief). Zusätzlich abgesichert: der Aufruf steht jetzt in
+  `try/catch` — ein künftiger Vertragsbruch des Partnermoduls degradiert zu „kein
+  Kandidat" statt das Formular zu töten (`@` hält Fatals nicht auf). `PrepareMigration()`
+  legt die MigrationsHub-Instanz jetzt vor der Kandidatensuche an (Henne-Ei-Auflösung),
+  und die eigene Zielinstanz wird als `excludeInstanceID` übergeben (kein „migriere von
+  deiner eigenen frisch angelegten Instanz" mehr). Prüfstand von 20 auf 27 Prüfungen
+  erweitert (u. a. Dispatch-Ziel, 5. Argument, Selbstausschluss, kein Instanz-Anlegen
+  im Formularaufbau).
+
 ## 0.23.2-beta.1 (2026-08-30)
 
 - **Fix: Die Zählersuche (MeterHubVirtual) erkennt jetzt auch Variablen mit den neuen

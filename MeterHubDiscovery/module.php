@@ -162,7 +162,7 @@ class MeterHubDiscovery extends IPSModule
                 $instanceName = $r['label'] . ' ' . $nr;
             }
 
-            $legacy = $this->LegacyCandidateFor($r['ip'], $r['unitId']);
+            $legacy = $this->LegacyCandidateFor($r['ip'], $r['unitId'], (int)($existing[$key] ?? 0));
             $config = [
                 'Host'   => $r['ip'],
                 'Port'   => $this->ReadPropertyInteger('Port'),
@@ -385,13 +385,43 @@ class MeterHubDiscovery extends IPSModule
      * (Verbund-Konvention 29.07.2026, mit MigrationsHub abgestimmt) —
      * ohne MigrationsHub liefert dies immer "nichts gefunden", bricht
      * nichts.
+     *
+     * Zwei Live-Fixes vom 30.08.2026 (aufgedeckt, als MigrationsHub an
+     * Dietmars Anlage erstmals wirklich installiert war — vorher lief hier
+     * immer nur der function_exists-Kurzschluss, der Fehlpfad war nie
+     * erreichbar):
+     * 1. Ziel der PREFIX_-Funktion muss eine MIGRATIONSHUB-Instanz sein,
+     *    nicht $this->InstanceID — der Kernel-Wrapper dispatcht auf die
+     *    übergebene Instanz. Existiert keine, gibt es keine Kandidaten
+     *    (hier wird bewusst KEINE angelegt — GetConfigurationForm() darf
+     *    keine Instanzen erzeugen; PrepareMigration() legt sie beim ersten
+     *    Klick an, danach füllt sich auch die Formular-Spalte).
+     * 2. MIGHUB_FindLegacyCandidates hat inzwischen 5 Parameter
+     *    ($excludeInstanceID gegen "migriere von deiner eigenen frisch
+     *    angelegten Instanz") — PREFIX_-Wrapper honorieren PHP-Defaults
+     *    NICHT (SUITE.md-Stolperstein), alle Argumente sind Pflicht. Ein
+     *    vorangestelltes @ hält den ArgumentCountError nicht auf (Fatal,
+     *    keine Warnung — ebenfalls dokumentierte Lehre), deshalb try/catch:
+     *    ein künftiger Vertragsbruch des Partnermoduls degradiert damit zu
+     *    "kein Kandidat" statt das komplette Konfigurationsformular zu
+     *    töten, wie live bei Dietmar geschehen.
      */
-    private function LegacyCandidateFor(string $host, int $unitId): array
+    private function LegacyCandidateFor(string $host, int $unitId, int $excludeInstanceID = 0): array
     {
         if (!function_exists('MIGHUB_FindLegacyCandidates')) {
             return ['id' => 0, 'name' => ''];
         }
-        $found = @MIGHUB_FindLegacyCandidates($this->InstanceID, $host, $this->ReadPropertyInteger('Port'), $unitId);
+        $migIDs = IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
+        $migID  = (int)($migIDs[0] ?? 0);
+        if ($migID <= 0) {
+            return ['id' => 0, 'name' => ''];
+        }
+        try {
+            $found = MIGHUB_FindLegacyCandidates($migID, $host, $this->ReadPropertyInteger('Port'), $unitId, $excludeInstanceID);
+        } catch (\Throwable $e) {
+            $this->SendDebug('LegacyCandidateFor', 'MIGHUB_FindLegacyCandidates fehlgeschlagen: ' . $e->getMessage(), 0);
+            return ['id' => 0, 'name' => ''];
+        }
         if (!is_array($found) || count($found) === 0) {
             return ['id' => 0, 'name' => ''];
         }
@@ -427,12 +457,23 @@ class MeterHubDiscovery extends IPSModule
         $results = is_array($results) ? $results : [];
         $existing = $this->findExistingInstances();
 
+        // MigrationsHub-Instanz VOR der Kandidatensuche sicherstellen —
+        // LegacyCandidateFor() braucht sie als Aufrufziel (PREFIX_-Wrapper
+        // dispatcht auf die Instanz) und legt selbst bewusst keine an.
+        // Ohne diese Reihenfolge wäre der erste Klick ein Henne-Ei-Problem:
+        // keine Instanz → keine Kandidaten → nie eine Instanz angelegt.
+        $migIDs = IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
+        $migID = $migIDs[0] ?? 0;
+        if ($migID <= 0) {
+            $migID = IPS_CreateInstance(self::MIGRATIONSHUB_GUID);
+        }
+
         foreach ($results as $r) {
             $targetID = $existing[$r['ip'] . '|' . $r['unitId']] ?? 0;
             if ($targetID <= 0) {
                 continue; // Für diese Zeile wurde noch keine MeterHub-Instanz erstellt.
             }
-            $legacy = $this->LegacyCandidateFor($r['ip'], $r['unitId']);
+            $legacy = $this->LegacyCandidateFor($r['ip'], $r['unitId'], (int)$targetID);
             if ($legacy['id'] <= 0) {
                 continue;
             }
@@ -445,11 +486,6 @@ class MeterHubDiscovery extends IPSModule
                 IPS_ApplyChanges($targetID);
             }
 
-            $migIDs = IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
-            $migID = $migIDs[0] ?? 0;
-            if ($migID <= 0) {
-                $migID = IPS_CreateInstance(self::MIGRATIONSHUB_GUID);
-            }
             MIGHUB_PrefillMigration($migID, $legacy['id'], $targetID);
 
             $say('✅ Migration vorbereitet: „' . $legacy['name'] . '" (#' . $legacy['id'] . ') → „' .
