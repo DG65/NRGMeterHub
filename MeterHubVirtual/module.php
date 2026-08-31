@@ -631,8 +631,8 @@ class MeterHubVirtual extends IPSModule
      * NICHT in die Formel-Tabelle (Dietmars Rückmeldung 31.08.2026: das
      * bisherige automatische Eintragen jedes Fundes war unübersichtlich,
      * jeder unerwünschte Fund musste einzeln entfernt werden). Aufnehmen
-     * geschieht bewusst über den nativen Symcon-Variablenpicker am „+" der
-     * Tabelle unten.
+     * geschieht bewusst über den nativen Symcon-Variablenpicker am
+     * „Hinzufügen"-Knopf der Tabelle unten.
      *
      * Die Filter kommen aus der Maske und werden im onClick übergeben, damit
      * eine noch nicht übernommene Änderung sofort greift.
@@ -796,12 +796,12 @@ class MeterHubVirtual extends IPSModule
         // (bis 0.24.4: jeder Fund landete automatisch als neue Zeile, musste
         // bei Nichtgefallen einzeln mit dem Papierkorb entfernt werden —
         // genau das fand Dietmar unübersichtlich/„nicht wirklich
-        // intelligent"). Aufnehmen geschieht jetzt bewusst über das normale
-        // „+" der Tabelle unten mit dem eingebauten Symcon-Variablenpicker —
-        // diese Liste hier dient nur als Fundstellen-Übersicht zum
-        // Nachschlagen.
+        // intelligent"). Aufnehmen geschieht jetzt bewusst über den
+        // normalen „Hinzufügen"-Knopf der Tabelle unten mit dem eingebauten
+        // Symcon-Variablenpicker — diese Liste hier dient nur als
+        // Fundstellen-Übersicht zum Nachschlagen.
         $msg = count($found) > 0
-            ? '🔎 ' . count($found) . ' Gerät(e) gefunden: ' . implode(', ', $found) . '. Zum Aufnehmen unten in der Tabelle „+" klicken und die passende Variable auswählen — hier wird nichts automatisch eingetragen.'
+            ? '🔎 ' . count($found) . ' Gerät(e) gefunden: ' . implode(', ', $found) . '. Zum Aufnehmen unten in der Tabelle „Hinzufügen" klicken und die passende Variable auswählen — hier wird nichts automatisch eingetragen.'
             : '🔎 Keine Geräte gefunden.';
         $msg .= "\nSuchbereich: " . ($scope ? implode(', ', $scope) : 'ganze Installation, ungefiltert');
         $msg .= sprintf("\nÜbersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler, %d aus anderen NRG-Stack-Modulen, %d schon in einer anderen virtuellen Zähler-Instanz, %d außerhalb des Suchbereichs, %d durch den Namensfilter, %d ohne Energiezähler, %d länger als 7 Tage still.",
@@ -986,7 +986,7 @@ class MeterHubVirtual extends IPSModule
             $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyUsedElsewhere', 'caption' => 'Nur Datenpunkte zeigen, die schon in einer ANDEREN virtuellen Zähler-Instanz stecken (zum gezielten Prüfen auf Doppelverwendung/Aufteilung) — sonst werden sie wie gewohnt ausgeblendet'];
             $meterItems[] = ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive, $ScanOnlyUsedElsewhere);'];
             $meterItems[] = ['type' => 'Label', 'name' => 'ScanResult', 'caption' => '', 'visible' => false];
-            $meterItems[] = ['type' => 'Label', 'caption' => '➕ Aufnehmen: in der Tabelle unten auf „+" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen (Suche/Baum wie beim Suchlauf oben — auch OHNE vorherigen Suchlauf jederzeit möglich).'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '➕ Aufnehmen: unter der Tabelle auf „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen (Suche/Baum wie beim Suchlauf oben — auch OHNE vorherigen Suchlauf jederzeit möglich).'];
             $meterItems[] = ['type' => 'Label', 'caption' => '📐 „Anteil (%)" setzen: 100 = voll addieren, −100 = voll abziehen, jeder Wert dazwischen ein Teil-Anteil. Beispiel: eine Einspeisung wird per Quotierung zur Hälfte zwei Mietern zugerechnet → in der Instanz für Mieter A 50, in der für Mieter B ebenfalls 50 (oder −50, je nachdem ob addiert oder abgezogen werden soll) bei DERSELBEN Variable.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Zeilen lassen sich per Drag & Drop umsortieren — rein zur eigenen Übersicht, das Ergebnis ist unabhängig von der Reihenfolge.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '✅ Zuletzt „Übernehmen" klicken (Formular-Ende).'];
@@ -1009,7 +1009,7 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'Label', 'caption' => 'Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere Instanzen: eine Instanz rechnet den Zwischenwert, dessen Ausgabe wird als ganz normale Zeile in der nächsten Instanz verdrahtet — nicht mehr innerhalb einer einzigen Instanz.'],
                         ['type' => 'Label', 'caption' => '━━━ Schritt für Schritt ━━━'],
                         ['type' => 'Label', 'caption' => '1. Optional zur Übersicht: „Zähler suchen" unten klicken — zeigt brauchbare Kandidaten im Ergebnistext, trägt aber nichts ein.'],
-                        ['type' => 'Label', 'caption' => '2. Je Zähler eine Zeile: „+" in der Tabelle klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen.'],
+                        ['type' => 'Label', 'caption' => '2. Je Zähler eine Zeile: unter der Tabelle „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen.'],
                         ['type' => 'Label', 'caption' => '3. „Anteil (%)" setzen: 100 addiert voll, −100 zieht voll ab, jeder Wert dazwischen ist ein Teil-Anteil (siehe Beispiel „Aufteilen").'],
                         ['type' => 'Label', 'caption' => '4. „Übernehmen“ klicken.'],
                         ['type' => 'Label', 'caption' => '5. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt die fertige Formel MIT aktuellen Werten, ❌ nennt genau, was noch fehlt.'],

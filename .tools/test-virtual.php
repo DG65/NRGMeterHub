@@ -259,7 +259,7 @@ $all = $foundNames($allCap);
 // und 5 und werden von der Kreuz-Instanz-Prüfung (Block 6d) korrekt aus dem
 // Suchlauf ausgeblendet.
 check('ungefiltert findet die drei noch unbenutzten Steckdosen', count($all) === 3, implode(' | ', $all));
-check('Fundtext verweist aufs manuelle Aufnehmen über "+", schreibt nichts automatisch', str_contains($allCap, 'Zum Aufnehmen unten in der Tabelle „+"'), $allCap);
+check('Fundtext verweist aufs manuelle Aufnehmen über "Hinzufügen", schreibt nichts automatisch', str_contains($allCap, 'Zum Aufnehmen unten in der Tabelle „Hinzufügen"'), $allCap);
 check('Nodes-Formularfeld bleibt beim Suchlauf unberührt (kein automatisches Eintragen mehr)', !isset($GLOBALS['FORMFIELDS']['Nodes']));
 $bereich = $foundNames($run(10, '', false, false));
 check('Bereichsfilter schließt anderen Ast aus', !in_array('Steckdose Garten', $bereich, true), implode(' | ', $bereich));

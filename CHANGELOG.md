@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.6-beta.1 (2026-08-31)
+
+- **Fix: Hilfetexte sprachen von einem „+"-Symbol, das es so gar nicht gibt.** Dietmars
+  Live-Fund: bei leerer Formel-Tabelle zeigt Symcon den Hinzufügen-Knopf als ausgeschriebenes
+  „HINZUFÜGEN", nicht als kleines „+". Alle Hilfetexte (Doku-Panel, Zähler-Panel, Suchlauf-
+  Ergebnistext) sprechen jetzt vom „Hinzufügen"-Knopf statt einem nicht vorhandenen Symbol.
+
 ## 0.24.5-beta.1 (2026-08-31)
 
 - **Suchlauf schreibt nichts mehr automatisch — reine Fundstellen-Übersicht.** Dietmars
