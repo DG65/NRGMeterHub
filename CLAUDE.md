@@ -1221,3 +1221,46 @@ der Bug wäre auch mit vollständiger Testabdeckung des restlichen Moduls unentd
 Jetzt registriert der Prüfstand eine Fake-Archive-Control-Instanz und der
 `AC_SetAggregationType`-Stub zeichnet Aufrufe auf, damit Block 2 den Aggregationstyp je
 Ausgabe wirklich verifizieren kann.
+
+## Automatische Archiv-Verdichtung aus dem Update-Intervall (31.08.2026)
+
+**Auslöser:** Sepps Rückmeldung zur eben behobenen Aggregationstyp-Frage: „Bei 100 Zählern und
+anderen Werten... ist der Konfigurationsaufwand schon riesig... Je Datenpunkt solltest Du von
+1 Minute ausgehen bis die Verdichtung eingestellt ist" (Screenshot der Konsole: „Verdichte
+geloggte Werte" mit „Direktes Verdichten" + „Verdichtung nach Monatsende"-Liste). Erst dachte
+ich, „Verdichtung" sei eine Instanz-weite Archive-Control-Einstellung — Dietmars Screenshot
+widerlegte das direkt: es ist eine PRO-VARIABLE-Einstellung, keine zentrale.
+
+**API verifiziert, nicht geraten** (SDK-Doku `AC_SetCompaction`):
+`AC_SetCompaction(int $InstanzID, int $VariablenID, int $MonatsVersatz, int $Verdichtungstyp): bool`
+— `$MonatsVersatz`: `-1` = sofort, `0` = nach Abschluss des aktuellen Monats, `N` = nach N
+Monaten. `$Verdichtungstyp`: `0`=1×/Min, `1`=1×/5 Min, `2`=1×/Std, `3`=1×/Tag, `4`=1×/Woche,
+`5`=1×/Monat, `6`=1×/Jahr, `7`=löschen, `-1`=aus.
+
+**Dietmars bevorzugte Staffelung** (für Datenpunkte mit „richtig vielen Werten"): direkt 1×/Min,
+nach 1 Monat 1×/5 Min, nach 12 Monaten 1×/Std — entspricht `[[-1,0],[1,1],[12,2]]`.
+
+**Warum aus dem Intervall abgeleitet statt aus der Archiv-Historie geschätzt** (Dietmars
+eigentliche Frage — „kann man die im Archiv eintreffenden Datensätze benützen"): Beide Module
+kennen ihre Update-Frequenz bereits mit Sicherheit über eine eigene Property
+(`Interval`/`IntervalFast`/`IntervalSlow`) — das aus der Historie zu schätzen hätte zwei echte
+Nachteile gehabt: eine frisch angelegte Instanz hat noch KEINE Historie (nichts zum Schätzen),
+und bei „nur Änderungen aufzeichnen" wäre die tatsächliche Log-Dichte bei ruhigen Werten (z. B.
+nachts) niedriger als die wahre Update-Frequenz — eine Fehlerquelle, die das bekannte
+Intervall gar nicht erst hat.
+
+**`CompactionPlan(int $intervalSeconds): array`** — jede Stufe nur, wenn ihre Ziel-Auflösung
+GRÖBER ist als das Roh-Intervall (sonst Leerlauf, unnötiger Eintrag in der Archiv-Maske):
+< 60 s → alle drei Stufen; 60–299 s → „direkt" entfällt; 300–3599 s → nur die 12-Monats-Stufe;
+≥ 3600 s → gar keine (Rohdaten sind bereits gröber als jede Stufe). In beiden Modulen
+identisch dupliziert (kein Code-Sharing zwischen IPS-Modulen möglich).
+
+**Wo genau eingebaut:** dieselbe `SetArchive()`-Methode, die eben schon für den
+Aggregationstyp-Fix erweitert wurde — läuft bei jedem `ApplyChanges()`, kein neuer Trigger
+nötig. `MeterHub` übergibt `IntervalFast` für alles außer der Gruppe `"energy"` (die läuft
+über `readSlow()`, siehe die beiden Treiber-Methoden), sonst `IntervalSlow`.
+
+Verifiziert in `.tools/test-virtual.php` Block 20 (`CompactionPlan()` an allen vier
+Intervall-Grenzen, in BEIDEN Modulen identisch) — Block 2 prüft zusätzlich, dass die volle
+Staffelung bei `MeterHubVirtual`s Standard-Intervall (10 s) tatsächlich über
+`AC_SetCompaction()` ankommt.

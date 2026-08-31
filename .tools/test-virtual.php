@@ -105,6 +105,7 @@ function IPS_ApplyChanges($iid) {
 }
 function AC_SetLoggingStatus($a, $b, $c) {}
 function AC_SetAggregationType($a, $vid, $type) { $GLOBALS['AGGTYPE'][$vid] = $type; }
+function AC_SetCompaction($a, $vid, $offset, $type) { $GLOBALS['COMPACTION'][$vid][] = [$offset, $type]; }
 function AC_GetLoggingStatus($a, $vid) { return isset($GLOBALS['ARCHIVED'][$vid]); }
 
 class IPSModule
@@ -202,6 +203,10 @@ check('Einspeisung = 8000 (nur Hausanschluss hat einen Einspeisungszähler)', ab
 check('Leistung bekommt Aggregationstyp "Standard" (0)', ($GLOBALS['AGGTYPE'][$outs['power']] ?? null) === 0, json_encode($GLOBALS['AGGTYPE'] ?? null));
 check('Bezug bekommt Aggregationstyp "Zähler" (1)', ($GLOBALS['AGGTYPE'][$outs['energy_import']] ?? null) === 1, json_encode($GLOBALS['AGGTYPE'] ?? null));
 check('Einspeisung bekommt Aggregationstyp "Zähler" (1)', ($GLOBALS['AGGTYPE'][$outs['energy_export']] ?? null) === 1, json_encode($GLOBALS['AGGTYPE'] ?? null));
+// Dietmars Vorgabe 31.08.2026: bei Interval=10s (Standard, "richtig viele
+// Werte") die volle Staffelung — direkt 1×/Minute, nach 1 Monat 1×/5 Min,
+// nach 12 Monaten 1×/Stunde.
+check('Verdichtungs-Staffelung bei Interval=10s vollständig gesetzt', ($GLOBALS['COMPACTION'][$outs['power']] ?? null) === [[-1, 0], [1, 1], [12, 2]], json_encode($GLOBALS['COMPACTION'][$outs['power']] ?? null));
 
 echo "\n3) Prüfung verhindert den zweiten virtuellen Zähler\n";
 $GLOBALS['FORMFIELDS'] = [];
@@ -713,6 +718,17 @@ $res19 = $fresh2->AddDevice($picked);
 check('19b: Übernehmen aus der Auswahlliste funktioniert genau wie beim direkten Geräte-Picker', str_contains($res19, '✅') && str_contains($res19, 'Kaffeemaschine'), $res19);
 $rows19 = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
 check('19b: Zeile mit der über Profil gefundenen Leistungs-ID angelegt', ($rows19[0]['PowerID'] ?? 0) === 911 && ($rows19[0]['EnergyImportID'] ?? 0) === 0, json_encode($rows19));
+
+echo "\n20) CompactionPlan() — Staffelung skaliert mit dem Update-Intervall (Dietmars Vorgabe 31.08.2026)\n";
+$plan = new ReflectionMethod('MeterHubVirtual', 'CompactionPlan');
+$anyInstance = $GLOBALS['MODOBJ'][$new];
+check('20a: < 60s (typisch, viele Werte) — volle Staffelung', $plan->invoke($anyInstance, 10) === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 10)));
+check('20b: 60s..299s — "direkt" entfällt (wäre Leerlauf), Rest bleibt', $plan->invoke($anyInstance, 60) === [[1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 60)));
+check('20c: 300s..3599s — nur noch die 12-Monats-Stufe', $plan->invoke($anyInstance, 300) === [[12, 2]], json_encode($plan->invoke($anyInstance, 300)));
+check('20d: >= 3600s — bereits gröber als jede Stufe, keine Verdichtung nötig', $plan->invoke($anyInstance, 3600) === [], json_encode($plan->invoke($anyInstance, 3600)));
+$planHub = new ReflectionMethod('MeterHub', 'CompactionPlan');
+$hubInstance = new MeterHub(998);
+check('20e: identische Staffelung im Schwestermodul MeterHub', $planHub->invoke($hubInstance, 10) === [[-1, 0], [1, 1], [12, 2]], json_encode($planHub->invoke($hubInstance, 10)));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

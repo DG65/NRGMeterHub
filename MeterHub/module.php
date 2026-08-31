@@ -3646,7 +3646,12 @@ class MeterHub extends IPSModule
             // an Dietmars Anlage verifiziert (echte Wirkarbeit-Zähler dort
             // stehen auf Aggregationstyp 1) und durch Sepps Testerfund am
             // Schwestermodul MeterHubVirtual aufgedeckt (31.08.2026).
-            $this->SetArchive($vid, $group === 'energy');
+            // Intervall für die Verdichtungs-Staffelung: "energy"-Gruppe
+            // wird über readSlow() aktualisiert, alles andere über
+            // readFast() (siehe die beiden Treiber-Methoden) — daher
+            // IntervalSlow bzw. IntervalFast als Update-Frequenz-Signal.
+            $interval = $group === 'energy' ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
+            $this->SetArchive($vid, $group === 'energy', $interval);
         }
     }
 
@@ -3699,12 +3704,43 @@ class MeterHub extends IPSModule
         return 0;
     }
 
-    private function SetArchive($vid, bool $counter = false)
+    /**
+     * Verdichtungs-Staffelung aus dem bekannten Update-Intervall ableiten
+     * (Dietmars Vorgabe 31.08.2026, für Datenpunkte, die „richtig viele
+     * Werte" bekommen: direkt auf 1×/Minute, nach 1 Monat auf 1×/5 Minuten,
+     * nach 12 Monaten auf 1×/Stunde). Jede Stufe nur, wenn ihre Ziel-
+     * Auflösung tatsächlich GRÖBER ist als das Roh-Intervall — sonst wäre
+     * sie ein Leerlauf. Bewusst aus der Instanz-eigenen Konfiguration
+     * (IntervalFast/IntervalSlow) abgeleitet statt aus der Archiv-Historie
+     * geschätzt — die ist bei einer frisch angelegten Instanz noch leer.
+     * Rückgabe: Liste von [MonatsVersatz, Verdichtungstyp]-Paaren für
+     * `AC_SetCompaction()`. Identisch zum Schwestermodul MeterHubVirtual —
+     * bewusst dupliziert, Module teilen sich keinen Code.
+     */
+    private function CompactionPlan(int $intervalSeconds): array
+    {
+        $plan = [];
+        if ($intervalSeconds < 60) {
+            $plan[] = [-1, 0]; // direkt: 1×/Minute
+        }
+        if ($intervalSeconds < 300) {
+            $plan[] = [1, 1]; // nach 1 Monat: 1×/5 Minuten
+        }
+        if ($intervalSeconds < 3600) {
+            $plan[] = [12, 2]; // nach 12 Monaten: 1×/Stunde
+        }
+        return $plan;
+    }
+
+    private function SetArchive($vid, bool $counter = false, int $intervalSeconds = 5)
     {
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) > 0) {
             AC_SetLoggingStatus($archiveIDs[0], $vid, true);
             AC_SetAggregationType($archiveIDs[0], $vid, $counter ? 1 : 0);
+            foreach ($this->CompactionPlan($intervalSeconds) as [$offset, $type]) {
+                AC_SetCompaction($archiveIDs[0], $vid, $offset, $type);
+            }
         }
     }
 

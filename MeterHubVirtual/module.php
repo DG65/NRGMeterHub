@@ -457,16 +457,49 @@ class MeterHubVirtual extends IPSModule
             // Testerfund 31.08.2026: „Bei „Bezug“ ist der falsche Zähler-
             // Typ, ist Standard, muss Zähler sein“, da bisher pauschal
             // Standard (0) für jede Ausgabe gesetzt wurde.
-            $this->SetArchive($vid, $field !== 'power');
+            $this->SetArchive($vid, $field !== 'power', $this->ReadPropertyInteger('Interval'));
         }
     }
 
-    private function SetArchive($vid, bool $counter = false)
+    /**
+     * Verdichtungs-Staffelung aus dem bekannten Update-Intervall ableiten
+     * (Dietmars Vorgabe 31.08.2026, für Datenpunkte, die „richtig viele
+     * Werte" bekommen: direkt auf 1×/Minute, nach 1 Monat auf 1×/5 Minuten,
+     * nach 12 Monaten auf 1×/Stunde). Jede Stufe nur, wenn ihre Ziel-
+     * Auflösung tatsächlich GRÖBER ist als das Roh-Intervall — sonst wäre
+     * sie ein Leerlauf (nichts zu verdichten, bläht nur die Archiv-
+     * Einstellungsseite auf). Bewusst aus der Instanz-eigenen Konfiguration
+     * abgeleitet statt aus der Archiv-Historie geschätzt: die ist bei einer
+     * frisch angelegten Instanz noch leer, und bei „nur Änderungen
+     * aufzeichnen" wäre die tatsächliche Log-Dichte ohnehin kein
+     * zuverlässiges Maß für die WIRKLICHE Update-Frequenz.
+     * Rückgabe: Liste von [MonatsVersatz, Verdichtungstyp]-Paaren für
+     * `AC_SetCompaction()`.
+     */
+    private function CompactionPlan(int $intervalSeconds): array
+    {
+        $plan = [];
+        if ($intervalSeconds < 60) {
+            $plan[] = [-1, 0]; // direkt: 1×/Minute
+        }
+        if ($intervalSeconds < 300) {
+            $plan[] = [1, 1]; // nach 1 Monat: 1×/5 Minuten
+        }
+        if ($intervalSeconds < 3600) {
+            $plan[] = [12, 2]; // nach 12 Monaten: 1×/Stunde
+        }
+        return $plan;
+    }
+
+    private function SetArchive($vid, bool $counter = false, int $intervalSeconds = 10)
     {
         $ids = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($ids) > 0) {
             AC_SetLoggingStatus($ids[0], $vid, true);
             AC_SetAggregationType($ids[0], $vid, $counter ? 1 : 0);
+            foreach ($this->CompactionPlan($intervalSeconds) as [$offset, $type]) {
+                AC_SetCompaction($ids[0], $vid, $offset, $type);
+            }
         }
     }
 

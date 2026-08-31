@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.24.10-beta.1 (2026-08-31)
+
+- **Neu: automatische Archiv-Verdichtung, aus dem Update-Intervall abgeleitet.** Sepps
+  Rückmeldung „bei 100 Zählern ist das eine Mordsarbeit, die immer wieder einzustellen" traf
+  einen echten wunden Punkt — jede Ausgabevariable brauchte bislang von Hand eine Verdichtungs-
+  Staffelung in der Konsole (~1 Minute pro Datenpunkt). Beide Module (`MeterHub` und
+  `MeterHubVirtual`) setzen jetzt automatisch bei jedem „Übernehmen“/Reload eine Staffelung
+  über `AC_SetCompaction()` (Dietmars bevorzugte Werte für Datenpunkte mit „richtig vielen
+  Werten": direkt auf 1×/Minute, nach 1 Monat auf 1×/5 Minuten, nach 12 Monaten auf
+  1×/Stunde) — abgeleitet aus dem TATSÄCHLICH bekannten Update-Intervall der Instanz
+  (`Interval` bzw. `IntervalFast`/`IntervalSlow`), nicht geschätzt aus der Archiv-Historie
+  (die wäre bei einer frischen Instanz leer und bei „nur Änderungen aufzeichnen" ohnehin kein
+  verlässliches Maß). Jede Stufe wird nur gesetzt, wenn ihre Ziel-Auflösung tatsächlich gröber
+  ist als das Roh-Intervall — sonst wäre sie Leerlauf.
+
 ## 0.24.9-beta.1 (2026-08-31)
 
 - **Fix: Bezug/Einspeisung bekamen den falschen Archiv-Aggregationstyp.** Sepps Testerfund:
