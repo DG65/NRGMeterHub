@@ -151,6 +151,23 @@ class MeterHubVirtual extends IPSModule
         }
     }
 
+    /**
+     * Benennt die Instanz um. Zunächst angenommen, Symcon zeige dafür schon
+     * ein natives Namensfeld am Kopf jeder Instanzseite — ungeprüfte
+     * Behauptung, die Dietmar live widerlegt hat ("ich finde nichts").
+     * Deshalb jetzt direkt im Formular, unabhängig vom Client (Konsole,
+     * WebFront, App). `IPS_SetName()` ist KEINE registrierte Property und
+     * nimmt an `ApplyChanges()`/„Übernehmen" nicht teil — wirkt deshalb
+     * sofort per `onChange`.
+     */
+    public function RenameInstance(string $name)
+    {
+        $name = trim($name);
+        if ($name !== '' && $name !== IPS_GetName($this->InstanceID)) {
+            IPS_SetName($this->InstanceID, $name);
+        }
+    }
+
     /** Enthält $rawRows noch Zeilen im alten Baum-Format (Kürzel/„hängt hinter")? */
     private function NeedsMigration(array $rawRows): bool
     {
@@ -1019,6 +1036,14 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'Label', 'caption' => 'Zeilen lassen sich per Drag & Drop umsortieren, rein zur eigenen Übersicht — das Ergebnis ist unabhängig von der Reihenfolge.'],
                     ],
                 ],
+                // Name der Instanz — Dietmars Frage 31.08.2026, ob sich der
+                // nicht auch direkt im eigenen Formular setzen lassen sollte
+                // (er fließt als Dashboard-Label in GetFunctions() ein).
+                // "InstanceName" ist bewusst KEINE registrierte Property,
+                // sondern nur mit dem aktuellen IPS-Namen vorbelegt —
+                // IPS_SetName() läuft sofort per onChange, unabhängig vom
+                // Client (Konsole/WebFront/App) und von "Übernehmen".
+                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => 'Name dieser Instanz', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUBV_RenameInstance($id, $InstanceName);'],
                 ['type' => 'CheckBox', 'name' => 'Active', 'caption' => 'Berechnung aktiv'],
                 ['type' => 'Select', 'name' => 'Function', 'caption' => 'Funktion (fürs Dashboard)', 'options' => $funcOptions],
                 // Standort: reines Freitext-Label (Raum/Geschoss …), bewusst

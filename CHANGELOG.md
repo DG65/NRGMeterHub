@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.7-beta.1 (2026-08-31)
+
+- **Neu: Name der Instanz direkt im Formular änderbar.** Ich hatte zunächst behauptet, Symcon
+  zeige dafür schon ein natives Feld am Kopf jeder Instanzseite — Dietmar konnte es live nicht
+  finden ("ich finde nichts!"), die Behauptung war ungeprüft und falsch bzw. zumindest nicht
+  in seinem Client auffindbar. Jetzt gibt es das Feld „Name dieser Instanz" direkt im
+  Formular, wirkt sofort per `onChange` (`IPS_SetName()`, unabhängig von „Übernehmen" — der
+  Name ist keine Modul-Property), client-unabhängig (Konsole/WebFront/App).
+
 ## 0.24.6-beta.1 (2026-08-31)
 
 - **Fix: Hilfetexte sprachen von einem „+"-Symbol, das es so gar nicht gibt.** Dietmars

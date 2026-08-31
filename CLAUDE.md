@@ -1131,3 +1131,21 @@ zusammen mit Spalten-Sortierung, wird hier nicht vermisst).
 Verifiziert in `.tools/test-virtual.php` Block 15 (60/40-Aufteilung derselben Variable über
 zwei Instanzen, Gegenprobe Doppelzählung INNERHALB einer Instanz bleibt Fehler, Vorschau zeigt
 Anteil + anteiligen Beitrag) und Block 16 (Brücke `MHUB_CreateVirtual()` erzeugt `Factor`).
+
+## Lehre: Symcon-UI-Verhalten nicht aus der Erinnerung behaupten (31.08.2026)
+
+Auf Dietmars Frage „sollte man im Konfigurationsformular nicht den Namen der Instanz setzen
+können?" hatte ich aus der Erinnerung behauptet, Symcon zeige dafür bereits ein natives,
+modulunabhängiges Namensfeld am Kopf jeder Instanzseite — ungeprüft. Dietmar fand es live
+nicht („ich finde nichts!"). Ob das an seinem Client (Symcon-App vs. Browser-Konsole/
+WebFront) lag oder die Behauptung schlicht falsch war, blieb ungeklärt — korrigiert wurde
+direkt im Modul: neues Feld `InstanceName` im Formular, `RenameInstance()` ruft `IPS_SetName()`
+sofort per `onChange` auf (keine Modul-Property, nimmt nicht an „Übernehmen" teil).
+
+**Lehre:** Aussagen über natives Symcon-UI-Verhalten (welche Felder eine Instanzseite von sich
+aus zeigt, wie ein Picker-Dialog aussieht/reagiert) gehören zur selben Kategorie wie API-
+Verhalten — siehe [[feedback-symcon-api-verifizieren]] bzw. „Registerkarten: erst messen, dann
+glauben" oben. Ohne Live-Zugriff auf Dietmars Anlage oder eine echte Doku-Quelle gilt: lieber
+offen als unsicher kennzeichnen oder eine unabhängig vom UI-Verhalten funktionierende Lösung
+bauen (wie hier: das Feld einfach selbst ins Formular), statt eine Vermutung als Tatsache zu
+verkaufen.

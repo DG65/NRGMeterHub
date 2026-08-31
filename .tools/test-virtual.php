@@ -622,5 +622,16 @@ $bridgeNodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
 check('16: Zeilen haben Factor-Feld', array_key_exists('Factor', $bridgeNodes[0] ?? []), json_encode($bridgeNodes[0] ?? null));
 check('16: kein Sign-Feld mehr in frisch erzeugten Zeilen', !array_key_exists('Sign', $bridgeNodes[0] ?? []), json_encode($bridgeNodes[0] ?? null));
 
+echo "\n17) Name der Instanz direkt im Formular (Dietmar fand kein natives Feld, 31.08.2026)\n";
+$form17 = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+$nameField = null;
+foreach ($form17['elements'] ?? [] as $el) { if (($el['name'] ?? '') === 'InstanceName') { $nameField = $el; } }
+check('17a: Namensfeld vorhanden', $nameField !== null);
+check('17a: Namensfeld vorbelegt mit dem aktuellen IPS-Namen', ($nameField['value'] ?? null) === IPS_GetName($new), json_encode($nameField));
+$GLOBALS['MODOBJ'][$new]->RenameInstance('Hausanschluss (umbenannt)');
+check('17b: RenameInstance() ändert den echten IPS-Namen sofort', IPS_GetName($new) === 'Hausanschluss (umbenannt)', IPS_GetName($new));
+$GLOBALS['MODOBJ'][$new]->RenameInstance('   ');
+check('17c: leerer/nur-Leerzeichen-Name wird ignoriert (kein Absturz, alter Name bleibt)', IPS_GetName($new) === 'Hausanschluss (umbenannt)', IPS_GetName($new));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
