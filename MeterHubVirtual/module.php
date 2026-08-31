@@ -1023,22 +1023,48 @@ class MeterHubVirtual extends IPSModule
     }
 
     /** Formel je Feld als Klartext (Vorschau im Formular). */
+    /** Zahl im Format der jeweiligen NRG-Stack-Profile (0 bzw. 1 Nachkommastelle, deutsches Komma). */
+    private function FormatValue(float $v, string $field): string
+    {
+        return number_format($v, $field === 'power' ? 0 : 1, ',', '.');
+    }
+
+    /**
+     * Formel je Feld als Klartext, MIT den aktuellen Live-Werten (Dietmars
+     * Anregung 31.08.2026: „Prüfung & Vorschau" sollte nicht nur die
+     * Struktur, sondern auch die tatsächlichen Werte zeigen) — dieselben
+     * Zahlen, die die nächste Recalc() auch berechnen würde, nur schon beim
+     * bloßen Öffnen des Formulars sichtbar, ohne extra „Jetzt neu
+     * berechnen" klicken zu müssen.
+     */
     private function FormulaPreview(array $nodes): array
     {
+        $units = ['power' => 'W', 'imp' => 'kWh', 'exp' => 'kWh'];
         $lines = [];
         foreach ([['power', 'Leistung'], ['imp', 'Bezug'], ['exp', 'Einspeisung']] as [$f, $lbl]) {
             $terms = [];
+            $sum   = 0.0;
             foreach ($nodes as $n) {
-                if ($n[$f] > 0) {
-                    $name = $n['name'] !== '' ? $n['name'] : '(ohne Namen)';
-                    $terms[] = ($n['sign'] === '-' ? '−' : '+') . ' ' . $name;
+                $vid = $n[$f];
+                if ($vid <= 0) {
+                    continue;
                 }
+                $name = $n['name'] !== '' ? $n['name'] : '(ohne Namen)';
+                $sign = $n['sign'] === '-' ? -1 : 1;
+                if (IPS_VariableExists($vid)) {
+                    $val = (float)GetValue($vid);
+                    $sum += $sign * $val;
+                    $valText = $this->FormatValue($val, $f) . ' ' . $units[$f];
+                } else {
+                    $valText = 'Wert fehlt';
+                }
+                $terms[] = ($sign < 0 ? '−' : '+') . ' ' . $name . ' (' . $valText . ')';
             }
             if ($terms) {
                 $expr = implode('  ', $terms);
                 // Führendes „+ “ weglassen, liest sich als Summe natürlicher.
                 $expr = preg_replace('/^\+ /', '', $expr);
-                $lines[] = '   ' . $lbl . ' = ' . $expr;
+                $lines[] = '   ' . $lbl . ' = ' . $expr . '  =  ' . $this->FormatValue($sum, $f) . ' ' . $units[$f];
             }
         }
         if (!$lines) {

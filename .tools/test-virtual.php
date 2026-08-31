@@ -426,6 +426,8 @@ check('10b: vorhandene Ausgaben weiterhin NICHT gelöscht (allgemeiner Fehlerfal
 // 10c) Gegenprobe: Formel sauber reparieren — jetzt MUSS RegisterVariables()
 // wieder normal arbeiten, sonst würde das Sicherheitsnetz zur Dauerblockade.
 $cleanNodes = $badNodes;
+$cleanNodes[0]['EnergyImportID'] = 104; // Hausanschluss-Bezug, real vorhanden
+$cleanNodes[0]['EnergyExportID'] = 105; // Hausanschluss-Einspeisung, real vorhanden
 $cleanNodes[1]['EnergyImportID'] = 204; // Wärmepumpe-Bezug, real vorhanden
 $cleanNodes[1]['PowerID'] = 203;
 $cleanNodes[2]['PowerID'] = 303;
@@ -543,6 +545,16 @@ check('13c: gespeicherte Property bleibt unangetastet, bis "Übernehmen" geklick
 $GLOBALS['FORMFIELDS'] = [];
 $GLOBALS['MODOBJ'][$sib]->ApplyLocationPreset('');
 check('13d: leerer Vorschlag (Platzhalter "— Vorschlag wählen —") tut nichts', !array_key_exists('value', $GLOBALS['FORMFIELDS']['Location'] ?? []));
+
+echo "\n14) Prüfung & Vorschau zeigt die aktuellen Live-Werte, nicht nur die Struktur (Dietmars Anregung 31.08.2026)\n";
+$form14 = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+$checkPanel14 = null;
+foreach ($form14['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🔎  Prüfung & Vorschau') { $checkPanel14 = $el; } }
+check('14: Prüfung-Panel vorhanden', $checkPanel14 !== null);
+$checkText14 = implode(' ', array_column($checkPanel14['items'] ?? [], 'caption'));
+check('14: Leistung zeigt die Einzelwerte je Zeile', str_contains($checkText14, '5.000 W') && str_contains($checkText14, '1.200 W') && str_contains($checkText14, '1.800 W'), $checkText14);
+check('14: Leistung zeigt das Rechenergebnis (5000 − 1200 − 1800 = 2000 W)', str_contains($checkText14, '2.000 W'), $checkText14);
+check('14: Bezug zeigt das Rechenergebnis (26.000,0 kWh)', str_contains($checkText14, '26.000,0 kWh'), $checkText14);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

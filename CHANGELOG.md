@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.4-beta.1 (2026-08-31)
+
+- **„Prüfung & Vorschau" zeigt jetzt die aktuellen Live-Werte, nicht nur die Formel-Struktur.**
+  Dietmars Anregung: die Formel-Zeile je Feld (z. B. „Leistung = Hausanschluss − Wärmepumpe −
+  Wallbox") nennt jetzt auch den aktuellen Messwert jedes Terms sowie das Rechenergebnis
+  („… = 5.000 W − 1.200 W − 1.800 W = 2.000 W"), ohne extra „Jetzt neu berechnen" klicken zu
+  müssen — dieselben Zahlen, die die nächste `Recalc()` ohnehin berechnen würde.
+
 ## 0.24.3-beta.1 (2026-08-31)
 
 - **Neu: Feld „Standort" (Raum/Geschoss) an MeterHubVirtual-Instanzen.** Dietmars Auftrag: „alle
