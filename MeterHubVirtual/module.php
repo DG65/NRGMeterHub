@@ -577,7 +577,7 @@ class MeterHubVirtual extends IPSModule
      * Die vier Filter kommen aus der Maske und werden im onClick übergeben,
      * damit eine noch nicht übernommene Änderung sofort greift.
      */
-    public function ScanMeters($root = null, $filter = null, $needEnergy = null, $onlyActive = null)
+    public function ScanMeters(?int $root = null, ?string $filter = null, ?bool $needEnergy = null, ?bool $onlyActive = null)
     {
         // Direktaufruf ohne Argumente (Skript, Konsole): gespeicherte Filter.
         $root       = $root       === null ? $this->ReadPropertyInteger('ScanRoot')       : (int)$root;

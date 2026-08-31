@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.23.4-beta.1 (2026-08-31)
+
+- **Fix: fehlende Parametertypen bei `MHUB_CreateVirtual`, `MHUB_OnChangeMeter` und
+  `MHUBV_ScanMeters` ergänzt** (Fund OCPPHub, per Systemlog-Durchsicht bei Dietmar).
+  Reine Typdeklarationen an bereits vorhandenen Parametern — Parameteranzahl
+  unverändert, kein Bruch der veröffentlichten `PREFIX_`-Signaturen (siehe
+  "PREFIX_-Funktionen sind fixer Arität"). `ScanMeters()` bleibt bewusst nullable
+  (`?int`/`?string`/`?bool`), weil ein Direktaufruf ohne Argumente (Skript/Konsole,
+  „gespeicherte Filter") weiter unterstützt wird.
+- **Geprüft, nicht bei uns:** die von OCPPHub gemeldete
+  „InstanceInterface is not available"-Warnung beim System-Boot betrifft MeterHub
+  strukturell nicht — der Modbus-TCP-Transport (`MHUB_ModbusTcpClient`) nutzt
+  ausschließlich rohe `fsockopen()`-Sockets, keine IPS-I/O-Instanz-Kette
+  (`SendDataToParent`/`HasActiveParent`), an der eine solche Warnung entstehen
+  könnte — bestätigt einen reinen Kernel-Boot-Timing-Fall, kein Modul-Bug.
+
 ## 0.23.3-beta.1 (2026-08-30)
 
 - **Fix: MeterHubDiscoverys Konfigurationsformular stürzte ab, sobald MigrationsHub

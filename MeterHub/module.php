@@ -2389,7 +2389,7 @@ class MeterHub extends IPSModule
      * Geschrieben wird ausschließlich in die NEUE Instanz — an der eigenen
      * Konfiguration ändert der Knopf nichts.
      */
-    public function CreateVirtual($partners = '[]', $role = 'parent')
+    public function CreateVirtual(string $partners = '[]', string $role = 'parent')
     {
         $say = function (string $m) {
             $this->UpdateFormField('VirtualResult', 'caption', $m);
@@ -2784,7 +2784,7 @@ class MeterHub extends IPSModule
      * nur beim Öffnen der Maske, nicht bei jeder Auswahländerung), mit
      * nichts Sinnvollem, was man dort eintragen könnte.
      */
-    public function OnChangeMeter($meter)
+    public function OnChangeMeter(string $meter)
     {
         $isCloud = in_array($meter, self::CLOUD_METERS, true);
         foreach (['InexogyIntro', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton', 'InexogyHintAutoBackfill', 'InexogyAutoBackfillEnabled', 'InexogyAutoBackfillIntervalMin', 'InexogyAutoBackfillDays'] as $f) {
