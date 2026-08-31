@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.24.5-beta.1 (2026-08-31)
+
+- **Suchlauf schreibt nichts mehr automatisch — reine Fundstellen-Übersicht.** Dietmars
+  Rückmeldung: das bisherige automatische Eintragen jedes Fundes in die Formel-Tabelle war
+  „nicht wirklich intelligent" — jeder unerwünschte Fund musste einzeln mit dem Papierkorb
+  entfernt werden. „Zähler suchen" zeigt die brauchbaren Kandidaten jetzt nur noch im
+  Ergebnistext; aufgenommen wird bewusst über das normale „+" der Tabelle mit dem eingebauten
+  Symcon-Variablenpicker (recherchiert: Symcons `Tree`-Element mit `multiAdd` böte
+  Mehrfachauswahl aus dem Objektbaum, filtert dabei aber nicht nach Einheit/Modul — die
+  bestehende Vorprüfung wäre verloren gegangen, deshalb dieser sicherere Weg).
+- **Neu: ein Zähler lässt sich aufteilen — Spalte „Anteil (%)" statt reinem +/−.** Dietmars
+  Praxisfall: eine PV-Anlage mit mehreren Baujahren bekommt die Einspeisevergütung anteilig
+  nach Quotierung. 100/−100 verhalten sich wie bisher „+"/„−", jeder Wert dazwischen ist ein
+  echter Teil-Anteil — dieselbe Variable darf jetzt bewusst in mehreren Instanzen mit
+  unterschiedlichem Anteil stehen (z. B. 60 % Mieter A, 40 % Mieter B), Doppelzählung
+  INNERHALB einer Instanz bleibt weiterhin ein Fehler. Ältere Zeilen mit „Sign" statt „Factor"
+  werden weiterhin gelesen, keine Migration nötig.
+- **Formel-Tabelle per Drag & Drop umsortierbar** (`changeOrder`) — rein organisatorisch, das
+  Rechenergebnis ist ordnungsunabhängig.
+- „Prüfung & Vorschau" zeigt bei einem Teil-Anteil jetzt zusätzlich Rohwert UND anteiligen
+  Beitrag (z. B. „8.000,0 kWh → 4.800,0 kWh" bei 60 %).
+- `MHUB_CreateVirtual()` (Brücke im Hauptmodul) erzeugt jetzt `Factor` statt `Sign`.
+
 ## 0.24.4-beta.1 (2026-08-31)
 
 - **„Prüfung & Vorschau" zeigt jetzt die aktuellen Live-Werte, nicht nur die Formel-Struktur.**

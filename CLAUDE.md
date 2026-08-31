@@ -1075,3 +1075,59 @@ EMS-Repo) überschreibt lokale Änderungen kommentarlos.
 
 Fallback, falls die Kopie (noch) fehlt oder veraltet wirkt:
 https://raw.githubusercontent.com/DG65/NRGEMS/ems-integration/SUITE.md
+
+## Symcon-Recherche: Tree+multiAdd als Mehrfachauswahl (31.08.2026)
+
+Dietmars Frage nach dem schlechten „So wird verdrahtet"-Text: „Gibt es da nicht Schlaueres
+von Symcon?" — gegen die offizielle SDK-Doku geprüft (`konfigurationsformulare/tree`,
+`konfigurationsformulare/selectvariable`), nicht geraten:
+
+- Symcon hat seit 5.0 ein `Tree`-Formularelement. Mit `multiAdd: true` UND genau EINER
+  editierbaren Spalte vom Typ `SelectObject`/`SelectVariable`/… lässt sich beim Klick auf „+"
+  aus dem echten Objektbaum MEHRFACH auswählen — kommt der Idee „Auswahlliste, Klick
+  verschiebt in Berechnungsliste" sehr nahe.
+- **Der Haken:** `SelectVariable` filtert nur nach Variablentyp (Bool/Int/Float/String),
+  `requiredAction`, `requiredLogging` — NICHT nach Profil/Suffix (kein Watt/kWh-Filter) und
+  NICHT nach Modul (keine NRG-Stack-Ausschlussliste). Ein nativer `multiAdd`-Picker hätte
+  JEDE Zahl-Variable der ganzen Anlage gezeigt, meine ganze Vorprüfung (Einheit, NRG-Stack-
+  Ausschluss, Kreuz-Instanz-Warnung) wäre verloren gegangen.
+- **Entscheidung (Dietmar, „Machen wir 1"):** `ScanMeters()` bleibt mit seiner vollen
+  Vorprüfung bestehen, schreibt aber nichts mehr automatisch in die Formel-Tabelle — reine
+  Fundstellen-Übersicht im Ergebnistext. Aufgenommen wird über das normale „+" der Liste mit
+  dem eingebauten `SelectVariable`-Picker (der wiederum den normalen Symcon-Objektbaum samt
+  Suche bietet, nur eben ohne meine Zusatzfilter — die sind ja beim vorherigen Anschauen der
+  Fundliste schon eingeflossen).
+- **Bei künftigem Bedarf für „echtes Ein-Klick-Mehrfachauswählen":** Weg 2 (`multiAdd`-Tree,
+  separat je Feld Leistung/Energie) bleibt eine Option, dann aber ohne Einheiten-/Modul-
+  Vorfilterung — Prüfung müsste NACH dem Hinzufügen laufen statt VORHER auszublenden.
+
+## `Factor`: Zähler aufteilen statt nur addieren/abziehen (31.08.2026)
+
+**Auslöser:** Dietmars Praxisfall — „wenn eine PV-Anlage mehrere PV-Anlagen mit
+unterschiedlichem Baujahr hat, dann bekommt sie die Einspeisevergütung aus der Quotierung.
+Ich würde hier gerne die Möglichkeit schaffen, einen Zähler aufzuteilen … z. B. 50 % der
+Energie jenem Mieter zuordnen." Das bisherige `Sign` ('+'/'-') konnte nur ganz oder gar nicht.
+
+**Fix:** `Sign` zu `Factor` (Prozent, float) verallgemeinert. 100 = wie bisheriges „+", −100 =
+wie bisheriges „−", jeder Wert dazwischen ein echter Teil-Anteil. `Recalc()`/`FormulaPreview()`
+rechnen `sum += (factor/100) * wert`. Rückwärtskompatibel OHNE Migration: `Nodes()` liest
+`Factor`, falls vorhanden, sonst leitet es aus einem alten `Sign`-Feld 100/−100 ab — anders als
+der Baum→Flach-Sprung (0.24.0) ist das nur ein Zahlenfeld-Default, kein strukturell
+inkompatibles Format, das eine Bestätigungsmaske bräuchte.
+
+**Wichtige Konsequenz:** Dieselbe Quellvariable darf jetzt ABSICHTLICH in mehreren Instanzen
+stehen (z. B. 60 % Mieter A, 40 % Mieter B) — `Validate()`s Duplikat-Prüfung bleibt bewusst auf
+EINE Instanz beschränkt (Doppelzählung INNERHALB einer Formel ist immer ein Fehler, dieselbe
+Variable ANTEILIG über mehrere Instanzen ist jetzt der Regelfall für Aufteilung). Ob die
+Anteile über alle Instanzen sinnvoll addieren (z. B. nicht über 100 % hinaus), prüft das Modul
+NICHT automatisch — die Kreuz-Instanz-Warnung im Suchlauf (siehe oben, „schon verwendet in")
+gibt dafür den nötigen Hinweis, mehr nicht.
+
+**UI:** `NumberSpinner`-Spalte „Anteil (%)" (−1000..1000, großzügig für Korrekturfälle) statt
+`Select` mit zwei Werten. `changeOrder: true` an der Liste (Drag & Drop zum Umsortieren, rein
+organisatorisch — das Ergebnis ist ordnungsunabhängig, Symcon erlaubt `changeOrder` nicht
+zusammen mit Spalten-Sortierung, wird hier nicht vermisst).
+
+Verifiziert in `.tools/test-virtual.php` Block 15 (60/40-Aufteilung derselben Variable über
+zwei Instanzen, Gegenprobe Doppelzählung INNERHALB einer Instanz bleibt Fehler, Vorschau zeigt
+Anteil + anteiligen Beitrag) und Block 16 (Brücke `MHUB_CreateVirtual()` erzeugt `Factor`).

@@ -2427,7 +2427,7 @@ class MeterHub extends IPSModule
         // Zähler dieselbe Funktion belegen wie der echte, erschiene der
         // Verbraucher in Kachel und Sankey doppelt.
         $warn = [];
-        $mk = function (int $iid, string $sign) use (&$warn) {
+        $mk = function (int $iid, int $factor) use (&$warn) {
             $p = $this->MeterVarID($iid, 'power_total');
             $i = $this->MeterVarID($iid, 'energy_import');
             $e = $this->MeterVarID($iid, 'energy_export');
@@ -2437,13 +2437,13 @@ class MeterHub extends IPSModule
             if ((string)@IPS_GetProperty($iid, 'MeasureMode') === 'perphase') {
                 $warn[] = '„' . IPS_GetName($iid) . '" misst je Phase drei getrennte Verbraucher; übernommen wird die Summe über alle Phasen.';
             }
-            return ['Name' => IPS_GetName($iid), 'Sign' => $sign, 'PowerID' => $p, 'EnergyImportID' => $i, 'EnergyExportID' => $e];
+            return ['Name' => IPS_GetName($iid), 'Factor' => $factor, 'PowerID' => $p, 'EnergyImportID' => $i, 'EnergyExportID' => $e];
         };
 
-        $nodes   = [$mk($this->InstanceID, '+')];
-        $partnerSign = $role === 'sibling' ? '+' : '-';
+        $nodes   = [$mk($this->InstanceID, 100)];
+        $partnerFactor = $role === 'sibling' ? 100 : -100;
         foreach ($ids as $iid) {
-            $nodes[] = $mk($iid, $partnerSign);
+            $nodes[] = $mk($iid, $partnerFactor);
         }
 
         $iid = IPS_CreateInstance(self::GUID_VIRTUAL);

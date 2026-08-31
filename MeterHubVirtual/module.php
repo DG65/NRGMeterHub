@@ -68,13 +68,14 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.0';
+    private const NEWS_VERSION = '0.24.5';
 
     public function Create()
     {
         parent::Create();
         $this->RegisterPropertyBoolean('Active', true);
-        // Formel: [{Name,Sign('+'|'-'),PowerID,EnergyImportID,EnergyExportID}]
+        // Formel: [{Name,Factor(Prozent, z.B. 100/-100/50),PowerID,EnergyImportID,EnergyExportID}]
+        // (frühere Zeilen mit Sign('+'|'-') statt Factor werden weiterhin gelesen, siehe Nodes())
         $this->RegisterPropertyString('Nodes', '[]');
         $this->RegisterPropertyString('Function', 'none');
         // Rein informativer Standort (Raum/Geschoss) — Dietmars Anregung
@@ -117,10 +118,14 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
-                ['type' => 'Label', 'caption' => '• Komplett neues, einfacheres Modell: Diese Instanz ist jetzt selbst die oberste Ebene. Jede Zeile ist ein Term mit Vorzeichen (+/−) — kein „Kürzel“, kein „hängt hinter“, keine Sammelzeilen mehr.'],
+                ['type' => 'Label', 'caption' => '• Komplett neues, einfacheres Modell: Diese Instanz ist jetzt selbst die oberste Ebene. Jede Zeile ist ein Term mit einem Anteil in Prozent — kein „Kürzel“, kein „hängt hinter“, keine Sammelzeilen mehr.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Ein Zähler lässt sich jetzt aufteilen: Spalte „Anteil (%)“ statt nur +/− — 100/−100 wie bisher, jeder Wert dazwischen ein Teil-Anteil (z. B. für eine anteilige Einspeisevergütung auf mehrere Instanzen/Mieter). Details samt Beispiel im Doku-Panel unten.'],
+                ['type' => 'Label', 'caption' => '• 🆕 „Zähler suchen“ trägt nichts mehr automatisch ein, sondern zeigt nur noch die Fundstellen — aufgenommen wird über das normale „+“ mit dem eingebauten Symcon-Variablenpicker. Kein Aufräumen unerwünschter Funde mehr nötig.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Zeilen lassen sich per Drag & Drop umsortieren, und „Prüfung & Vorschau“ zeigt jetzt die aktuellen Live-Werte samt Rechenergebnis, nicht nur die Formel-Struktur.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Neues Feld „Standort“ (Raum/Geschoss) — reines Freitext-Label, unabhängig von „Funktion“, mit Vorschlägen aus bereits benutzten Werten.'],
                 ['type' => 'Label', 'caption' => '• Die Funktion (fürs Dashboard) wird jetzt einmal für die ganze Instanz gesetzt, nicht mehr pro Zeile.'],
                 ['type' => 'Label', 'caption' => '• Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht jetzt über mehrere verkettete Instanzen statt innerhalb einer einzigen — Details im Doku-Panel unten.'],
-                ['type' => 'Label', 'caption' => '• Schon verdrahtete Instanzen brauchen eine einmalige Bestätigung: ein Migrations-Panel zeigt die bisherigen Zeilen als Vorschlag, nichts wird automatisch übernommen.'],
+                ['type' => 'Label', 'caption' => '• Schon verdrahtete Instanzen (altes Baum-Format) brauchen eine einmalige Bestätigung: ein Migrations-Panel zeigt die bisherigen Zeilen als Vorschlag, nichts wird automatisch übernommen.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -157,7 +162,7 @@ class MeterHubVirtual extends IPSModule
         return false;
     }
 
-    /** Alte Baum-Zeilen ins neue flache Format übertragen — Vorzeichen immer „+“, der Rest bleibt dem Formular zur Prüfung überlassen. */
+    /** Alte Baum-Zeilen ins neue flache Format übertragen — Anteil immer 100 %, der Rest bleibt dem Formular zur Prüfung überlassen. */
     private function MigratedRows(array $rawRows): array
     {
         $out = [];
@@ -167,7 +172,7 @@ class MeterHubVirtual extends IPSModule
             }
             $out[] = [
                 'Name'           => trim((string)($r['Name'] ?? '')) ?: 'Unbenannt',
-                'Sign'           => '+',
+                'Factor'         => 100,
                 'PowerID'        => (int)($r['PowerID'] ?? 0),
                 'EnergyImportID' => (int)($r['EnergyImportID'] ?? 0),
                 'EnergyExportID' => (int)($r['EnergyExportID'] ?? 0),
@@ -213,7 +218,13 @@ class MeterHubVirtual extends IPSModule
     // Formel lesen und prüfen
     // -----------------------------------------------------------------------
 
-    /** Normalisierte Zeilen der Formel (Liste, keine Baum-Beziehung mehr). */
+    /**
+     * Normalisierte Zeilen der Formel (Liste, keine Baum-Beziehung mehr).
+     * `factor` in Prozent, z. B. 100 = voll addiert, −100 = voll abgezogen,
+     * 50 = zur Hälfte addiert. Frühere Zeilen kennen nur `Sign` ('+'/'-') —
+     * die werden weiterhin gelesen (100/−100), ohne dass eine Migration
+     * nötig wäre; neue Zeilen tragen `Factor` direkt.
+     */
     private function Nodes(): array
     {
         $rows = json_decode($this->ReadPropertyString('Nodes'), true);
@@ -223,12 +234,17 @@ class MeterHubVirtual extends IPSModule
             if (!is_array($r)) {
                 continue;
             }
+            if (array_key_exists('Factor', $r)) {
+                $factor = (float)$r['Factor'];
+            } else {
+                $factor = ((string)($r['Sign'] ?? '+')) === '-' ? -100.0 : 100.0;
+            }
             $out[] = [
-                'name'  => trim((string)($r['Name'] ?? '')),
-                'sign'  => ((string)($r['Sign'] ?? '+')) === '-' ? '-' : '+',
-                'power' => (int)($r['PowerID'] ?? 0),
-                'imp'   => (int)($r['EnergyImportID'] ?? 0),
-                'exp'   => (int)($r['EnergyExportID'] ?? 0),
+                'name'   => trim((string)($r['Name'] ?? '')),
+                'factor' => $factor,
+                'power'  => (int)($r['PowerID'] ?? 0),
+                'imp'    => (int)($r['EnergyImportID'] ?? 0),
+                'exp'    => (int)($r['EnergyExportID'] ?? 0),
             ];
         }
         return $out;
@@ -470,8 +486,7 @@ class MeterHubVirtual extends IPSModule
             foreach ($nodes as $n) {
                 $vid = $n[$field];
                 if ($vid > 0 && IPS_VariableExists($vid)) {
-                    $sign = $n['sign'] === '-' ? -1 : 1;
-                    $sum += $sign * (float)GetValue($vid);
+                    $sum += ($n['factor'] / 100.0) * (float)GetValue($vid);
                 }
             }
             $vid = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
@@ -612,12 +627,15 @@ class MeterHubVirtual extends IPSModule
 
     /**
      * Durchsucht die Installation nach Leistungs-/Energie-Datenpunkten und
-     * schlägt sie als neue Zeilen vor. Persistiert bewusst NICHTS: Die
-     * Vorschläge landen nur in der geöffneten Maske, bestätigt wird mit
-     * „Übernehmen" — so bleibt ein versehentlicher Klick folgenlos.
+     * zeigt sie als reine Fundstellen-Übersicht im Ergebnistext — schreibt
+     * NICHT in die Formel-Tabelle (Dietmars Rückmeldung 31.08.2026: das
+     * bisherige automatische Eintragen jedes Fundes war unübersichtlich,
+     * jeder unerwünschte Fund musste einzeln entfernt werden). Aufnehmen
+     * geschieht bewusst über den nativen Symcon-Variablenpicker am „+" der
+     * Tabelle unten.
      *
-     * Die vier Filter kommen aus der Maske und werden im onClick übergeben,
-     * damit eine noch nicht übernommene Änderung sofort greift.
+     * Die Filter kommen aus der Maske und werden im onClick übergeben, damit
+     * eine noch nicht übernommene Änderung sofort greift.
      */
     public function ScanMeters(?int $root = null, ?string $filter = null, ?bool $needEnergy = null, ?bool $onlyActive = null, ?bool $onlyUsedElsewhere = null)
     {
@@ -725,8 +743,7 @@ class MeterHubVirtual extends IPSModule
             }
         }
 
-        $rows = $existing;
-        $added = 0;
+        $found = [];
         $notes = [];
         $filteredOut = ['ohneenergie' => 0, 'inaktiv' => 0];
         foreach ($devices as $d) {
@@ -760,13 +777,9 @@ class MeterHubVirtual extends IPSModule
                 }
             }
             if (count($d['usedIn']) > 0) {
-                $warn[] = 'bereits verwendet in „' . implode('“, „', array_keys($d['usedIn'])) . '“ — bei Aufnahme hier Doppelzählung prüfen';
+                $warn[] = 'bereits verwendet in „' . implode('“, „', array_keys($d['usedIn'])) . '“ — bei Aufnahme hier auf Doppelzählung/Aufteilung achten';
             }
-            $rows[] = [
-                'Name' => $d['name'], 'Sign' => '+',
-                'PowerID' => $d['power'], 'EnergyImportID' => $d['import'], 'EnergyExportID' => 0,
-            ];
-            $added++;
+            $found[] = $d['name'];
             if ($warn) {
                 $notes[] = '   ⚠️ ' . $d['name'] . ': ' . implode('; ', $warn);
             }
@@ -779,14 +792,22 @@ class MeterHubVirtual extends IPSModule
         if ($onlyActive)        { $scope[] = 'nur in den letzten 7 Tagen aktualisiert'; }
         if ($onlyUsedElsewhere) { $scope[] = 'nur Datenpunkte, die schon in einer anderen Instanz stecken'; }
 
-        $msg = $added > 0
-            ? "🔎 $added Gerät(e) gefunden und unten mit Vorzeichen „+“ eingetragen — bitte prüfen, ob sie wirklich zu DIESER Formel gehören sollen, sonst Papierkorb-Symbol, und mit „Übernehmen“ bestätigen. Nichts wurde bereits gespeichert."
-            : '🔎 Keine neuen Geräte gefunden.';
+        // Reine Anzeige — schreibt bewusst NICHT mehr in die Formel-Tabelle
+        // (bis 0.24.4: jeder Fund landete automatisch als neue Zeile, musste
+        // bei Nichtgefallen einzeln mit dem Papierkorb entfernt werden —
+        // genau das fand Dietmar unübersichtlich/„nicht wirklich
+        // intelligent"). Aufnehmen geschieht jetzt bewusst über das normale
+        // „+" der Tabelle unten mit dem eingebauten Symcon-Variablenpicker —
+        // diese Liste hier dient nur als Fundstellen-Übersicht zum
+        // Nachschlagen.
+        $msg = count($found) > 0
+            ? '🔎 ' . count($found) . ' Gerät(e) gefunden: ' . implode(', ', $found) . '. Zum Aufnehmen unten in der Tabelle „+" klicken und die passende Variable auswählen — hier wird nichts automatisch eingetragen.'
+            : '🔎 Keine Geräte gefunden.';
         $msg .= "\nSuchbereich: " . ($scope ? implode(', ', $scope) : 'ganze Installation, ungefiltert');
         $msg .= sprintf("\nÜbersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler, %d aus anderen NRG-Stack-Modulen, %d schon in einer anderen virtuellen Zähler-Instanz, %d außerhalb des Suchbereichs, %d durch den Namensfilter, %d ohne Energiezähler, %d länger als 7 Tage still.",
             $skipped['einheit'], $skipped['schonverwendet'], $skipped['virtuell'], $skipped['verbund'], $skipped['andereinstanz'],
             $skipped['bereich'], $skipped['name'], $filteredOut['ohneenergie'], $filteredOut['inaktiv']);
-        if ($added === 0 && ($filteredOut['ohneenergie'] + $filteredOut['inaktiv'] + $skipped['bereich'] + $skipped['name']) > 0) {
+        if (count($found) === 0 && ($filteredOut['ohneenergie'] + $filteredOut['inaktiv'] + $skipped['bereich'] + $skipped['name']) > 0) {
             $msg .= "\n💡 Es wurde etwas gefunden, aber wegfiltriert — probeweise einen Filter lockern.";
         }
         if ($notes) {
@@ -795,9 +816,6 @@ class MeterHubVirtual extends IPSModule
 
         $this->UpdateFormField('ScanResult', 'caption', $msg);
         $this->UpdateFormField('ScanResult', 'visible', true);
-        $this->UpdateFormField('Nodes', 'values', json_encode($rows));
-        // Liste mitwachsen lassen, damit die Funde ohne Scrollen sichtbar sind.
-        $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($rows)));
     }
 
     /** Sichtbare Zeilen der Formel-Liste: wächst mit dem Inhalt, bleibt aber übersichtlich (typischerweise wenige Terme). */
@@ -910,15 +928,25 @@ class MeterHubVirtual extends IPSModule
 
         $migrationPanel = null;
         $listDef = [
-            'type' => 'List', 'name' => 'Nodes', 'caption' => 'Zähler und ihr Vorzeichen',
+            'type' => 'List', 'name' => 'Nodes', 'caption' => 'Zähler und ihr Anteil',
             'rowCount' => $this->RowCountFor($migration ? count($rawRows) : count($nodes)),
             'add' => true, 'delete' => true,
+            // Drag & Drop zum Umsortieren (Dietmars Anregung 31.08.2026) —
+            // rein organisatorisch, das Rechenergebnis ist ordnungsunabhängig
+            // (Summe aller Anteile). Symcon erlaubt changeOrder nicht
+            // zusammen mit Spalten-Sortierung — wird hier nicht vermisst,
+            // die Liste sortiert bisher ohnehin nirgends nach Spalte.
+            'changeOrder' => true,
             'columns' => [
                 ['caption' => 'Bezeichnung', 'name' => 'Name', 'width' => '240px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                ['caption' => 'Vorzeichen', 'name' => 'Sign', 'width' => '140px', 'add' => '+', 'edit' => ['type' => 'Select', 'options' => [
-                    ['caption' => '＋  addieren', 'value' => '+'],
-                    ['caption' => '−  abziehen', 'value' => '-'],
-                ]]],
+                // Vorzeichen zu einem Prozent-Anteil verallgemeinert (Dietmars
+                // Anregung 31.08.2026: ein Zähler soll sich aufteilen lassen,
+                // z. B. PV-Einspeisevergütung nach Quotierung anteilig auf
+                // mehrere Mieter/virtuelle Zähler). 100/−100 verhalten sich
+                // wie das bisherige +/−, jeder Wert dazwischen ist ein
+                // echter Anteil. Ältere Zeilen mit "Sign" statt "Factor"
+                // werden weiterhin gelesen, siehe Nodes().
+                ['caption' => 'Anteil (%)', 'name' => 'Factor', 'width' => '130px', 'add' => 100, 'edit' => ['type' => 'NumberSpinner', 'minimum' => -1000, 'maximum' => 1000, 'suffix' => ' %']],
                 // Feste statt "auto" Breite (Dietmars Fund 31.08.2026: eine
                 // SelectVariable-Spalte zeigt den vollen Objektpfad, "auto"
                 // ließ die Zeile dadurch beliebig breit werden — Papierkorb-
@@ -950,16 +978,18 @@ class MeterHubVirtual extends IPSModule
 
         $meterItems = [];
         if (!$migration) {
-            $meterItems[] = ['type' => 'Label', 'caption' => 'Zähler im System automatisch suchen: Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil, gruppiert sie nach Gerät und übernimmt den Gerätenamen als Bezeichnung. Die Funde werden nur vorgeschlagen — gespeichert wird erst mit „Übernehmen“.'];
-            $meterItems[] = ['type' => 'Label', 'caption' => 'Variablen aus bekannten NRG-Stack-Modulen (EMS, InverterHub, ChargerHub, Prognose, Tibber Grid Rewards …) werden dabei übersprungen — sie sind dort schon korrekt eingebunden.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '🔎 Zähler finden (reine Übersicht — trägt nichts automatisch ein): Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil, gruppiert sie nach Gerät und zeigt sie unten im Ergebnistext als Fundliste. Variablen aus bekannten NRG-Stack-Modulen (EMS, InverterHub, ChargerHub, Prognose, Tibber Grid Rewards …) werden übersprungen — sie sind dort schon korrekt eingebunden.'];
             $meterItems[] = ['type' => 'SelectObject', 'name' => 'ScanRoot', 'caption' => 'Nur in diesem Bereich suchen (leer = ganze Installation)'];
             $meterItems[] = ['type' => 'ValidationTextBox', 'name' => 'ScanFilter', 'caption' => 'Nur Geräte, deren Name das hier enthält (leer = alle)'];
             $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanNeedEnergy', 'caption' => 'Nur Geräte mit Energiezähler (kWh) — blendet Schalter aus, die bloß die Momentanleistung melden'];
             $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyActive', 'caption' => 'Nur Geräte, die in den letzten 7 Tagen Werte geliefert haben — blendet Karteileichen aus'];
-            $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyUsedElsewhere', 'caption' => 'Nur Datenpunkte zeigen, die schon in einer ANDEREN virtuellen Zähler-Instanz stecken (zum gezielten Prüfen auf Doppelverwendung) — sonst werden sie wie gewohnt ausgeblendet'];
+            $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyUsedElsewhere', 'caption' => 'Nur Datenpunkte zeigen, die schon in einer ANDEREN virtuellen Zähler-Instanz stecken (zum gezielten Prüfen auf Doppelverwendung/Aufteilung) — sonst werden sie wie gewohnt ausgeblendet'];
             $meterItems[] = ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive, $ScanOnlyUsedElsewhere);'];
             $meterItems[] = ['type' => 'Label', 'name' => 'ScanResult', 'caption' => '', 'visible' => false];
-            $meterItems[] = ['type' => 'Label', 'caption' => 'So wird verdrahtet: pro Zähler eine Zeile (per Suchlauf oder von Hand über „+“), Vorzeichen setzen — „+“ addiert, „−“ zieht ab —, dann „Übernehmen“. Die Reihenfolge der Zeilen spielt keine Rolle, nur das Vorzeichen zählt.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '➕ Aufnehmen: in der Tabelle unten auf „+" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen (Suche/Baum wie beim Suchlauf oben — auch OHNE vorherigen Suchlauf jederzeit möglich).'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '📐 „Anteil (%)" setzen: 100 = voll addieren, −100 = voll abziehen, jeder Wert dazwischen ein Teil-Anteil. Beispiel: eine Einspeisung wird per Quotierung zur Hälfte zwei Mietern zugerechnet → in der Instanz für Mieter A 50, in der für Mieter B ebenfalls 50 (oder −50, je nachdem ob addiert oder abgezogen werden soll) bei DERSELBEN Variable.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Zeilen lassen sich per Drag & Drop umsortieren — rein zur eigenen Übersicht, das Ergebnis ist unabhängig von der Reihenfolge.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '✅ Zuletzt „Übernehmen" klicken (Formular-Ende).'];
         }
         $meterItems[] = $listDef;
 
@@ -971,19 +1001,22 @@ class MeterHubVirtual extends IPSModule
                     'type' => 'ExpansionPanel', 'caption' => '📖  Dokumentation & Hilfe', 'expanded' => false,
                     'items' => [
                         ['type' => 'Label', 'caption' => 'MeterHubVirtual ' . self::NEWS_VERSION . ' — Stand dieser Anleitung.'],
-                        ['type' => 'Label', 'caption' => 'Bildet einen virtuellen Zähler aus einer FORMEL: Diese Instanz ist die oberste Ebene, jede Zeile unten ein Term mit Vorzeichen. Ergebnis = Summe aller „+“-Zeilen minus Summe aller „−“-Zeilen, getrennt für Leistung, Bezug und Einspeisung.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel „Sammeln“: Kühlschrank (+) und Brunnenpumpe (+) ergeben deren Summe — nützlich, wenn es keinen echten Zähler gibt, der beide zusammen misst.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel „Abziehen“: Hausanschluss (+, eigener Zähler), Wärmepumpe (−) und Wallbox (−) ergeben Hausanschluss minus Wärmepumpe minus Wallbox — der unbekannte Rest des Hauses.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel „Durchreichen“: nur EINE Zeile (+) — die Instanz gibt einfach diesen einen Zähler weiter, nützlich um ihm über „Funktion“ eine Dashboard-Zuordnung zu geben, ohne ihn mit etwas anderem zu verrechnen.'],
+                        ['type' => 'Label', 'caption' => 'Bildet einen virtuellen Zähler aus einer FORMEL: Diese Instanz ist die oberste Ebene, jede Zeile unten ein Term mit einem Anteil in Prozent. Ergebnis = Summe aller Anteile (100 % = ganz addiert, −100 % = ganz abgezogen, jeder Wert dazwischen ein Teil-Anteil), getrennt für Leistung, Bezug und Einspeisung.'],
+                        ['type' => 'Label', 'caption' => 'Beispiel „Sammeln“: Kühlschrank (100 %) und Brunnenpumpe (100 %) ergeben deren Summe — nützlich, wenn es keinen echten Zähler gibt, der beide zusammen misst.'],
+                        ['type' => 'Label', 'caption' => 'Beispiel „Abziehen“: Hausanschluss (100 %, eigener Zähler), Wärmepumpe (−100 %) und Wallbox (−100 %) ergeben Hausanschluss minus Wärmepumpe minus Wallbox — der unbekannte Rest des Hauses.'],
+                        ['type' => 'Label', 'caption' => 'Beispiel „Durchreichen“: nur EINE Zeile (100 %) — die Instanz gibt einfach diesen einen Zähler weiter, nützlich um ihm über „Funktion“ eine Dashboard-Zuordnung zu geben, ohne ihn mit etwas anderem zu verrechnen.'],
+                        ['type' => 'Label', 'caption' => 'Beispiel „Aufteilen“: eine PV-Anlage mit mehreren Erzeugungsjahren bekommt die Einspeisevergütung anteilig nach Quotierung — dieselbe Einspeisungs-Variable wird in der Instanz für den einen Anteil mit z. B. 60 % eingetragen, in einer zweiten Instanz für den anderen Anteil mit 40 %. Dasselbe funktioniert für eine anteilige Zuordnung an mehrere Mieter.'],
                         ['type' => 'Label', 'caption' => 'Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere Instanzen: eine Instanz rechnet den Zwischenwert, dessen Ausgabe wird als ganz normale Zeile in der nächsten Instanz verdrahtet — nicht mehr innerhalb einer einzigen Instanz.'],
                         ['type' => 'Label', 'caption' => '━━━ Schritt für Schritt ━━━'],
-                        ['type' => 'Label', 'caption' => '1. Zeilen anlegen — per Suchlauf (Knopf unten) oder von Hand über „+“ in der Tabelle.'],
-                        ['type' => 'Label', 'caption' => '2. Vorzeichen setzen: „+“ addiert, „−“ zieht ab.'],
-                        ['type' => 'Label', 'caption' => '3. „Übernehmen“ klicken.'],
-                        ['type' => 'Label', 'caption' => '4. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt die fertige Formel, ❌ nennt genau, was noch fehlt.'],
-                        ['type' => 'Label', 'caption' => '5. Optional: „Funktion“ oben setzen, damit das Dashboard diese Instanz als Verbraucher erkennt.'],
-                        ['type' => 'Label', 'caption' => 'Ein Datenpunkt darf nur in EINER Zeile stehen — sonst würde er doppelt gezählt. Die Prüfung meldet das.'],
+                        ['type' => 'Label', 'caption' => '1. Optional zur Übersicht: „Zähler suchen" unten klicken — zeigt brauchbare Kandidaten im Ergebnistext, trägt aber nichts ein.'],
+                        ['type' => 'Label', 'caption' => '2. Je Zähler eine Zeile: „+" in der Tabelle klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen.'],
+                        ['type' => 'Label', 'caption' => '3. „Anteil (%)" setzen: 100 addiert voll, −100 zieht voll ab, jeder Wert dazwischen ist ein Teil-Anteil (siehe Beispiel „Aufteilen").'],
+                        ['type' => 'Label', 'caption' => '4. „Übernehmen“ klicken.'],
+                        ['type' => 'Label', 'caption' => '5. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt die fertige Formel MIT aktuellen Werten, ❌ nennt genau, was noch fehlt.'],
+                        ['type' => 'Label', 'caption' => '6. Optional: „Funktion“ oben setzen, damit das Dashboard diese Instanz als Verbraucher erkennt.'],
+                        ['type' => 'Label', 'caption' => 'Ein Datenpunkt darf innerhalb DERSELBEN Instanz nur in EINER Zeile stehen — sonst würde er doppelt gezählt, die Prüfung meldet das. Über mehrere Instanzen hinweg ist dieselbe Variable dagegen ausdrücklich erlaubt (siehe „Aufteilen") — die Verantwortung, dass die Anteile insgesamt sinnvoll sind, liegt dann bei dir.'],
                         ['type' => 'Label', 'caption' => 'Einheiten: Leistung in W, Energie als kumulative kWh-Zählerstände. Alle Datenpunkte je Spalte müssen dieselbe Einheit haben; Abweichungen meldet die Prüfung.'],
+                        ['type' => 'Label', 'caption' => 'Zeilen lassen sich per Drag & Drop umsortieren, rein zur eigenen Übersicht — das Ergebnis ist unabhängig von der Reihenfolge.'],
                     ],
                 ],
                 ['type' => 'CheckBox', 'name' => 'Active', 'caption' => 'Berechnung aktiv'],
@@ -1049,16 +1082,27 @@ class MeterHubVirtual extends IPSModule
                 if ($vid <= 0) {
                     continue;
                 }
-                $name = $n['name'] !== '' ? $n['name'] : '(ohne Namen)';
-                $sign = $n['sign'] === '-' ? -1 : 1;
+                $name   = $n['name'] !== '' ? $n['name'] : '(ohne Namen)';
+                $factor = $n['factor'];
+                $sign   = $factor < 0 ? '−' : '+';
+                // Volle 100%/−100% liest sich wie bisher als reines +/−, ein
+                // echter Anteil (Dietmars Anregung 31.08.2026: Zähler-
+                // Aufteilung, z. B. PV-Einspeisevergütung nach Quotierung auf
+                // mehrere Mieter) bekommt zusätzlich Prozentsatz und
+                // Beitrag zum Ergebnis angezeigt.
+                $isFull = abs(abs($factor) - 100.0) < 0.001;
                 if (IPS_VariableExists($vid)) {
                     $val = (float)GetValue($vid);
-                    $sum += $sign * $val;
-                    $valText = $this->FormatValue($val, $f) . ' ' . $units[$f];
+                    $contribution = ($factor / 100.0) * $val;
+                    $sum += $contribution;
+                    $valText = $isFull
+                        ? $this->FormatValue($val, $f) . ' ' . $units[$f]
+                        : $this->FormatValue($val, $f) . ' ' . $units[$f] . ' → ' . $this->FormatValue($contribution, $f) . ' ' . $units[$f];
                 } else {
                     $valText = 'Wert fehlt';
                 }
-                $terms[] = ($sign < 0 ? '−' : '+') . ' ' . $name . ' (' . $valText . ')';
+                $pctText = $isFull ? '' : ' × ' . rtrim(rtrim(number_format(abs($factor), 2, ',', '.'), '0'), ',') . ' %';
+                $terms[] = $sign . ' ' . $name . $pctText . ' (' . $valText . ')';
             }
             if ($terms) {
                 $expr = implode('  ', $terms);
