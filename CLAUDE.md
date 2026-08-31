@@ -707,6 +707,24 @@ komplett neu geschrieben mit den drei Verdrahtungs-Mustern (reiner Sammelknoten 
 Kindern / kinderloser Zähler) und einer Schritt-für-Schritt-Anleitung, die es vorher schlicht
 nicht gab.
 
+**Zweite Runde, noch am selben Tag — die Doku allein genügte Dietmar nicht:** Er verwies
+explizit auf SUITE.md „Feld-Hilfestellung" (`PopupButton` mit `caption="?"`, da Symcon keinen
+Mouseover-Tooltip kennt — gegen die SDK-Doku geprüft, nicht angenommen). Jetzt umgesetzt, **erste
+Referenzimplementierung dieser Konvention in diesem Repo**: eine nummerierte
+Schritt-für-Schritt-Anleitung direkt IM „🔌 Verdrahtung"-Panel (nicht nur im weit entfernten,
+eingeklappten Doku-Panel — am Ort der Handlung, nicht nur im Nachschlagewerk), dazu zwei
+„?"-PopupButtons genau an den zwei Stellen, die im Praxistest zu Verwirrung führten: „hängt
+hinter" (öffnet ein Popup mit allen drei Mustern samt Beispiel) und „Kürzel" (Historie-Warnung).
+`popup`-Struktur (`caption`/`items`) gegen die offizielle SDK-Doku verifiziert. Verifiziert in
+`.tools/test-virtual.php` Block 11 (beide PopupButtons vorhanden, Popup-Inhalt enthält die
+erwarteten Kernaussagen).
+
+**Layout-Hinweis:** `PopupButton` steht als eigenes, volles Zeilen-Element im Formular — Symcons
+Formularsprache kennt kein horizontales Nebeneinander von Label und Button in einer Zeile
+(„direkt neben dem Feld" in SUITE.md heißt: unmittelbar in der Element-Reihenfolge danach, nicht
+optisch in derselben Zeile). Der Button-Text selbst trägt deshalb den Kontext („3. „hängt
+hinter" setzen — bei Bedarf hier klicken: ?"), nicht nur ein nacktes „?".
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide

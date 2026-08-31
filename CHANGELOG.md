@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.23.6-beta.1 (2026-08-31)
+
+- **Verdrahtungs-Hilfe nachgeschärft: Schritt-für-Schritt direkt im Verdrahtungs-Panel +
+  „?"-Hilfe an den zwei kritischen Stellen.** Dietmars Rückmeldung: die Doku-Panel-Erklärung
+  von eben genügte noch nicht — das Verfahren musste am Ort der Handlung stehen, nicht nur
+  im entfernten, eingeklappten Nachschlage-Panel. Neu: eine nummerierte 6-Schritte-Anleitung
+  direkt über der Verdrahtungs-Tabelle, dazu zwei `PopupButton`-„?"-Hilfen (SUITE.md „Feld-
+  Hilfestellung" — Symcon kennt keinen Mouseover-Tooltip) — eine für „hängt hinter" (öffnet
+  ein Popup mit allen drei Verdrahtungs-Mustern samt Beispiel), eine für „Kürzel"
+  (Historie-Warnung bei nachträglicher Änderung). Erste Umsetzung dieser Verbund-Konvention
+  in diesem Repo. Prüfstand `.tools/test-virtual.php` um 7 weitere Prüfungen ergänzt (57
+  insgesamt).
+
 ## 0.23.5-beta.1 (2026-08-31)
 
 - **Fix: ein Zähler ohne untergeordnete Zähler bekam bislang keine eigene Ausgabe, selbst

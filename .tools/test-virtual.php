@@ -450,6 +450,27 @@ check('Doku-Panel nennt die Versionsnummer', str_contains($dokuText, $newsVersio
 check('Doku-Panel enthält alle drei Verdrahtungs-Muster', str_contains($dokuText, '①') && str_contains($dokuText, '②') && str_contains($dokuText, '③'));
 check('Doku-Panel erklärt den neuen Durchreichungs-Fall', str_contains($dokuText, 'Durchreichung'));
 
+// Schritt-für-Schritt-Anleitung + "?"-PopupButtons im Verdrahtungs-Panel
+// (Dietmars zweite Rückmeldung 31.08.2026: die Doku allein genügte noch
+// nicht — SUITE.md "Feld-Hilfestellung" sieht PopupButton mit caption="?"
+// für genau diesen Fall vor, kein natives Mouseover in Symcon).
+$wiringPanel = null;
+foreach ($form11['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🔌  Verdrahtung') { $wiringPanel = $el; } }
+check('Verdrahtungs-Panel vorhanden', $wiringPanel !== null);
+$wiringItems = $wiringPanel['items'] ?? [];
+check('Nummerierte Schritt-für-Schritt-Anleitung direkt im Panel', str_contains(implode(' ', array_column($wiringItems, 'caption')), '1. Zeile anlegen'));
+$popups = array_values(array_filter($wiringItems, fn ($it) => ($it['type'] ?? '') === 'PopupButton'));
+check('Genau zwei "?"-PopupButtons im Verdrahtungs-Panel', count($popups) === 2, 'gefunden: ' . count($popups));
+$parentPopup = null;
+foreach ($popups as $p) { if (str_contains($p['caption'] ?? '', 'hängt hinter')) { $parentPopup = $p; } }
+check('PopupButton "hängt hinter" vorhanden', $parentPopup !== null);
+$parentPopupText = implode(' ', array_column($parentPopup['popup']['items'] ?? [], 'caption'));
+check('Popup-Inhalt "hängt hinter" enthält alle drei Muster', str_contains($parentPopupText, '①') && str_contains($parentPopupText, '②') && str_contains($parentPopupText, '③'), $parentPopupText);
+$keyPopup = null;
+foreach ($popups as $p) { if (str_contains($p['caption'] ?? '', 'Kürzel')) { $keyPopup = $p; } }
+check('PopupButton "Kürzel" vorhanden', $keyPopup !== null);
+check('Popup-Inhalt "Kürzel" warnt vor Historie-Verlust', str_contains(implode(' ', array_column($keyPopup['popup']['items'] ?? [], 'caption')), 'Historie'));
+
 $GLOBALS['MODOBJ'][$new]->AckNews();
 check('AckNews() merkt die Version dauerhaft', ($GLOBALS['ATTR'][$new]['SeenNews'] ?? null) === $newsVersion, 'ist ' . ($GLOBALS['ATTR'][$new]['SeenNews'] ?? '(leer)'));
 check('AckNews() blendet das Panel im offenen Formular sofort aus', ($GLOBALS['FORMFIELDS']['NewsPanel']['visible'] ?? null) === false);

@@ -943,7 +943,35 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'CheckBox', 'name' => 'ScanOnlyActive', 'caption' => 'Nur Geräte, die in den letzten 7 Tagen Werte geliefert haben — blendet Karteileichen aus'],
                         ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive);'],
                         ['type' => 'Label', 'name' => 'ScanResult', 'caption' => '', 'visible' => false],
-                        ['type' => 'Label', 'caption' => 'Neue Zeilen erscheinen erst nach „Übernehmen“ in der Auswahl „hängt hinter“ — zuerst die Zeile anlegen und übernehmen, dann verdrahten.'],
+                        // Konkrete Schritt-für-Schritt-Anleitung direkt an der Stelle,
+                        // an der gehandelt wird — nicht nur im weit entfernten,
+                        // eingeklappten Doku-Panel (Dietmars Rückmeldung 31.08.2026:
+                        // die bisherige Prosa dort genügte nicht). Zusätzlich zwei
+                        // „?“-PopupButtons an genau den zwei Stellen, die im
+                        // Praxistest zu Verwirrung führten — Symcon kennt keinen
+                        // Mouseover-Tooltip (gegen die SDK-Doku geprüft, siehe
+                        // SUITE.md „Feld-Hilfestellung“), PopupButton mit
+                        // caption="?" ist die dafür vorgesehene Verbund-Konvention.
+                        ['type' => 'Label', 'caption' => 'So wird verdrahtet:'],
+                        ['type' => 'Label', 'caption' => '1. Zeile anlegen — per Suchlauf oben oder von Hand über „+“ unten in der Tabelle. Kürzel und mindestens einen Datenpunkt ausfüllen.'],
+                        ['type' => 'Label', 'caption' => '2. „Übernehmen“ klicken (Knopf am unteren Formularrand). Erst danach steht die Zeile als Auswahl für „hängt hinter“ zur Verfügung.'],
+                        [
+                            'type' => 'PopupButton', 'caption' => '3. „hängt hinter“ setzen — bei Bedarf hier klicken: ?', 'width' => '520px',
+                            'popup' => [
+                                'caption' => 'Was bedeutet „hängt hinter“?',
+                                'items' => [
+                                    ['type' => 'Label', 'caption' => 'Legt fest, wo eine Zeile im Baum sitzt. Drei Muster sind möglich:'],
+                                    ['type' => 'Label', 'caption' => '① Reiner Sammelknoten — Zeile OHNE eigenen Zähler, andere Zeilen hängen hinter ihr → „Summe untergeordnet“. Beispiel: Zeile „Steckdosen gesamt“ (keine eigene Leistung/Energie), „Kühlschrank“ und „Brunnenpumpe“ hängen beide hinter „steckdosen_gesamt“ → deren Summe erscheint dort.'],
+                                    ['type' => 'Label', 'caption' => '② Zähler mit Kindern — Zeile MIT eigenem Zähler, andere hängen dahinter → „Summe“ UND „Rest“ (eigener Zähler minus Summe). Beispiel: „Hausanschluss“ mit „Wärmepumpe“ und „Wallbox“ dahinter → „Rest“ = alles, was weder Wärmepumpe noch Wallbox verbraucht.'],
+                                    ['type' => 'Label', 'caption' => '③ Einzelner Zähler — eigener Zähler, „hängt hinter“ bleibt auf „— oberste Ebene —“, niemand hängt dahinter → reine Durchreichung des eigenen Werts. Nützlich, um EINEN Zähler nur für die Spalte „Funktion“ sichtbar zu machen.'],
+                                    ['type' => 'Label', 'caption' => 'Ohne eigenen Zähler UND ohne irgendetwas dahinter (Muster ① ohne Kinder) entsteht dagegen keine Ausgabe — dafür gibt es nichts zu berechnen.'],
+                                    ['type' => 'Label', 'caption' => 'Praktisch: erst die Sammelzeile (Muster ①) oder den echten Zähler (Muster ②) anlegen und übernehmen — sie taucht erst DANACH in der Auswahl „hängt hinter“ der anderen Zeilen auf (Schritt 2).'],
+                                ],
+                            ],
+                        ],
+                        ['type' => 'Label', 'caption' => '4. Erneut „Übernehmen“ — erst jetzt wertet das Modul die neue Verdrahtung aus.'],
+                        ['type' => 'Label', 'caption' => '5. Ergebnis im Panel „Prüfung & Vorschau“ unten kontrollieren: ✅ zeigt den fertigen Baum, ❌ nennt genau, was noch fehlt.'],
+                        ['type' => 'Label', 'caption' => '6. Optional: Spalte „Funktion“ setzen, damit InverterHubTile/Dashboard den Knoten als Verbraucher zeigen.'],
                         [
                             'type' => 'List', 'name' => 'Nodes', 'caption' => 'Zähler und ihre Verdrahtung',
                             'rowCount' => $this->RowCountFor(count($nodes)), 'add' => true, 'delete' => true,
@@ -955,6 +983,16 @@ class MeterHubVirtual extends IPSModule
                                 ['caption' => 'Bezug (kWh)', 'name' => 'EnergyImportID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                                 ['caption' => 'Einspeisung (kWh)', 'name' => 'EnergyExportID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                                 ['caption' => 'Funktion', 'name' => 'Function', 'width' => '190px', 'add' => 'none', 'edit' => ['type' => 'Select', 'options' => $funcOptions]],
+                            ],
+                        ],
+                        [
+                            'type' => 'PopupButton', 'caption' => 'Warum steht bei „Kürzel“ eine Warnung? ?', 'width' => '350px',
+                            'popup' => [
+                                'caption' => 'Kürzel = technischer Name',
+                                'items' => [
+                                    ['type' => 'Label', 'caption' => 'Das Kürzel bildet die Variablen-Idents dieser Zeile und ist der Bezug, auf den andere Zeilen bei „hängt hinter“ zeigen.'],
+                                    ['type' => 'Label', 'caption' => 'Die Bezeichnung (Spalte daneben) lässt sich jederzeit gefahrlos ändern. Das Kürzel dagegen sollte nach dem ersten „Übernehmen“ stehen bleiben — eine Änderung erzeugt NEUE Variablen und wirft die Archiv-Historie der alten weg.'],
+                                ],
                             ],
                         ],
                     ],
