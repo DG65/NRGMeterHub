@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.1-beta.1 (2026-08-31)
+
+- **Fix: Papierkorb-/Zahnrad-Symbol am Zeilenende der Formel-Liste unerreichbar.** Dietmars
+  Live-Fund direkt nach 0.24.0: die drei `SelectVariable`-Spalten (Leistung/Bezug/Einspeisung)
+  standen auf Breite `"auto"` und zeigten den vollen Objektpfad der gewählten Variable — bei
+  tief verschachtelten Variablen wurde die Zeile dadurch beliebig breit, die Aktions-Symbole
+  rutschten aus dem sichtbaren Formularbereich, ohne dass sich dorthin scrollen ließ. Feste
+  Breite (220px je Spalte) statt „auto" behoben.
+
 ## 0.24.0-beta.1 (2026-08-31)
 
 - **MeterHubVirtual grundlegend neu: flache Formel statt Baum.** Dietmars Einwand traf den

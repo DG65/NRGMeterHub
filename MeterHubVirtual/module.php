@@ -881,9 +881,16 @@ class MeterHubVirtual extends IPSModule
                     ['caption' => '＋  addieren', 'value' => '+'],
                     ['caption' => '−  abziehen', 'value' => '-'],
                 ]]],
-                ['caption' => 'Leistung (W)', 'name' => 'PowerID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                ['caption' => 'Bezug (kWh)', 'name' => 'EnergyImportID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                ['caption' => 'Einspeisung (kWh)', 'name' => 'EnergyExportID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                // Feste statt "auto" Breite (Dietmars Fund 31.08.2026: eine
+                // SelectVariable-Spalte zeigt den vollen Objektpfad, "auto"
+                // ließ die Zeile dadurch beliebig breit werden — Papierkorb-
+                // und Zahnrad-Symbol am Zeilenende rutschten aus dem
+                // sichtbaren Bereich, ohne dass sich dorthin scrollen ließ.
+                // Feste Breite kappt die Spalte stattdessen (Text wird vom
+                // Browser abgeschnitten, per Klick weiterhin änderbar).
+                ['caption' => 'Leistung (W)', 'name' => 'PowerID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                ['caption' => 'Bezug (kWh)', 'name' => 'EnergyImportID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                ['caption' => 'Einspeisung (kWh)', 'name' => 'EnergyExportID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
             ],
         ];
 
