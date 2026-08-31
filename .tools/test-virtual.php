@@ -104,7 +104,7 @@ function IPS_ApplyChanges($iid) {
     }
 }
 function AC_SetLoggingStatus($a, $b, $c) {}
-function AC_SetAggregationType($a, $b, $c) {}
+function AC_SetAggregationType($a, $vid, $type) { $GLOBALS['AGGTYPE'][$vid] = $type; }
 function AC_GetLoggingStatus($a, $vid) { return isset($GLOBALS['ARCHIVED'][$vid]); }
 
 class IPSModule
@@ -143,6 +143,11 @@ require_once dirname(__DIR__) . '/MeterHubVirtual/module.php';
 // ---------------------------------------------------------------------------
 const G_METER = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
 $root = obj(10, 0, 'Geräte', 0);
+// Archive Control muss existieren, damit SetArchive() (Logging +
+// Aggregationstyp) im Test überhaupt greift — sonst bleibt count($ids)===0
+// und AC_SetAggregationType() wird nie aufgerufen, egal was der Code tut.
+obj(50, 1, 'Archive Control', 0);
+$GLOBALS['INSTMOD'][50] = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
 
 function meter($iid, $name, $p, $imp, $exp = null) {
     obj($iid, 1, $name, 10);
@@ -190,6 +195,13 @@ $virt->Recalc();
 check('Leistung = 5000 − 1200 − 1800', abs(GetValue($outs['power']) - 2000.0) < 0.01, 'ist ' . GetValue($outs['power']));
 check('Bezug = 40000 − 9000 − 5000',   abs(GetValue($outs['energy_import']) - 26000.0) < 0.01, 'ist ' . GetValue($outs['energy_import']));
 check('Einspeisung = 8000 (nur Hausanschluss hat einen Einspeisungszähler)', abs(GetValue($outs['energy_export']) - 8000.0) < 0.01, 'ist ' . GetValue($outs['energy_export']));
+// Sepps Testerfund 31.08.2026: "Bei 'Bezug' ist der falsche Zähler Typ, ist
+// Standard, muss Zähler sein" — Archiv-Aggregationstyp 1 (Zähler) für
+// kumulative Werte, 0 (Standard) für die Momentanleistung. Live an Dietmars
+// Anlage verifiziert (echte Wirkarbeit-Zähler stehen dort auf Typ 1).
+check('Leistung bekommt Aggregationstyp "Standard" (0)', ($GLOBALS['AGGTYPE'][$outs['power']] ?? null) === 0, json_encode($GLOBALS['AGGTYPE'] ?? null));
+check('Bezug bekommt Aggregationstyp "Zähler" (1)', ($GLOBALS['AGGTYPE'][$outs['energy_import']] ?? null) === 1, json_encode($GLOBALS['AGGTYPE'] ?? null));
+check('Einspeisung bekommt Aggregationstyp "Zähler" (1)', ($GLOBALS['AGGTYPE'][$outs['energy_export']] ?? null) === 1, json_encode($GLOBALS['AGGTYPE'] ?? null));
 
 echo "\n3) Prüfung verhindert den zweiten virtuellen Zähler\n";
 $GLOBALS['FORMFIELDS'] = [];

@@ -1189,3 +1189,35 @@ Warnung, Fehlerfälle, Variable-ohne-Container-Fallback) und Block 19 (durchgän
 „Fund auswählen" → Übernehmen, mit einem Gerät, das noch in keiner anderen Instanz steckt —
 „Wallbox 2" aus Block 5 eignete sich dafür NICHT mehr, weil die Kreuz-Instanz-Prüfung es seit
 Block 6d standardmäßig aus dem Suchlauf ausblendet).
+
+## Archiv-Aggregationstyp: Zähler vs. Standard (31.08.2026)
+
+**Auslöser:** Sepps Testerfund an einer manuell gebauten `MeterHubVirtual`-Instanz: „Bei
+„Bezug" ist der falsche Zähler Typ, ist Standard, muss Zähler sein." Recherche ergab: Es gibt
+KEINEN eigenen „Zähler"-Darstellungstyp (`IPS_SetVariableCustomPresentation`) — die
+Symcon-SDK-Doku listet nur Aufzählung/Datum/Dauer/Farbe/Rollladen/Schalter/Schieberegler/
+Webinhalt/Wertanzeige/Werteingabe. Gemeint war `AC_SetAggregationType()` (Archive Control):
+„Standard" = Min/Max/Durchschnitt je Aggregationsstufe, „Zähler" = Delta der Werte als Min/
+Max/Summe — letzteres ist für kumulative Wirkarbeit-Zählerstände richtig, ersteres für
+Momentanwerte wie Leistung.
+
+**Werte NICHT geraten, sondern live an Dietmars Anlage verifiziert** (`AC_GetAggregationType()`
+über mehrere echte Wirkarbeit-Bezug/-Abgabe-Variablen): Tarif-Summenwerte („Wirkarbeit Bezug
+Tarif 1") stehen auf `1`, reine Momentanwerte auf `0` — bestätigt `1` = Zähler, `0` = Standard.
+
+**Fix:** Beide Module (`MeterHub` und `MeterHubVirtual`) hatten denselben Bug — `SetArchive()`
+setzte pauschal `AC_SetAggregationType(..., 0)` für JEDE archivierte Ausgabe, unabhängig davon,
+ob sie eine Momentanleistung oder ein kumulativer Zählerstand ist. `SetArchive()` bekommt jetzt
+einen `$counter`-Parameter: `MeterHubVirtual` unterscheidet nach Ausgabefeld (`power` → false,
+`imp`/`exp` → true), `MeterHub` nach der schon vorhandenen Variablengruppe (`$group ===
+'energy'`). Da `SetArchive()` bei JEDEM `ApplyChanges()` erneut läuft (nicht nur bei
+Neuanlage), heilt der Fix bereits bestehende Instanzen automatisch beim nächsten
+„Übernehmen"/Modul-Reload — keine gesonderte Migration nötig.
+
+**Testinfrastruktur-Lücke geschlossen:** `.tools/test-virtual.php` registrierte bis dahin
+KEINE Archive-Control-Instanz — `AC_SetAggregationType()`/`AC_SetLoggingStatus()` liefen
+dadurch in JEDEM bisherigen Testlauf niemals wirklich (der `count($ids) > 0`-Zweig griff nie),
+der Bug wäre auch mit vollständiger Testabdeckung des restlichen Moduls unentdeckt geblieben.
+Jetzt registriert der Prüfstand eine Fake-Archive-Control-Instanz und der
+`AC_SetAggregationType`-Stub zeichnet Aufrufe auf, damit Block 2 den Aggregationstyp je
+Ausgabe wirklich verifizieren kann.

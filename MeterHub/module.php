@@ -3639,7 +3639,14 @@ class MeterHub extends IPSModule
             IPS_SetInfo($vid, $reg);
         }
         if ($archive) {
-            $this->SetArchive($vid);
+            // Kumulative Wirkarbeit-Zählerstände (Gruppe "energy") brauchen
+            // den Archiv-Aggregationstyp "Zähler" (Delta je Periode), alles
+            // andere (Leistung, Spannung, Strom, …) "Standard" (Min/Max/
+            // Durchschnitt). Bisher wurde pauschal "Standard" gesetzt — live
+            // an Dietmars Anlage verifiziert (echte Wirkarbeit-Zähler dort
+            // stehen auf Aggregationstyp 1) und durch Sepps Testerfund am
+            // Schwestermodul MeterHubVirtual aufgedeckt (31.08.2026).
+            $this->SetArchive($vid, $group === 'energy');
         }
     }
 
@@ -3692,12 +3699,12 @@ class MeterHub extends IPSModule
         return 0;
     }
 
-    private function SetArchive($vid)
+    private function SetArchive($vid, bool $counter = false)
     {
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) > 0) {
             AC_SetLoggingStatus($archiveIDs[0], $vid, true);
-            AC_SetAggregationType($archiveIDs[0], $vid, 0);
+            AC_SetAggregationType($archiveIDs[0], $vid, $counter ? 1 : 0);
         }
     }
 

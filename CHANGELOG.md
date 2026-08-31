@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.24.9-beta.1 (2026-08-31)
+
+- **Fix: Bezug/Einspeisung bekamen den falschen Archiv-Aggregationstyp.** Sepps Testerfund:
+  „Bei „Bezug" ist der falsche Zähler Typ, ist Standard, muss Zähler sein." Beide Module
+  (`MeterHub` und `MeterHubVirtual`) setzten für JEDE archivierte Ausgabevariable pauschal
+  `AC_SetAggregationType(..., 0)` (Standard: Min/Max/Durchschnitt je Periode) — richtig für
+  Momentanwerte wie Leistung, aber falsch für kumulative Wirkarbeit-Zählerstände (Bezug/
+  Einspeisung), die Aggregationstyp 1 (Zähler: Delta je Periode) brauchen, sonst rechnet
+  WebFront die Periodenwerte falsch. Live an Dietmars Anlage verifiziert (echte Wirkarbeit-
+  Zähler stehen dort auf Typ 1, nicht geraten). `MeterHubVirtual` unterscheidet jetzt nach
+  Ausgabefeld (Leistung = Standard, Bezug/Einspeisung = Zähler), `MeterHub` nach der
+  Variablengruppe („energy" = Zähler). Betrifft auch bereits bestehende Instanzen automatisch
+  beim nächsten „Übernehmen"/Modul-Reload, keine manuelle Migration nötig.
+- Statuscode 202 („Migration nötig") live geprüft: `ApplyChanges()` und der gespeicherte
+  Status laufen sauber, ein von einem Tester gemeldetes Konsolen-Popup während eines
+  Mehrfach-Modul-Updates war vermutlich ein einmaliger Anzeige-Hänger, keine dauerhafte
+  Blockade.
+
 ## 0.24.8-beta.1 (2026-08-31)
 
 - **Neu: Zähler-Instanz/Gerät wählen statt drei einzelne Variablen-Picker.** Dietmars

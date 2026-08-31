@@ -437,7 +437,7 @@ class MeterHubVirtual extends IPSModule
             }
         }
         $pos = 0;
-        foreach ($defs as [$ident, $caption, $profile]) {
+        foreach ($defs as [$ident, $caption, $profile, $field]) {
             $vid = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
             if (!$vid) {
                 $vid = IPS_CreateVariable(VARIABLETYPE_FLOAT);
@@ -449,16 +449,24 @@ class MeterHubVirtual extends IPSModule
             if (@IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
                 IPS_SetVariableCustomProfile($vid, $profile);
             }
-            $this->SetArchive($vid);
+            // Bezug/Einspeisung sind kumulative Zählerstände (Archiv-
+            // Aggregationstyp "Zähler" = Delta je Periode), Leistung ist ein
+            // Momentanwert ("Standard" = Min/Max/Durchschnitt). Live an
+            // Dietmars Anlage verifiziert (echte Wirkarbeit-Zähler stehen
+            // dort auf Aggregationstyp 1, reine Momentanwerte auf 0) — Sepps
+            // Testerfund 31.08.2026: „Bei „Bezug“ ist der falsche Zähler-
+            // Typ, ist Standard, muss Zähler sein“, da bisher pauschal
+            // Standard (0) für jede Ausgabe gesetzt wurde.
+            $this->SetArchive($vid, $field !== 'power');
         }
     }
 
-    private function SetArchive($vid)
+    private function SetArchive($vid, bool $counter = false)
     {
         $ids = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($ids) > 0) {
             AC_SetLoggingStatus($ids[0], $vid, true);
-            AC_SetAggregationType($ids[0], $vid, 0);
+            AC_SetAggregationType($ids[0], $vid, $counter ? 1 : 0);
         }
     }
 
