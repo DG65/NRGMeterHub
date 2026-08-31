@@ -560,19 +560,24 @@ Der Forum-Hinweis folgt demselben Muster mit einem `bool`-Attribut statt einem V
 `IPS_ApplyChanges` im Dismiss-Handler (Store-Review-Regel, siehe `check-standalone`-Nachbarn
 in diesem Dokument).
 
-**Bei MeterHub noch nicht umgesetzt** — drei Gründe, keiner davon ein Einwand gegen die
-Konvention selbst:
-- Ausdrücklich als nicht eilig markiert („bei Gelegenheit nachziehen").
-- **Blockierende Abhängigkeit für Teil 4:** Der Forum-Hinweis bräuchte einen echten Link zum
-  MeterHub-Thread — der Entwurf in `.forum/ankuendigung.md` ist noch nicht veröffentlicht,
-  es gibt also noch keine URL zum Verlinken.
-- MeterHub/MeterHubDiscovery/MeterHubVirtual haben **kein separates `form.json`** — alle drei
-  bauen ihr Formular bereits vollständig in `GetConfigurationForm()` (PHP), wie InverterHubs
-  Referenz. Struktur passt also direkt hinein, sobald angegangen.
+**In MeterHubVirtual seit 31.08.2026 umgesetzt** (Teile 1–3; Dietmars Auftrag „hier maximal
+nachbessern", ausgelöst durch eine echte Verdrahtungs-Verwirrung im Praxistest von Sepp): News-
+Panel (`NEWS_VERSION`-Konstante, Attribut `SeenNews`, Button `MHUBV_AckNews($id)`) + komplett
+neu geschriebenes Doku-Panel mit Versionsnummer als Text (nicht in der Caption) + `🆕`-Präfix an
+den neuen/wichtigen Doku-Zeilen. Referenzimplementierung jetzt `MeterHubVirtual::NewsBanner()`/
+`AckNews()`/`GetConfigurationForm()`, nicht mehr nur InverterHub — bei Bedarf von dort
+kopieren statt neu zu entwerfen. Verifiziert in `.tools/test-virtual.php` Block 11 (News-Panel
+erscheint/verschwindet korrekt, Doku-Panel enthält Versionsnummer + alle Verdrahtungs-Muster).
 
-**Wenn umgesetzt wird:** News-Panel-Inhalt aus dem CHANGELOG-Eintrag der jeweiligen Version
-ableiten (nicht neu verfassen), Versionsnummer aus `library.json`/`Konstante` ins Doku-Panel
-ziehen, Forum-Hinweis erst nach Veröffentlichung des Threads einbauen.
+**Bei MeterHub/MeterHubDiscovery weiterhin nicht umgesetzt** (kein aktueller Anlass, dieselben
+Gründe wie bisher):
+- Ausdrücklich als nicht eilig markiert („bei Gelegenheit nachziehen").
+- **Blockierende Abhängigkeit für Teil 4 (Forum-Hinweis, gilt weiter für alle drei Module
+  inkl. MeterHubVirtual):** bräuchte einen echten Link zum MeterHub-Thread — der Entwurf in
+  `.forum/ankuendigung.md` ist noch nicht veröffentlicht, es gibt also noch keine URL zum
+  Verlinken. Erst nach Veröffentlichung einbauen.
+- Beide haben wie MeterHubVirtual **kein separates `form.json`** — Struktur passt also direkt
+  hinein, sobald angegangen (kein technisches Hindernis, nur bisher kein Anlass).
 
 ## Formularfelder live umschalten: `onChange` + `UpdateFormField`, nicht `PropertyCondition`
 
@@ -652,6 +657,55 @@ Verdrahtung → Ausgaben bleiben erhalten statt gelöscht, Fehlermeldung erklär
 zusätzlich den allgemeinen Fall (unabhängiger Fehler bei sonst intakter Verdrahtung schützt
 ebenso) sowie die Gegenprobe (nach Reparatur läuft alles normal weiter, das Sicherheitsnetz
 wird nicht zur Dauerblockade).
+
+## MeterHubVirtual: kinderlose Knoten mit eigenem Zähler bekommen eine Durchreichung (31.08.2026)
+
+**Auslöser:** Praxistest (Sepp, per Dietmar weitergegeben) — eine einzelne Steckdose (Shelly
+Plug „Kühlschrank"), nur verdrahtet, um sie über die Funktionszuordnung sichtbar zu machen,
+blieb komplett ohne Ausgabe. `Recalc()` meldete „Keine Ausgabe zum Berechnen vorhanden", obwohl
+die Zeile einen gültigen `PowerID` trug. Ursache: `OutputDefs()` iterierte bis dahin
+ausschließlich über `$kids` (das Ergebnis von `Children()`, also NUR Knoten, die mindestens ein
+Kind haben) — ein kinderloser Knoten mit eigenem Zähler wurde nie besucht, unabhängig davon, ob
+er selbst Daten trägt. **Nebeneffekt, der bis dahin unbemerkt blieb:** das betraf nicht nur
+absichtlich alleinstehende Knoten, sondern JEDES Blatt in einer bestehenden Verdrahtung —
+„Wärmepumpe“/„Wallbox“ als Kinder von „Hausanschluss“ hatten selbst nie eine eigene Ausgabe,
+nur der Elternknoten. Eine Funktionszuordnung auf einem Kind-Knoten war dadurch über
+`MHUBV_GetFunctions()` unsichtbar, ganz ohne Fehlermeldung.
+
+**Fix (`OutputDefs()`):** Schleife läuft jetzt über ALLE Knoten (`$nodes`), nicht mehr nur über
+`$kids`. „Summe untergeordnet“ entsteht weiterhin nur bei vorhandenen Kindern; „Rest“ entsteht
+weiterhin nur bei eigenem Zähler — aber beide Bedingungen jetzt unabhängig voneinander geprüft,
+nicht mehr an „ist Elternknoten" gekoppelt. Ein kinderloser Knoten mit eigenem Zähler bekommt
+dadurch eine reine Durchreichungs-Ausgabe (`Rest = eigener Zähler − 0 = eigener Zähler`), mit
+angepasster Bezeichnung ohne das irreführende Wort „Rest“, wenn nichts abgezogen wird.
+
+**Zwei Folgeänderungen, beide notwendig, damit der Fix nicht selbst etwas bricht:**
+1. `Recalc()`: `$kids[$parent]` durch `$kids[$parent] ?? []` ersetzt — ein rein
+   durchreichender Knoten hat keinen Eintrag in `$kids`, ein direkter Zugriff hätte eine
+   PHP-Warnung erzeugt.
+2. `Validate()`s Sicherheitsnetz aus dem 25.07.2026-Vorfall (oben) geprüfte bisher nur
+   `empty($childMap)` — das reicht seit diesem Fix nicht mehr: eine komplett flache Verdrahtung
+   (kein Knoten hat Kinder) kann jetzt trotzdem gültige Durchreichungs-Ausgaben haben, wenn
+   irgendein Knoten einen eigenen Zähler trägt. Die Bedingung prüft jetzt zusätzlich, ob
+   überhaupt ein Knoten `power`/`imp`/`exp` gesetzt hat — nur wenn WEDER Kinder NOCH ein
+   einziger eigener Zähler übrig sind, greift die Sperre noch.
+
+**Verifiziert in `.tools/test-virtual.php` Block 10 (erweitert):** 10a prüft jetzt die neue
+Durchreichung an einer komplett geflachten, aber weiterhin voll bemessenen Verdrahtung (Status
+bleibt aktiv, `_sum_`-Ausgaben verschwinden korrekt, `_rest_`-Durchreichung entsteht für alle
+drei Knoten, der Wert entspricht 1:1 dem eigenen Zählerstand). Eine neue 10a-safety deckt den
+ECHTEN Sicherheitsnetz-Fall ab (weder Kinder noch irgendein eigener Zähler → weiterhin Sperre).
+
+## Formular-Konvention in MeterHubVirtual umgesetzt (31.08.2026)
+
+Derselbe Anlass wie oben — Dietmars Auftrag „hier maximal nachbessern“ deckte nicht nur den
+Rechenkern-Bug auf, sondern auch, dass „das Verfahren zum Verdrahten... überhaupt nicht
+beschrieben“ war und die verbundweite Formular-Konvention hier fehlte (siehe „Einheitliche
+Formular-Optik“ oben — News-Panel, Doku-Panel mit Versionsnummer). Beides jetzt in
+`MeterHubVirtual` umgesetzt: `NewsBanner()`/`AckNews()` nach dem InverterHub-Muster, Doku-Panel
+komplett neu geschrieben mit den drei Verdrahtungs-Mustern (reiner Sammelknoten / Zähler mit
+Kindern / kinderloser Zähler) und einer Schritt-für-Schritt-Anleitung, die es vorher schlicht
+nicht gab.
 
 ## Parallele Sitzungen: Zuständigkeiten
 

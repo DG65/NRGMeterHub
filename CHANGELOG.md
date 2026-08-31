@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.23.5-beta.1 (2026-08-31)
+
+- **Fix: ein Zähler ohne untergeordnete Zähler bekam bislang keine eigene Ausgabe, selbst
+  mit eigenem Zähler.** Live-Fund (Sepp/Dietmar, Praxistest): eine einzelne Steckdose, nur
+  zur Funktionszuordnung verdrahtet, blieb komplett unsichtbar — `Recalc()` meldete „keine
+  Ausgabe vorhanden“. `OutputDefs()` iterierte bislang nur über Knoten MIT Kindern; ein
+  kinderloser Knoten mit eigenem Zähler wurde nie besucht. Betraf rückwirkend auch jedes
+  Kind einer bestehenden Verdrahtung (z. B. „Wärmepumpe“/„Wallbox“ unter „Hausanschluss“
+  hatten nie eine eigene Ausgabe) — deren Funktionszuordnung war dadurch über
+  `MHUBV_GetFunctions()` unsichtbar, ganz ohne Fehlermeldung. Ein kinderloser Knoten mit
+  eigenem Zähler bekommt jetzt eine reine Durchreichungs-Ausgabe. Details/Herleitung in
+  CLAUDE.md.
+- **Formular-Konvention des Verbunds erstmals in MeterHubVirtual umgesetzt** (News-Panel +
+  Doku-Panel mit Versionsnummer, InverterHub-Referenzmuster). Das Doku-Panel wurde komplett
+  neu geschrieben: alle drei Verdrahtungs-Muster (reiner Sammelknoten / Zähler mit Kindern /
+  kinderloser Zähler) mit Beispiel, plus eine Schritt-für-Schritt-Anleitung, die es vorher
+  nicht gab — Dietmars ausdrücklicher Auftrag, nachdem das Verdrahtungsverfahren im
+  Praxistest für Verwirrung sorgte.
+- Prüfstand `.tools/test-virtual.php` von 42 auf 51 Prüfungen erweitert (neues
+  Durchreichungs-Verhalten, angepasstes Sicherheitsnetz, News-/Doku-Panel-Inhalt).
+
 ## 0.23.4-beta.1 (2026-08-31)
 
 - **Fix: fehlende Parametertypen bei `MHUB_CreateVirtual`, `MHUB_OnChangeMeter` und

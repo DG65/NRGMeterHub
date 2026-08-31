@@ -358,7 +358,7 @@ check('modulspezifisches MHB.Hz wird weiterhin durchgesetzt',
     ($GLOBALS['PROFILES']['MHB.Hz'] ?? null) === ['Digits' => 2, 'Suffix' => ' Hz'],
     json_encode($GLOBALS['PROFILES']['MHB.Hz'] ?? null));
 
-echo "\n10) Sicherheitsnetz gegen den 25.07.2026-Vorfall (#16933)\n";
+echo "\n10) Sicherheitsnetz gegen den 25.07.2026-Vorfall (#16933) + Durchreichung seit 31.08.2026\n";
 // Nachstellung des realen Vorfalls: eine Instanz mit funktionierender
 // Verdrahtung (Summe/Rest existieren) verliert die Verdrahtung — vorher
 // wurden dabei ALLE Ausgabevariablen auf einen Schlag geloescht, obwohl nur
@@ -366,26 +366,48 @@ echo "\n10) Sicherheitsnetz gegen den 25.07.2026-Vorfall (#16933)\n";
 $before = [];
 foreach (IPS_GetChildrenIDs($new) as $c) { $before[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
 check('Ausgangslage: Ausgaben vorhanden', isset($before['hausanschluss_sum_power']), implode(', ', array_keys($before)));
+check('Ausgangslage: Kinder haben (seit 31.08.2026) schon eigene Durchreichung', isset($before['waermepumpe_rest_power']), implode(', ', array_keys($before)));
 
 // 10a) Verdrahtung komplett flach machen (kein Knoten hat mehr Kinder) —
-// genau der Zustand, der RegisterVariables() vorher "nichts ist mehr
-// gueltig" lesen liess.
+// bis 31.08.2026 der Zustand, der RegisterVariables() "nichts ist mehr
+// gueltig" lesen liess. Seit dem Fund von Sepp/Dietmar (kinderlose Steckdose
+// ohne jede Ausgabe) tragen alle drei Knoten hier aber weiterhin ihren
+// EIGENEN Zaehler — das Sicherheitsnetz darf deshalb NICHT mehr greifen,
+// sondern muss auf reine Durchreichungs-Ausgaben umschalten (kein
+// "_sum_" mehr, "_rest_" bleibt als 1:1-Durchreichung des eigenen Werts).
 $flatNodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
 foreach ($flatNodes as &$r) { $r['Parent'] = ''; }
 unset($r);
 IPS_SetProperty($new, 'Nodes', json_encode($flatNodes));
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
-check('10a: Status = Fehler (201)', ($GLOBALS['STATUS'][$new] ?? 0) === 201, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
+check('10a: Status bleibt aktiv (102) — kein Fehler mehr, jeder Knoten hat ja einen eigenen Zähler', ($GLOBALS['STATUS'][$new] ?? 0) === 102, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
 $after10a = [];
 foreach (IPS_GetChildrenIDs($new) as $c) { $after10a[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
-check('10a: vorhandene Ausgaben NICHT geloescht', $after10a === $before, 'vorher=' . implode(',', array_keys($before)) . ' nachher=' . implode(',', array_keys($after10a)));
-$check10aErr = (new ReflectionMethod('MeterHubVirtual', 'Validate'))->invoke($GLOBALS['MODOBJ'][$new]);
-check('10a: Fehlermeldung nennt die Ursache', !empty($check10aErr) && str_contains(implode(' ', $check10aErr), 'keine einzige Summe'), implode(' | ', $check10aErr));
+check('10a: "_sum_"-Ausgaben verschwinden (hausanschluss hat keine Kinder mehr)', !isset($after10a['hausanschluss_sum_power']), implode(',', array_keys($after10a)));
+check('10a: "_rest_"-Durchreichung bleibt für alle drei erhalten', isset($after10a['hausanschluss_rest_power']) && isset($after10a['waermepumpe_rest_power']) && isset($after10a['wallbox_rest_power']), implode(',', array_keys($after10a)));
+$GLOBALS['MODOBJ'][$new]->Recalc();
+$hausPower = null;
+foreach (IPS_GetChildrenIDs($new) as $c) { if ($GLOBALS['OBJ'][$c]['ObjectIdent'] === 'hausanschluss_rest_power') { $hausPower = GetValue($c); } }
+check('10a: Durchreichung = eigener Zählerwert (5000 W), kein "Rest" mehr abgezogen', abs(($hausPower ?? -1) - 5000.0) < 0.01, 'ist ' . $hausPower);
 
-// 10b) Verdrahtung reparieren, aber zusaetzlich einen echten Fehler
-// einbauen (verweist auf geloeschte Variable) — unabhaengig vom
-// Flach-Fall muss JEDER Validate()-Fehler die Loeschung verhindern.
-$fixedNodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
+// 10a-safety) Gegenprobe zum eigentlichen Sicherheitsnetz: ein Knoten OHNE
+// jeden eigenen Zähler UND ohne Kinder ergibt weiterhin exakt NULL Ausgaben
+// — das ist der einzige Fall, in dem die 25.07.2026-Sperre noch greifen muss.
+$emptyNodes = [['Key' => 'leer', 'Name' => 'Ohne alles', 'Parent' => '', 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none']];
+IPS_SetProperty($new, 'Nodes', json_encode($emptyNodes));
+$GLOBALS['MODOBJ'][$new]->ApplyChanges();
+check('10a-safety: Status = Fehler (201) — wirklich NICHTS mehr zu berechnen', ($GLOBALS['STATUS'][$new] ?? 0) === 201, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
+$afterSafety = [];
+foreach (IPS_GetChildrenIDs($new) as $c) { $afterSafety[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
+check('10a-safety: vorhandene Ausgaben NICHT geloescht', $afterSafety === $after10a, 'vorher=' . implode(',', array_keys($after10a)) . ' nachher=' . implode(',', array_keys($afterSafety)));
+$checkSafetyErr = (new ReflectionMethod('MeterHubVirtual', 'Validate'))->invoke($GLOBALS['MODOBJ'][$new]);
+check('10a-safety: Fehlermeldung nennt die Ursache', !empty($checkSafetyErr) && str_contains(implode(' ', $checkSafetyErr), 'keine einzige Ausgabe'), implode(' | ', $checkSafetyErr));
+
+// 10b) Zurück zur flachen, aber gültigen Verdrahtung (Zustand von 10a) und
+// zusätzlich einen echten Fehler einbauen (verweist auf geloeschte
+// Variable) — unabhaengig vom Flach-Fall muss JEDER Validate()-Fehler die
+// Loeschung verhindern.
+$fixedNodes = $flatNodes;
 foreach ($fixedNodes as &$r) {
     if (($r['Key'] ?? '') !== 'hausanschluss') { $r['Parent'] = 'hausanschluss'; }
 }
@@ -396,7 +418,7 @@ $GLOBALS['MODOBJ'][$new]->ApplyChanges();
 check('10b: Status = Fehler (201)', ($GLOBALS['STATUS'][$new] ?? 0) === 201, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
 $after10b = [];
 foreach (IPS_GetChildrenIDs($new) as $c) { $after10b[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
-check('10b: vorhandene Ausgaben NICHT geloescht (allgemeiner Fehlerfall)', $after10b === $before, 'nachher=' . implode(',', array_keys($after10b)));
+check('10b: vorhandene Ausgaben NICHT geloescht (allgemeiner Fehlerfall)', $after10b === $afterSafety, 'nachher=' . implode(',', array_keys($after10b)));
 
 // 10c) Gegenprobe: Verdrahtung sauber reparieren (kein Fehler mehr) — jetzt
 // MUSS RegisterVariables() wieder normal arbeiten, damit das Sicherheitsnetz
@@ -413,6 +435,27 @@ check('10c: nach Reparatur wieder aktiv (102)', ($GLOBALS['STATUS'][$new] ?? 0) 
 $after10c = [];
 foreach (IPS_GetChildrenIDs($new) as $c) { $after10c[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
 check('10c: Ausgaben nach Reparatur weiter vorhanden', isset($after10c['hausanschluss_sum_power']), implode(',', array_keys($after10c)));
+
+echo "\n11) Formular-Konvention: News-Panel + Doku-Panel (31.08.2026, Dietmars Auftrag \"hier maximal nachbessern\")\n";
+$newsVersion = (new ReflectionClass('MeterHubVirtual'))->getConstant('NEWS_VERSION');
+$form11 = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+check('Formular bleibt gültiges JSON', is_array($form11));
+$panelCaptions = array_column($form11['elements'] ?? [], 'caption');
+check('News-Panel erscheint vor ungesehener Bestätigung', in_array('🆕  Neu in dieser Version', $panelCaptions, true), implode(' | ', $panelCaptions));
+$dokuPanel = null;
+foreach ($form11['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '📖  Dokumentation & Hilfe') { $dokuPanel = $el; } }
+check('Doku-Panel vorhanden', $dokuPanel !== null);
+$dokuText = implode(' ', array_column($dokuPanel['items'] ?? [], 'caption'));
+check('Doku-Panel nennt die Versionsnummer', str_contains($dokuText, $newsVersion), $dokuText);
+check('Doku-Panel enthält alle drei Verdrahtungs-Muster', str_contains($dokuText, '①') && str_contains($dokuText, '②') && str_contains($dokuText, '③'));
+check('Doku-Panel erklärt den neuen Durchreichungs-Fall', str_contains($dokuText, 'Durchreichung'));
+
+$GLOBALS['MODOBJ'][$new]->AckNews();
+check('AckNews() merkt die Version dauerhaft', ($GLOBALS['ATTR'][$new]['SeenNews'] ?? null) === $newsVersion, 'ist ' . ($GLOBALS['ATTR'][$new]['SeenNews'] ?? '(leer)'));
+check('AckNews() blendet das Panel im offenen Formular sofort aus', ($GLOBALS['FORMFIELDS']['NewsPanel']['visible'] ?? null) === false);
+$form11b = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+$panelCaptions2 = array_column($form11b['elements'] ?? [], 'caption');
+check('News-Panel bleibt nach Bestätigung auch bei einem Neuaufbau weg', !in_array('🆕  Neu in dieser Version', $panelCaptions2, true), implode(' | ', $panelCaptions2));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

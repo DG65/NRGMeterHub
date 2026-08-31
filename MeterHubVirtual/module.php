@@ -54,6 +54,16 @@ class MeterHubVirtual extends IPSModule
         'other'      => ['Sonstiger Verbraucher',    'Electricity'],
     ];
 
+    // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
+    // Optik", Referenz InverterHub) — News-Panel pro Version, einmalig
+    // bestätigt und dann weg, bis zur nächsten NEWS_VERSION. Hier zum ersten
+    // Mal in diesem Repo umgesetzt (31.08.2026, Dietmars Auftrag „hier
+    // maximal nachbessern", ausgelöst durch die Verdrahtungs-Verwirrung im
+    // Praxistest): genau die Version, die den Fund behebt, ist es wert,
+    // sichtbar hervorgehoben zu werden — nicht erst beim x-ten stillen
+    // Scrollen durchs eingeklappte Doku-Panel.
+    private const NEWS_VERSION = '0.23.5';
+
     public function Create()
     {
         parent::Create();
@@ -67,7 +77,37 @@ class MeterHubVirtual extends IPSModule
         $this->RegisterPropertyString('ScanFilter', '');
         $this->RegisterPropertyBoolean('ScanNeedEnergy', false);
         $this->RegisterPropertyBoolean('ScanOnlyActive', true);
+        $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterTimer('Recalc', 0, 'MHUBV_Recalc($_IPS[\'TARGET\']);');
+    }
+
+    /**
+     * Aufgeklappt und pro Version einmalig bestätigbar — Inhalt aus dem
+     * jeweils aktuellen CHANGELOG-Eintrag abgeleitet, nicht neu formuliert
+     * (Formular-Konvention). `null`, sobald `NEWS_VERSION` schon bestätigt
+     * wurde, dann taucht das Panel gar nicht erst im Formular auf.
+     */
+    private function NewsBanner(): ?array
+    {
+        if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
+            'caption' => '🆕  Neu in dieser Version',
+            'items' => [
+                ['type' => 'Label', 'caption' => '• Ein Zähler OHNE untergeordnete Zähler bekommt jetzt endlich eine eigene Ausgabe, wenn er einen eigenen Zähler hat — bisher blieb er komplett unsichtbar (weder Berechnung noch Funktionszuordnung), ohne erkennbaren Grund. Betrifft z. B. eine einzelne Steckdose, die nur für die Funktionszuordnung („Kühl-/Gefriergerät" …) verdrahtet wird.'],
+                ['type' => 'Label', 'caption' => '• Das Doku-Panel unten wurde komplett neu geschrieben: alle drei Verdrahtungs-Muster mit Beispiel, unabhängig von Vorwissen verständlich.'],
+                ['type' => 'Label', 'caption' => '• Die Zählersuche erkennt jetzt auch die neuen IPS-„Darstellungen" (Shelly, KNX u. a.), nicht mehr nur klassische Profile.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
+            ],
+        ];
+    }
+
+    public function AckNews()
+    {
+        $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+        $this->UpdateFormField('NewsPanel', 'visible', false);
     }
 
     public function ApplyChanges()
@@ -227,15 +267,31 @@ class MeterHubVirtual extends IPSModule
         }
 
         // Sicherheitsnetz gegen den 25.07.2026-Vorfall (#16933): Eine
-        // Verdrahtung ohne einen einzigen Knoten mit Kindern ergibt in
-        // OutputDefs() KEINE Summe/Rest-Ausgabe mehr — RegisterVariables()
-        // würde das sonst als "nichts ist mehr gültig" lesen und JEDE schon
-        // vorhandene Ausgabevariable auf einen Schlag löschen, auch wenn nur
-        // eine einzelne, unbeteiligte Zeile geändert wurde. Nur relevant,
-        // wenn es überhaupt schon Ausgaben gibt — eine brandneue, noch nie
-        // verdrahtete Instanz hat keine und wird hierdurch nicht blockiert.
-        if (empty($childMap) && $this->HasExistingOutputs()) {
-            $errors[] = 'Die aktuelle Verdrahtung ergibt keine einzige Summe-/Rest-Ausgabe mehr — kein Zähler hat mehr Kinder. Vorhandene Ausgabevariablen bleiben deshalb unangetastet, bis das behoben ist. Prüfen, ob eine Zeile versehentlich ihr „hängt hinter“ verloren hat.';
+        // Verdrahtung ohne eine einzige Summe-/Rest-Ausgabe würde
+        // RegisterVariables() sonst als "nichts ist mehr gültig" lesen und
+        // JEDE schon vorhandene Ausgabevariable auf einen Schlag löschen,
+        // auch wenn nur eine einzelne, unbeteiligte Zeile geändert wurde.
+        // Nur relevant, wenn es überhaupt schon Ausgaben gibt — eine
+        // brandneue, noch nie verdrahtete Instanz hat keine und wird
+        // hierdurch nicht blockiert.
+        //
+        // Seit 31.08.2026 reicht "kein Knoten hat Kinder" (leeres $childMap)
+        // allein NICHT mehr als Kriterium: ein kinderloser Knoten mit
+        // eigenem Zähler erzeugt seither eine Durchreichungs-Ausgabe (siehe
+        // OutputDefs()), auch ohne jede Kind-Beziehung. Deshalb hier
+        // dieselbe Bedingung wie dort — echte Ausgabe gibt es, sobald
+        // irgendein Knoten Kinder ODER einen eigenen Zähler hat.
+        $anyOutputLeft = !empty($childMap);
+        if (!$anyOutputLeft) {
+            foreach ($nodes as $n) {
+                if ($n['power'] > 0 || $n['imp'] > 0 || $n['exp'] > 0) {
+                    $anyOutputLeft = true;
+                    break;
+                }
+            }
+        }
+        if (!$anyOutputLeft && $this->HasExistingOutputs()) {
+            $errors[] = 'Die aktuelle Verdrahtung ergibt keine einzige Ausgabe mehr — kein Zähler hat mehr Kinder oder einen eigenen Zähler. Vorhandene Ausgabevariablen bleiben deshalb unangetastet, bis das behoben ist. Prüfen, ob eine Zeile versehentlich ihr „hängt hinter“ oder ihren Zähler verloren hat.';
         }
 
         return $errors;
@@ -296,19 +352,39 @@ class MeterHubVirtual extends IPSModule
     // -----------------------------------------------------------------------
 
     /** Auszugebende Variablen: [ident, caption, profil, quelle-feld, art]. */
+    /**
+     * Bis 31.08.2026 lief diese Funktion nur über `$kids` (Knoten, die
+     * MINDESTENS ein Kind haben) — ein kinderloser Knoten mit eigenem Zähler
+     * (z. B. eine einzelne Steckdose, die nur zur Funktionszuordnung wie
+     * „Kühl-/Gefriergerät“ dienen soll) bekam dadurch KEINE Ausgabe, obwohl
+     * er einen eigenen Zähler trägt — Recalc() meldete „keine Ausgabe
+     * vorhanden“, und die Funktion war über MHUBV_GetFunctions() unsichtbar,
+     * ganz ohne Fehlermeldung, die auf die Ursache hindeutete (Live-Fund
+     * über einen Praxistest, Dietmar/Sepp). Jetzt läuft die Schleife über
+     * ALLE Knoten: „Summe“ weiterhin nur bei Kindern, „Rest“ weiterhin nur
+     * bei eigenem Zähler — aber unabhängig voneinander. Ein kinderloser
+     * Knoten mit eigenem Zähler bekommt dadurch eine reine
+     * Durchreichungs-Ausgabe (Rest = eigener Zähler − 0 = eigener Zähler),
+     * mit angepasster Bezeichnung (kein irreführendes „Rest“ ohne etwas,
+     * das abgezogen wird).
+     */
     private function OutputDefs(): array
     {
         $nodes = $this->Nodes();
         $kids  = $this->Children($nodes);
         $defs  = [];
-        foreach ($kids as $parent => $list) {
-            $n = $nodes[$parent];
+        foreach ($nodes as $key => $n) {
+            $hasKids = isset($kids[$key]);
             foreach ([['power', 'NRG.Watt', 'Leistung'], ['imp', 'NRG.kWh', 'Bezug'], ['exp', 'NRG.kWh', 'Einspeisung']] as [$f, $prof, $lbl]) {
-                // Summe der untergeordneten Zähler
-                $defs[] = [$parent . '_sum_' . $f, $n['name'] . ': ' . $lbl . ' untergeordnet', $prof, $f, 'sum', $parent];
-                // Rest nur, wenn der Knoten einen eigenen Zähler hat
+                // Summe der untergeordneten Zähler — nur, wenn welche da sind.
+                if ($hasKids) {
+                    $defs[] = [$key . '_sum_' . $f, $n['name'] . ': ' . $lbl . ' untergeordnet', $prof, $f, 'sum', $key];
+                }
+                // Rest (bzw. bei kinderlosen Knoten: reine Durchreichung des
+                // eigenen Zählers) — unabhängig davon, ob der Knoten Kinder hat.
                 if ($n[$f] > 0) {
-                    $defs[] = [$parent . '_rest_' . $f, $n['name'] . ': ' . $lbl . ' Rest', $prof, $f, 'rest', $parent];
+                    $label = $hasKids ? ($n['name'] . ': ' . $lbl . ' Rest') : ($n['name'] . ': ' . $lbl);
+                    $defs[] = [$key . '_rest_' . $f, $label, $prof, $f, 'rest', $key];
                 }
             }
         }
@@ -403,7 +479,10 @@ class MeterHubVirtual extends IPSModule
         $count = 0;
         foreach ($this->OutputDefs() as [$ident, , , $field, $kind, $parent]) {
             $sum = 0.0;
-            foreach ($kids[$parent] as $k) {
+            // ?? [] : ein kinderloser Knoten mit reiner Durchreichungs-
+            // Ausgabe (seit 31.08.2026, siehe OutputDefs()) hat keinen
+            // Eintrag in $kids — Summe bleibt dann korrekt 0.0.
+            foreach ($kids[$parent] ?? [] as $k) {
                 $vid = $nodes[$k][$field] ?? 0;
                 if ($vid > 0 && IPS_VariableExists($vid)) {
                     $sum += (float)GetValue($vid);
@@ -825,14 +904,28 @@ class MeterHubVirtual extends IPSModule
             }
         }
 
+        $newsBanner = $this->NewsBanner();
         $form = [
-            'elements' => [
+            'elements' => array_values(array_filter([
+                $newsBanner,
                 [
                     'type' => 'ExpansionPanel', 'caption' => '📖  Dokumentation & Hilfe', 'expanded' => false,
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'Bildet virtuelle Zähler, indem die VERDRAHTUNG beschrieben wird statt einer Formel: Für jeden Zähler wird angegeben, hinter welchem er sitzt. Daraus ergibt sich je Knoten mit Untergeordneten automatisch die „Summe untergeordnet“ und — falls der Knoten einen eigenen Zähler hat — der „Rest“ (eigener Zähler minus Untergeordnete).'],
-                        ['type' => 'Label', 'caption' => 'Beispiel: „Hausanschluss“ (eigener Zähler) mit den untergeordneten „Wärmepumpe“ und „Wallbox“ ergibt „Hausanschluss: Leistung Rest“ — also alles, was weder Wärmepumpe noch Wallbox verbraucht.'],
-                        ['type' => 'Label', 'caption' => '🛡️ Warum keine freie Formel: Weil jeder Zähler im Baum genau EINEN Platz hat, kann er nicht doppelt abgezogen werden. Was die Struktur nicht verhindert (derselbe Datenpunkt in zwei Zeilen, Ringschlüsse, gemischte Einheiten), meldet die Prüfung unten — und solange etwas offen ist, wird bewusst nicht gerechnet.'],
+                        ['type' => 'Label', 'caption' => 'MeterHubVirtual ' . self::NEWS_VERSION . ' — Stand dieser Anleitung.'],
+                        ['type' => 'Label', 'caption' => 'Bildet virtuelle Zähler, indem die VERDRAHTUNG beschrieben wird statt einer Formel: Für jeden Zähler wird angegeben, hinter welchem er sitzt (Spalte „hängt hinter“). Daraus leitet das Modul automatisch ab, was berechnet wird — welches der drei Muster unten zutrifft, entscheidet allein, ob eine Zeile einen EIGENEN Zähler hat und/oder KINDER (andere Zeilen, die hinter ihr hängen).'],
+                        ['type' => 'Label', 'caption' => '━━━ Die drei Verdrahtungs-Muster ━━━'],
+                        ['type' => 'Label', 'caption' => '① REINER SAMMELKNOTEN (kein eigener Zähler, hat Kinder) → nur „Summe untergeordnet“. Beispiel: eine Zeile „Steckdosen gesamt“ ohne eigene Leistungs-/Energiespalte, „Kühlschrank“ und „Brunnenpumpe“ hängen dahinter → „Steckdosen gesamt: Leistung untergeordnet“ = Kühlschrank + Brunnenpumpe. Genau dieses Muster braucht es, wenn es KEINEN echten Zähler gibt, der beide zusammen misst.'],
+                        ['type' => 'Label', 'caption' => '② ZÄHLER MIT KINDERN (eigener Zähler UND Kinder) → „Summe untergeordnet“ UND „Rest“ (eigener Zähler minus Summe). Beispiel: „Hausanschluss“ (eigener Zähler) mit den untergeordneten „Wärmepumpe“ und „Wallbox“ ergibt „Hausanschluss: Leistung Rest“ — also alles, was weder Wärmepumpe noch Wallbox verbraucht.'],
+                        ['type' => 'Label', 'caption' => '③ EINZELNER ZÄHLER OHNE KINDER (eigener Zähler, „hängt hinter“ = oberste Ebene, niemand hängt an ihm) → reine Durchreichung des eigenen Werts, keine „Summe“. 🆕 Neu seit ' . self::NEWS_VERSION . ' — vorher blieb so eine Zeile komplett ohne Ausgabe. Nützlich, um EINEN einzelnen, bereits gemessenen Zähler nur für die Funktionszuordnung (z. B. „Kühl-/Gefriergerät“) sichtbar zu machen, ohne ihn mit etwas anderem zu verrechnen.'],
+                        ['type' => 'Label', 'caption' => '❌ Eine Zeile OHNE eigenen Zähler UND OHNE Kinder erzeugt dagegen weiterhin keine Ausgabe — es gäbe schlicht nichts zu berechnen.'],
+                        ['type' => 'Label', 'caption' => '━━━ Schritt für Schritt ━━━'],
+                        ['type' => 'Label', 'caption' => '1. Zeilen anlegen — per Suchlauf (Knopf unten) oder von Hand über „+“ in der Tabelle. Kürzel und mindestens eine Datenpunkt-Spalte ausfüllen.'],
+                        ['type' => 'Label', 'caption' => '2. „Übernehmen“ klicken. Erst danach erscheint die neue Zeile in der Auswahl „hängt hinter“ — sie steht ja erst ab jetzt als Bezugspunkt fest.'],
+                        ['type' => 'Label', 'caption' => '3. Verdrahten: bei den KINDER-Zeilen „hängt hinter“ auf die gewünschte Eltern-Zeile setzen (Muster ① oder ②). Für Muster ③ „hängt hinter“ einfach auf „— oberste Ebene —“ stehen lassen.'],
+                        ['type' => 'Label', 'caption' => '4. Erneut „Übernehmen“. Erst jetzt wertet das Modul die neue Verdrahtung aus.'],
+                        ['type' => 'Label', 'caption' => '5. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt den fertigen Baum, ❌ nennt genau, was noch fehlt.'],
+                        ['type' => 'Label', 'caption' => '6. Optional: Spalte „Funktion“ setzen, damit InverterHubTile/Dashboard den Knoten als Verbraucher erkennen — das funktioniert bei allen drei Mustern, seit ③ selbst eine Ausgabe hat.'],
+                        ['type' => 'Label', 'caption' => '🛡️ Warum keine freie Formel statt der Verdrahtung: Weil jeder Zähler im Baum genau EINEN Platz hat, kann er nicht doppelt abgezogen werden. Was die Struktur nicht verhindert (derselbe Datenpunkt in zwei Zeilen, Ringschlüsse, gemischte Einheiten), meldet die Prüfung unten — und solange etwas offen ist, wird bewusst nicht gerechnet.'],
                         ['type' => 'Label', 'caption' => 'Das Kürzel ist der technische Name: Es bildet die Variablen-Idents und dient als Bezug für „hängt hinter“. Die Bezeichnung ist frei änderbar, das Kürzel sollte stehen bleiben — sonst entstehen neue Variablen und die Historie der alten geht verloren.'],
                         ['type' => 'Label', 'caption' => 'Einheiten: Leistung in W, Energie als kumulative kWh-Zählerstände. Alle Datenpunkte eines Knotens müssen dieselbe Einheit haben; Abweichungen meldet die Prüfung.'],
                     ],
@@ -873,7 +966,7 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'NumberSpinner', 'name' => 'Interval', 'caption' => 'Neu berechnen alle', 'minimum' => 2, 'maximum' => 3600, 'suffix' => 's'],
                     ],
                 ],
-            ],
+            ])),
             'actions' => [
                 ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'echo MHUBV_Recalc($id);'],
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
