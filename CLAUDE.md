@@ -1278,3 +1278,16 @@ lässt sich einzeln auf „aus" stellen; Typ 7 (löschen) wird — anders als 0�
 Intervall immer übernommen, wenn gewählt (hat keine vergleichbare Auflösung). Verifiziert in
 Block 20f/20g: eigene Werte kommen unverändert an, „aus" wird respektiert, das
 Formular-Panel mit allen sechs Feldern ist vorhanden.
+
+**Zweiter Nachtrag, noch am selben Tag — getrennt für Leistung/Energie:** Dietmar: „wir müssen
+zwischen Leistungswerten und Energiewerten unterscheiden. Wir bräuchten deshalb diese
+Einstellungen doppelt." Aus den sechs Properties wurden zwölf — `CompactionPlan()` nimmt jetzt
+einen `$kind`-Parameter ('Power'|'Energy') als Suffix der gelesenen Property-Namen
+(`AutoCompactionPower`/`AutoCompactionEnergy` usw.). `SetArchive()` übergibt `$kind` anhand
+desselben `$counter`-Flags, das schon die Aggregationstyp-Wahl steuert (`$counter ? 'Energy' :
+'Power'`) — keine zusätzliche Fallunterscheidung nötig. Formular: `CompactionFields(string
+$kind, string $label): array` erzeugt die sechs Felder je Kategorie mit erklärender
+Zwischenüberschrift, im Panel per `array_merge()` zweimal eingebunden (⚡ Leistung, 🔋 Energie).
+Beide Kategorien starten mit identischen Vorbelegungen (Dietmars ursprüngliche Werte) — er hat
+zu diesem Zeitpunkt keine unterschiedlichen Zahlen für die beiden Kategorien genannt, nur die
+strukturelle Trennung gefordert.

@@ -719,40 +719,49 @@ check('19b: Übernehmen aus der Auswahlliste funktioniert genau wie beim direkte
 $rows19 = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
 check('19b: Zeile mit der über Profil gefundenen Leistungs-ID angelegt', ($rows19[0]['PowerID'] ?? 0) === 911 && ($rows19[0]['EnergyImportID'] ?? 0) === 0, json_encode($rows19));
 
-echo "\n20) CompactionPlan() — Staffelung skaliert mit dem Update-Intervall (Dietmars Vorgabe 31.08.2026)\n";
+echo "\n20) CompactionPlan() — Staffelung skaliert mit dem Update-Intervall UND ist getrennt für Leistung/Energie (Dietmars Vorgabe + Ergänzung 31.08.2026)\n";
 $plan = new ReflectionMethod('MeterHubVirtual', 'CompactionPlan');
 $anyInstance = $GLOBALS['MODOBJ'][$new];
-check('20a: < 60s (typisch, viele Werte) — volle Staffelung', $plan->invoke($anyInstance, 10) === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 10)));
-check('20b: 60s..299s — "direkt" entfällt (wäre Leerlauf), Rest bleibt', $plan->invoke($anyInstance, 60) === [[1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 60)));
-check('20c: 300s..3599s — nur noch die 12-Monats-Stufe', $plan->invoke($anyInstance, 300) === [[12, 2]], json_encode($plan->invoke($anyInstance, 300)));
-check('20d: >= 3600s — bereits gröber als jede Stufe, keine Verdichtung nötig', $plan->invoke($anyInstance, 3600) === [], json_encode($plan->invoke($anyInstance, 3600)));
+check('20a: < 60s (typisch, viele Werte) — volle Staffelung (Power)', $plan->invoke($anyInstance, 10, 'Power') === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 10, 'Power')));
+check('20b: 60s..299s — "direkt" entfällt (wäre Leerlauf), Rest bleibt', $plan->invoke($anyInstance, 60, 'Power') === [[1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 60, 'Power')));
+check('20c: 300s..3599s — nur noch die 12-Monats-Stufe', $plan->invoke($anyInstance, 300, 'Power') === [[12, 2]], json_encode($plan->invoke($anyInstance, 300, 'Power')));
+check('20d: >= 3600s — bereits gröber als jede Stufe, keine Verdichtung nötig', $plan->invoke($anyInstance, 3600, 'Power') === [], json_encode($plan->invoke($anyInstance, 3600, 'Power')));
+check('20d2: dieselbe Vorbelegung gilt unabhängig für Energy', $plan->invoke($anyInstance, 10, 'Energy') === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 10, 'Energy')));
 $planHub = new ReflectionMethod('MeterHub', 'CompactionPlan');
 $hubInstance = new MeterHub(998);
 $hubInstance->Create(); // registriert AutoCompaction u.a. mit ihren Vorbelegungen
-check('20e: identische Staffelung im Schwestermodul MeterHub', $planHub->invoke($hubInstance, 10) === [[-1, 0], [1, 1], [12, 2]], json_encode($planHub->invoke($hubInstance, 10)));
+check('20e: identische Staffelung im Schwestermodul MeterHub', $planHub->invoke($hubInstance, 10, 'Power') === [[-1, 0], [1, 1], [12, 2]], json_encode($planHub->invoke($hubInstance, 10, 'Power')));
 
 echo "\n  20f) Wirklich konfigurierbar (Dietmars Einwand 31.08.2026: \"ich bin nicht der einzigste Nutzer\") — nicht nur intervallabhängig, sondern von den Formularwerten\n";
-IPS_SetProperty(8100, 'AutoCompaction', false);
-check('20f: AutoCompaction aus -> leere Staffelung, unabhängig vom Intervall', $plan->invoke($fresh2, 10) === [], json_encode($plan->invoke($fresh2, 10)));
-IPS_SetProperty(8100, 'AutoCompaction', true);
-IPS_SetProperty(8100, 'CompactDirect', -1);       // Stufe 1 bewusst aus
-IPS_SetProperty(8100, 'CompactStage2Months', 3);  // andere Werte als Dietmars Standard
-IPS_SetProperty(8100, 'CompactStage2Type', 3);    // 1×/Tag statt 1×/5 Min
-IPS_SetProperty(8100, 'CompactStage3Months', 6);
-IPS_SetProperty(8100, 'CompactStage3Type', 7);    // löschen statt verdichten
-check('20f: eigene Werte kommen 1:1 an, "aus" wird respektiert', $plan->invoke($fresh2, 10) === [[3, 3], [6, 7]], json_encode($plan->invoke($fresh2, 10)));
-IPS_SetProperty(8100, 'CompactDirect', 0);
-IPS_SetProperty(8100, 'CompactStage2Months', 1);
-IPS_SetProperty(8100, 'CompactStage2Type', 1);
-IPS_SetProperty(8100, 'CompactStage3Months', 12);
-IPS_SetProperty(8100, 'CompactStage3Type', 2);
+IPS_SetProperty(8100, 'AutoCompactionPower', false);
+check('20f: AutoCompactionPower aus -> leere Staffelung für Power, unabhängig vom Intervall', $plan->invoke($fresh2, 10, 'Power') === [], json_encode($plan->invoke($fresh2, 10, 'Power')));
+check('20f: Energy bleibt davon unberührt (getrennt konfigurierbar)', $plan->invoke($fresh2, 10, 'Energy') === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($fresh2, 10, 'Energy')));
+IPS_SetProperty(8100, 'AutoCompactionPower', true);
+IPS_SetProperty(8100, 'CompactDirectPower', -1);       // Stufe 1 bewusst aus
+IPS_SetProperty(8100, 'CompactStage2MonthsPower', 3);  // andere Werte als Dietmars Standard
+IPS_SetProperty(8100, 'CompactStage2TypePower', 3);    // 1×/Tag statt 1×/5 Min
+IPS_SetProperty(8100, 'CompactStage3MonthsPower', 6);
+IPS_SetProperty(8100, 'CompactStage3TypePower', 7);    // löschen statt verdichten
+check('20f: eigene Power-Werte kommen 1:1 an, "aus" wird respektiert', $plan->invoke($fresh2, 10, 'Power') === [[3, 3], [6, 7]], json_encode($plan->invoke($fresh2, 10, 'Power')));
+check('20f: Energy weiterhin unverändert bei Dietmars Standardwerten', $plan->invoke($fresh2, 10, 'Energy') === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($fresh2, 10, 'Energy')));
+IPS_SetProperty(8100, 'CompactDirectPower', 0);
+IPS_SetProperty(8100, 'CompactStage2MonthsPower', 1);
+IPS_SetProperty(8100, 'CompactStage2TypePower', 1);
+IPS_SetProperty(8100, 'CompactStage3MonthsPower', 12);
+IPS_SetProperty(8100, 'CompactStage3TypePower', 2);
 
 $form20 = json_decode($fresh2->GetConfigurationForm(), true);
 $compactPanel = null;
 foreach ($form20['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🗄️  Archiv-Verdichtung') { $compactPanel = $el; } }
 check('20g: Archiv-Verdichtung-Panel im Formular vorhanden', $compactPanel !== null);
 $compactFieldNames = array_column($compactPanel['items'] ?? [], 'name');
-check('20g: alle sechs Einstellfelder vorhanden', array_diff(['AutoCompaction', 'CompactDirect', 'CompactStage2Months', 'CompactStage2Type', 'CompactStage3Months', 'CompactStage3Type'], $compactFieldNames) === [], implode(',', $compactFieldNames));
+$expectedCompactFields = [];
+foreach (['Power', 'Energy'] as $kind) {
+    foreach (['AutoCompaction', 'CompactDirect', 'CompactStage2Months', 'CompactStage2Type', 'CompactStage3Months', 'CompactStage3Type'] as $base) {
+        $expectedCompactFields[] = $base . $kind;
+    }
+}
+check('20g: alle zwölf Einstellfelder vorhanden (getrennt für Power/Energy)', array_diff($expectedCompactFields, $compactFieldNames) === [], implode(',', $compactFieldNames));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

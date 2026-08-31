@@ -2221,13 +2221,19 @@ class MeterHub extends IPSModule
         // Archiv-Verdichtung, konfigurierbar statt fest im Code (Dietmars
         // Einwand 31.08.2026: "ich bin nicht der einzigste Nutzer, andere
         // haben vielleicht andere Vorstellungen" — seine eigenen Werte
-        // bleiben nur noch die VORBELEGUNG, siehe CompactionPlan()).
-        $this->RegisterPropertyBoolean('AutoCompaction', true);
-        $this->RegisterPropertyInteger('CompactDirect', 0);        // direkt: 1×/Minute
-        $this->RegisterPropertyInteger('CompactStage2Months', 1);
-        $this->RegisterPropertyInteger('CompactStage2Type', 1);    // nach Stufe 2: 1×/5 Min
-        $this->RegisterPropertyInteger('CompactStage3Months', 12);
-        $this->RegisterPropertyInteger('CompactStage3Type', 2);    // nach Stufe 3: 1×/Stunde
+        // bleiben nur noch die VORBELEGUNG, siehe CompactionPlan()). Doppelt
+        // für Leistung und Energie (Dietmars Ergänzung, noch am selben Tag:
+        // „wir müssen zwischen Leistungswerten und Energiewerten
+        // unterscheiden" — unabhängig vom Update-Takt können beide ganz
+        // andere Aufbewahrungs-Anforderungen haben).
+        foreach (['Power', 'Energy'] as $kind) {
+            $this->RegisterPropertyBoolean('AutoCompaction' . $kind, true);
+            $this->RegisterPropertyInteger('CompactDirect' . $kind, 0);        // direkt: 1×/Minute
+            $this->RegisterPropertyInteger('CompactStage2Months' . $kind, 1);
+            $this->RegisterPropertyInteger('CompactStage2Type' . $kind, 1);    // nach Stufe 2: 1×/5 Min
+            $this->RegisterPropertyInteger('CompactStage3Months' . $kind, 12);
+            $this->RegisterPropertyInteger('CompactStage3Type' . $kind, 2);    // nach Stufe 3: 1×/Stunde
+        }
 
         // Optionale Gruppen aller Treiber registrieren (nicht nur des aktuell
         // gewählten) — der endgültige Meter-Wert wird oft erst nach Create()
@@ -2723,15 +2729,11 @@ class MeterHub extends IPSModule
                     'type'    => 'ExpansionPanel',
                     'caption' => '🗄️  Archiv-Verdichtung',
                     'expanded' => false,
-                    'items' => [
-                        ['type' => 'Label', 'caption' => 'Reduziert automatisch den Detailgrad älterer Archivwerte (spart Speicher), bei jedem „Übernehmen" neu gesetzt. Jede Stufe greift nur, wenn ihre Auflösung tatsächlich gröber ist als das jeweilige Polling-Intervall oben — sonst gäbe es nichts zu verdichten.'],
-                        ['type' => 'CheckBox', 'name' => 'AutoCompaction', 'caption' => 'Automatische Verdichtung aktivieren'],
-                        ['type' => 'Select', 'name' => 'CompactDirect', 'caption' => 'Direkt verdichten auf', 'options' => $this->CompactionTypeOptions()],
-                        ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months', 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
-                        ['type' => 'Select', 'name' => 'CompactStage2Type', 'caption' => '… verdichten auf', 'options' => $this->CompactionTypeOptions()],
-                        ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months', 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
-                        ['type' => 'Select', 'name' => 'CompactStage3Type', 'caption' => '… verdichten auf', 'options' => $this->CompactionTypeOptions()],
-                    ],
+                    'items' => array_merge(
+                        [['type' => 'Label', 'caption' => 'Reduziert automatisch den Detailgrad älterer Archivwerte (spart Speicher), bei jedem „Übernehmen" neu gesetzt. Jede Stufe greift nur, wenn ihre Auflösung tatsächlich gröber ist als das jeweilige Polling-Intervall oben — sonst gäbe es nichts zu verdichten. Getrennt einstellbar für Leistung und Energie, da beide unabhängig vom Polling-Takt unterschiedliche Aufbewahrungs-Anforderungen haben können.']],
+                        $this->CompactionFields('Power', '⚡ Leistung/Momentanwerte'),
+                        $this->CompactionFields('Energy', '🔋 Energiezähler (Wirkarbeit)')
+                    ),
                 ],
                 [
                     'type'    => 'ExpansionPanel',
@@ -3751,31 +3753,50 @@ class MeterHub extends IPSModule
         ];
     }
 
+    /** Sechs Formularfelder für eine Verdichtungs-Kategorie ('Power'/'Energy'), mit erklärender Zwischenüberschrift. */
+    private function CompactionFields(string $kind, string $label): array
+    {
+        $opts = $this->CompactionTypeOptions();
+        return [
+            ['type' => 'Label', 'caption' => $label],
+            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
+            ['type' => 'Select', 'name' => 'CompactDirect' . $kind, 'caption' => 'Direkt verdichten auf', 'options' => $opts],
+            ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
+            ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'caption' => '… verdichten auf', 'options' => $opts],
+            ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
+            ['type' => 'Select', 'name' => 'CompactStage3Type' . $kind, 'caption' => '… verdichten auf', 'options' => $opts],
+        ];
+    }
+
     /**
      * Verdichtungs-Staffelung aus den Formular-Einstellungen und dem
      * bekannten Update-Intervall — konfigurierbar statt fest im Code
      * (Dietmars Einwand 31.08.2026: „ich bin nicht der einzigste Nutzer,
      * andere haben vielleicht andere Vorstellungen" — seine eigenen Werte
      * bleiben nur noch die VORBELEGUNG der drei Stufen, siehe Create()).
-     * Jede Stufe nur, wenn ihre Ziel-Auflösung tatsächlich GRÖBER ist als
-     * das Roh-Intervall — sonst wäre sie ein Leerlauf; Typ 7 (löschen) hat
-     * keine Auflösung und wird immer übernommen, wenn gewählt. Intervall
-     * bewusst aus der Instanz-eigenen Konfiguration (IntervalFast/
-     * IntervalSlow) abgeleitet statt aus der Archiv-Historie geschätzt —
-     * die ist bei einer frisch angelegten Instanz noch leer.
+     * Getrennt nach Leistung/Energie (Dietmars Ergänzung, noch am selben
+     * Tag: „wir müssen zwischen Leistungswerten und Energiewerten
+     * unterscheiden"), daher `$kind` = 'Power' oder 'Energy' als Suffix der
+     * gelesenen Properties. Jede Stufe nur, wenn ihre Ziel-Auflösung
+     * tatsächlich GRÖBER ist als das Roh-Intervall — sonst wäre sie ein
+     * Leerlauf; Typ 7 (löschen) hat keine Auflösung und wird immer
+     * übernommen, wenn gewählt. Intervall bewusst aus der Instanz-eigenen
+     * Konfiguration (IntervalFast/IntervalSlow) abgeleitet statt aus der
+     * Archiv-Historie geschätzt — die ist bei einer frisch angelegten
+     * Instanz noch leer.
      * Rückgabe: Liste von [MonatsVersatz, Verdichtungstyp]-Paaren für
      * `AC_SetCompaction()`.
      */
-    private function CompactionPlan(int $intervalSeconds): array
+    private function CompactionPlan(int $intervalSeconds, string $kind): array
     {
-        if (!$this->ReadPropertyBoolean('AutoCompaction')) {
+        if (!$this->ReadPropertyBoolean('AutoCompaction' . $kind)) {
             return [];
         }
         $plan = [];
         $stages = [
-            [-1, (int)$this->ReadPropertyInteger('CompactDirect')],
-            [(int)$this->ReadPropertyInteger('CompactStage2Months'), (int)$this->ReadPropertyInteger('CompactStage2Type')],
-            [(int)$this->ReadPropertyInteger('CompactStage3Months'), (int)$this->ReadPropertyInteger('CompactStage3Type')],
+            [-1, (int)$this->ReadPropertyInteger('CompactDirect' . $kind)],
+            [(int)$this->ReadPropertyInteger('CompactStage2Months' . $kind), (int)$this->ReadPropertyInteger('CompactStage2Type' . $kind)],
+            [(int)$this->ReadPropertyInteger('CompactStage3Months' . $kind), (int)$this->ReadPropertyInteger('CompactStage3Type' . $kind)],
         ];
         foreach ($stages as [$offset, $type]) {
             if ($type === -1) {
@@ -3794,7 +3815,7 @@ class MeterHub extends IPSModule
         if (count($archiveIDs) > 0) {
             AC_SetLoggingStatus($archiveIDs[0], $vid, true);
             AC_SetAggregationType($archiveIDs[0], $vid, $counter ? 1 : 0);
-            foreach ($this->CompactionPlan($intervalSeconds) as [$offset, $type]) {
+            foreach ($this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power') as [$offset, $type]) {
                 AC_SetCompaction($archiveIDs[0], $vid, $offset, $type);
             }
         }

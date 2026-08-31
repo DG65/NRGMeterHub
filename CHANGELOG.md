@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.24.12-beta.1 (2026-08-31)
+
+- **Archiv-Verdichtung jetzt getrennt für Leistung und Energie.** Dietmars Ergänzung, noch am
+  selben Tag: „wir müssen zwischen Leistungswerten und Energiewerten unterscheiden. Wir
+  bräuchten deshalb diese Einstellungen doppelt." Aus den sechs Feldern im Panel „🗄️ Archiv-
+  Verdichtung" wurden zwölf — je ein vollständiger Satz (Ein/Aus + drei Stufen) für „⚡
+  Leistung" und „🔋 Energie" —, da beide unabhängig vom Update-Takt ganz unterschiedliche
+  Aufbewahrungs-Anforderungen haben können (z. B. Wirkarbeit-Zählerstände länger roh behalten
+  als Momentanleistung).
+
 ## 0.24.11-beta.1 (2026-08-31)
 
 - **Archiv-Verdichtung jetzt konfigurierbar, statt fest im Code.** Dietmars berechtigter
