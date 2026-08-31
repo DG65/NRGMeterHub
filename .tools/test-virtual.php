@@ -478,5 +478,64 @@ $form11b = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
 $panelCaptions2 = array_column($form11b['elements'] ?? [], 'caption');
 check('News-Panel bleibt nach Bestätigung auch bei einem Neuaufbau weg', !in_array('🆕  Neu in dieser Version', $panelCaptions2, true), implode(' | ', $panelCaptions2));
 
+echo "\n12) CombineSelected() — Schnellweg zum Verdrahten (Dietmars Anstoß 31.08.2026)\n";
+$combineHub = $GLOBALS['MODOBJ'][$new];
+
+echo "  12a) Neue Sammelzeile (Muster ①) aus zwei ausgewählten Zeilen\n";
+$rowsA = [
+    ['Key' => 'kuehlschrank', 'Name' => 'Kühlschrank', 'Parent' => '', 'PowerID' => 511, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
+    ['Key' => 'brunnenpumpe', 'Name' => 'Brunnenpumpe', 'Parent' => '', 'PowerID' => 521, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
+];
+$msgA = $combineHub->CombineSelected(json_encode($rowsA), '__NEU__');
+check('Ergebnistext meldet Erfolg', str_contains($msgA, '✅'), $msgA);
+$writtenA = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'], true);
+check('drei Zeilen nach dem Zusammenfassen (2 Geräte + 1 neue Sammelzeile)', count($writtenA) === 3, json_encode($writtenA));
+$newRowA = end($writtenA);
+check('neue Zeile ohne eigenen Zähler', ((int) $newRowA['PowerID']) === 0);
+check('neue Zeile heißt sinnvoll (aus den Gerätenamen)', $newRowA['Name'] === 'Kühlschrank + Brunnenpumpe', $newRowA['Name']);
+check('beide Geräte hängen jetzt hinter der neuen Zeile', $writtenA[0]['Parent'] === $newRowA['Key'] && $writtenA[1]['Parent'] === $newRowA['Key']);
+check('Auswahl-Häkchen werden zurückgesetzt', $writtenA[0]['Selected'] === false && $writtenA[1]['Selected'] === false && $newRowA['Selected'] === false);
+
+echo "\n  12b) Key-Kollision: „sammelzaehler“ ist schon vergeben -> automatisch sammelzaehler_2\n";
+$rowsB = [
+    ['Key' => 'sammelzaehler', 'Name' => 'Alt', 'Parent' => '', 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => false],
+    ['Key' => 'geraet1', 'Name' => 'Gerät 1', 'Parent' => '', 'PowerID' => 1, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
+    ['Key' => 'geraet2', 'Name' => 'Gerät 2', 'Parent' => '', 'PowerID' => 2, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
+    ['Key' => 'geraet3', 'Name' => 'Gerät 3', 'Parent' => '', 'PowerID' => 3, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
+    ['Key' => 'geraet4', 'Name' => 'Gerät 4', 'Parent' => '', 'PowerID' => 4, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
+];
+$msgB = $combineHub->CombineSelected(json_encode($rowsB), '__NEU__');
+$writtenB = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'], true);
+$newRowB = end($writtenB);
+check('Kürzel weicht bei Kollision aus (sammelzaehler_2)', $newRowB['Key'] === 'sammelzaehler_2', $newRowB['Key']);
+check('bei mehr als 3 Geräten wird generisch benannt', $newRowB['Name'] === 'Sammelzähler (4 Geräte)', $newRowB['Name']);
+
+echo "\n  12c) Von einer vorhandenen Zeile abziehen (Muster ②, Dietmars Ergänzung \"Zähler von einem anderen abziehen\")\n";
+$rowsC = [
+    ['Key' => 'hausanschluss', 'Name' => 'Hausanschluss', 'Parent' => '', 'PowerID' => 100, 'EnergyImportID' => 101, 'EnergyExportID' => 102, 'Function' => 'grid', 'Selected' => false],
+    ['Key' => 'waermepumpe', 'Name' => 'Wärmepumpe', 'Parent' => '', 'PowerID' => 200, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'heatpump', 'Selected' => true],
+    ['Key' => 'wallbox', 'Name' => 'Wallbox', 'Parent' => '', 'PowerID' => 300, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'wallbox1', 'Selected' => true],
+];
+$msgC = $combineHub->CombineSelected(json_encode($rowsC), 'hausanschluss');
+check('Ergebnistext nennt die Zielzeile', str_contains($msgC, 'Hausanschluss'), $msgC);
+$writtenC = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'], true);
+check('keine neue Zeile — weiterhin genau drei', count($writtenC) === 3, json_encode($writtenC));
+check('Wärmepumpe hängt jetzt hinter Hausanschluss', $writtenC[1]['Parent'] === 'hausanschluss');
+check('Wallbox hängt jetzt hinter Hausanschluss', $writtenC[2]['Parent'] === 'hausanschluss');
+check('Funktionszuordnung bleibt beim Verschieben erhalten', $writtenC[1]['Function'] === 'heatpump' && $writtenC[2]['Function'] === 'wallbox1');
+
+echo "\n  12d) Randfälle: keine Auswahl / Zielzeile ist Teil der eigenen Auswahl / unbekanntes Ziel\n";
+$rowsD = [['Key' => 'x', 'Name' => 'X', 'Parent' => '', 'PowerID' => 1, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => false]];
+$msgD1 = $combineHub->CombineSelected(json_encode($rowsD), '__NEU__');
+check('keine Auswahl -> verständliche Meldung, kein Absturz', str_contains($msgD1, 'ℹ️') && str_contains($msgD1, 'ausgewählt'), $msgD1);
+
+$rowsE = [['Key' => 'einzelzeile', 'Name' => 'Einzelzeile', 'Parent' => '', 'PowerID' => 1, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true]];
+$msgE = $combineHub->CombineSelected(json_encode($rowsE), 'einzelzeile');
+check('Zielzeile ist ihre eigene einzige Auswahl -> nichts zu tun, kein Selbstbezug', str_contains($msgE, 'ℹ️'), $msgE);
+
+$rowsF = [['Key' => 'y', 'Name' => 'Y', 'Parent' => '', 'PowerID' => 1, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true]];
+$msgF = $combineHub->CombineSelected(json_encode($rowsF), 'gibtsnicht');
+check('unbekanntes Ziel -> klare Fehlermeldung, kein Absturz', str_contains($msgF, '❌'), $msgF);
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

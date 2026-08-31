@@ -725,6 +725,47 @@ Formularsprache kennt kein horizontales Nebeneinander von Label und Button in ei
 optisch in derselben Zeile). Der Button-Text selbst trägt deshalb den Kontext („3. „hängt
 hinter" setzen — bei Bedarf hier klicken: ?"), nicht nur ein nacktes „?".
 
+## `CombineSelected()` — Schnellweg zum Verdrahten (31.08.2026)
+
+**Dritte Runde, noch am selben Tag.** Dietmars eigentlicher Einwand ging tiefer als Doku: „warum
+muss ich noch den 'Neuen Virtuellen Zähler' auch anlegen? Das mache ich doch schon mit der
+Anlage der Instanz!" — Recherche ergab: Der Einklick-Weg existierte bereits, aber nur für EINEN
+von zwei Fällen. `MHUB_CreateVirtual()` (im Hauptmodul `MeterHub/module.php`) legt eine
+MeterHubVirtual-Instanz samt Verdrahtung in einem Schritt an — aber NUR aus anderen
+MeterHub-Instanzen (`VirtualPartners`-Liste filtert auf `IPS_GetInstanceListByModuleID(GUID_METER)`).
+Für beliebige Systemvariablen (Sepps Shelly-Plugs — kein MeterHub, ein fremdes Modul) gab es
+diesen Weg nicht; dort blieb nur der umständliche Weg: leere Instanz anlegen, darin suchen,
+Zeile für Zeile per „hängt hinter" verdrahten.
+
+**Fix — `MeterHubVirtual::CombineSelected(string $nodesJson, string $target): string`,** neue
+Spalte „Auswählen" (CheckBox) in der Verdrahtungs-Liste + Knopf „✅ Ausgewählte zusammenfassen /
+abziehen". Zwei Fälle über ein `Select`-Feld `CombineTarget` (Sentinel `__NEU__` vs. Kürzel einer
+vorhandenen Zeile, da `''` bei `Parent` schon „oberste Ebene" bedeutet):
+- **Neue Sammelzeile** (Muster ①): erzeugt eine zählerlose Zeile, Kürzel kollisionsfrei
+  (`sammelzaehler`, `sammelzaehler_2`, …), Name aus den Gerätenamen abgeleitet (≤3 Geräte:
+  „A + B + C", sonst „Sammelzähler (N Geräte)"), hängt die Auswahl dahinter.
+- **Von einer vorhandenen Zeile abziehen** (Muster ②) — **Dietmars Ergänzung, noch während der
+  Umsetzung:** „denke aber bitte auch daran, dass man vielleicht den einen oder anderen Zähler
+  von einem anderen Zähler abziehen mag". Keine neue Zeile, die Auswahl hängt direkt hinter dem
+  gewählten vorhandenen Zähler — dessen „Rest" schließt sie danach automatisch aus. `$combineOptions`
+  markiert Zeilen mit eigenem Zähler im Dropdown sichtbar („↳ von „Hausanschluss" abziehen").
+
+**Bewusste Entwurfsentscheidungen:**
+- Schreibt wie `ScanMeters()` nur in die OFFENE Formularmaske (`UpdateFormField('Nodes', 'values', …)`),
+  nicht in die gespeicherte Property — „Übernehmen" bleibt der bewusste letzte Schritt.
+- Zyklen (Ziel ist Nachfahre der Auswahl) werden NICHT hier abgefangen, sondern vom ohnehin
+  vorhandenen `Validate()` bei der nächsten Prüfung — keine Logik doppelt pflegen.
+- Selbstbezug (Zielzeile selbst mit ausgewählt) wird beim Verschieben übersprungen, nicht als
+  Fehler behandelt — die übrige Auswahl wird trotzdem verdrahtet.
+- `$id`/`$Nodes`-Parameterübergabe im `onClick` folgt demselben, bereits verifizierten Muster wie
+  `MHUB_CreateVirtual($id, $VirtualPartners, $VirtualRole)` — ein außenstehender Button, der ein
+  `List`-Feld beim Namen nennt, bekommt dessen aktuellen (auch unsichtbaren/ungesicherten)
+  Zeileninhalt als JSON-String übergeben.
+
+Verifiziert in `.tools/test-virtual.php` Block 12 (neue Sammelzeile inkl. Namensableitung und
+Kürzel-Kollision, Abziehen von einer vorhandenen Zeile inkl. Erhalt der Funktionszuordnung, sowie
+die Randfälle keine Auswahl / Zielzeile ist die einzige Auswahl / unbekanntes Ziel).
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide

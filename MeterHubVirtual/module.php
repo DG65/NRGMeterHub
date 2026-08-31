@@ -62,7 +62,7 @@ class MeterHubVirtual extends IPSModule
     // Praxistest): genau die Version, die den Fund behebt, ist es wert,
     // sichtbar hervorgehoben zu werden — nicht erst beim x-ten stillen
     // Scrollen durchs eingeklappte Doku-Panel.
-    private const NEWS_VERSION = '0.23.5';
+    private const NEWS_VERSION = '0.23.7';
 
     public function Create()
     {
@@ -96,9 +96,10 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• Neuer Schnellweg zum Verdrahten: Zeilen in der Spalte „Auswählen“ ankreuzen, Ziel wählen, „✅ Ausgewählte zusammenfassen / abziehen“ klicken — legt eine Sammelzeile an ODER hängt die Auswahl hinter einen vorhandenen Zähler (zum nachträglichen Abziehen), alles in einem Schritt statt Zeile für Zeile von Hand.'],
+                ['type' => 'Label', 'caption' => '• Eine nummerierte Schritt-für-Schritt-Anleitung samt „?“-Hilfe steht jetzt direkt im Verdrahtungs-Panel, nicht mehr nur im Doku-Panel weiter unten.'],
                 ['type' => 'Label', 'caption' => '• Ein Zähler OHNE untergeordnete Zähler bekommt jetzt endlich eine eigene Ausgabe, wenn er einen eigenen Zähler hat — bisher blieb er komplett unsichtbar (weder Berechnung noch Funktionszuordnung), ohne erkennbaren Grund. Betrifft z. B. eine einzelne Steckdose, die nur für die Funktionszuordnung („Kühl-/Gefriergerät" …) verdrahtet wird.'],
-                ['type' => 'Label', 'caption' => '• Das Doku-Panel unten wurde komplett neu geschrieben: alle drei Verdrahtungs-Muster mit Beispiel, unabhängig von Vorwissen verständlich.'],
-                ['type' => 'Label', 'caption' => '• Die Zählersuche erkennt jetzt auch die neuen IPS-„Darstellungen" (Shelly, KNX u. a.), nicht mehr nur klassische Profile.'],
+                ['type' => 'Label', 'caption' => '• Die Zählersuche erkennt jetzt auch die neuen IPS-„Darstellungen“ (Shelly, KNX u. a.), nicht mehr nur klassische Profile.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -803,6 +804,111 @@ class MeterHubVirtual extends IPSModule
         $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($rows)));
     }
 
+    /**
+     * Schnellweg fürs Verdrahten (Dietmars Anstoß 31.08.2026: „warum muss
+     * ich das noch von Hand verdrahten, wenn ich die Zeilen doch schon
+     * ausgewählt habe"), zwei Fälle in einem Aufruf:
+     *
+     * - `$target === '__NEU__'`: legt eine neue, zählerlose Sammelzeile an
+     *   und hängt alle ausgewählten Zeilen dahinter (Muster ① — Summe).
+     * - `$target` = Kürzel einer VORHANDENEN Zeile: hängt die Auswahl
+     *   direkt dahinter, ohne neue Zeile (Muster ②, falls das Ziel einen
+     *   eigenen Zähler hat — „Rest = eigener Zähler minus Summe"). Dietmars
+     *   Ergänzung: „man mag auch den einen oder anderen Zähler von einem
+     *   anderen abziehen" — z. B. Wärmepumpe + Wallbox nachträglich von
+     *   „Hausanschluss" abziehen, ohne die Zeilen einzeln per „hängt
+     *   hinter" umzustellen.
+     *
+     * Schreibt wie `ScanMeters()` nur in die OFFENE Formularmaske
+     * (`UpdateFormField`), NICHT in die gespeicherte Property — „Übernehmen"
+     * bleibt der bewusste letzte Schritt, nichts wird hier schon endgültig.
+     * Zyklen (Ziel ist selbst ein Nachfahre der Auswahl) fängt bewusst NICHT
+     * diese Funktion ab, sondern das ohnehin vorhandene `Validate()` bei der
+     * nächsten Prüfung — keine Logik doppelt pflegen.
+     */
+    public function CombineSelected(string $nodesJson, string $target): string
+    {
+        $rows = json_decode($nodesJson, true);
+        $rows = is_array($rows) ? $rows : [];
+
+        $selectedIdx = [];
+        foreach ($rows as $i => $r) {
+            if ((bool)($r['Selected'] ?? false)) {
+                $selectedIdx[] = $i;
+            }
+        }
+        if (count($selectedIdx) === 0) {
+            return 'ℹ️ Keine Zeile ausgewählt — erst in der Spalte „Auswählen" ankreuzen.';
+        }
+
+        $target = strtolower(trim($target));
+        if ($target === '' || $target === '__neu__') {
+            // Eindeutiges Kürzel erzeugen, an denselben Regeln wie
+            // Validate() orientiert ([a-z0-9_]+), gegen ALLE bestehenden
+            // Kürzel geprüft (Groß-/Kleinschreibung ignoriert, wie Nodes()
+            // es beim Lesen auch tut).
+            $taken = [];
+            foreach ($rows as $r) {
+                $k = strtolower(trim((string)($r['Key'] ?? '')));
+                if ($k !== '') {
+                    $taken[$k] = true;
+                }
+            }
+            $base = 'sammelzaehler';
+            $newKey = $base;
+            $n = 2;
+            while (isset($taken[$newKey])) {
+                $newKey = $base . '_' . $n++;
+            }
+            $names = [];
+            foreach ($selectedIdx as $i) {
+                $names[] = trim((string)($rows[$i]['Name'] ?? $rows[$i]['Key'] ?? ''));
+            }
+            $newName = count($names) <= 3 ? implode(' + ', array_filter($names)) : ('Sammelzähler (' . count($names) . ' Geräte)');
+            if ($newName === '') {
+                $newName = 'Sammelzähler';
+            }
+            $rows[] = ['Key' => $newKey, 'Name' => $newName, 'Parent' => '', 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => false];
+            foreach ($selectedIdx as $i) {
+                $rows[$i]['Parent'] = $newKey;
+                $rows[$i]['Selected'] = false;
+            }
+            $this->UpdateFormField('Nodes', 'values', json_encode($rows));
+            $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($rows)));
+            return '✅ Sammelzeile „' . $newName . '" [' . $newKey . '] angelegt, ' . count($selectedIdx) . ' Zeile(n) dahinter verdrahtet. Bitte „Übernehmen" nicht vergessen.';
+        }
+
+        // Zielzeile muss existieren.
+        $targetRowIdx = null;
+        $targetName = '';
+        foreach ($rows as $i => $r) {
+            if (strtolower(trim((string)($r['Key'] ?? ''))) === $target) {
+                $targetRowIdx = $i;
+                $targetName = trim((string)($r['Name'] ?? $r['Key'] ?? ''));
+                break;
+            }
+        }
+        if ($targetRowIdx === null) {
+            return '❌ Zielzeile „' . $target . '" wurde nicht gefunden — bitte erneut öffnen und auswählen.';
+        }
+        $moved = 0;
+        foreach ($selectedIdx as $i) {
+            if ($i === $targetRowIdx) {
+                continue; // eine Zeile kann nicht hinter sich selbst hängen
+            }
+            $rows[$i]['Parent'] = $target;
+            $rows[$i]['Selected'] = false;
+            $moved++;
+        }
+        $rows[$targetRowIdx]['Selected'] = false;
+        $this->UpdateFormField('Nodes', 'values', json_encode($rows));
+        $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($rows)));
+        if ($moved === 0) {
+            return 'ℹ️ Nichts zu tun — die einzige Auswahl war die Zielzeile selbst.';
+        }
+        return '✅ ' . $moved . ' Zeile(n) hinter „' . $targetName . '" verdrahtet — deren „Rest" ergibt jetzt eigener Zähler minus diese Auswahl (falls „' . $targetName . '" einen eigenen Zähler hat). Bitte „Übernehmen" nicht vergessen.';
+    }
+
     /** Sichtbare Zeilen der Verdrahtungsliste: wächst mit dem Inhalt. */
     private function RowCountFor(int $count): int
     {
@@ -883,6 +989,19 @@ class MeterHubVirtual extends IPSModule
         foreach ($nodes as $k => $n) {
             $parentOptions[] = ['caption' => $n['name'] . '  [' . $k . ']', 'value' => $k];
         }
+        // Für den Schnellweg „Ausgewählte zusammenfassen“ (CombineSelected()):
+        // entweder eine neue, zählerlose Sammelzeile (Muster ①) oder — Dietmars
+        // Ergänzung 31.08.2026 — ein VORHANDENER Zähler als Ziel, hinter den die
+        // Auswahl gehängt wird (Muster ②, „Rest = eigener Zähler minus Summe“,
+        // z. B. mehrere Verbraucher nachträglich von „Hausanschluss“ abziehen).
+        // Eigener Sentinel-Wert `__NEU__`, weil `''` bei `Parent` schon „oberste
+        // Ebene“ bedeutet — hier ein andere Bedeutung („neue Zeile anlegen“),
+        // Verwechslung wäre ein stiller Logikfehler.
+        $combineOptions = [['caption' => '— neue Sammelzeile ohne eigenen Zähler anlegen —', 'value' => '__NEU__']];
+        foreach ($nodes as $k => $n) {
+            $hasOwnMeter = ($n['power'] > 0 || $n['imp'] > 0 || $n['exp'] > 0);
+            $combineOptions[] = ['caption' => ($hasOwnMeter ? '↳ von „' . $n['name'] . '“ abziehen  [' . $k . ']' : $n['name'] . '  [' . $k . ']'), 'value' => $k];
+        }
         $funcOptions = [];
         foreach (self::FUNCTIONS as $key => $def) {
             $funcOptions[] = ['caption' => $def[0], 'value' => $key];
@@ -921,7 +1040,7 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'Label', 'caption' => '━━━ Schritt für Schritt ━━━'],
                         ['type' => 'Label', 'caption' => '1. Zeilen anlegen — per Suchlauf (Knopf unten) oder von Hand über „+“ in der Tabelle. Kürzel und mindestens eine Datenpunkt-Spalte ausfüllen.'],
                         ['type' => 'Label', 'caption' => '2. „Übernehmen“ klicken. Erst danach erscheint die neue Zeile in der Auswahl „hängt hinter“ — sie steht ja erst ab jetzt als Bezugspunkt fest.'],
-                        ['type' => 'Label', 'caption' => '3. Verdrahten: bei den KINDER-Zeilen „hängt hinter“ auf die gewünschte Eltern-Zeile setzen (Muster ① oder ②). Für Muster ③ „hängt hinter“ einfach auf „— oberste Ebene —“ stehen lassen.'],
+                        ['type' => 'Label', 'caption' => '3. Verdrahten — entweder von Hand (bei den KINDER-Zeilen „hängt hinter“ auf die gewünschte Eltern-Zeile setzen, Muster ① oder ②; für Muster ③ „hängt hinter“ auf „— oberste Ebene —“ lassen), oder per Schnellweg: Zeilen in der Spalte „Auswählen“ ankreuzen, Ziel wählen, „✅ Ausgewählte zusammenfassen / abziehen“ klicken — verdrahtet alles in einem Schritt (🆕 seit ' . self::NEWS_VERSION . ').'],
                         ['type' => 'Label', 'caption' => '4. Erneut „Übernehmen“. Erst jetzt wertet das Modul die neue Verdrahtung aus.'],
                         ['type' => 'Label', 'caption' => '5. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt den fertigen Baum, ❌ nennt genau, was noch fehlt.'],
                         ['type' => 'Label', 'caption' => '6. Optional: Spalte „Funktion“ setzen, damit InverterHubTile/Dashboard den Knoten als Verbraucher erkennen — das funktioniert bei allen drei Mustern, seit ③ selbst eine Ausgabe hat.'],
@@ -955,17 +1074,19 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'Label', 'caption' => 'So wird verdrahtet:'],
                         ['type' => 'Label', 'caption' => '1. Zeile anlegen — per Suchlauf oben oder von Hand über „+“ unten in der Tabelle. Kürzel und mindestens einen Datenpunkt ausfüllen.'],
                         ['type' => 'Label', 'caption' => '2. „Übernehmen“ klicken (Knopf am unteren Formularrand). Erst danach steht die Zeile als Auswahl für „hängt hinter“ zur Verfügung.'],
+                        ['type' => 'Label', 'caption' => '3. Verdrahten — zwei Wege:'],
+                        ['type' => 'Label', 'caption' => '   3a. Schnellweg: in der Spalte „Auswählen“ die gewünschten Zeilen ankreuzen, unten das Ziel wählen und „✅ Ausgewählte zusammenfassen / abziehen“ klicken — verdrahtet alles in einem Schritt. Zwei Fälle: Ziel „neue Sammelzeile“ = einfach zusammenzählen (Muster ①, z. B. mehrere Steckdosen zu einer Summe); Ziel ein VORHANDENER Zähler = die Auswahl davon abziehen (Muster ②, z. B. Wärmepumpe + Wallbox nachträglich von „Hausanschluss“ abziehen).'],
                         [
-                            'type' => 'PopupButton', 'caption' => '3. „hängt hinter“ setzen — bei Bedarf hier klicken: ?', 'width' => '520px',
+                            'type' => 'PopupButton', 'caption' => '   3b. Von Hand: „hängt hinter“ je Zeile setzen — bei Bedarf hier klicken: ?', 'width' => '520px',
                             'popup' => [
                                 'caption' => 'Was bedeutet „hängt hinter“?',
                                 'items' => [
                                     ['type' => 'Label', 'caption' => 'Legt fest, wo eine Zeile im Baum sitzt. Drei Muster sind möglich:'],
-                                    ['type' => 'Label', 'caption' => '① Reiner Sammelknoten — Zeile OHNE eigenen Zähler, andere Zeilen hängen hinter ihr → „Summe untergeordnet“. Beispiel: Zeile „Steckdosen gesamt“ (keine eigene Leistung/Energie), „Kühlschrank“ und „Brunnenpumpe“ hängen beide hinter „steckdosen_gesamt“ → deren Summe erscheint dort.'],
+                                    ['type' => 'Label', 'caption' => '① Reiner Sammelknoten — Zeile OHNE eigenen Zähler, andere Zeilen hängen hinter ihr → „Summe untergeordnet“. Beispiel: Zeile „Steckdosen gesamt“ (keine eigene Leistung/Energie), „Kühlschrank“ und „Brunnenpumpe“ hängen beide hinter „steckdosen_gesamt“ → deren Summe erscheint dort. Genau das baut der Schnellweg 3a automatisch.'],
                                     ['type' => 'Label', 'caption' => '② Zähler mit Kindern — Zeile MIT eigenem Zähler, andere hängen dahinter → „Summe“ UND „Rest“ (eigener Zähler minus Summe). Beispiel: „Hausanschluss“ mit „Wärmepumpe“ und „Wallbox“ dahinter → „Rest“ = alles, was weder Wärmepumpe noch Wallbox verbraucht.'],
                                     ['type' => 'Label', 'caption' => '③ Einzelner Zähler — eigener Zähler, „hängt hinter“ bleibt auf „— oberste Ebene —“, niemand hängt dahinter → reine Durchreichung des eigenen Werts. Nützlich, um EINEN Zähler nur für die Spalte „Funktion“ sichtbar zu machen.'],
                                     ['type' => 'Label', 'caption' => 'Ohne eigenen Zähler UND ohne irgendetwas dahinter (Muster ① ohne Kinder) entsteht dagegen keine Ausgabe — dafür gibt es nichts zu berechnen.'],
-                                    ['type' => 'Label', 'caption' => 'Praktisch: erst die Sammelzeile (Muster ①) oder den echten Zähler (Muster ②) anlegen und übernehmen — sie taucht erst DANACH in der Auswahl „hängt hinter“ der anderen Zeilen auf (Schritt 2).'],
+                                    ['type' => 'Label', 'caption' => 'Praktisch: erst die Sammelzeile (Muster ①) oder den echten Zähler (Muster ②) anlegen und übernehmen — sie taucht erst DANACH in der Auswahl „hängt hinter“ der anderen Zeilen auf (Schritt 2). Der Schnellweg 3a umgeht das, weil er beides in einem Rutsch anlegt.'],
                                 ],
                             ],
                         ],
@@ -976,6 +1097,7 @@ class MeterHubVirtual extends IPSModule
                             'type' => 'List', 'name' => 'Nodes', 'caption' => 'Zähler und ihre Verdrahtung',
                             'rowCount' => $this->RowCountFor(count($nodes)), 'add' => true, 'delete' => true,
                             'columns' => [
+                                ['caption' => 'Auswählen', 'name' => 'Selected', 'width' => '90px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                                 ['caption' => 'Kürzel', 'name' => 'Key', 'width' => '130px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['caption' => 'Bezeichnung', 'name' => 'Name', 'width' => '170px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['caption' => 'hängt hinter', 'name' => 'Parent', 'width' => '190px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $parentOptions]],
@@ -985,6 +1107,11 @@ class MeterHubVirtual extends IPSModule
                                 ['caption' => 'Funktion', 'name' => 'Function', 'width' => '190px', 'add' => 'none', 'edit' => ['type' => 'Select', 'options' => $funcOptions]],
                             ],
                         ],
+                        [
+                            'type' => 'Select', 'name' => 'CombineTarget', 'caption' => 'Ausgewählte sollen hängen hinter',
+                            'options' => $combineOptions, 'value' => '__NEU__',
+                        ],
+                        ['type' => 'Button', 'caption' => '✅  Ausgewählte zusammenfassen / abziehen', 'onClick' => 'echo MHUBV_CombineSelected($id, $Nodes, $CombineTarget);'],
                         [
                             'type' => 'PopupButton', 'caption' => 'Warum steht bei „Kürzel“ eine Warnung? ?', 'width' => '350px',
                             'popup' => [

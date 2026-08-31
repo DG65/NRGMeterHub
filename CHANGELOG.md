@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.23.7-beta.1 (2026-08-31)
+
+- **Neuer Schnellweg zum Verdrahten: „Ausgewählte zusammenfassen / abziehen".** Dietmars
+  eigentlicher Einwand ging über die Doku hinaus: „warum muss ich den virtuellen Zähler AUCH
+  noch anlegen, das mache ich doch schon mit der Instanz?" Antwort: Der Einklick-Weg
+  (`MHUB_CreateVirtual()` im Hauptmodul) existierte schon, aber nur für andere MeterHub-
+  Instanzen — für beliebige Systemvariablen (Shelly-Plugs, Zigbee-Steckdosen …) fehlte er.
+  Neue Spalte „Auswählen" in der Verdrahtungs-Liste + Knopf: Zeilen ankreuzen, Ziel wählen,
+  klicken — verdrahtet alles in einem Schritt. Zwei Fälle: **neue Sammelzeile** (Zähler
+  einfach zusammenzählen, Name automatisch aus den Gerätenamen abgeleitet) oder **von einer
+  vorhandenen Zeile abziehen** (Dietmars Ergänzung: „man mag auch den einen oder anderen
+  Zähler von einem anderen abziehen" — z. B. Wärmepumpe + Wallbox nachträglich vom
+  Hausanschluss abziehen, ohne jede Zeile einzeln umzustellen). Details/Herleitung in
+  CLAUDE.md.
+- Prüfstand `.tools/test-virtual.php` um 17 weitere Prüfungen ergänzt (74 insgesamt).
+
 ## 0.23.6-beta.1 (2026-08-31)
 
 - **Verdrahtungs-Hilfe nachgeschärft: Schritt-für-Schritt direkt im Verdrahtungs-Panel +
