@@ -766,6 +766,95 @@ Verifiziert in `.tools/test-virtual.php` Block 12 (neue Sammelzeile inkl. Namens
 Kürzel-Kollision, Abziehen von einer vorhandenen Zeile inkl. Erhalt der Funktionszuordnung, sowie
 die Randfälle keine Auswahl / Zielzeile ist die einzige Auswahl / unbekanntes Ziel).
 
+**⚠️ Live-Bug gefunden, noch am selben Tag — dieser Ansatz ist inzwischen komplett ersetzt.**
+Dietmar meldete live: „Ich habe meine Auswahl getroffen und bestätigt und was machst Du? Aus
+allen sichtbaren und nicht ausgewählten Zählern einen Zähler." Die Auswahl-Logik traf also nicht
+die angekreuzten Zeilen. Ursache nie abschließend isoliert (die synthetischen Tests oben liefen
+mit handgebauten `Selected => true/false`-Werten sauber durch — der Fehler lag vermutlich in einer
+Diskrepanz zwischen angenommenem und tatsächlichem Wire-Format, mit dem Symcons `List`+`CheckBox`-
+Spalte den Wert über `onClick` liefert, möglicherweise verschärft durch eine vom Nutzer
+ausgelöste Spalten-Sortierung bei der inzwischen auf 100+ Zeilen angewachsenen Verdrahtungsliste).
+Bevor die Fehlersuche vertieft wurde, stellte Dietmar die tiefere Architekturfrage, die diesen
+ganzen Ansatz überflüssig machte — siehe nächster Abschnitt. **`CombineSelected()`,
+`SlugFor()`/`VirtualSlug()`, das Baum-Modell mit Kürzel/„hängt hinter"/Sammelzeilen sowie die
+beiden „?"-PopupButtons aus dem Abschnitt oben existieren seit 0.24.0 nicht mehr** — die drei
+Abschnitte oben (kinderlose Knoten, Formular-Konvention-Rollout, `CombineSelected()`) bleiben als
+historischer Lernpfad stehen (u. a. die #16933-Sicherheitsnetz-Lehre und die SDK-verifizierten
+`PopupButton`-Fakten gelten weiter), beschreiben aber nicht mehr den aktuellen Code.
+
+## MeterHubVirtual: flaches Modell statt Baum (0.24.0, 31.08.2026)
+
+**Auslöser — Dietmars Frage nach dem `CombineSelected()`-Bugreport:** „Für mein Verständnis ist
+die Instanz (Virtueller Zähler) die oberste Ebene und die angeklickten Zähler sind die
+untergeordneten Zähler, die den Virtuellen Zähler bilden. Wenn Du dann auch noch eine
+Rechenoperation vor jedem Zähler — außer vor dem ersten Zähler — zulässt, dann ist das Problem
+doch schon gelöst! Oder nicht? Wo liegen Deine Bedenken?"
+
+**Antwort nach Prüfung: ja, löst es — und einfacher als der Baum.** Die drei bisherigen
+Verdrahtungs-Muster (reiner Sammelknoten / Zähler mit Kindern / kinderloser Zähler) reduzieren
+sich auf einen einzigen Mechanismus: `Ergebnis = Σ(„+"-Zeilen) − Σ(„−"-Zeilen)`, je einmal für
+Leistung/Bezug/Einspeisung. Ein Zähler MIT eigenem Messwert, von dem etwas abgezogen wird
+(bisher „Rest"), ist arithmetisch identisch mit mehreren Zählern, die nur addiert werden (bisher
+„Summe") — der einzige Unterschied ist das Vorzeichen der übrigen Zeilen, nicht eine andere
+Rechenart. Kürzel und „hängt hinter" werden dadurch komplett überflüssig: Ohne Baum gibt es
+keine Elternbezüge mehr zu benennen, und ohne pro Zeile erzeugte Ausgabevariablen (Summe/Rest je
+Knoten) braucht es auch keinen technischen Bezugsnamen je Zeile mehr — nur noch INSTANZWEIT drei
+mögliche Ausgaben (`power`/`energy_import`/`energy_export`).
+
+**Das eine echte Bedenken, offen benannt und für unkritisch befunden:** Das Baum-Modell erlaubte
+mehrstufige Verschachtelung INNERHALB einer Instanz (z. B. „Wallbox-Summe" aus WB1+WB2 als
+Zwischenschritt, davon dann wieder etwas abgezogen). Flach geht das nur noch über mehrere
+verkettete Instanzen (eine Instanz berechnet den Zwischenwert, dessen Ausgabe wird als normale
+Zeile in der nächsten Instanz verdrahtet). Kein Funktionsverlust, sondern derselbe Zuschnitt wie
+der Rest des NRG-Stacks: eine Instanz = eine Zahl. Dietmar hat dem nach dieser Abwägung
+ausdrücklich zugestimmt.
+
+**Datenmodell (`Nodes`-Property):** `[{Name, Sign('+'|'-'), PowerID, EnergyImportID,
+EnergyExportID}]` — kein `Key`, kein `Parent`, kein `Function` mehr pro Zeile. `Function` ist
+jetzt `RegisterPropertyString('Function', 'none')` auf Instanzebene, da eine Instanz nur noch
+EIN Ergebnis liefert (`GetFunctions()` liefert dadurch höchstens eine `assignments`-Zeile, Slot
+`'main'`, statt bisher potenziell mehrere).
+
+**Migrationssicherung — der eigentlich heikle Teil:** Dietmars Live-Instanz hatte zu diesem
+Zeitpunkt bereits 100+ Zeilen im ALTEN Format (siehe Screenshot-Beschwerde „Von der Ordnung her
+lässt das auch zu wünschen übrig … Meine Vorstellung ist eine sauber geordnete Tabelle!" — die
+meisten davon nie tatsächlich verdrahtete Suchlauf-Funde). Ein blindes Umschreiben ins neue
+Format hätte JEDE dieser Zeilen sofort als Formel-Term (Vorzeichen „+") mitsummiert, sobald der
+Modul-Reload das nächste automatische `ApplyChanges()` auslöst — ein still falscher Wert auf
+einer live genutzten, dashboard-relevanten Anlage, ohne dass Dietmar etwas angeklickt hätte.
+Deshalb: `ApplyChanges()` erkennt altes Format (`Key`/`Parent` in den gespeicherten Zeilen),
+fasst dann NICHTS an (Status 202, vorhandene Ausgaben unangetastet, Timer aus) und zeigt beim
+Öffnen der Instanz ein `MigrationPanel` mit den alten Zeilen als UNGESPEICHERTEM Vorschlag
+(Vorzeichen „+", `Key`/`Parent`/`Function` entfernt) — exakt dasselbe „nur vorschlagen, `Übernehmen`
+entscheidet" Prinzip wie `ScanMeters()`. Erst ein bewusstes „Übernehmen" (nach Bereinigen der
+Scan-Leichen) aktiviert die neue Formel.
+
+**`MHUB_CreateVirtual()` (Schnellweg im Hauptmodul, `MeterHub/module.php`) musste mitziehen** —
+erzeugte bisher Baum-Zeilen mit `VirtualSlug()`-Kürzeln. Jetzt: Rolle `'parent'` → eigener
+Zähler „+", Partner „−" (Rest-Äquivalent); Rolle `'sibling'` → alle „+" (reine Summe, dadurch
+entfällt auch die bisherige separate „Summe"-Platzhalterzeile — eine Zeile weniger als vorher).
+`VirtualSlug()`/`SlugFor()` komplett entfernt (kein Kürzel mehr zu erzeugen).
+
+**Neu zugleich umgesetzt (Dietmars Zusatzwunsch „sei innovativ und kreativ", zum bereits
+laufenden Umbau passend):** Kreuz-Instanz-Prüfung im Suchlauf — ein Datenpunkt, der schon in
+einer ANDEREN MeterHubVirtual-Instanz als Term steckt, wird standardmäßig nicht mehr erneut
+vorgeschlagen (bisher prüfte `Validate()` Doppelverwendung nur innerhalb einer Instanz). Neuer
+Schalter `ScanOnlyUsedElsewhere`: zeigt umgekehrt NUR die anderswo schon verwendeten
+Datenpunkte, mit Instanzname in der Warnung — zum gezielten Nachschauen, wo ein Zähler sonst
+noch eingeht, bevor man ihn versehentlich doppelt verrechnet.
+
+**Bewusst zurückgestellt:** Dietmars Anregung, zusätzlich nach Raum/Geschoss zu filtern
+("wenn das Gerüst steht könnte man doch auch gleich auf verschiedene Gruppen wie Raum, Geschoss
+etc. filtern") — noch nicht umgesetzt, da unklar ist, wie er Räume/Geschosse in seiner Anlage
+abbildet (native IPS-„Orte", eigene Kategorien, Namenskonvention …). Nicht blind angenommen,
+sondern als offener nächster Schritt notiert.
+
+Verifiziert in `.tools/test-virtual.php` (komplett neu geschrieben für das flache Modell):
+`CreateVirtual()` in beiden Rollen mit korrektem Vorzeichen und Recalc-Ergebnis, Sicherheitsnetz
+gegen #16933 im neuen Modell, `GetFunctions()` mit Instanz-Funktion, Migrations-Erkennung samt
+Vorschlag-im-Formular und erfolgreicher Bestätigung, Kreuz-Instanz-Suchlauf-Ausschluss und der
+„nur schon verwendet"-Schalter.
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide

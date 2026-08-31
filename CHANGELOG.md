@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.24.0-beta.1 (2026-08-31)
+
+- **MeterHubVirtual grundlegend neu: flache Formel statt Baum.** Dietmars Einwand traf den
+  Kern: „für mein Verständnis ist die Instanz die oberste Ebene, und die angeklickten Zähler
+  sind die untergeordneten Zähler, die den virtuellen Zähler bilden — wenn Du dann noch eine
+  Rechenoperation vor jeder Zeile zulässt, ist das Problem doch schon gelöst?" War es. Das
+  bisherige Baum-Modell (Zeilen mit Kürzel und „hängt hinter" auf andere Zeilen, drei
+  Verdrahtungs-Muster, eine Sammelzeile-Zwischenzeile für reine Summen) drückte genau
+  dasselbe nur komplizierter aus. Neu: die Instanz selbst ist die oberste Ebene, jede Zeile
+  ein Term mit Vorzeichen (+/−), Ergebnis = Summe „+" minus Summe „−", getrennt für Leistung/
+  Bezug/Einspeisung. Entfällt komplett: Kürzel, „hängt hinter", Sammelzeilen, der
+  fehleranfällige Schnellweg „Ausgewählte zusammenfassen / abziehen" aus 0.23.7 (dessen
+  Auswahl-Logik Dietmar live als fehlerhaft meldete — mit dem flachen Modell erübrigt sich
+  die ganze Funktion, statt sie zu debuggen). „Funktion" (für Dashboard/InverterHubTile) ist
+  jetzt ein Instanz-Feld statt ein Zeilen-Feld, da eine Instanz nur noch EIN Ergebnis liefert.
+  Mehrstufige Verschachtelung (Zwischenwert, von dem wieder etwas abgezogen wird) geht über
+  mehrere verkettete Instanzen statt innerhalb einer einzigen — passend zum Rest des NRG-
+  Stacks („eine Instanz = eine Zahl").
+- **Migrationssicherung für bereits verdrahtete Instanzen.** Altes Datenformat (erkennbar an
+  „Kürzel"/„hängt hinter" in den gespeicherten Zeilen) wird beim ersten `ApplyChanges()` NICHT
+  blind übernommen — das hätte auf einer live genutzten Anlage sofort jede nur lose gefundene
+  Kandidatenzeile mitsummiert, ein still falscher Wert. Stattdessen: Status „Migration nötig",
+  vorhandene Ausgaben bleiben unangetastet, das Formular zeigt die alten Zeilen als
+  ungespeicherten Vorschlag (Vorzeichen „+"), bis „Übernehmen" bestätigt.
+- `MHUB_CreateVirtual()` (Schnellweg im Hauptmodul) erzeugt jetzt direkt das neue flache
+  Format — Rolle „parent" (eigener Zähler „+", Partner „−") und „sibling" (alle „+").
+- **Neu: Kreuz-Instanz-Prüfung im Suchlauf.** Ein Datenpunkt, der schon in einer ANDEREN
+  MeterHubVirtual-Instanz als Term steckt, wird standardmäßig nicht mehr erneut vorgeschlagen
+  (bisher prüfte das nur `Validate()` innerhalb einer Instanz). Umgekehrt per Schalter
+  einsehbar: „nur schon verwendete Datenpunkte zeigen", zum gezielten Nachschauen, wo ein
+  bestimmter Zähler sonst noch eingeht (Dietmars Anregung).
+- Prüfstand `.tools/test-virtual.php` komplett neu für das flache Modell, inklusive
+  Migrationstest und Kreuz-Instanz-Prüfung.
+
 ## 0.23.7-beta.1 (2026-08-31)
 
 - **Neuer Schnellweg zum Verdrahten: „Ausgewählte zusammenfassen / abziehen".** Dietmars

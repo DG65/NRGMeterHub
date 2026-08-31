@@ -2338,7 +2338,7 @@ class MeterHub extends IPSModule
 
     /**
      * In welchen virtuellen Zählern taucht dieser Zähler auf?
-     * Rückgabe: [instanzID => [kürzel, …]]
+     * Rückgabe: [instanzID => [Zeilenbezeichnung, …]]
      */
     private function VirtualMemberships(): array
     {
@@ -2358,8 +2358,8 @@ class MeterHub extends IPSModule
             foreach (is_array($rows) ? $rows : [] as $r) {
                 foreach (['PowerID', 'EnergyImportID', 'EnergyExportID'] as $f) {
                     if (isset($mine[(int)($r[$f] ?? 0)])) {
-                        $key = (string)($r['Key'] ?? '?');
-                        $out[$iid][$key] = $key;
+                        $label = trim((string)($r['Name'] ?? '')) ?: '?';
+                        $out[$iid][$label] = $label;
                         break;
                     }
                 }
@@ -2368,23 +2368,15 @@ class MeterHub extends IPSModule
         return array_map('array_values', $out);
     }
 
-    /** Kürzel aus einem Gerätenamen, eindeutig gegen bereits vergebene. */
-    private function VirtualSlug(string $name, array $taken): string
-    {
-        $s = strtr(mb_strtolower($name, 'UTF-8'), ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss']);
-        $s = trim((string)preg_replace('/[^a-z0-9]+/', '_', $s), '_');
-        $s = substr($s !== '' ? $s : 'zaehler', 0, 24);
-        $base = $s;
-        $i = 2;
-        while (isset($taken[$s])) {
-            $s = $base . '_' . $i++;
-        }
-        return $s;
-    }
-
     /**
-     * Legt eine MeterHubVirtual-Instanz an und füllt ihre Verdrahtung vor.
+     * Legt eine MeterHubVirtual-Instanz an und füllt ihre Formel vor.
      * $partners: Listeninhalt aus der Maske, $role: 'parent' | 'sibling'.
+     *
+     * MeterHubVirtual rechnet seit 0.24.0 flach (Instanz = oberste Ebene,
+     * jede Zeile ein Term mit Vorzeichen +/−) statt mit einem Baum aus
+     * „Kürzel"/„hängt hinter" — deshalb kein Sammelknoten und kein Kürzel
+     * mehr nötig. 'parent': dieser Zähler „+", die Partner „−" (Rest = dieser
+     * Zähler minus Partner). 'sibling': alle „+" (reine Summe).
      *
      * Geschrieben wird ausschließlich in die NEUE Instanz — an der eigenen
      * Konfiguration ändert der Knopf nichts.
@@ -2423,22 +2415,19 @@ class MeterHub extends IPSModule
         $member = $this->VirtualMemberships();
         if ($member) {
             $list = [];
-            foreach ($member as $iid => $keys) {
-                $list[] = '„' . IPS_GetName($iid) . '" (#' . $iid . ', als ' . implode('/', $keys) . ')';
+            foreach ($member as $iid => $labels) {
+                $list[] = '„' . IPS_GetName($iid) . '" (#' . $iid . ', als ' . implode('/', $labels) . ')';
             }
             $say('⚠️ Dieser Zähler ist bereits Teil von ' . implode(', ', $list) . '. Ein zweiter virtueller Zähler mit demselben Gerät führt leicht zu doppelter Buchführung — bitte die Zeile dort ergänzen statt hier neu anzulegen. Es wurde nichts angelegt.');
             return 0;
         }
 
-        // Knoten bauen. Funktionen bleiben bewusst auf „keine Zuordnung":
-        // Würde der virtuelle Knoten dieselbe Funktion belegen wie der echte
-        // Zähler, erschiene der Verbraucher in Kachel und Sankey doppelt.
-        $taken = [];
-        $nodes = [];
-        $warn  = [];
-        $mk = function (int $iid) use (&$taken, &$warn) {
-            $key = $this->VirtualSlug(IPS_GetName($iid), $taken);
-            $taken[$key] = true;
+        // Zeilen bauen. Die Funktion bleibt am neuen Zähler bewusst auf
+        // „keine Zuordnung" (Instanz-Voreinstellung): Würde der virtuelle
+        // Zähler dieselbe Funktion belegen wie der echte, erschiene der
+        // Verbraucher in Kachel und Sankey doppelt.
+        $warn = [];
+        $mk = function (int $iid, string $sign) use (&$warn) {
             $p = $this->MeterVarID($iid, 'power_total');
             $i = $this->MeterVarID($iid, 'energy_import');
             $e = $this->MeterVarID($iid, 'energy_export');
@@ -2448,32 +2437,13 @@ class MeterHub extends IPSModule
             if ((string)@IPS_GetProperty($iid, 'MeasureMode') === 'perphase') {
                 $warn[] = '„' . IPS_GetName($iid) . '" misst je Phase drei getrennte Verbraucher; übernommen wird die Summe über alle Phasen.';
             }
-            return ['Key' => $key, 'Name' => IPS_GetName($iid), 'Parent' => '',
-                    'PowerID' => $p, 'EnergyImportID' => $i, 'EnergyExportID' => $e,
-                    'Function' => 'none'];
+            return ['Name' => IPS_GetName($iid), 'Sign' => $sign, 'PowerID' => $p, 'EnergyImportID' => $i, 'EnergyExportID' => $e];
         };
 
-        $ownNode = $mk($this->InstanceID);
-        if ($role === 'sibling') {
-            // Sammelknoten ohne eigenen Zähler: nur die Summe ist sinnvoll.
-            $taken['summe'] = true;
-            $nodes[] = ['Key' => 'summe', 'Name' => 'Summe', 'Parent' => '',
-                        'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 0,
-                        'Function' => 'none'];
-            $ownNode['Parent'] = 'summe';
-            $nodes[] = $ownNode;
-            foreach ($ids as $iid) {
-                $n = $mk($iid);
-                $n['Parent'] = 'summe';
-                $nodes[] = $n;
-            }
-        } else {
-            $nodes[] = $ownNode;
-            foreach ($ids as $iid) {
-                $n = $mk($iid);
-                $n['Parent'] = $ownNode['Key'];
-                $nodes[] = $n;
-            }
+        $nodes   = [$mk($this->InstanceID, '+')];
+        $partnerSign = $role === 'sibling' ? '+' : '-';
+        foreach ($ids as $iid) {
+            $nodes[] = $mk($iid, $partnerSign);
         }
 
         $iid = IPS_CreateInstance(self::GUID_VIRTUAL);
@@ -2484,9 +2454,9 @@ class MeterHub extends IPSModule
         IPS_ApplyChanges($iid);
 
         $msg = $role === 'sibling'
-            ? "✅ Virtueller Zähler #$iid angelegt: alle " . count($nodes) . " Zähler gleichrangig unter „Summe“ — ausgegeben wird deren Summe."
-            : "✅ Virtueller Zähler #$iid angelegt: „" . IPS_GetName($this->InstanceID) . '" als übergeordneter Zähler, ' . count($ids) . ' untergeordnete(r) — ausgegeben werden deren Summe und der Rest (dieser Zähler minus die untergeordneten).';
-        $msg .= "\nDie Funktionszuordnung steht dort noch auf „keine“ — bewusst, denn sonst erschiene derselbe Verbraucher in Kachel und Sankey doppelt. Typisch ist, dem übergeordneten Knoten „Hausverbrauch“ zu geben: der Rest ist dann alles, was nicht auf die untergeordneten Zähler entfällt.";
+            ? "✅ Virtueller Zähler #$iid angelegt: alle " . count($nodes) . ' Zähler gleichrangig addiert.'
+            : "✅ Virtueller Zähler #$iid angelegt: „" . IPS_GetName($this->InstanceID) . '" minus ' . count($ids) . ' untergeordnete(r) Zähler — ausgegeben wird der Rest.';
+        $msg .= "\nDie Funktion steht dort noch auf „keine“ — bewusst, denn sonst erschiene derselbe Verbraucher in Kachel und Sankey doppelt. Typisch ist, „Hausverbrauch“ zu setzen: der Rest ist dann alles, was nicht auf die abgezogenen Zähler entfällt.";
         if ($warn) {
             $msg .= "\n⚠️ " . implode("\n⚠️ ", $warn);
         }

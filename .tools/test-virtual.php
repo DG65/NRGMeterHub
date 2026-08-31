@@ -95,7 +95,7 @@ function IPS_SetProperty($iid, $n, $v) { $GLOBALS['PROP'][$iid][$n] = $v; }
 function IPS_GetProperty($iid, $n)     { return $GLOBALS['PROP'][$iid][$n] ?? ''; }
 function IPS_ApplyChanges($iid) {
     // Das ist der eigentliche Integrationstest: Die frisch erzeugte
-    // Verdrahtung muss vom Zielmodul auch akzeptiert werden.
+    // Formel muss vom Zielmodul auch akzeptiert werden.
     if ($GLOBALS['INSTMOD'][$iid] === '{ADF18291-2E60-4354-92F5-B96863C127C8}') {
         $m = new MeterHubVirtual($iid);
         $m->Create();
@@ -166,31 +166,30 @@ function check($label, $cond, $detail = '') {
 }
 
 // ---------------------------------------------------------------------------
-echo "\n1) CreateVirtual, Rolle 'parent'\n";
+echo "\n1) CreateVirtual, Rolle 'parent' — flache Formel statt Baum (seit 0.24.0)\n";
 $hub = new MeterHub(100);
 $hub->Create();
 $new = $hub->CreateVirtual(json_encode([['InstanceID' => 200], ['InstanceID' => 300]]), 'parent');
 check('neue Instanz angelegt', $new > 0, "Rückgabe=$new");
 $nodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
-check('drei Knoten', is_array($nodes) && count($nodes) === 3, 'count=' . (is_array($nodes) ? count($nodes) : '-'));
-check('Wurzel ohne Elternbezug', ($nodes[0]['Parent'] ?? 'x') === '');
-check('Kinder hängen an der Wurzel', ($nodes[1]['Parent'] ?? '') === $nodes[0]['Key'] && ($nodes[2]['Parent'] ?? '') === $nodes[0]['Key']);
-check('Umlaut im Kürzel umgesetzt', ($nodes[2]['Key'] ?? '') === 'waermepumpe' || ($nodes[1]['Key'] ?? '') === 'waermepumpe', json_encode(array_column($nodes, 'Key')));
+check('drei Zeilen (kein Sammelknoten mehr nötig)', is_array($nodes) && count($nodes) === 3, 'count=' . (is_array($nodes) ? count($nodes) : '-'));
+check('kein Kürzel/„hängt hinter" mehr im Datenmodell', !array_key_exists('Key', $nodes[0]) && !array_key_exists('Parent', $nodes[0]), json_encode($nodes[0]));
+check('eigener Zähler bekommt Vorzeichen "+"', ($nodes[0]['Sign'] ?? '') === '+', json_encode($nodes[0]));
+check('Partner bekommen Vorzeichen "−" (Rest = eigener Zähler minus Partner)', ($nodes[1]['Sign'] ?? '') === '-' && ($nodes[2]['Sign'] ?? '') === '-', json_encode([$nodes[1], $nodes[2]]));
+check('Umlaut im Namen unverändert übernommen', in_array('Wärmepumpe', array_column($nodes, 'Name'), true), json_encode(array_column($nodes, 'Name')));
 check('Datenpunkte gefunden', ($nodes[0]['PowerID'] ?? 0) === 103 && ($nodes[0]['EnergyImportID'] ?? 0) === 104 && ($nodes[0]['EnergyExportID'] ?? 0) === 105);
-check('Funktionen bleiben leer', array_unique(array_column($nodes, 'Function')) === ['none']);
 check('Instanz sitzt neben dem Zähler', IPS_GetObject($new)['ParentID'] === 10);
 
-echo "\n2) Zielmodul akzeptiert die erzeugte Verdrahtung\n";
+echo "\n2) Zielmodul akzeptiert die erzeugte Formel und rechnet vorzeichenrichtig\n";
 $virt = $GLOBALS['MODOBJ'][$new];
 check('Status = aktiv (102)', ($GLOBALS['STATUS'][$new] ?? 0) === 102, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
 $outs = [];
 foreach (IPS_GetChildrenIDs($new) as $c) { $outs[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
-check('Summe Leistung existiert', isset($outs['hausanschluss_sum_power']), implode(', ', array_keys($outs)));
-check('Rest Leistung existiert',  isset($outs['hausanschluss_rest_power']));
+check('genau eine Leistungs-, Bezugs- und Einspeisungs-Ausgabe (keine Zeilen-Idents mehr)', isset($outs['power']) && isset($outs['energy_import']) && isset($outs['energy_export']), implode(', ', array_keys($outs)));
 $virt->Recalc();
-check('Summe = 1200 + 1800', abs(GetValue($outs['hausanschluss_sum_power']) - 3000.0) < 0.01, 'ist ' . GetValue($outs['hausanschluss_sum_power']));
-check('Rest = 5000 − 3000',   abs(GetValue($outs['hausanschluss_rest_power']) - 2000.0) < 0.01, 'ist ' . GetValue($outs['hausanschluss_rest_power']));
-check('Rest Bezug = 40000 − 14000', abs(GetValue($outs['hausanschluss_rest_imp']) - 26000.0) < 0.01, 'ist ' . GetValue($outs['hausanschluss_rest_imp']));
+check('Leistung = 5000 − 1200 − 1800', abs(GetValue($outs['power']) - 2000.0) < 0.01, 'ist ' . GetValue($outs['power']));
+check('Bezug = 40000 − 9000 − 5000',   abs(GetValue($outs['energy_import']) - 26000.0) < 0.01, 'ist ' . GetValue($outs['energy_import']));
+check('Einspeisung = 8000 (nur Hausanschluss hat einen Einspeisungszähler)', abs(GetValue($outs['energy_export']) - 8000.0) < 0.01, 'ist ' . GetValue($outs['energy_export']));
 
 echo "\n3) Prüfung verhindert den zweiten virtuellen Zähler\n";
 $GLOBALS['FORMFIELDS'] = [];
@@ -204,7 +203,7 @@ $hub2 = new MeterHub(200); $hub2->Create();
 check('ohne Partner nichts angelegt', $hub2->CreateVirtual('[]', 'parent') === 0);
 check('Hinweis erklärt warum', str_contains($GLOBALS['FORMFIELDS']['VirtualResult']['caption'] ?? '', 'kein weiterer Zähler'));
 
-echo "\n5) Rolle 'sibling'\n";
+echo "\n5) Rolle 'sibling' — reine Summe, alle Zeilen gleichrangig \"+\"\n";
 // Frische Zähler — 100/200/300 stecken bereits im ersten virtuellen Zähler und
 // werden von der Prüfung (zu Recht) abgelehnt.
 meter(700, 'Wallbox 2', 1800.0, 5000.0);
@@ -212,13 +211,15 @@ meter(800, 'Garage',    1200.0, 9000.0);
 $hub3 = new MeterHub(700); $hub3->Create();
 $sib = $hub3->CreateVirtual(json_encode([['InstanceID' => 800]]), 'sibling');
 $snodes = json_decode(IPS_GetProperty($sib, 'Nodes'), true);
-check('Sammelknoten + zwei Zähler', count($snodes) === 3 && $snodes[0]['Key'] === 'summe');
-check('Sammelknoten ohne Datenpunkt', (int)$snodes[0]['PowerID'] === 0);
+check('zwei Zeilen — kein eigener Sammelknoten mehr nötig', count($snodes) === 2, json_encode($snodes));
+check('beide Zeilen tragen ihren eigenen Zähler', (int)$snodes[0]['PowerID'] === 703 && (int)$snodes[1]['PowerID'] === 803, json_encode($snodes));
+check('beide Zeilen "+"', ($snodes[0]['Sign'] ?? '') === '+' && ($snodes[1]['Sign'] ?? '') === '+', json_encode($snodes));
 $souts = [];
 foreach (IPS_GetChildrenIDs($sib) as $c) { $souts[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
-check('nur Summe, kein Rest', isset($souts['summe_sum_power']) && !isset($souts['summe_rest_power']), implode(', ', array_keys($souts)));
+check('nur "power"/"energy_import" (kein Einspeisungszähler vorhanden)', isset($souts['power']) && isset($souts['energy_import']) && !isset($souts['energy_export']), implode(', ', array_keys($souts)));
 $GLOBALS['MODOBJ'][$sib]->Recalc();
-check('Summe = 1800 + 1200', abs(GetValue($souts['summe_sum_power']) - 3000.0) < 0.01, 'ist ' . GetValue($souts['summe_sum_power']));
+check('Summe Leistung = 1800 + 1200', abs(GetValue($souts['power']) - 3000.0) < 0.01, 'ist ' . GetValue($souts['power']));
+check('Summe Bezug = 5000 + 9000', abs(GetValue($souts['energy_import']) - 14000.0) < 0.01, 'ist ' . GetValue($souts['energy_import']));
 
 echo "\n6) Suchlauf mit Filtern\n";
 // Streuobst: eine Steckdose ohne Energie, eine Karteileiche, eine in anderem Ast
@@ -235,14 +236,19 @@ $GLOBALS['INSTMOD'][8000] = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
 obj(8000, 1, 'Virtuell leer', 10);
 $fresh->Create();
 
-$run = function ($root, $filter, $needEnergy, $onlyActive) use ($fresh) {
+$run = function ($root, $filter, $needEnergy, $onlyActive, $onlyUsedElsewhere = false) use ($fresh) {
     $GLOBALS['FORMFIELDS'] = [];
-    $fresh->ScanMeters($root, $filter, $needEnergy, $onlyActive);
+    $fresh->ScanMeters($root, $filter, $needEnergy, $onlyActive, $onlyUsedElsewhere);
     $rows = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
     return array_column($rows, 'Name');
 };
 $all = $run(0, '', false, false);
-check('ungefiltert findet alles', count($all) >= 6, implode(' | ', $all));
+// Nur die drei Steckdosen: Hausanschluss/Wärmepumpe/Wallbox/Wallbox 2/Garage
+// stecken zu diesem Zeitpunkt bereits in den virtuellen Zählern aus Block 1
+// und 5 und werden von der Kreuz-Instanz-Prüfung (Block 6d) korrekt aus dem
+// Suchlauf ausgeblendet.
+check('ungefiltert findet die drei noch unbenutzten Steckdosen', count($all) === 3, implode(' | ', $all));
+check('Zeilen haben ein Vorzeichen "+" vorbelegt (kein Kürzel mehr)', ((json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'], true))[0]['Sign'] ?? '') === '+');
 $bereich = $run(10, '', false, false);
 check('Bereichsfilter schließt anderen Ast aus', !in_array('Steckdose Garten', $bereich, true), implode(' | ', $bereich));
 $name = $run(0, 'keller', false, false);
@@ -251,7 +257,7 @@ $energie = $run(0, '', true, false);
 check('nur mit Energiezähler', !in_array('Steckdose Küche', $energie, true), implode(' | ', $energie));
 $aktiv = $run(0, '', false, true);
 check('Karteileiche ausgeblendet', !in_array('Steckdose Keller', $aktiv, true), implode(' | ', $aktiv));
-check('Zeilenzahl wächst mit', ($GLOBALS['FORMFIELDS']['Nodes']['rowCount'] ?? 0) >= 12);
+check('Zeilenzahl wächst mit (jetzt kürzere Voreinstellung, typischerweise wenige Terme)', ($GLOBALS['FORMFIELDS']['Nodes']['rowCount'] ?? 0) >= 6);
 
 echo "\n6b) Ausschluss bekannter NRG-Stack-Module\n";
 // Genau der Fall, der an Dietmars Installation den 197-Zeilen-Befund erzeugt
@@ -293,6 +299,34 @@ check('Darstellung mit SUFFIX " W" gefunden', in_array('KNX Aktor Neu', $presSca
 check('Darstellung mit PROFILE-Referenz (kWh) gefunden', in_array('Shelly Neu', $presScan, true), implode(' | ', $presScan));
 check('Darstellung mit °C-Suffix NICHT gefunden', !in_array('Thermostat Neu', $presScan, true), implode(' | ', $presScan));
 
+echo "\n6d) Kreuz-Instanz-Prüfung: schon in einer ANDEREN virtuellen Instanz verwendete Datenpunkte (Dietmars Anregung 31.08.2026)\n";
+// Ein zweiter, unabhängiger virtueller Zähler benutzt "Steckdose Küche" (Var.
+// 511) als Term — die darf im Suchlauf einer DRITTEN Instanz nicht mehr als
+// unbenutzt erscheinen, auch wenn sie in DEREN eigener Nodes-Liste nicht
+// vorkommt. (Direkt über IPS_SetProperty verdrahtet, nicht über den
+// Suchlauf — sonst würde der Suchlauf sich seinen eigenen Testzustand
+// verändern, bevor er geprüft wird.)
+$otherVirtIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($otherVirtIid, 1, 'Zweiter virtueller Zähler', 10);
+IPS_SetProperty($otherVirtIid, 'Nodes', json_encode([
+    ['Name' => 'Steckdose Küche', 'Sign' => '+', 'PowerID' => 511, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+]));
+
+$normalScan = $run(0, '', false, false);
+check('Steckdose Keller (unbenutzt) normal sichtbar', in_array('Steckdose Keller', $normalScan, true), implode(' | ', $normalScan));
+check('Steckdose Küche (in einer anderen Instanz verwendet) standardmäßig ausgeblendet', !in_array('Steckdose Küche', $normalScan, true), implode(' | ', $normalScan));
+check('Übersprungen-Zähler nennt die andere Instanz', str_contains($GLOBALS['FORMFIELDS']['ScanResult']['caption'] ?? '', 'anderen virtuellen Zähler-Instanz'), $GLOBALS['FORMFIELDS']['ScanResult']['caption'] ?? '');
+$onlyCross = $run(0, '', false, false, true);
+// Zu diesem Zeitpunkt sind auch Hausanschluss/Wärmepumpe/Wallbox/Wallbox 2/
+// Garage (aus Block 1 und 5) bereits in einer anderen Instanz verwendet —
+// die gehören zu Recht mit in diese Liste. Geprüft wird hier nur, dass
+// "Steckdose Küche" korrekt dazugehört und "Steckdose Keller" (nirgends
+// verwendet) korrekt NICHT.
+check('Schalter "nur schon verwendete" enthält "Steckdose Küche"', in_array('Steckdose Küche', $onlyCross, true), implode(' | ', $onlyCross));
+check('Schalter "nur schon verwendete" lässt unbenutzte Steckdose Keller weg', !in_array('Steckdose Keller', $onlyCross, true), implode(' | ', $onlyCross));
+$crossNote = $GLOBALS['FORMFIELDS']['ScanResult']['caption'] ?? '';
+check('Fund-Hinweis nennt den Instanznamen, in der der Zähler schon steckt', str_contains($crossNote, 'bereits verwendet in „Zweiter virtueller Zähler“'), $crossNote);
+
 echo "\n7) Rückkopplungsschutz\n";
 $feedback = $run(0, '', false, false);
 $virtOutNames = [];
@@ -300,30 +334,23 @@ foreach (IPS_GetChildrenIDs($new) as $c) { $virtOutNames[] = IPS_GetName($c); }
 $overlap = array_intersect($feedback, $virtOutNames);
 check('keine Ausgabe eines virtuellen Zählers als Quelle', $overlap === [], implode(' | ', $overlap));
 
-echo "\n8) Vertragserweiterung MHUBV_GetFunctions\n";
-// Der erste virtuelle Zähler (#$new, Rolle parent) hat noch Funktion 'none' an
-// allen Knoten -> leere assignments. Für den Vertragstest einem Knoten eine
-// Funktion geben.
-$vnodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
-$vnodes[0]['Function'] = 'house';
-IPS_SetProperty($new, 'Nodes', json_encode($vnodes));
+echo "\n8) Vertragserweiterung MHUBV_GetFunctions — Funktion jetzt Instanz-Property statt Zeilen-Feld\n";
+IPS_SetProperty($new, 'Function', 'house');
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
 $gf = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
 check('contractVersion = 1.1', ($gf['contractVersion'] ?? '') === '1.1', json_encode($gf['contractVersion'] ?? null));
 check('latency = realtime',   ($gf['latency'] ?? '') === 'realtime', json_encode($gf['latency'] ?? null));
 check('authority = auxiliary', ($gf['authority'] ?? '') === 'auxiliary');
 check('pollInterval gesetzt',  ($gf['pollInterval'] ?? 0) >= 2);
+check('genau EINE Zuordnung (Instanz-Funktion statt Zeilen-Funktion)', count($gf['assignments'] ?? []) === 1, json_encode($gf['assignments'] ?? null));
 $a0 = $gf['assignments'][0] ?? [];
-check('assignment vorhanden',  !empty($gf['assignments']), json_encode($gf['assignments'] ?? null));
 check('energyKind = counter',  ($a0['energyKind'] ?? '') === 'counter');
-check('sourceCount = 2 Kinder', ($a0['sourceCount'] ?? -1) === 2, 'ist ' . ($a0['sourceCount'] ?? 'fehlt'));
+check('sourceCount = 3 (alle Formel-Zeilen)', ($a0['sourceCount'] ?? -1) === 3, 'ist ' . ($a0['sourceCount'] ?? 'fehlt'));
 // authority/latency MÜSSEN auch je Zuordnung stehen (InverterHub filtert dort).
 check('authority je Zuordnung', ($a0['authority'] ?? '') === 'auxiliary');
 check('latency je Zuordnung',   ($a0['latency'] ?? '') === 'realtime');
 
 echo "\n9) NRG-Stack-Profile: gemeinsam, aber eigentümerlos\n";
-// MeterHubVirtual hat oben (Block 1-8) mehrfach ApplyChanges() durchlaufen —
-// NRG.Watt/NRG.kWh müssen dabei mit den korrekten Werten entstanden sein.
 check('NRG.Watt entstanden (0 Nachkommastellen, " W")',
     ($GLOBALS['PROFILES']['NRG.Watt'] ?? null) === ['Digits' => 0, 'Suffix' => ' W'],
     json_encode($GLOBALS['PROFILES']['NRG.Watt'] ?? null));
@@ -358,85 +385,59 @@ check('modulspezifisches MHB.Hz wird weiterhin durchgesetzt',
     ($GLOBALS['PROFILES']['MHB.Hz'] ?? null) === ['Digits' => 2, 'Suffix' => ' Hz'],
     json_encode($GLOBALS['PROFILES']['MHB.Hz'] ?? null));
 
-echo "\n10) Sicherheitsnetz gegen den 25.07.2026-Vorfall (#16933) + Durchreichung seit 31.08.2026\n";
-// Nachstellung des realen Vorfalls: eine Instanz mit funktionierender
-// Verdrahtung (Summe/Rest existieren) verliert die Verdrahtung — vorher
-// wurden dabei ALLE Ausgabevariablen auf einen Schlag geloescht, obwohl nur
-// eine einzelne Zeile betroffen war.
+echo "\n10) Sicherheitsnetz gegen den 25.07.2026-Vorfall (#16933)\n";
+// Nachstellung des realen Vorfalls: eine Instanz mit funktionierender Formel
+// (Ausgaben existieren) verliert alle Datenpunkte — vorher wurden dabei ALLE
+// Ausgabevariablen auf einen Schlag geloescht, obwohl nur die Verdrahtung
+// betroffen war.
 $before = [];
 foreach (IPS_GetChildrenIDs($new) as $c) { $before[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
-check('Ausgangslage: Ausgaben vorhanden', isset($before['hausanschluss_sum_power']), implode(', ', array_keys($before)));
-check('Ausgangslage: Kinder haben (seit 31.08.2026) schon eigene Durchreichung', isset($before['waermepumpe_rest_power']), implode(', ', array_keys($before)));
+check('Ausgangslage: Ausgaben vorhanden', isset($before['power']), implode(', ', array_keys($before)));
 
-// 10a) Verdrahtung komplett flach machen (kein Knoten hat mehr Kinder) —
-// bis 31.08.2026 der Zustand, der RegisterVariables() "nichts ist mehr
-// gueltig" lesen liess. Seit dem Fund von Sepp/Dietmar (kinderlose Steckdose
-// ohne jede Ausgabe) tragen alle drei Knoten hier aber weiterhin ihren
-// EIGENEN Zaehler — das Sicherheitsnetz darf deshalb NICHT mehr greifen,
-// sondern muss auf reine Durchreichungs-Ausgaben umschalten (kein
-// "_sum_" mehr, "_rest_" bleibt als 1:1-Durchreichung des eigenen Werts).
-$flatNodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
-foreach ($flatNodes as &$r) { $r['Parent'] = ''; }
+// 10a) Alle Datenpunkt-Felder auf 0 — keine einzige Zeile hat mehr einen
+// Zähler. Das MUSS das Sicherheitsnetz auslösen: Status Fehler, Ausgaben
+// bleiben unangetastet.
+$emptyNodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
+foreach ($emptyNodes as &$r) { $r['PowerID'] = 0; $r['EnergyImportID'] = 0; $r['EnergyExportID'] = 0; }
 unset($r);
-IPS_SetProperty($new, 'Nodes', json_encode($flatNodes));
-$GLOBALS['MODOBJ'][$new]->ApplyChanges();
-check('10a: Status bleibt aktiv (102) — kein Fehler mehr, jeder Knoten hat ja einen eigenen Zähler', ($GLOBALS['STATUS'][$new] ?? 0) === 102, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
-$after10a = [];
-foreach (IPS_GetChildrenIDs($new) as $c) { $after10a[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
-check('10a: "_sum_"-Ausgaben verschwinden (hausanschluss hat keine Kinder mehr)', !isset($after10a['hausanschluss_sum_power']), implode(',', array_keys($after10a)));
-check('10a: "_rest_"-Durchreichung bleibt für alle drei erhalten', isset($after10a['hausanschluss_rest_power']) && isset($after10a['waermepumpe_rest_power']) && isset($after10a['wallbox_rest_power']), implode(',', array_keys($after10a)));
-$GLOBALS['MODOBJ'][$new]->Recalc();
-$hausPower = null;
-foreach (IPS_GetChildrenIDs($new) as $c) { if ($GLOBALS['OBJ'][$c]['ObjectIdent'] === 'hausanschluss_rest_power') { $hausPower = GetValue($c); } }
-check('10a: Durchreichung = eigener Zählerwert (5000 W), kein "Rest" mehr abgezogen', abs(($hausPower ?? -1) - 5000.0) < 0.01, 'ist ' . $hausPower);
-
-// 10a-safety) Gegenprobe zum eigentlichen Sicherheitsnetz: ein Knoten OHNE
-// jeden eigenen Zähler UND ohne Kinder ergibt weiterhin exakt NULL Ausgaben
-// — das ist der einzige Fall, in dem die 25.07.2026-Sperre noch greifen muss.
-$emptyNodes = [['Key' => 'leer', 'Name' => 'Ohne alles', 'Parent' => '', 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none']];
 IPS_SetProperty($new, 'Nodes', json_encode($emptyNodes));
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
-check('10a-safety: Status = Fehler (201) — wirklich NICHTS mehr zu berechnen', ($GLOBALS['STATUS'][$new] ?? 0) === 201, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
-$afterSafety = [];
-foreach (IPS_GetChildrenIDs($new) as $c) { $afterSafety[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
-check('10a-safety: vorhandene Ausgaben NICHT geloescht', $afterSafety === $after10a, 'vorher=' . implode(',', array_keys($after10a)) . ' nachher=' . implode(',', array_keys($afterSafety)));
+check('10a: Status = Fehler (201)', ($GLOBALS['STATUS'][$new] ?? 0) === 201, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
+$after10a = [];
+foreach (IPS_GetChildrenIDs($new) as $c) { $after10a[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
+check('10a: vorhandene Ausgaben NICHT gelöscht', $after10a === $before, 'vorher=' . implode(',', array_keys($before)) . ' nachher=' . implode(',', array_keys($after10a)));
 $checkSafetyErr = (new ReflectionMethod('MeterHubVirtual', 'Validate'))->invoke($GLOBALS['MODOBJ'][$new]);
-check('10a-safety: Fehlermeldung nennt die Ursache', !empty($checkSafetyErr) && str_contains(implode(' ', $checkSafetyErr), 'keine einzige Ausgabe'), implode(' | ', $checkSafetyErr));
+check('10a: Fehlermeldung nennt die Ursache', !empty($checkSafetyErr) && str_contains(implode(' ', $checkSafetyErr), 'keine einzige Ausgabe'), implode(' | ', $checkSafetyErr));
 
-// 10b) Zurück zur flachen, aber gültigen Verdrahtung (Zustand von 10a) und
-// zusätzlich einen echten Fehler einbauen (verweist auf geloeschte
-// Variable) — unabhaengig vom Flach-Fall muss JEDER Validate()-Fehler die
-// Loeschung verhindern.
-$fixedNodes = $flatNodes;
-foreach ($fixedNodes as &$r) {
-    if (($r['Key'] ?? '') !== 'hausanschluss') { $r['Parent'] = 'hausanschluss'; }
-}
-unset($r);
-$fixedNodes[0]['EnergyExportID'] = 999999; // existiert nicht
-IPS_SetProperty($new, 'Nodes', json_encode($fixedNodes));
+// 10b) Ein echter Fehler (verweist auf gelöschte Variable), unabhängig vom
+// Sicherheitsnetz — auch der muss die Löschung verhindern. Ein Zähler bleibt
+// dabei bewusst gültig, damit klar ist: nicht das Sicherheitsnetz greift
+// hier, sondern die allgemeine Fehlerprüfung.
+$badNodes = $emptyNodes;
+$badNodes[0]['PowerID'] = 103; // Hausanschluss-Leistung wieder gültig
+$badNodes[1]['EnergyImportID'] = 999999; // existiert nicht
+IPS_SetProperty($new, 'Nodes', json_encode($badNodes));
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
 check('10b: Status = Fehler (201)', ($GLOBALS['STATUS'][$new] ?? 0) === 201, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
 $after10b = [];
 foreach (IPS_GetChildrenIDs($new) as $c) { $after10b[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
-check('10b: vorhandene Ausgaben NICHT geloescht (allgemeiner Fehlerfall)', $after10b === $afterSafety, 'nachher=' . implode(',', array_keys($after10b)));
+check('10b: vorhandene Ausgaben weiterhin NICHT gelöscht (allgemeiner Fehlerfall)', $after10b === $after10a, 'nachher=' . implode(',', array_keys($after10b)));
 
-// 10c) Gegenprobe: Verdrahtung sauber reparieren (kein Fehler mehr) — jetzt
-// MUSS RegisterVariables() wieder normal arbeiten, damit das Sicherheitsnetz
-// nicht zur Dauerblockade wird.
-$cleanNodes = json_decode(IPS_GetProperty($new, 'Nodes'), true);
-foreach ($cleanNodes as &$r) {
-    if (($r['Key'] ?? '') !== 'hausanschluss') { $r['Parent'] = 'hausanschluss'; }
-    $r['EnergyExportID'] = ($r['Key'] ?? '') === 'hausanschluss' ? 105 : (int)$r['EnergyExportID'];
-}
-unset($r);
+// 10c) Gegenprobe: Formel sauber reparieren — jetzt MUSS RegisterVariables()
+// wieder normal arbeiten, sonst würde das Sicherheitsnetz zur Dauerblockade.
+$cleanNodes = $badNodes;
+$cleanNodes[1]['EnergyImportID'] = 204; // Wärmepumpe-Bezug, real vorhanden
+$cleanNodes[1]['PowerID'] = 203;
+$cleanNodes[2]['PowerID'] = 303;
+$cleanNodes[2]['EnergyImportID'] = 304;
 IPS_SetProperty($new, 'Nodes', json_encode($cleanNodes));
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
 check('10c: nach Reparatur wieder aktiv (102)', ($GLOBALS['STATUS'][$new] ?? 0) === 102, 'Status=' . ($GLOBALS['STATUS'][$new] ?? '-'));
 $after10c = [];
 foreach (IPS_GetChildrenIDs($new) as $c) { $after10c[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
-check('10c: Ausgaben nach Reparatur weiter vorhanden', isset($after10c['hausanschluss_sum_power']), implode(',', array_keys($after10c)));
+check('10c: Ausgaben nach Reparatur weiter vorhanden', isset($after10c['power']), implode(',', array_keys($after10c)));
 
-echo "\n11) Formular-Konvention: News-Panel + Doku-Panel (31.08.2026, Dietmars Auftrag \"hier maximal nachbessern\")\n";
+echo "\n11) Formular-Konvention: News-Panel + Doku-Panel (aktualisiert für das flache Modell, 31.08.2026)\n";
 $newsVersion = (new ReflectionClass('MeterHubVirtual'))->getConstant('NEWS_VERSION');
 $form11 = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
 check('Formular bleibt gültiges JSON', is_array($form11));
@@ -447,29 +448,19 @@ foreach ($form11['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '�
 check('Doku-Panel vorhanden', $dokuPanel !== null);
 $dokuText = implode(' ', array_column($dokuPanel['items'] ?? [], 'caption'));
 check('Doku-Panel nennt die Versionsnummer', str_contains($dokuText, $newsVersion), $dokuText);
-check('Doku-Panel enthält alle drei Verdrahtungs-Muster', str_contains($dokuText, '①') && str_contains($dokuText, '②') && str_contains($dokuText, '③'));
-check('Doku-Panel erklärt den neuen Durchreichungs-Fall', str_contains($dokuText, 'Durchreichung'));
+check('Doku-Panel erklärt Vorzeichen statt Baum', str_contains($dokuText, 'Vorzeichen') && !str_contains($dokuText, 'hängt hinter'), $dokuText);
+check('Doku-Panel nennt Verkettung für mehrstufige Fälle', str_contains($dokuText, 'mehrere Instanzen') || str_contains($dokuText, 'verketteten'), $dokuText);
 
-// Schritt-für-Schritt-Anleitung + "?"-PopupButtons im Verdrahtungs-Panel
-// (Dietmars zweite Rückmeldung 31.08.2026: die Doku allein genügte noch
-// nicht — SUITE.md "Feld-Hilfestellung" sieht PopupButton mit caption="?"
-// für genau diesen Fall vor, kein natives Mouseover in Symcon).
-$wiringPanel = null;
-foreach ($form11['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🔌  Verdrahtung') { $wiringPanel = $el; } }
-check('Verdrahtungs-Panel vorhanden', $wiringPanel !== null);
-$wiringItems = $wiringPanel['items'] ?? [];
-check('Nummerierte Schritt-für-Schritt-Anleitung direkt im Panel', str_contains(implode(' ', array_column($wiringItems, 'caption')), '1. Zeile anlegen'));
-$popups = array_values(array_filter($wiringItems, fn ($it) => ($it['type'] ?? '') === 'PopupButton'));
-check('Genau zwei "?"-PopupButtons im Verdrahtungs-Panel', count($popups) === 2, 'gefunden: ' . count($popups));
-$parentPopup = null;
-foreach ($popups as $p) { if (str_contains($p['caption'] ?? '', 'hängt hinter')) { $parentPopup = $p; } }
-check('PopupButton "hängt hinter" vorhanden', $parentPopup !== null);
-$parentPopupText = implode(' ', array_column($parentPopup['popup']['items'] ?? [], 'caption'));
-check('Popup-Inhalt "hängt hinter" enthält alle drei Muster', str_contains($parentPopupText, '①') && str_contains($parentPopupText, '②') && str_contains($parentPopupText, '③'), $parentPopupText);
-$keyPopup = null;
-foreach ($popups as $p) { if (str_contains($p['caption'] ?? '', 'Kürzel')) { $keyPopup = $p; } }
-check('PopupButton "Kürzel" vorhanden', $keyPopup !== null);
-check('Popup-Inhalt "Kürzel" warnt vor Historie-Verlust', str_contains(implode(' ', array_column($keyPopup['popup']['items'] ?? [], 'caption')), 'Historie'));
+$meterPanel = null;
+foreach ($form11['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🔌  Zähler') { $meterPanel = $el; } }
+check('Zähler-Panel vorhanden (vorher "Verdrahtung")', $meterPanel !== null);
+$listField = null;
+foreach ($meterPanel['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'Nodes') { $listField = $it; } }
+check('Formel-Liste hat eine Vorzeichen-Spalte statt "hängt hinter"', $listField !== null && in_array('Sign', array_column($listField['columns'] ?? [], 'name'), true), json_encode(array_column($listField['columns'] ?? [], 'name')));
+check('kein Kürzel-Spalte mehr', !in_array('Key', array_column($listField['columns'] ?? [], 'name'), true));
+$funcField = null;
+foreach ($form11['elements'] ?? [] as $el) { if (($el['name'] ?? '') === 'Function') { $funcField = $el; } }
+check('Funktion jetzt ein Instanz-Feld im Formular (nicht mehr Zeilen-Spalte)', $funcField !== null && ($funcField['type'] ?? '') === 'Select');
 
 $GLOBALS['MODOBJ'][$new]->AckNews();
 check('AckNews() merkt die Version dauerhaft', ($GLOBALS['ATTR'][$new]['SeenNews'] ?? null) === $newsVersion, 'ist ' . ($GLOBALS['ATTR'][$new]['SeenNews'] ?? '(leer)'));
@@ -478,64 +469,52 @@ $form11b = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
 $panelCaptions2 = array_column($form11b['elements'] ?? [], 'caption');
 check('News-Panel bleibt nach Bestätigung auch bei einem Neuaufbau weg', !in_array('🆕  Neu in dieser Version', $panelCaptions2, true), implode(' | ', $panelCaptions2));
 
-echo "\n12) CombineSelected() — Schnellweg zum Verdrahten (Dietmars Anstoß 31.08.2026)\n";
-$combineHub = $GLOBALS['MODOBJ'][$new];
-
-echo "  12a) Neue Sammelzeile (Muster ①) aus zwei ausgewählten Zeilen\n";
-$rowsA = [
-    ['Key' => 'kuehlschrank', 'Name' => 'Kühlschrank', 'Parent' => '', 'PowerID' => 511, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
-    ['Key' => 'brunnenpumpe', 'Name' => 'Brunnenpumpe', 'Parent' => '', 'PowerID' => 521, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
+echo "\n12) Migration einer alten Baum-Verdrahtung (Kürzel/„hängt hinter“) ins neue flache Modell\n";
+// Simuliert exakt Dietmars Live-Zustand: eine Instanz mit Nodes im ALTEN
+// Format lädt nach dem Modul-Update. Sicherheitsnetz: NICHTS automatisch
+// übernehmen — sonst würde beim ersten ApplyChanges nach dem Update sofort
+// jede lose Kandidatenzeile mitsummiert (still falscher Wert, live genutzte
+// Anlage).
+$legacyRows = [
+    ['Key' => 'hausanschluss', 'Name' => 'Hausanschluss', 'Parent' => '', 'PowerID' => 103, 'EnergyImportID' => 104, 'EnergyExportID' => 105, 'Function' => 'grid'],
+    ['Key' => 'waermepumpe', 'Name' => 'Wärmepumpe', 'Parent' => 'hausanschluss', 'PowerID' => 203, 'EnergyImportID' => 204, 'EnergyExportID' => 0, 'Function' => 'heatpump'],
+    ['Key' => 'staubsauger', 'Name' => 'Staubsauger', 'Parent' => '', 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none'],
 ];
-$msgA = $combineHub->CombineSelected(json_encode($rowsA), '__NEU__');
-check('Ergebnistext meldet Erfolg', str_contains($msgA, '✅'), $msgA);
-$writtenA = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'], true);
-check('drei Zeilen nach dem Zusammenfassen (2 Geräte + 1 neue Sammelzeile)', count($writtenA) === 3, json_encode($writtenA));
-$newRowA = end($writtenA);
-check('neue Zeile ohne eigenen Zähler', ((int) $newRowA['PowerID']) === 0);
-check('neue Zeile heißt sinnvoll (aus den Gerätenamen)', $newRowA['Name'] === 'Kühlschrank + Brunnenpumpe', $newRowA['Name']);
-check('beide Geräte hängen jetzt hinter der neuen Zeile', $writtenA[0]['Parent'] === $newRowA['Key'] && $writtenA[1]['Parent'] === $newRowA['Key']);
-check('Auswahl-Häkchen werden zurückgesetzt', $writtenA[0]['Selected'] === false && $writtenA[1]['Selected'] === false && $newRowA['Selected'] === false);
+$legIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($legIid, 1, 'Migrationstest', 10);
+IPS_SetProperty($legIid, 'Nodes', json_encode($legacyRows));
+IPS_ApplyChanges($legIid);
+check('12a: Status = Migration nötig (202), nichts wird berechnet', ($GLOBALS['STATUS'][$legIid] ?? 0) === 202, 'Status=' . ($GLOBALS['STATUS'][$legIid] ?? '-'));
+check('12a: keine Ausgabevariablen angelegt, solange Migration offen ist', IPS_GetChildrenIDs($legIid) === [], implode(',', IPS_GetChildrenIDs($legIid)));
 
-echo "\n  12b) Key-Kollision: „sammelzaehler“ ist schon vergeben -> automatisch sammelzaehler_2\n";
-$rowsB = [
-    ['Key' => 'sammelzaehler', 'Name' => 'Alt', 'Parent' => '', 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => false],
-    ['Key' => 'geraet1', 'Name' => 'Gerät 1', 'Parent' => '', 'PowerID' => 1, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
-    ['Key' => 'geraet2', 'Name' => 'Gerät 2', 'Parent' => '', 'PowerID' => 2, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
-    ['Key' => 'geraet3', 'Name' => 'Gerät 3', 'Parent' => '', 'PowerID' => 3, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
-    ['Key' => 'geraet4', 'Name' => 'Gerät 4', 'Parent' => '', 'PowerID' => 4, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true],
-];
-$msgB = $combineHub->CombineSelected(json_encode($rowsB), '__NEU__');
-$writtenB = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'], true);
-$newRowB = end($writtenB);
-check('Kürzel weicht bei Kollision aus (sammelzaehler_2)', $newRowB['Key'] === 'sammelzaehler_2', $newRowB['Key']);
-check('bei mehr als 3 Geräten wird generisch benannt', $newRowB['Name'] === 'Sammelzähler (4 Geräte)', $newRowB['Name']);
+$legForm = json_decode($GLOBALS['MODOBJ'][$legIid]->GetConfigurationForm(), true);
+$migPanel = null;
+foreach ($legForm['elements'] ?? [] as $el) { if (($el['name'] ?? '') === 'MigrationPanel') { $migPanel = $el; } }
+check('12b: Migrations-Panel erscheint im Formular', $migPanel !== null);
+check('12b: News-Panel bleibt während offener Migration weg (Migration hat Vorrang)', !in_array('🆕  Neu in dieser Version', array_column($legForm['elements'] ?? [], 'caption'), true));
+$legListField = null;
+foreach ($legForm['elements'] ?? [] as $el) {
+    if (($el['caption'] ?? '') === '🔌  Zähler') {
+        foreach ($el['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'Nodes') { $legListField = $it; } }
+    }
+}
+check('12b: Liste bekommt die migrierten Zeilen als Vorschlag (noch nicht gespeichert)', $legListField !== null && isset($legListField['value']));
+$proposed = json_decode($legListField['value'] ?? '[]', true);
+check('12b: alle drei alten Zeilen stehen als Vorschlag da, Vorzeichen "+"', count($proposed) === 3 && array_unique(array_column($proposed, 'Sign')) === ['+'], json_encode($proposed));
+check('12b: Kürzel/„hängt hinter"/Funktion sind aus dem Vorschlag verschwunden', !array_key_exists('Key', $proposed[0]) && !array_key_exists('Parent', $proposed[0]) && !array_key_exists('Function', $proposed[0]));
 
-echo "\n  12c) Von einer vorhandenen Zeile abziehen (Muster ②, Dietmars Ergänzung \"Zähler von einem anderen abziehen\")\n";
-$rowsC = [
-    ['Key' => 'hausanschluss', 'Name' => 'Hausanschluss', 'Parent' => '', 'PowerID' => 100, 'EnergyImportID' => 101, 'EnergyExportID' => 102, 'Function' => 'grid', 'Selected' => false],
-    ['Key' => 'waermepumpe', 'Name' => 'Wärmepumpe', 'Parent' => '', 'PowerID' => 200, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'heatpump', 'Selected' => true],
-    ['Key' => 'wallbox', 'Name' => 'Wallbox', 'Parent' => '', 'PowerID' => 300, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'wallbox1', 'Selected' => true],
-];
-$msgC = $combineHub->CombineSelected(json_encode($rowsC), 'hausanschluss');
-check('Ergebnistext nennt die Zielzeile', str_contains($msgC, 'Hausanschluss'), $msgC);
-$writtenC = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'], true);
-check('keine neue Zeile — weiterhin genau drei', count($writtenC) === 3, json_encode($writtenC));
-check('Wärmepumpe hängt jetzt hinter Hausanschluss', $writtenC[1]['Parent'] === 'hausanschluss');
-check('Wallbox hängt jetzt hinter Hausanschluss', $writtenC[2]['Parent'] === 'hausanschluss');
-check('Funktionszuordnung bleibt beim Verschieben erhalten', $writtenC[1]['Function'] === 'heatpump' && $writtenC[2]['Function'] === 'wallbox1');
-
-echo "\n  12d) Randfälle: keine Auswahl / Zielzeile ist Teil der eigenen Auswahl / unbekanntes Ziel\n";
-$rowsD = [['Key' => 'x', 'Name' => 'X', 'Parent' => '', 'PowerID' => 1, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => false]];
-$msgD1 = $combineHub->CombineSelected(json_encode($rowsD), '__NEU__');
-check('keine Auswahl -> verständliche Meldung, kein Absturz', str_contains($msgD1, 'ℹ️') && str_contains($msgD1, 'ausgewählt'), $msgD1);
-
-$rowsE = [['Key' => 'einzelzeile', 'Name' => 'Einzelzeile', 'Parent' => '', 'PowerID' => 1, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true]];
-$msgE = $combineHub->CombineSelected(json_encode($rowsE), 'einzelzeile');
-check('Zielzeile ist ihre eigene einzige Auswahl -> nichts zu tun, kein Selbstbezug', str_contains($msgE, 'ℹ️'), $msgE);
-
-$rowsF = [['Key' => 'y', 'Name' => 'Y', 'Parent' => '', 'PowerID' => 1, 'EnergyImportID' => 0, 'EnergyExportID' => 0, 'Function' => 'none', 'Selected' => true]];
-$msgF = $combineHub->CombineSelected(json_encode($rowsF), 'gibtsnicht');
-check('unbekanntes Ziel -> klare Fehlermeldung, kein Absturz', str_contains($msgF, '❌'), $msgF);
+// Dietmar prüft den Vorschlag: den nie verdrahteten "Staubsauger" (Muster
+// eines alten Suchlauf-Fundes, der nie tatsächlich Teil der Formel wurde)
+// wirft er raus, den Rest bestätigt er mit "Übernehmen".
+$confirmed = array_values(array_filter($proposed, fn ($r) => $r['Name'] !== 'Staubsauger'));
+IPS_SetProperty($legIid, 'Nodes', json_encode($confirmed));
+IPS_ApplyChanges($legIid);
+check('12c: nach Bestätigung normaler Betrieb (102)', ($GLOBALS['STATUS'][$legIid] ?? 0) === 102, 'Status=' . ($GLOBALS['STATUS'][$legIid] ?? '-'));
+$legOuts = [];
+foreach (IPS_GetChildrenIDs($legIid) as $c) { $legOuts[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
+check('12c: Ausgaben entstehen nach der Migration', isset($legOuts['power']), implode(',', array_keys($legOuts)));
+$GLOBALS['MODOBJ'][$legIid]->Recalc();
+check('12c: Summe (beide "+") = 5000 + 1200', abs(GetValue($legOuts['power']) - 6200.0) < 0.01, 'ist ' . GetValue($legOuts['power']));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
