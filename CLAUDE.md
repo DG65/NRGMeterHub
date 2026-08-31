@@ -1264,3 +1264,17 @@ Verifiziert in `.tools/test-virtual.php` Block 20 (`CompactionPlan()` an allen v
 Intervall-Grenzen, in BEIDEN Modulen identisch) — Block 2 prüft zusätzlich, dass die volle
 Staffelung bei `MeterHubVirtual`s Standard-Intervall (10 s) tatsächlich über
 `AC_SetCompaction()` ankommt.
+
+**Nachtrag, noch am selben Tag — konfigurierbar statt fest im Code:** Dietmars berechtigter
+Einwand: „ich bin nicht der einzigste Nutzer, andere Nutzer haben vielleicht andere
+Vorstellungen für seine Einstellungen." Seine eigene Staffelung als unveränderlichen
+PHP-Default für JEDEN Nutzer zu hinterlegen widersprach der Grundregel „keine eigene Anlage
+als Norm annehmen" (siehe unten). Fix: sechs neue Properties je Modul
+(`AutoCompaction`, `CompactDirect`, `CompactStage2Months`/`CompactStage2Type`,
+`CompactStage3Months`/`CompactStage3Type`) in einem eigenen Formular-Panel „🗄️ Archiv-
+Verdichtung" — Dietmars Werte bleiben nur noch die VORBELEGUNG (`RegisterProperty*`-Defaults),
+`CompactionPlan()` liest sie jetzt aus den Properties statt sie hart zu verdrahten. Jede Stufe
+lässt sich einzeln auf „aus" stellen; Typ 7 (löschen) wird — anders als 0–6 — unabhängig vom
+Intervall immer übernommen, wenn gewählt (hat keine vergleichbare Auflösung). Verifiziert in
+Block 20f/20g: eigene Werte kommen unverändert an, „aus" wird respektiert, das
+Formular-Panel mit allen sechs Feldern ist vorhanden.

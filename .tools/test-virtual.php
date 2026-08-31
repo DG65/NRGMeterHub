@@ -728,7 +728,31 @@ check('20c: 300s..3599s — nur noch die 12-Monats-Stufe', $plan->invoke($anyIns
 check('20d: >= 3600s — bereits gröber als jede Stufe, keine Verdichtung nötig', $plan->invoke($anyInstance, 3600) === [], json_encode($plan->invoke($anyInstance, 3600)));
 $planHub = new ReflectionMethod('MeterHub', 'CompactionPlan');
 $hubInstance = new MeterHub(998);
+$hubInstance->Create(); // registriert AutoCompaction u.a. mit ihren Vorbelegungen
 check('20e: identische Staffelung im Schwestermodul MeterHub', $planHub->invoke($hubInstance, 10) === [[-1, 0], [1, 1], [12, 2]], json_encode($planHub->invoke($hubInstance, 10)));
+
+echo "\n  20f) Wirklich konfigurierbar (Dietmars Einwand 31.08.2026: \"ich bin nicht der einzigste Nutzer\") — nicht nur intervallabhängig, sondern von den Formularwerten\n";
+IPS_SetProperty(8100, 'AutoCompaction', false);
+check('20f: AutoCompaction aus -> leere Staffelung, unabhängig vom Intervall', $plan->invoke($fresh2, 10) === [], json_encode($plan->invoke($fresh2, 10)));
+IPS_SetProperty(8100, 'AutoCompaction', true);
+IPS_SetProperty(8100, 'CompactDirect', -1);       // Stufe 1 bewusst aus
+IPS_SetProperty(8100, 'CompactStage2Months', 3);  // andere Werte als Dietmars Standard
+IPS_SetProperty(8100, 'CompactStage2Type', 3);    // 1×/Tag statt 1×/5 Min
+IPS_SetProperty(8100, 'CompactStage3Months', 6);
+IPS_SetProperty(8100, 'CompactStage3Type', 7);    // löschen statt verdichten
+check('20f: eigene Werte kommen 1:1 an, "aus" wird respektiert', $plan->invoke($fresh2, 10) === [[3, 3], [6, 7]], json_encode($plan->invoke($fresh2, 10)));
+IPS_SetProperty(8100, 'CompactDirect', 0);
+IPS_SetProperty(8100, 'CompactStage2Months', 1);
+IPS_SetProperty(8100, 'CompactStage2Type', 1);
+IPS_SetProperty(8100, 'CompactStage3Months', 12);
+IPS_SetProperty(8100, 'CompactStage3Type', 2);
+
+$form20 = json_decode($fresh2->GetConfigurationForm(), true);
+$compactPanel = null;
+foreach ($form20['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🗄️  Archiv-Verdichtung') { $compactPanel = $el; } }
+check('20g: Archiv-Verdichtung-Panel im Formular vorhanden', $compactPanel !== null);
+$compactFieldNames = array_column($compactPanel['items'] ?? [], 'name');
+check('20g: alle sechs Einstellfelder vorhanden', array_diff(['AutoCompaction', 'CompactDirect', 'CompactStage2Months', 'CompactStage2Type', 'CompactStage3Months', 'CompactStage3Type'], $compactFieldNames) === [], implode(',', $compactFieldNames));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

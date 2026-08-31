@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.11-beta.1 (2026-08-31)
+
+- **Archiv-Verdichtung jetzt konfigurierbar, statt fest im Code.** Dietmars berechtigter
+  Einwand zur eben gebauten Automatik: „ich bin nicht der einzigste Nutzer, andere Nutzer
+  haben vielleicht andere Vorstellungen." Neues Panel „🗄️ Archiv-Verdichtung" in beiden
+  Modulen: Checkbox zum kompletten Ein-/Ausschalten, dazu drei Stufen (direkt / nach X
+  Monaten / nach Y Monaten) mit je einer frei wählbaren Ziel-Auflösung (1×/Minute … 1×/Jahr,
+  „aus" oder „Werte löschen") — Dietmars eigene Werte (1 Min / 5 Min nach 1 Monat / 1 Std
+  nach 12 Monaten) bleiben nur noch die Vorbelegung für neue Instanzen, keine feste Vorgabe
+  mehr für jeden Nutzer.
+
 ## 0.24.10-beta.1 (2026-08-31)
 
 - **Neu: automatische Archiv-Verdichtung, aus dem Update-Intervall abgeleitet.** Sepps

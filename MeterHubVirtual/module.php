@@ -85,6 +85,16 @@ class MeterHubVirtual extends IPSModule
         // passendes Icon. "Location" ist reines Freitext-Label ohne Vertrag.
         $this->RegisterPropertyString('Location', '');
         $this->RegisterPropertyInteger('Interval', 10);
+        // Archiv-Verdichtung, konfigurierbar statt fest im Code (Dietmars
+        // Einwand 31.08.2026: "ich bin nicht der einzigste Nutzer, andere
+        // haben vielleicht andere Vorstellungen" — seine eigenen Werte
+        // bleiben nur noch die VORBELEGUNG, siehe CompactionPlan()).
+        $this->RegisterPropertyBoolean('AutoCompaction', true);
+        $this->RegisterPropertyInteger('CompactDirect', 0);        // direkt: 1×/Minute
+        $this->RegisterPropertyInteger('CompactStage2Months', 1);
+        $this->RegisterPropertyInteger('CompactStage2Type', 1);    // nach Stufe 2: 1×/5 Min
+        $this->RegisterPropertyInteger('CompactStage3Months', 12);
+        $this->RegisterPropertyInteger('CompactStage3Type', 2);    // nach Stufe 3: 1×/Stunde
         // Filter für den Suchlauf. Sie merken sich die letzte Eingabe; wirksam
         // ist beim Klick aber immer der aktuelle Stand der Maske.
         $this->RegisterPropertyInteger('ScanRoot', 0);
@@ -461,15 +471,39 @@ class MeterHubVirtual extends IPSModule
         }
     }
 
+    // Sekunden je Verdichtungstyp (0..6) — für den "wäre ein Leerlauf"-
+    // Vergleich gegen das Roh-Intervall. Typ 7 (löschen) hat keine
+    // Auflösung, wird in CompactionPlan() gesondert behandelt.
+    private const COMPACTION_SECONDS = [0 => 60, 1 => 300, 2 => 3600, 3 => 86400, 4 => 604800, 5 => 2629746, 6 => 31556952];
+
+    /** Auswahlliste für die Verdichtungstyp-Formularfelder (auch von GetConfigurationForm() genutzt). */
+    private function CompactionTypeOptions(): array
+    {
+        return [
+            ['caption' => '— aus —', 'value' => -1],
+            ['caption' => '1× pro Minute', 'value' => 0],
+            ['caption' => '1× pro 5 Minuten', 'value' => 1],
+            ['caption' => '1× pro Stunde', 'value' => 2],
+            ['caption' => '1× pro Tag', 'value' => 3],
+            ['caption' => '1× pro Woche', 'value' => 4],
+            ['caption' => '1× pro Monat', 'value' => 5],
+            ['caption' => '1× pro Jahr', 'value' => 6],
+            ['caption' => 'Werte löschen', 'value' => 7],
+        ];
+    }
+
     /**
-     * Verdichtungs-Staffelung aus dem bekannten Update-Intervall ableiten
-     * (Dietmars Vorgabe 31.08.2026, für Datenpunkte, die „richtig viele
-     * Werte" bekommen: direkt auf 1×/Minute, nach 1 Monat auf 1×/5 Minuten,
-     * nach 12 Monaten auf 1×/Stunde). Jede Stufe nur, wenn ihre Ziel-
-     * Auflösung tatsächlich GRÖBER ist als das Roh-Intervall — sonst wäre
-     * sie ein Leerlauf (nichts zu verdichten, bläht nur die Archiv-
-     * Einstellungsseite auf). Bewusst aus der Instanz-eigenen Konfiguration
-     * abgeleitet statt aus der Archiv-Historie geschätzt: die ist bei einer
+     * Verdichtungs-Staffelung aus den Formular-Einstellungen und dem
+     * bekannten Update-Intervall — konfigurierbar statt fest im Code
+     * (Dietmars Einwand 31.08.2026: „ich bin nicht der einzigste Nutzer,
+     * andere haben vielleicht andere Vorstellungen" — seine eigenen Werte
+     * bleiben nur noch die VORBELEGUNG der drei Stufen, siehe Create()).
+     * Jede Stufe nur, wenn ihre Ziel-Auflösung tatsächlich GRÖBER ist als
+     * das Roh-Intervall — sonst wäre sie ein Leerlauf (nichts zu
+     * verdichten, bläht nur die Archiv-Einstellungsseite auf); Typ 7
+     * (löschen) hat keine Auflösung und wird immer übernommen, wenn
+     * gewählt. Intervall bewusst aus der Instanz-eigenen Konfiguration
+     * gelesen statt aus der Archiv-Historie geschätzt: die ist bei einer
      * frisch angelegten Instanz noch leer, und bei „nur Änderungen
      * aufzeichnen" wäre die tatsächliche Log-Dichte ohnehin kein
      * zuverlässiges Maß für die WIRKLICHE Update-Frequenz.
@@ -478,15 +512,22 @@ class MeterHubVirtual extends IPSModule
      */
     private function CompactionPlan(int $intervalSeconds): array
     {
+        if (!$this->ReadPropertyBoolean('AutoCompaction')) {
+            return [];
+        }
         $plan = [];
-        if ($intervalSeconds < 60) {
-            $plan[] = [-1, 0]; // direkt: 1×/Minute
-        }
-        if ($intervalSeconds < 300) {
-            $plan[] = [1, 1]; // nach 1 Monat: 1×/5 Minuten
-        }
-        if ($intervalSeconds < 3600) {
-            $plan[] = [12, 2]; // nach 12 Monaten: 1×/Stunde
+        $stages = [
+            [-1, (int)$this->ReadPropertyInteger('CompactDirect')],
+            [(int)$this->ReadPropertyInteger('CompactStage2Months'), (int)$this->ReadPropertyInteger('CompactStage2Type')],
+            [(int)$this->ReadPropertyInteger('CompactStage3Months'), (int)$this->ReadPropertyInteger('CompactStage3Type')],
+        ];
+        foreach ($stages as [$offset, $type]) {
+            if ($type === -1) {
+                continue; // diese Stufe ist bewusst ausgeschaltet
+            }
+            if ($type === 7 || self::COMPACTION_SECONDS[$type] > $intervalSeconds) {
+                $plan[] = [$offset, $type];
+            }
         }
         return $plan;
     }
@@ -1254,6 +1295,18 @@ class MeterHubVirtual extends IPSModule
                     'type' => 'ExpansionPanel', 'caption' => '⏱️  Berechnung', 'expanded' => false,
                     'items' => [
                         ['type' => 'NumberSpinner', 'name' => 'Interval', 'caption' => 'Neu berechnen alle', 'minimum' => 2, 'maximum' => 3600, 'suffix' => 's'],
+                    ],
+                ],
+                [
+                    'type' => 'ExpansionPanel', 'caption' => '🗄️  Archiv-Verdichtung', 'expanded' => false,
+                    'items' => [
+                        ['type' => 'Label', 'caption' => 'Reduziert automatisch den Detailgrad älterer Archivwerte (spart Speicher), bei jedem „Übernehmen" neu gesetzt. Jede Stufe greift nur, wenn ihre Auflösung tatsächlich gröber ist als das Update-Intervall oben — sonst gäbe es nichts zu verdichten.'],
+                        ['type' => 'CheckBox', 'name' => 'AutoCompaction', 'caption' => 'Automatische Verdichtung aktivieren'],
+                        ['type' => 'Select', 'name' => 'CompactDirect', 'caption' => 'Direkt verdichten auf', 'options' => $this->CompactionTypeOptions()],
+                        ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months', 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
+                        ['type' => 'Select', 'name' => 'CompactStage2Type', 'caption' => '… verdichten auf', 'options' => $this->CompactionTypeOptions()],
+                        ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months', 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
+                        ['type' => 'Select', 'name' => 'CompactStage3Type', 'caption' => '… verdichten auf', 'options' => $this->CompactionTypeOptions()],
                     ],
                 ],
             ])),
