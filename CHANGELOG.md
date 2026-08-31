@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.24.2-beta.1 (2026-08-31)
+
+- **Textkorrektur: „InverterHubTile" aus nutzersichtbaren Texten entfernt.** Dietmars Hinweis:
+  InverterHubTile wird es so nicht mehr geben (SUITE.md dokumentiert bereits den geplanten
+  Wechsel zu `NRGDashboardTile`, sobald NRGDashboard veröffentlicht ist). Die Funktions-
+  Beschriftung und die zugehörigen Hilfetexte nennen jetzt neutral „Dashboard" statt einen
+  konkreten, sich gerade ändernden Kachel-Namen festzuschreiben. Der interne GUID-Ausschluss
+  für die Zählersuche bleibt unverändert (betrifft echten, heute noch existierenden Code, kein
+  nutzersichtbarer Text).
+
 ## 0.24.1-beta.1 (2026-08-31)
 
 - **Fix: Papierkorb-/Zahnrad-Symbol am Zeilenende der Formel-Liste unerreichbar.** Dietmars
