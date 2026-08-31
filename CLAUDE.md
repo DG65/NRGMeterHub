@@ -647,7 +647,7 @@ Instanz jederzeit leerräumen können, nicht nur dieses eine Mal.
    blockiert wird.
 
 **Wieder-hochgezogen als proaktiver Fix, nicht erst auf erneute Meldung gewartet** — passend
-zum Verbund-Zielbild „Zuverlässigkeit ohne KI-Krücke" (SUITE.md, DG65/NRGEMS): der Entwurf
+zum Verbund-Zielbild „Zuverlässigkeit ohne KI-Krücke" (lokale SUITE.md, siehe oben): der Entwurf
 stand schon während des Vorfalls, wurde aber wegen der Tragweite zurückgestellt, bis eine
 zweite Session ohne Live-Daten-Risiko (die betroffene Instanz war da bereits gelöscht) die
 Umsetzung erlaubte.
