@@ -2726,13 +2726,26 @@ class MeterHub extends IPSModule
                     ],
                 ],
                 [
+                    // Zwei eigene Panels statt einem gemeinsamen (Dietmars
+                    // Rückmeldung 31.08.2026: Symcons Formularsprache kennt
+                    // kein horizontales Nebeneinander — schon bei den
+                    // PopupButtons geprüft. Zwei einzeln auf-/zuklappbare
+                    // Panels halten wenigstens die sichtbare Feldzahl klein.
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🗄️  Archiv-Verdichtung',
+                    'caption' => '🗄️  Archiv-Verdichtung: Leistung/Momentanwerte',
                     'expanded' => false,
                     'items' => array_merge(
-                        [['type' => 'Label', 'caption' => 'Reduziert automatisch den Detailgrad älterer Archivwerte (spart Speicher), bei jedem „Übernehmen" neu gesetzt. Jede Stufe greift nur, wenn ihre Auflösung tatsächlich gröber ist als das jeweilige Polling-Intervall oben — sonst gäbe es nichts zu verdichten. Getrennt einstellbar für Leistung und Energie, da beide unabhängig vom Polling-Takt unterschiedliche Aufbewahrungs-Anforderungen haben können.']],
-                        $this->CompactionFields('Power', '⚡ Leistung/Momentanwerte'),
-                        $this->CompactionFields('Energy', '🔋 Energiezähler (Wirkarbeit)')
+                        [['type' => 'Label', 'caption' => 'Reduziert automatisch den Detailgrad älterer Archivwerte (spart Speicher), bei jedem „Übernehmen" neu gesetzt. Jede Stufe greift nur, wenn ihre Auflösung tatsächlich gröber ist als das jeweilige Polling-Intervall oben — sonst gäbe es nichts zu verdichten.']],
+                        $this->CompactionFields('Power')
+                    ),
+                ],
+                [
+                    'type'    => 'ExpansionPanel',
+                    'caption' => '🗄️  Archiv-Verdichtung: Energiezähler (Wirkarbeit)',
+                    'expanded' => false,
+                    'items' => array_merge(
+                        [['type' => 'Label', 'caption' => 'Unabhängig von der Leistung einstellbar — Energie-Zählerstände haben oft andere Aufbewahrungs-Anforderungen.']],
+                        $this->CompactionFields('Energy')
                     ),
                 ],
                 [
@@ -3754,11 +3767,10 @@ class MeterHub extends IPSModule
     }
 
     /** Sechs Formularfelder für eine Verdichtungs-Kategorie ('Power'/'Energy'), mit erklärender Zwischenüberschrift. */
-    private function CompactionFields(string $kind, string $label): array
+    private function CompactionFields(string $kind): array
     {
         $opts = $this->CompactionTypeOptions();
         return [
-            ['type' => 'Label', 'caption' => $label],
             ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
             ['type' => 'Select', 'name' => 'CompactDirect' . $kind, 'caption' => 'Direkt verdichten auf', 'options' => $opts],
             ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],

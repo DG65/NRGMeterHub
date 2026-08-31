@@ -750,11 +750,18 @@ IPS_SetProperty(8100, 'CompactStage2TypePower', 1);
 IPS_SetProperty(8100, 'CompactStage3MonthsPower', 12);
 IPS_SetProperty(8100, 'CompactStage3TypePower', 2);
 
+// Zwei eigene Panels statt einem gemeinsamen (Dietmars Rückmeldung
+// 31.08.2026: kein horizontales Nebeneinander in Symcons Formularsprache
+// möglich, also wenigstens einzeln auf-/zuklappbar).
 $form20 = json_decode($fresh2->GetConfigurationForm(), true);
-$compactPanel = null;
-foreach ($form20['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🗄️  Archiv-Verdichtung') { $compactPanel = $el; } }
-check('20g: Archiv-Verdichtung-Panel im Formular vorhanden', $compactPanel !== null);
-$compactFieldNames = array_column($compactPanel['items'] ?? [], 'name');
+$compactPanelPower = null;
+$compactPanelEnergy = null;
+foreach ($form20['elements'] ?? [] as $el) {
+    if (($el['caption'] ?? '') === '🗄️  Archiv-Verdichtung: Leistung') { $compactPanelPower = $el; }
+    if (($el['caption'] ?? '') === '🗄️  Archiv-Verdichtung: Energie (Bezug/Einspeisung)') { $compactPanelEnergy = $el; }
+}
+check('20g: beide Archiv-Verdichtung-Panels im Formular vorhanden', $compactPanelPower !== null && $compactPanelEnergy !== null);
+$compactFieldNames = array_merge(array_column($compactPanelPower['items'] ?? [], 'name'), array_column($compactPanelEnergy['items'] ?? [], 'name'));
 $expectedCompactFields = [];
 foreach (['Power', 'Energy'] as $kind) {
     foreach (['AutoCompaction', 'CompactDirect', 'CompactStage2Months', 'CompactStage2Type', 'CompactStage3Months', 'CompactStage3Type'] as $base) {

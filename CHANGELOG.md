@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.13-beta.1 (2026-08-31)
+
+- **Archiv-Verdichtung: zwei eigene Panels statt einem gemeinsamen.** Dietmars Frage, ob die
+  zwölf Felder statt untereinander nicht nebeneinander stehen könnten — Symcons
+  Formularsprache kennt dafür kein horizontales Layout (bereits bei den PopupButtons geprüft).
+  Stattdessen jetzt „🗄️ Archiv-Verdichtung: Leistung" und „🗄️ Archiv-Verdichtung: Energie"
+  als zwei separat auf-/zuklappbare Panels — zeigt jeweils nur die 6 Felder der Kategorie, an
+  der gerade gearbeitet wird, statt aller 12 auf einmal.
+
 ## 0.24.12-beta.1 (2026-08-31)
 
 - **Archiv-Verdichtung jetzt getrennt für Leistung und Energie.** Dietmars Ergänzung, noch am
