@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.24.8-beta.1 (2026-08-31)
+
+- **Neu: Zähler-Instanz/Gerät wählen statt drei einzelne Variablen-Picker.** Dietmars
+  Rückmeldung: „mit dem Picker für Leistung und Bezug und Einspeisung bin ich überhaupt nicht
+  zufrieden … man klickt sich zu Tode. Ich möchte die Zählerinstanz auswählen müssen und der
+  Rest muss von alleine kommen." Neuer Weg: eine Zähler-Instanz oder ein Gerät wählen,
+  „Übernehmen" — Leistung/Bezug/Einspeisung werden automatisch gefunden (zuerst über bekannte
+  NRG-Stack-Idents, sonst über dieselbe Profil-Klassifizierung wie der Suchlauf) und als neue
+  Zeile eingetragen. Der Ergebnistext nennt genau, was gefunden wurde („ich möchte auch genau
+  dieses Ergebnis zu Gesicht bekommen") — inklusive Warnung, falls ein Gerät zwei kWh-
+  Datenpunkte hat und nicht eindeutig ist, welcher Bezug bzw. Einspeisung ist. Der bisherige
+  Weg (Tabellenzeile von Hand anlegen, je Spalte einzeln über den nativen Variablenpicker
+  wählen) bleibt für Einzelfälle bestehen, die die automatische Suche nicht abdeckt.
+- **Suchlauf-Funde direkt übernehmbar.** Dietmars Ergänzung: „wenn ich schon etwas suchen
+  muss, dann möchte ich auch direkt aus dem Suchdialog etwas übernehmen." Nach „Zähler im
+  System suchen" stehen die Funde jetzt zusätzlich in „Fund auswählen" bereit — auswählen,
+  „Fund übernehmen" klicken, fertig, ohne separat zum Geräte-Picker wechseln zu müssen.
+- Feld „Name dieser Instanz" in „Zählerbezeichnung" umbenannt.
+
 ## 0.24.7-beta.1 (2026-08-31)
 
 - **Neu: Name der Instanz direkt im Formular änderbar.** Ich hatte zunächst behauptet, Symcon

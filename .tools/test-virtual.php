@@ -246,7 +246,7 @@ $run = function ($root, $filter, $needEnergy, $onlyActive, $onlyUsedElsewhere = 
     return $GLOBALS['FORMFIELDS']['ScanResult']['caption'] ?? '';
 };
 $foundNames = function (string $caption): array {
-    if (!preg_match('/gefunden: (.*?)\. Zum Aufnehmen/', $caption, $m)) {
+    if (!preg_match('/gefunden: (.*?)\. Unten/', $caption, $m)) {
         return [];
     }
     return array_map('trim', explode(', ', $m[1]));
@@ -259,8 +259,9 @@ $all = $foundNames($allCap);
 // und 5 und werden von der Kreuz-Instanz-Prüfung (Block 6d) korrekt aus dem
 // Suchlauf ausgeblendet.
 check('ungefiltert findet die drei noch unbenutzten Steckdosen', count($all) === 3, implode(' | ', $all));
-check('Fundtext verweist aufs manuelle Aufnehmen über "Hinzufügen", schreibt nichts automatisch', str_contains($allCap, 'Zum Aufnehmen unten in der Tabelle „Hinzufügen"'), $allCap);
+check('Fundtext verweist auf "Fund auswählen", schreibt selbst nichts automatisch in die Tabelle', str_contains($allCap, 'Unten in „Fund auswählen" wählen und übernehmen'), $allCap);
 check('Nodes-Formularfeld bleibt beim Suchlauf unberührt (kein automatisches Eintragen mehr)', !isset($GLOBALS['FORMFIELDS']['Nodes']));
+check('ScanPick-Optionen werden mit den Funden befüllt', count(json_decode($GLOBALS['FORMFIELDS']['ScanPick']['options'] ?? '[]', true)) === 4, $GLOBALS['FORMFIELDS']['ScanPick']['options'] ?? 'fehlt'); // Platzhalter + 3 Steckdosen
 $bereich = $foundNames($run(10, '', false, false));
 check('Bereichsfilter schließt anderen Ast aus', !in_array('Steckdose Garten', $bereich, true), implode(' | ', $bereich));
 $name = $foundNames($run(0, 'keller', false, false));
@@ -632,6 +633,74 @@ $GLOBALS['MODOBJ'][$new]->RenameInstance('Hausanschluss (umbenannt)');
 check('17b: RenameInstance() ändert den echten IPS-Namen sofort', IPS_GetName($new) === 'Hausanschluss (umbenannt)', IPS_GetName($new));
 $GLOBALS['MODOBJ'][$new]->RenameInstance('   ');
 check('17c: leerer/nur-Leerzeichen-Name wird ignoriert (kein Absturz, alter Name bleibt)', IPS_GetName($new) === 'Hausanschluss (umbenannt)', IPS_GetName($new));
+
+echo "\n18) Schneller Weg: Gerät wählen statt drei einzelne Variablen-Picker (Dietmars Anregung 31.08.2026)\n";
+// $fresh (#8000) hat noch keine einzige Zeile — sauberer Ausgangspunkt.
+echo "  18a) MeterHub-Instanz: eindeutig über bekannte Idents (power_total/energy_import)\n";
+$GLOBALS['FORMFIELDS'] = [];
+$resA = $fresh->AddDevice(700); // "Wallbox 2" aus Block 5
+check('18a: Ergebnis meldet Erfolg mit allen drei Feldern benannt', str_contains($resA, '✅') && str_contains($resA, 'Leistung') && str_contains($resA, 'Bezug'), $resA);
+$rowsA = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+check('18a: neue Zeile mit korrekten IDs über Idents gefunden', count($rowsA) === 1 && $rowsA[0]['PowerID'] === 703 && $rowsA[0]['EnergyImportID'] === 704 && $rowsA[0]['EnergyExportID'] === 0, json_encode($rowsA));
+check('18a: Anteil 100 vorbelegt, Name vom Gerät übernommen', $rowsA[0]['Factor'] === 100 && $rowsA[0]['Name'] === 'Wallbox 2', json_encode($rowsA[0]));
+
+echo "  18b) Fremdgerät ohne NRG-Stack-Idents: über Profil-Klassifizierung wie im Suchlauf\n";
+$GLOBALS['FORMFIELDS'] = [];
+$resB = $fresh->AddDevice(520); // "Steckdose Keller" — 521 Leistung (W), 522 Energie (kWh)
+check('18b: Ergebnis meldet Erfolg', str_contains($resB, '✅'), $resB);
+$rowsB = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+$newRowB = end($rowsB);
+check('18b: Leistung und Bezug automatisch über Profil gefunden', $newRowB['PowerID'] === 521 && $newRowB['EnergyImportID'] === 522, json_encode($newRowB));
+
+echo "  18c) Gerät mit ZWEI kWh-Datenpunkten (kein Ident-Hinweis): erster wird Bezug, der Rest als Warnung genannt\n";
+$biCat = obj(950, 0, 'Bidirektional', 10);
+vari(951, 'Leistung', $biCat, '', 'MHB.W', 300.0);
+vari(952, 'Bezug', $biCat, '', 'MHB.kWh', 100.0);
+vari(953, 'Einspeisung', $biCat, '', 'MHB.kWh', 50.0);
+$GLOBALS['FORMFIELDS'] = [];
+$resC = $fresh->AddDevice(950);
+$rowsC = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+$newRowC = end($rowsC);
+check('18c: erste kWh-Variable wird als Bezug übernommen', $newRowC['EnergyImportID'] === 952 && $newRowC['EnergyExportID'] === 0, json_encode($newRowC));
+check('18c: Ergebnistext warnt vor der zweiten kWh-Variable statt sie zu verwerfen', str_contains($resC, '⚠️') && str_contains($resC, 'Einspeisung'), $resC);
+
+echo "  18d) Gerät ohne jeden passenden Datenpunkt: klare Fehlermeldung, kein Absturz, keine Zeile\n";
+$emptyCat = obj(960, 0, 'Nur Temperatur', 10);
+vari(961, 'Temperatur', $emptyCat, '', '', 21.0);
+$GLOBALS['FORMFIELDS'] = [];
+$rowsBefore = json_decode($fresh->ReadPropertyString('Nodes'), true);
+$resD = $fresh->AddDevice(960);
+check('18d: klare Fehlermeldung', str_contains($resD, '❌'), $resD);
+check('18d: keine Zeile geschrieben (Formularfeld unberührt)', !isset($GLOBALS['FORMFIELDS']['Nodes']));
+
+echo "  18e) Kein Gerät ausgewählt (ID 0): kein Absturz\n";
+$resE = $fresh->AddDevice(0);
+check('18e: klare Fehlermeldung ohne Absturz', str_contains($resE, '❌'), $resE);
+
+echo "  18f) Fund ohne Geräte-Container (DeviceOf()-Fallback: die Variable selbst) wird trotzdem übernommen\n";
+$GLOBALS['FORMFIELDS'] = [];
+$resF = $fresh->AddDevice(511); // "Leistung" unter "Steckdose Küche" — direkt als Variable übergeben
+check('18f: Leistung erkannt, Bezug/Einspeisung korrekt "nicht gefunden"', str_contains($resF, '✅') && str_contains($resF, 'Leistung „Leistung"') && str_contains($resF, 'Bezug: nicht gefunden'), $resF);
+
+echo "\n19) Durchgängig: Suchen -> \"Fund auswählen\" -> übernehmen (Dietmars Anregung 31.08.2026)\n";
+$fresh2 = new MeterHubVirtual(8100);
+$GLOBALS['INSTMOD'][8100] = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
+obj(8100, 1, 'Virtuell leer 2', 10);
+$fresh2->Create();
+// "Kaffeemaschine" (aus Block 6b) ist bislang in keiner Instanz verwendet —
+// anders als "Wallbox 2" (Block 5, schon in $sib verdrahtet und deshalb per
+// Kreuz-Instanz-Prüfung standardmäßig aus dem Suchlauf ausgeblendet).
+$GLOBALS['FORMFIELDS'] = [];
+$fresh2->ScanMeters(0, 'Kaffeemaschine', false, false);
+$scanOptions = json_decode($GLOBALS['FORMFIELDS']['ScanPick']['options'] ?? '[]', true);
+$picked = null;
+foreach ($scanOptions as $opt) { if (($opt['caption'] ?? '') === 'Kaffeemaschine') { $picked = $opt['value']; } }
+check('19a: "Fund auswählen" enthält den Suchlauf-Treffer mit der richtigen ID', $picked === 910, json_encode($scanOptions));
+$GLOBALS['FORMFIELDS'] = [];
+$res19 = $fresh2->AddDevice($picked);
+check('19b: Übernehmen aus der Auswahlliste funktioniert genau wie beim direkten Geräte-Picker', str_contains($res19, '✅') && str_contains($res19, 'Kaffeemaschine'), $res19);
+$rows19 = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+check('19b: Zeile mit der über Profil gefundenen Leistungs-ID angelegt', ($rows19[0]['PowerID'] ?? 0) === 911 && ($rows19[0]['EnergyImportID'] ?? 0) === 0, json_encode($rows19));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

@@ -1149,3 +1149,43 @@ glauben" oben. Ohne Live-Zugriff auf Dietmars Anlage oder eine echte Doku-Quelle
 offen als unsicher kennzeichnen oder eine unabhängig vom UI-Verhalten funktionierende Lösung
 bauen (wie hier: das Feld einfach selbst ins Formular), statt eine Vermutung als Tatsache zu
 verkaufen.
+
+## Geräte-Picker statt drei Variablen-Picker (31.08.2026)
+
+**Auslöser:** Dietmars Live-Fund am neuen `SelectVariable`-Picker in der „Listenelement
+bearbeiten"-Maske (Konsole) — „man klickt sich dann doch direkt zu Tode", er wollte eine
+Zähler-Instanz/ein Gerät wählen müssen und den Rest (Leistung/Bezug/Einspeisung) automatisch
+finden lassen, dazu das Ergebnis sofort sehen. Kurz danach ergänzt: Suchlauf-Funde sollen sich
+auch direkt übernehmen lassen, nicht nur als Text angezeigt werden.
+
+**`MetersOfDevice(int $deviceId): array`** — zwei Stufen, absteigend in der Sicherheit:
+1. Bekannte NRG-Stack-Idents (`power_total`/`energy_import`/`energy_export`, wie `MeterVarID()`
+   im Hauptmodul sie schon nutzt) — eindeutig, kein Raten.
+2. Sonst: Kinder wie im Suchlauf per `Classify()` (W-/kWh-Profil) durchsuchen. Ein W-Fund ist
+   immer eindeutig Leistung. Bei kWh ist NICHT unterscheidbar, ob Bezug oder Einspeisung
+   gemeint ist (beide sind einfach „kWh", ein reines Einheiten-Problem, keine Symcon- oder
+   Implementierungslücke) — der ERSTE Fund wird als Bezug vorgeschlagen (der weit häufigere
+   Fall bei Nicht-PV-Geräten), jeder weitere kommt als Warnung im Ergebnistext, statt ihn
+   stillschweigend zu verwerfen oder falsch zu raten.
+3. Sonderfall: `$deviceId` ist selbst schon eine Variable (Suchlauf-Fund ohne erkennbaren
+   Geräte-Container, `DeviceOf()`-Fallback) — dann direkt klassifizieren statt erfolglos nach
+   Kindern zu suchen.
+
+**`AddDevice(int $deviceId): string`** — schreibt wie `ScanMeters()` nur in die OFFENE
+Formularmaske (`UpdateFormField('Nodes', 'values', …)`), nicht in die gespeicherte Property.
+Anders als der frühere automatische Suchlauf-Eintrag (bis 0.24.4, siehe oben) ist das hier
+unkritisch: genau EIN Gerät, das der Nutzer selbst gezielt ausgewählt hat, kein blindes
+Einsammeln vieler Funde auf einmal.
+
+**Zwei Zugänge zu `AddDevice()`, dieselbe Funktion:**
+- `DevicePick` (`SelectObject`) + eigener Knopf — ohne vorherige Suche, wenn das Gerät schon
+  bekannt ist.
+- `ScanPick` (`Select`) + eigener Knopf — `ScanMeters()` füllt dessen `options` bei jedem
+  Suchlauf neu (`value` = dieselbe ID, die `AddDevice()` bekommt), Funde sind damit sofort aus
+  dem Suchergebnis heraus übernehmbar, kein Wechsel zu einem separaten Picker nötig.
+
+Verifiziert in `.tools/test-virtual.php` Block 18 (Idents, Profil-Heuristik, zwei-kWh-
+Warnung, Fehlerfälle, Variable-ohne-Container-Fallback) und Block 19 (durchgängig: Suchen →
+„Fund auswählen" → Übernehmen, mit einem Gerät, das noch in keiner anderen Instanz steckt —
+„Wallbox 2" aus Block 5 eignete sich dafür NICHT mehr, weil die Kreuz-Instanz-Prüfung es seit
+Block 6d standardmäßig aus dem Suchlauf ausblendet).

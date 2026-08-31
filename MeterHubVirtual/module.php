@@ -626,6 +626,127 @@ class MeterHubVirtual extends IPSModule
         return [0, IPS_GetName($vid)];
     }
 
+    /** Erste Variable mit passendem Ident unterhalb von $rootId (auch über Kategorien hinweg, nicht über verschachtelte Instanzen). */
+    private function FindByIdent(int $rootId, string $ident): int
+    {
+        $stack = [$rootId];
+        while ($stack) {
+            foreach (IPS_GetChildrenIDs((int)array_pop($stack)) as $cid) {
+                $o = IPS_GetObject($cid);
+                if ($o['ObjectIdent'] === $ident && $o['ObjectType'] === 2) {
+                    return $cid;
+                }
+                if ($o['ObjectType'] === 0) {
+                    $stack[] = $cid;
+                }
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Findet zu einem gewählten Gerät (Instanz oder Kategorie) automatisch
+     * dessen Leistungs-/Bezugs-/Einspeisungs-Variablen — Dietmars Anregung
+     * 31.08.2026: „ich möchte die Zählerinstanz auswählen müssen und der
+     * Rest muss von alleine kommen", weil drei einzelne Variablen-Picker pro
+     * Zeile „zu Tode klickt". Zwei Stufen:
+     * 1. Bekannte NRG-Stack-Idents (`power_total`/`energy_import`/
+     *    `energy_export`, wie MeterHub sie vergibt) — eindeutig, kein Raten.
+     * 2. Sonst: Kinder wie im Suchlauf nach W-/kWh-Profil klassifizieren
+     *    (`Classify()`). Ein W-Fund ist immer eindeutig Leistung. Bei kWh
+     *    ist NICHT unterscheidbar, ob Bezug oder Einspeisung gemeint ist
+     *    (beide sind einfach "kWh") — der ERSTE Fund wird als Bezug
+     *    vorgeschlagen (der weit häufigere Fall), weitere kommen als
+     *    `extra` zurück und werden im Ergebnistext genannt, statt sie
+     *    stillschweigend zu verwerfen oder falsch zu raten.
+     */
+    private function MetersOfDevice(int $deviceId): array
+    {
+        // Sonderfall: die "id" ist selbst schon eine Variable (Suchlauf-Fund
+        // ohne erkennbaren Geräte-Container, siehe DeviceOf()-Fallback) —
+        // dann direkt klassifizieren statt (erfolglos) nach Kindern zu
+        // suchen, Variablen haben keine Kinder.
+        $o = @IPS_GetObject($deviceId);
+        if ($o && $o['ObjectType'] === 2) {
+            $kind = $this->Classify($deviceId);
+            return [
+                'power' => $kind === 'power' ? $deviceId : 0,
+                'imp'   => $kind === 'import' ? $deviceId : 0,
+                'exp'   => 0,
+                'extra' => [],
+            ];
+        }
+
+        $power = $this->FindByIdent($deviceId, 'power_total');
+        $imp   = $this->FindByIdent($deviceId, 'energy_import');
+        $exp   = $this->FindByIdent($deviceId, 'energy_export');
+        if ($power > 0 || $imp > 0 || $exp > 0) {
+            return ['power' => $power, 'imp' => $imp, 'exp' => $exp, 'extra' => []];
+        }
+
+        $power = 0;
+        $kwh   = [];
+        $stack = [$deviceId];
+        while ($stack) {
+            foreach (IPS_GetChildrenIDs((int)array_pop($stack)) as $cid) {
+                $o = IPS_GetObject($cid);
+                if ($o['ObjectType'] === 2) {
+                    $kind = $this->Classify($cid);
+                    if ($kind === 'power' && $power === 0) {
+                        $power = $cid;
+                    } elseif ($kind === 'import') {
+                        $kwh[] = $cid;
+                    }
+                } elseif ($o['ObjectType'] === 0) {
+                    // Kategorien innerhalb DESSELBEN Geräts weiter durchsuchen —
+                    // nicht in verschachtelte fremde Instanzen hineingehen.
+                    $stack[] = $cid;
+                }
+            }
+        }
+        return ['power' => $power, 'imp' => $kwh[0] ?? 0, 'exp' => 0, 'extra' => array_slice($kwh, 1)];
+    }
+
+    /**
+     * Übernimmt ein per Picker gewähltes Gerät als neue Formel-Zeile mit
+     * automatisch gefundenen Datenpunkten. Schreibt wie ScanMeters() nur in
+     * die OFFENE Formularmaske, nicht in die gespeicherte Property —
+     * „Übernehmen" bleibt der bewusste letzte Schritt. Anders als der frühere
+     * Suchlauf-Autoeintrag (bis 0.24.4) ist das hier unkritisch: es ist genau
+     * EIN Gerät, das der Nutzer selbst gezielt ausgewählt hat, kein
+     * blindes Einsammeln vieler Funde auf einmal.
+     */
+    public function AddDevice(int $deviceId): string
+    {
+        if ($deviceId <= 0 || !IPS_ObjectExists($deviceId)) {
+            return '❌ Kein Gerät ausgewählt.';
+        }
+        $m = $this->MetersOfDevice($deviceId);
+        if ($m['power'] === 0 && $m['imp'] === 0 && $m['exp'] === 0) {
+            return '❌ „' . IPS_GetName($deviceId) . '" — keine passenden Leistungs-/Energie-Datenpunkte gefunden (weder bekannte NRG-Stack-Idents noch W-/kWh-Profil darunter). Bitte stattdessen unten „Hinzufügen" nutzen und die Variable von Hand wählen.';
+        }
+        $rows = json_decode($this->ReadPropertyString('Nodes'), true);
+        $rows = is_array($rows) ? $rows : [];
+        $rows[] = [
+            'Name' => IPS_GetName($deviceId), 'Factor' => 100,
+            'PowerID' => $m['power'], 'EnergyImportID' => $m['imp'], 'EnergyExportID' => $m['exp'],
+        ];
+        $this->UpdateFormField('Nodes', 'values', json_encode($rows));
+        $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($rows)));
+
+        $parts   = [];
+        $parts[] = $m['power'] > 0 ? 'Leistung „' . IPS_GetName($m['power']) . '"' : 'Leistung: nicht gefunden';
+        $parts[] = $m['imp']   > 0 ? 'Bezug „' . IPS_GetName($m['imp']) . '"' : 'Bezug: nicht gefunden';
+        $parts[] = $m['exp']   > 0 ? 'Einspeisung „' . IPS_GetName($m['exp']) . '"' : 'Einspeisung: nicht gefunden';
+        $msg = '✅ „' . IPS_GetName($deviceId) . '" als neue Zeile übernommen — ' . implode(', ', $parts) . '.';
+        if (!empty($m['extra'])) {
+            $names = array_map('IPS_GetName', $m['extra']);
+            $msg .= "\n⚠️ Weitere kWh-Datenpunkte an diesem Gerät gefunden, aber nicht automatisch zugeordnet — könnten Einspeisung statt Bezug sein, bitte prüfen und bei Bedarf von Hand in die Zeile eintragen: " . implode(', ', $names) . '.';
+        }
+        $msg .= ' Bitte in der Tabelle prüfen und „Übernehmen“ nicht vergessen.';
+        return $msg;
+    }
+
     /** Liegt $vid irgendwo unterhalb von $root? ($root = 0: ganze Installation) */
     private function IsBelow(int $vid, int $root): bool
     {
@@ -747,7 +868,11 @@ class MeterHubVirtual extends IPSModule
             }
             $key = $did > 0 ? 'd' . $did : 'v' . $vid;
             if (!isset($devices[$key])) {
-                $devices[$key] = ['name' => $dname, 'power' => 0, 'import' => 0, 'usedIn' => []];
+                // "id" = das, was AddDevice() später bekommt: der Geräte-
+                // Container, wenn vorhanden, sonst (DeviceOf() fällt ohne
+                // Instanz/Kategorie auf die Variable selbst zurück) die
+                // Variable direkt — MetersOfDevice() erkennt diesen Fall.
+                $devices[$key] = ['id' => $did > 0 ? $did : $vid, 'name' => $dname, 'power' => 0, 'import' => 0, 'usedIn' => []];
             }
             // Je Gerät den ersten brauchbaren Datenpunkt je Art nehmen.
             if ($devices[$key][$kind] === 0) {
@@ -762,6 +887,12 @@ class MeterHubVirtual extends IPSModule
 
         $found = [];
         $notes = [];
+        // Funde werden zugleich als Auswahlliste angeboten (Dietmars
+        // Anregung 31.08.2026: „wenn ich schon etwas suchen muss, dann
+        // möchte ich auch direkt aus dem Suchdialog etwas übernehmen") —
+        // "value" ist die ID, die AddDevice() bekommt (Gerät oder, falls
+        // DeviceOf() keins fand, die Variable selbst).
+        $scanOptions = [['caption' => '— Fund wählen —', 'value' => 0]];
         $filteredOut = ['ohneenergie' => 0, 'inaktiv' => 0];
         foreach ($devices as $d) {
             if ($d['power'] === 0 && $d['import'] === 0) {
@@ -797,6 +928,7 @@ class MeterHubVirtual extends IPSModule
                 $warn[] = 'bereits verwendet in „' . implode('“, „', array_keys($d['usedIn'])) . '“ — bei Aufnahme hier auf Doppelzählung/Aufteilung achten';
             }
             $found[] = $d['name'];
+            $scanOptions[] = ['caption' => $d['name'], 'value' => $d['id']];
             if ($warn) {
                 $notes[] = '   ⚠️ ' . $d['name'] . ': ' . implode('; ', $warn);
             }
@@ -809,16 +941,15 @@ class MeterHubVirtual extends IPSModule
         if ($onlyActive)        { $scope[] = 'nur in den letzten 7 Tagen aktualisiert'; }
         if ($onlyUsedElsewhere) { $scope[] = 'nur Datenpunkte, die schon in einer anderen Instanz stecken'; }
 
-        // Reine Anzeige — schreibt bewusst NICHT mehr in die Formel-Tabelle
-        // (bis 0.24.4: jeder Fund landete automatisch als neue Zeile, musste
-        // bei Nichtgefallen einzeln mit dem Papierkorb entfernt werden —
-        // genau das fand Dietmar unübersichtlich/„nicht wirklich
-        // intelligent"). Aufnehmen geschieht jetzt bewusst über den
-        // normalen „Hinzufügen"-Knopf der Tabelle unten mit dem eingebauten
-        // Symcon-Variablenpicker — diese Liste hier dient nur als
-        // Fundstellen-Übersicht zum Nachschlagen.
+        // Trägt weiterhin NICHT automatisch in die Formel-Tabelle ein (bis
+        // 0.24.4: jeder Fund landete automatisch als neue Zeile, musste bei
+        // Nichtgefallen einzeln mit dem Papierkorb entfernt werden — genau
+        // das fand Dietmar unübersichtlich). Die Funde stehen aber jetzt
+        // direkt als Auswahlliste unter dem Ergebnistext bereit
+        // ("ScanPick" + Knopf) — auswählen und übernehmen, ohne den
+        // Umweg über den separaten Geräte-Picker weiter unten.
         $msg = count($found) > 0
-            ? '🔎 ' . count($found) . ' Gerät(e) gefunden: ' . implode(', ', $found) . '. Zum Aufnehmen unten in der Tabelle „Hinzufügen" klicken und die passende Variable auswählen — hier wird nichts automatisch eingetragen.'
+            ? '🔎 ' . count($found) . ' Gerät(e) gefunden: ' . implode(', ', $found) . '. Unten in „Fund auswählen" wählen und übernehmen — oder in der Tabelle weiter unten „Hinzufügen" für die manuelle Variablen-Auswahl.'
             : '🔎 Keine Geräte gefunden.';
         $msg .= "\nSuchbereich: " . ($scope ? implode(', ', $scope) : 'ganze Installation, ungefiltert');
         $msg .= sprintf("\nÜbersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler, %d aus anderen NRG-Stack-Modulen, %d schon in einer anderen virtuellen Zähler-Instanz, %d außerhalb des Suchbereichs, %d durch den Namensfilter, %d ohne Energiezähler, %d länger als 7 Tage still.",
@@ -833,6 +964,8 @@ class MeterHubVirtual extends IPSModule
 
         $this->UpdateFormField('ScanResult', 'caption', $msg);
         $this->UpdateFormField('ScanResult', 'visible', true);
+        $this->UpdateFormField('ScanPick', 'options', json_encode($scanOptions));
+        $this->UpdateFormField('ScanPick', 'value', 0);
     }
 
     /** Sichtbare Zeilen der Formel-Liste: wächst mit dem Inhalt, bleibt aber übersichtlich (typischerweise wenige Terme). */
@@ -995,7 +1128,7 @@ class MeterHubVirtual extends IPSModule
 
         $meterItems = [];
         if (!$migration) {
-            $meterItems[] = ['type' => 'Label', 'caption' => '🔎 Zähler finden (reine Übersicht — trägt nichts automatisch ein): Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil, gruppiert sie nach Gerät und zeigt sie unten im Ergebnistext als Fundliste. Variablen aus bekannten NRG-Stack-Modulen (EMS, InverterHub, ChargerHub, Prognose, Tibber Grid Rewards …) werden übersprungen — sie sind dort schon korrekt eingebunden.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '🔎 Zähler finden: Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil, gruppiert sie nach Gerät. Trägt nichts automatisch in die Tabelle ein — die Funde stehen danach direkt unter „Fund auswählen" zum Übernehmen bereit. Variablen aus bekannten NRG-Stack-Modulen (EMS, InverterHub, ChargerHub, Prognose, Tibber Grid Rewards …) werden übersprungen — sie sind dort schon korrekt eingebunden.'];
             $meterItems[] = ['type' => 'SelectObject', 'name' => 'ScanRoot', 'caption' => 'Nur in diesem Bereich suchen (leer = ganze Installation)'];
             $meterItems[] = ['type' => 'ValidationTextBox', 'name' => 'ScanFilter', 'caption' => 'Nur Geräte, deren Name das hier enthält (leer = alle)'];
             $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanNeedEnergy', 'caption' => 'Nur Geräte mit Energiezähler (kWh) — blendet Schalter aus, die bloß die Momentanleistung melden'];
@@ -1003,7 +1136,24 @@ class MeterHubVirtual extends IPSModule
             $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyUsedElsewhere', 'caption' => 'Nur Datenpunkte zeigen, die schon in einer ANDEREN virtuellen Zähler-Instanz stecken (zum gezielten Prüfen auf Doppelverwendung/Aufteilung) — sonst werden sie wie gewohnt ausgeblendet'];
             $meterItems[] = ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive, $ScanOnlyUsedElsewhere);'];
             $meterItems[] = ['type' => 'Label', 'name' => 'ScanResult', 'caption' => '', 'visible' => false];
-            $meterItems[] = ['type' => 'Label', 'caption' => '➕ Aufnehmen: unter der Tabelle auf „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen (Suche/Baum wie beim Suchlauf oben — auch OHNE vorherigen Suchlauf jederzeit möglich).'];
+            // Funde direkt übernehmbar (Dietmars Anregung 31.08.2026: "wenn
+            // ich schon etwas suchen muss, dann möchte ich auch direkt aus
+            // dem Suchdialog etwas übernehmen") — ScanMeters() füllt die
+            // Optionen dieses Felds bei jedem Suchlauf neu (siehe dort).
+            $meterItems[] = ['type' => 'Select', 'name' => 'ScanPick', 'caption' => 'Fund auswählen', 'options' => [['caption' => '— erst oben suchen —', 'value' => 0]], 'value' => 0];
+            $meterItems[] = ['type' => 'Button', 'caption' => '✅  Fund übernehmen', 'onClick' => 'echo MHUBV_AddDevice($id, $ScanPick);'];
+            // Schneller Weg OHNE Suche (Dietmars Anregung 31.08.2026: "ich
+            // möchte die Zählerinstanz auswählen müssen und der Rest muss
+            // von alleine kommen" — drei einzelne Variablen-Picker pro
+            // Zeile "klickt sich zu Tode"): EIN Gerät direkt wählen,
+            // Leistung/Bezug/Einspeisung werden automatisch gesucht (siehe
+            // MetersOfDevice()) und als neue Zeile eingetragen — inklusive
+            // Ergebnistext, damit sofort sichtbar ist, was gefunden wurde
+            // ("genau dieses Ergebnis zu Gesicht bekommen").
+            $meterItems[] = ['type' => 'Label', 'caption' => '⚡ Oder ohne vorherige Suche: Zähler-Instanz/Gerät direkt wählen.'];
+            $meterItems[] = ['type' => 'SelectObject', 'name' => 'DevicePick', 'caption' => 'Zähler-Instanz oder Gerät'];
+            $meterItems[] = ['type' => 'Button', 'caption' => '✅  Als neue Zeile übernehmen', 'onClick' => 'echo MHUBV_AddDevice($id, $DevicePick);'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '➕ Von Hand: unter der Tabelle auf „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen — für Einzelfälle, die die automatische Suche nicht (richtig) findet.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '📐 „Anteil (%)" setzen: 100 = voll addieren, −100 = voll abziehen, jeder Wert dazwischen ein Teil-Anteil. Beispiel: eine Einspeisung wird per Quotierung zur Hälfte zwei Mietern zugerechnet → in der Instanz für Mieter A 50, in der für Mieter B ebenfalls 50 (oder −50, je nachdem ob addiert oder abgezogen werden soll) bei DERSELBEN Variable.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Zeilen lassen sich per Drag & Drop umsortieren — rein zur eigenen Übersicht, das Ergebnis ist unabhängig von der Reihenfolge.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '✅ Zuletzt „Übernehmen" klicken (Formular-Ende).'];
@@ -1026,7 +1176,7 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'Label', 'caption' => 'Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere Instanzen: eine Instanz rechnet den Zwischenwert, dessen Ausgabe wird als ganz normale Zeile in der nächsten Instanz verdrahtet — nicht mehr innerhalb einer einzigen Instanz.'],
                         ['type' => 'Label', 'caption' => '━━━ Schritt für Schritt ━━━'],
                         ['type' => 'Label', 'caption' => '1. Optional zur Übersicht: „Zähler suchen" unten klicken — zeigt brauchbare Kandidaten im Ergebnistext, trägt aber nichts ein.'],
-                        ['type' => 'Label', 'caption' => '2. Je Zähler eine Zeile: unter der Tabelle „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen.'],
+                        ['type' => 'Label', 'caption' => '2. Je Zähler eine Zeile — drei Wege: nach dem Suchlauf bei „Fund auswählen" wählen und übernehmen; ohne Suche direkt bei „Zähler-Instanz oder Gerät" wählen und übernehmen; oder von Hand unter der Tabelle „Hinzufügen" klicken und je Spalte mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen. In allen drei Fällen werden Leistung/Bezug/Einspeisung außer beim letzten automatisch gesucht.'],
                         ['type' => 'Label', 'caption' => '3. „Anteil (%)" setzen: 100 addiert voll, −100 zieht voll ab, jeder Wert dazwischen ist ein Teil-Anteil (siehe Beispiel „Aufteilen").'],
                         ['type' => 'Label', 'caption' => '4. „Übernehmen“ klicken.'],
                         ['type' => 'Label', 'caption' => '5. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt die fertige Formel MIT aktuellen Werten, ❌ nennt genau, was noch fehlt.'],
@@ -1043,7 +1193,7 @@ class MeterHubVirtual extends IPSModule
                 // sondern nur mit dem aktuellen IPS-Namen vorbelegt —
                 // IPS_SetName() läuft sofort per onChange, unabhängig vom
                 // Client (Konsole/WebFront/App) und von "Übernehmen".
-                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => 'Name dieser Instanz', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUBV_RenameInstance($id, $InstanceName);'],
+                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => 'Zählerbezeichnung', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUBV_RenameInstance($id, $InstanceName);'],
                 ['type' => 'CheckBox', 'name' => 'Active', 'caption' => 'Berechnung aktiv'],
                 ['type' => 'Select', 'name' => 'Function', 'caption' => 'Funktion (fürs Dashboard)', 'options' => $funcOptions],
                 // Standort: reines Freitext-Label (Raum/Geschoss …), bewusst
