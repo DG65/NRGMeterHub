@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.24.3-beta.1 (2026-08-31)
+
+- **Neu: Feld „Standort" (Raum/Geschoss) an MeterHubVirtual-Instanzen.** Dietmars Auftrag: „alle
+  möglichen Raum-/Geschossbezeichnungen zur Auswahl, aber auch manuelle Eingabe für die letzten
+  Absurditäten." Bewusst GETRENNT von „Funktion" — die ist ein fester Vertrag mit dem
+  Dashboard/InverterHubTile (Icon-Mapping in einem anderen Repo), ein freier Raumname hätte dort
+  kein passendes Icon. „Standort" ist reines Freitext-Label ohne Vertrag: eine
+  Vorschlags-Auswahl (`LocationPreset`, onChange füllt das Textfeld) zeigt alle Werte, die
+  irgendeine MeterHubVirtual-Instanz bereits benutzt — wächst mit der eigenen Nutzung statt
+  eine erfundene, an keiner echten Anlage passende Raumliste vorzugeben —, das Textfeld
+  `Location` bleibt daneben jederzeit frei änderbar.
+
 ## 0.24.2-beta.1 (2026-08-31)
 
 - **Textkorrektur: „InverterHubTile" aus nutzersichtbaren Texten entfernt.** Dietmars Hinweis:

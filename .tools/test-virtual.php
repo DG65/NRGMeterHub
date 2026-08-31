@@ -516,5 +516,33 @@ check('12c: Ausgaben entstehen nach der Migration', isset($legOuts['power']), im
 $GLOBALS['MODOBJ'][$legIid]->Recalc();
 check('12c: Summe (beide "+") = 5000 + 1200', abs(GetValue($legOuts['power']) - 6200.0) < 0.01, 'ist ' . GetValue($legOuts['power']));
 
+echo "\n13) Standort — freies Label, getrennt vom Dashboard-Vertrag \"Function\" (Dietmars Auftrag 31.08.2026)\n";
+// $new hat aus Block 8 bereits Function='house'; Location ist bislang leer.
+$form13 = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+$locPreset = null;
+$locField = null;
+foreach ($form13['elements'] ?? [] as $el) {
+    if (($el['name'] ?? '') === 'LocationPreset') { $locPreset = $el; }
+    if (($el['name'] ?? '') === 'Location')       { $locField = $el; }
+}
+check('13a: Standort-Freitextfeld vorhanden', $locField !== null && ($locField['type'] ?? '') === 'ValidationTextBox');
+check('13a: Standort-Vorschlagsliste vorhanden (noch ohne Einträge, frisches System)', $locPreset !== null && count($locPreset['options'] ?? []) === 1, json_encode($locPreset['options'] ?? null));
+
+IPS_SetProperty($new, 'Location', 'Keller');
+$GLOBALS['MODOBJ'][$new]->ApplyChanges();
+$form13b = json_decode($GLOBALS['MODOBJ'][$sib]->GetConfigurationForm(), true);
+$locPreset2 = null;
+foreach ($form13b['elements'] ?? [] as $el) { if (($el['name'] ?? '') === 'LocationPreset') { $locPreset2 = $el; } }
+check('13b: Vorschlag "Keller" taucht bei einer ANDEREN Instanz auf (wächst mit echter Nutzung)', in_array('Keller', array_column($locPreset2['options'] ?? [], 'value'), true), json_encode($locPreset2['options'] ?? null));
+
+$GLOBALS['FORMFIELDS'] = [];
+$GLOBALS['MODOBJ'][$sib]->ApplyLocationPreset('Keller');
+check('13c: ApplyLocationPreset() übernimmt den Vorschlag ins Freitextfeld (nur im offenen Formular, noch nicht gespeichert)', ($GLOBALS['FORMFIELDS']['Location']['value'] ?? null) === 'Keller');
+check('13c: gespeicherte Property bleibt unangetastet, bis "Übernehmen" geklickt wird', IPS_GetProperty($sib, 'Location') === '');
+
+$GLOBALS['FORMFIELDS'] = [];
+$GLOBALS['MODOBJ'][$sib]->ApplyLocationPreset('');
+check('13d: leerer Vorschlag (Platzhalter "— Vorschlag wählen —") tut nichts', !array_key_exists('value', $GLOBALS['FORMFIELDS']['Location'] ?? []));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

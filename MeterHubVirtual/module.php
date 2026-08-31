@@ -77,6 +77,12 @@ class MeterHubVirtual extends IPSModule
         // Formel: [{Name,Sign('+'|'-'),PowerID,EnergyImportID,EnergyExportID}]
         $this->RegisterPropertyString('Nodes', '[]');
         $this->RegisterPropertyString('Function', 'none');
+        // Rein informativer Standort (Raum/Geschoss) — Dietmars Anregung
+        // 31.08.2026, bewusst GETRENNT von "Function": "Function" ist ein
+        // fester Vertrag mit dem Dashboard/InverterHubTile (Icon-Mapping in
+        // einem anderen Repo), ein freier Raum-/Geschossname hätte dort kein
+        // passendes Icon. "Location" ist reines Freitext-Label ohne Vertrag.
+        $this->RegisterPropertyString('Location', '');
         $this->RegisterPropertyInteger('Interval', 10);
         // Filter für den Suchlauf. Sie merken sich die letzte Eingabe; wirksam
         // ist beim Klick aber immer der aktuelle Stand der Maske.
@@ -124,6 +130,20 @@ class MeterHubVirtual extends IPSModule
     {
         $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
         $this->UpdateFormField('NewsPanel', 'visible', false);
+    }
+
+    /**
+     * Übernimmt einen gewählten Standort-Vorschlag ins Freitext-Feld
+     * "Location" — dasselbe onChange+UpdateFormField-Muster wie an anderer
+     * Stelle im Verbund (siehe CLAUDE.md), keine echte eigene Property: der
+     * Vorschlag ist nur ein Schnellausfüller, gespeichert wird ausschließlich
+     * "Location".
+     */
+    public function ApplyLocationPreset(string $preset)
+    {
+        if (trim($preset) !== '') {
+            $this->UpdateFormField('Location', 'value', $preset);
+        }
     }
 
     /** Enthält $rawRows noch Zeilen im alten Baum-Format (Kürzel/„hängt hinter")? */
@@ -853,6 +873,24 @@ class MeterHubVirtual extends IPSModule
             $funcOptions[] = ['caption' => $def[0], 'value' => $key];
         }
 
+        // Vorschlagsliste für "Standort": alle Werte, die irgendeine
+        // MeterHubVirtual-Instanz (auch diese selbst) schon eingetragen hat —
+        // wächst mit der eigenen Nutzung, statt eine erfundene Raumliste
+        // vorzugeben, die an keiner echten Anlage passt.
+        $locationOptions = [['caption' => '— Vorschlag wählen —', 'value' => '']];
+        $seenLocations = [];
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_VIRTUAL) as $iid) {
+            $loc = trim((string)@IPS_GetProperty($iid, 'Location'));
+            if ($loc !== '' && !isset($seenLocations[$loc])) {
+                $seenLocations[$loc] = true;
+            }
+        }
+        $sortedLocations = array_keys($seenLocations);
+        sort($sortedLocations, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach ($sortedLocations as $loc) {
+            $locationOptions[] = ['caption' => $loc, 'value' => $loc];
+        }
+
         $check = [];
         if ($migration) {
             $check[] = ['type' => 'Label', 'caption' => 'Migration ausstehend — siehe Panel oben.'];
@@ -950,6 +988,14 @@ class MeterHubVirtual extends IPSModule
                 ],
                 ['type' => 'CheckBox', 'name' => 'Active', 'caption' => 'Berechnung aktiv'],
                 ['type' => 'Select', 'name' => 'Function', 'caption' => 'Funktion (fürs Dashboard)', 'options' => $funcOptions],
+                // Standort: reines Freitext-Label (Raum/Geschoss …), bewusst
+                // getrennt vom Dashboard-Vertrag "Function". Auswahlliste aus
+                // den Werten, die irgendeine Instanz schon benutzt — plus
+                // jederzeit frei eintragbar für den Einzelfall, der in keine
+                // Liste passt (Dietmars Auftrag: "auch die letzten
+                // Absurditäten noch bezeichnen können").
+                ['type' => 'Select', 'name' => 'LocationPreset', 'caption' => 'Standort (Vorschlag übernehmen …)', 'options' => $locationOptions, 'value' => '', 'onChange' => 'MHUBV_ApplyLocationPreset($id, $LocationPreset);'],
+                ['type' => 'ValidationTextBox', 'name' => 'Location', 'caption' => 'Standort (Raum/Geschoss, frei eintragbar)'],
                 [
                     'type' => 'ExpansionPanel', 'caption' => '🔌  Zähler', 'expanded' => true,
                     'items' => $meterItems,
