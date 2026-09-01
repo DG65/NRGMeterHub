@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.23-beta.1 (2026-09-01)
+
+- **Fix: „Lizenztext ansehen"/„Spenden via PayPal" (und „Zum Forums-Thread") taten beim
+  Klick nichts.** Dietmars Live-Fund: bei einem normalen `Button` ist `link` kein URL-String,
+  sondern ein reiner `true`/`false`-Schalter — die eigentliche URL muss die Echo-Ausgabe des
+  `onClick`-Skripts sein. Betraf alle drei neuen Lizenz-/PayPal-Knöpfe (0.24.22) UND den
+  bereits länger bestehenden Forum-Hinweis-Knopf (der Fehler fiel dort nur nie auf, weil
+  dessen Link noch ein Platzhalter ist). Gegen die offizielle SDK-Doku geprüft, jetzt in
+  SUITE.md als Stolperfalle dokumentiert, damit kein künftiger Link-Knopf denselben Fehler
+  wiederholt.
+
 ## 0.24.22-beta.1 (2026-09-01)
 
 - **🆕 Neues Panel „🧡 Über dieses Modul"** ganz unten in allen drei Formularen (nach dem

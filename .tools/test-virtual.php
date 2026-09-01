@@ -1085,8 +1085,19 @@ check('26a: Panel vorhanden und eingeklappt by default', $licPanel !== null && $
 check('26a: kein "name" -> nicht wegklickbar (kein AckX() kann es per UpdateFormField ausblenden)', !array_key_exists('name', $licPanel), json_encode($licPanel));
 $licText = implode(' | ', array_column($licPanel['items'] ?? [], 'caption'));
 check('26b: nennt PolyForm Noncommercial 1.0.0 und die Kontakt-E-Mail', str_contains($licText, 'PolyForm Noncommercial 1.0.0') && str_contains($licText, 'dietmar@gureth.eu'), $licText);
-$licLinks = array_column($licPanel['items'] ?? [], 'link');
-check('26c: Buttons verlinken auf LICENSE-Datei und PayPal', in_array('https://github.com/DG65/NRGMeterHub/blob/main/LICENSE', $licLinks, true) && in_array('https://paypal.me/DietmarGureth', $licLinks, true), json_encode($licLinks));
+// Bei einem normalen Button (nicht PopupButton) ist "link" ein reiner
+// true/false-Schalter — die eigentliche URL kommt aus dem ECHO-Ausgabewert
+// von "onClick", nicht aus einer eigenen "link"-Eigenschaft. Live gegen die
+// offizielle SDK-Doku geprüft, nachdem eine URL direkt als "link"-Wert
+// (falsche Annahme) beim Klick nichts auslöste (Dietmars Fund 01.09.2026).
+$licenseBtn = null;
+$paypalBtn = null;
+foreach ($licPanel['items'] ?? [] as $it) {
+    if (($it['caption'] ?? '') === 'Lizenztext ansehen') { $licenseBtn = $it; }
+    if (($it['caption'] ?? '') === '☕  Spenden via PayPal') { $paypalBtn = $it; }
+}
+check('26c: Lizenz-Knopf hat link=true und onClick echot die LICENSE-URL', $licenseBtn['link'] === true && str_contains($licenseBtn['onClick'] ?? '', "echo 'https://github.com/DG65/NRGMeterHub/blob/main/LICENSE'"), json_encode($licenseBtn));
+check('26c: PayPal-Knopf hat link=true und onClick echot die PayPal-URL', $paypalBtn['link'] === true && str_contains($paypalBtn['onClick'] ?? '', "echo 'https://paypal.me/DietmarGureth'"), json_encode($paypalBtn));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

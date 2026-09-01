@@ -143,7 +143,7 @@ class MeterHubVirtual extends IPSModule
             'items' => [
                 ['type' => 'Label', 'caption' => 'MeterHub/MeterHubVirtual sind Beta — Rückmeldungen, gerade zu neuen/ungetesteten Zählertypen, sind ausdrücklich willkommen im Community-Thread.'],
                 ['type' => 'Label', 'caption' => '⚠️ Platzhalter-Link, Thread noch nicht veröffentlicht.'],
-                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'link' => self::FORUM_THREAD_URL],
+                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckForumHint($id);'],
             ],
         ];
@@ -172,10 +172,10 @@ class MeterHubVirtual extends IPSModule
             'items' => [
                 ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
                 ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
-                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'link' => self::LICENSE_URL],
+                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
                 ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
                 ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
-                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'link' => self::PAYPAL_URL],
+                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
