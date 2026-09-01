@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.21-beta.1 (2026-09-01)
+
+- **Fix: doppeltes Fragezeichen an allen sechs „?"-Hilfe-Knöpfen** (z. B. „Was bedeuten die
+  drei Verdichtungsstufen? ?"). Dietmars Fund: die Caption ist inzwischen eine volle Frage
+  statt eines bloßen „?" — das zusätzlich angehängte „ ?" war dadurch überflüssig geworden.
+  Jetzt verbundweit als Konvention in SUITE.md „Feld-Hilfestellung" festgehalten (volle
+  Frage als Caption, kein zweites Fragezeichen anhängen), damit alle Module das künftig
+  gleich machen.
+
 ## 0.24.20-beta.1 (2026-09-01)
 
 - **🆕 „Geräte-Familie erkennen" versteht jetzt auch KNX-Zähler mit getrennten Bezugs-/

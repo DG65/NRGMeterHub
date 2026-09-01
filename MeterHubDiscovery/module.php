@@ -283,7 +283,7 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'IPs ignorieren (Komma-getrennt)'],
                         ['type' => 'Label', 'caption' => 'Diese Adressen werden bei der Suche komplett übersprungen — z. B. andere Modbus-Geräte, die sonst fälschlich erscheinen würden.'],
                         [
-                            'type' => 'PopupButton', 'caption' => 'Welche Zähler findet die Suche — und welche nicht? ?', 'width' => '480px',
+                            'type' => 'PopupButton', 'caption' => 'Welche Zähler findet die Suche — und welche nicht?', 'width' => '480px',
                             'popup' => [
                                 'caption' => 'Was die Suche erkennt',
                                 'items' => [
@@ -335,7 +335,7 @@ class MeterHubDiscovery extends IPSModule
                             'visible' => function_exists('MIGHUB_FindLegacyCandidates'),
                         ],
                         [
-                            'type' => 'PopupButton', 'caption' => 'Wie funktioniert „Migration vorbereiten" genau? ?', 'width' => '480px',
+                            'type' => 'PopupButton', 'caption' => 'Wie funktioniert „Migration vorbereiten" genau?', 'width' => '480px',
                             'visible' => function_exists('MIGHUB_FindLegacyCandidates'),
                             'popup' => [
                                 'caption' => 'Migration vorbereiten',

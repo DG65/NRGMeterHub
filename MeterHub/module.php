@@ -2691,7 +2691,7 @@ class MeterHub extends IPSModule
         }
         $funcItems[] = ['type' => 'CheckBox', 'name' => 'FuncMirrors', 'caption' => 'Zusätzliche Sammel-Variablen je Funktion anlegen (Leistung/Bezug/Einspeisung unter „Funktionen")'];
         $funcItems[] = [
-            'type' => 'PopupButton', 'caption' => 'Was legt das genau an, und wozu? ?', 'width' => '460px',
+            'type' => 'PopupButton', 'caption' => 'Was legt das genau an, und wozu?', 'width' => '460px',
             'popup' => [
                 'caption' => 'Sammel-Variablen je Funktion',
                 'items' => [
@@ -2887,7 +2887,7 @@ class MeterHub extends IPSModule
                             'caption' => 'Bezug/Einspeisung vertauscht — invertiert Wirkleistung und tauscht die Energiezähler',
                         ],
                         [
-                            'type' => 'PopupButton', 'caption' => 'Wann brauche ich das, und was macht es genau? ?', 'width' => '480px',
+                            'type' => 'PopupButton', 'caption' => 'Wann brauche ich das, und was macht es genau?', 'width' => '480px',
                             'popup' => [
                                 'caption' => 'Bezug/Einspeisung vertauscht',
                                 'items' => [
@@ -3914,7 +3914,7 @@ class MeterHub extends IPSModule
             ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
             ['type' => 'Label', 'caption' => '⚠️ Ausschalten löscht aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte) — kein „einfach nicht mehr anfassen", sondern ein echtes Zurücksetzen auf „aus" bei jedem „Übernehmen".'],
             [
-                'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen? ?', 'width' => '480px',
+                'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen?', 'width' => '480px',
                 'popup' => [
                     'caption' => 'Archiv-Verdichtung in drei Stufen',
                     'items' => [

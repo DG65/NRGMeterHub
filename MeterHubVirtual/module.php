@@ -604,7 +604,7 @@ class MeterHubVirtual extends IPSModule
             ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
             ['type' => 'Label', 'caption' => '⚠️ Ausschalten löscht aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte) — kein „einfach nicht mehr anfassen", sondern ein echtes Zurücksetzen auf „aus" bei jedem „Übernehmen".'],
             [
-                'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen? ?', 'width' => '480px',
+                'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen?', 'width' => '480px',
                 'popup' => [
                     'caption' => 'Archiv-Verdichtung in drei Stufen',
                     'items' => [
