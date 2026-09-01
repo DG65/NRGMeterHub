@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.24.18-beta.1 (2026-09-01)
+
+- **🆕 Geräte-Familien ohne gemeinsamen Container erkennen (MeterHubVirtual).** Auslöser:
+  Sepps Diagnose-Ergebnis seiner MDT-AZI-Aktoren — dort ist jeder Messwert eine EIGENE
+  KNX-Instanz (kein Geräte-Container mit mehreren Kindern, wie es der bestehende
+  Geräte-Picker erwartet), nur der gemeinsame Namens-Anfang verbindet z. B. „AZI
+  Waschmaschine Wirkleistung" und „AZI Waschmaschine Hauptzähler kWh". Neuer Weg im Panel
+  „🔌 Verdrahtung": Kategorie wählen, „🏷️ Geräte-Familie erkennen und übernehmen" findet
+  alle passenden Geschwister-Instanzen darunter und schlägt sie auf einmal als neue Zeilen
+  vor (schreibt wie die anderen Picker nur ins offene Formular, „Übernehmen" bleibt der
+  letzte Schritt). „Zwischenzähler" wird bewusst nicht als Energiequelle erkannt (laut
+  Namen ein rücksetzbarer Zwischenstand). Beide in Sepps Anlage beobachteten Schreibweisen
+  („Hauptzähler"/„Hauptzaehler") werden erkannt.
+- Nebenbefund bei der Analyse, live bestätigt: Der normale Suchlauf (`ScanMeters()`)
+  findet diese AZI-Wirkleistungs-Variablen NICHT — sie tragen weder ein klassisches Profil
+  noch eine Darstellung mit `SUFFIX`/`PROFILE`, nur eine reine `TEMPLATE`-Darstellung ohne
+  auslesbare Einheit. Der Lingg&Janke-„Haus Zähler" ist davon NICHT betroffen (seine
+  Variablen tragen echte System-Profile wie `~ValuePower.KNX` direkt) und wird vom
+  bestehenden Suchlauf bereits zuverlässig gefunden.
+
 ## 0.24.17-beta.1 (2026-09-01)
 
 - **Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" (Code -32603)

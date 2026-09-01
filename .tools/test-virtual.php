@@ -881,5 +881,59 @@ $formRefresh = json_decode($virtRefresh->GetConfigurationForm(), true);
 $actionCaptions = array_column($formRefresh['actions'] ?? [], 'onClick', 'caption');
 check('22c: Formular-Knopf ruft die refreshende Variante auf, nicht mehr das bloße Recalc()', str_contains($actionCaptions['Jetzt neu berechnen'] ?? '', 'MHUBV_RecalcAndRefreshForm'), json_encode($actionCaptions));
 
+echo "\n23) AddDeviceFamily() — Geräte-Familie ohne gemeinsamen Container (Sepps MDT-AZI-Fund 01.09.2026: jeder Messwert eine eigene KNX-Instanz)\n";
+$aziCat = obj(60000, 0, '6 Leistungsmessung', 10);
+
+$wmPower = obj(60001, 1, 'AZI Waschmaschine Wirkleistung', $aziCat);
+vari(60002, 'Value', $wmPower, 'Value', '', 45.0);
+$wmEnergy = obj(60003, 1, 'AZI Waschmaschine Hauptzähler kWh', $aziCat);
+vari(60004, 'Value', $wmEnergy, 'Value', '', 120.0);
+$wmCosPhi = obj(60005, 1, 'AZI Waschmaschine cos Phi', $aziCat);
+vari(60006, 'Value', $wmCosPhi, 'Value', '', 0.9);
+$wmZwischen = obj(60007, 1, 'AZI Waschmaschine Zwischenzähler Wh', $aziCat);
+vari(60008, 'Value', $wmZwischen, 'Value', '', 200.0);
+
+$bfPower = obj(60010, 1, 'AZI Backofen Wirkleistung', $aziCat);
+vari(60011, 'Value', $bfPower, 'Value', '', 1800.0);
+
+$trPower = obj(60020, 1, 'AZI Trockner Wirkleistung', $aziCat);
+vari(60021, 'Value', $trPower, 'Value', '', 500.0);
+$trEnergy = obj(60022, 1, 'AZI Trockner Hauptzaehler kWh', $aziCat);
+vari(60023, 'Value', $trEnergy, 'Value', '', 90.0);
+
+$gsPower = obj(60030, 1, 'AZI Geschirr Wirkleistung', $aziCat);
+vari(60031, 'Value', $gsPower, 'Value', '', 3.0);
+
+$famIid = 60999;
+obj($famIid, 1, 'AZI-Familie-Test', 10);
+$fam = new MeterHubVirtual($famIid);
+$fam->Create();
+IPS_SetProperty($famIid, 'Nodes', json_encode([
+    ['Name' => 'Schon verdrahtet', 'Factor' => 100, 'PowerID' => 60031, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+]));
+$GLOBALS['MODOBJ'][$famIid] = $fam;
+
+$msg23a = $fam->AddDeviceFamily($aziCat);
+$rowsAfter = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+$namesAfter = array_column($rowsAfter, 'Name');
+$wmRow = null;
+$bfRow = null;
+$trRow = null;
+foreach ($rowsAfter as $r) {
+    if ($r['Name'] === 'AZI Waschmaschine') { $wmRow = $r; }
+    if ($r['Name'] === 'AZI Backofen') { $bfRow = $r; }
+    if ($r['Name'] === 'AZI Trockner') { $trRow = $r; }
+}
+check('23a: "AZI Waschmaschine" mit Leistung UND Bezug übernommen, nicht cos Phi/Zwischenzähler', $wmRow !== null && $wmRow['PowerID'] === 60002 && $wmRow['EnergyImportID'] === 60004, json_encode($wmRow));
+check('23b: "AZI Backofen" nur mit Leistung übernommen (kein Hauptzähler vorhanden)', $bfRow !== null && $bfRow['PowerID'] === 60011 && $bfRow['EnergyImportID'] === 0, json_encode($bfRow));
+check('23c: "AZI Trockner" auch mit "Hauptzaehler" (ae-Schreibweise) erkannt', $trRow !== null && $trRow['PowerID'] === 60021 && $trRow['EnergyImportID'] === 60023, json_encode($trRow));
+check('23d: "AZI Geschirr" nicht erneut eingetragen (Leistung schon anderswo verdrahtet) und im Ergebnistext genannt', !in_array('AZI Geschirr', $namesAfter, true) && str_contains($msg23a, 'AZI Geschirr'), $msg23a);
+check('23e: Ergebnis nennt die drei neu übernommenen Geräte', str_contains($msg23a, 'AZI Waschmaschine') && str_contains($msg23a, 'AZI Backofen') && str_contains($msg23a, 'AZI Trockner'), $msg23a);
+
+echo "\n  23f) Randfälle\n";
+check('23f: unbekannte Bereichs-ID liefert klare Fehlermeldung, kein Absturz', str_contains($fam->AddDeviceFamily(999999), 'Kein Bereich'));
+$emptyCat = obj(60100, 0, 'Leere Kategorie', 10);
+check('23f: Kategorie ohne bekanntes Muster liefert klare Fehlermeldung, kein Absturz', str_contains($fam->AddDeviceFamily($emptyCat), 'kein bekanntes Muster'));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

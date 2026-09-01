@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.17';
+    private const NEWS_VERSION = '0.24.18';
 
     public function Create()
     {
@@ -179,6 +179,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• Schon verdrahtete Instanzen (altes Baum-Format) brauchen eine einmalige Bestätigung: ein Migrations-Panel zeigt die bisherigen Zeilen als Vorschlag, nichts wird automatisch übernommen.'],
                 ['type' => 'Label', 'caption' => '• Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" fehlschlagen, wenn eine Verdichtungsstufe auf „aus" stand oder eine Alt-Regel von einer früheren Einstellung im Archiv übrig war — beides räumt die Archiv-Verdichtung jetzt sauber auf.'],
                 ['type' => 'Label', 'caption' => '• Fix: „Jetzt neu berechnen" meldete zwar Erfolg, das Panel „Prüfung & Vorschau" zeigte aber weiter die alten Werte — der Knopf lädt das Formular jetzt mit den frischen Werten neu.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Geräte-Familien ohne gemeinsamen Container (z. B. MDT AZI — jeder Messwert eine eigene KNX-Instanz): Kategorie wählen, „Geräte-Familie erkennen" liefert alle passenden Geräte auf einmal als neue Zeilen.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -991,6 +992,152 @@ class MeterHubVirtual extends IPSModule
         return $msg;
     }
 
+    /**
+     * Namens-Suffixe bekannter Aktor-Familien, bei denen jeder Messwert eine
+     * EIGENE KNX-Instanz ist (kein gemeinsamer Geräte-Container mit mehreren
+     * Kindern wie beim normalen Geräte-Picker) — live an Sepps MDT-AZI-
+     * Installation verifiziert 01.09.2026 (Diagnose-Skript-Auswertung, nicht
+     * geraten): z. B. "AZI Waschmaschine Wirkleistung" und "AZI Waschmaschine
+     * Hauptzähler kWh" sind zwei getrennte Instanzen, die nur der gemeinsame
+     * Namens-Anfang verbindet. Der Kind-Ident der eigentlichen Messwert-
+     * Variable ist bei diesen Instanzen immer "Value" (ebenfalls verifiziert).
+     * Zwei Schreibweisen für "Hauptzähler kWh", weil Sepps eigene KNX-Projekt-
+     * beschriftung selbst uneinheitlich ist (mal "ä", mal "ae").
+     *
+     * Classify()/UnitOf() finden diese Wirkleistungs-Variablen NICHT über den
+     * normalen Suchlauf — sie tragen weder ein klassisches Profil noch eine
+     * SUFFIX-/PROFILE-Darstellung, nur eine reine TEMPLATE-Darstellung ohne
+     * auslesbare Einheit (ebenfalls live bestätigt). Nur der Name verrät hier
+     * die Bedeutung, deshalb ein eigener, namensbasierter Erkennungsweg statt
+     * einer Erweiterung von UnitOf().
+     *
+     * "Zwischenzähler" wird bewusst NICHT als Energiequelle erkannt: laut
+     * Namen ein rücksetzbarer Zwischenstand, kein dauerhaft aufsummierender
+     * Hauptzähler — würde dem Archiv Sprünge nach unten liefern.
+     */
+    private const DEVICE_FAMILY_SUFFIXES = [
+        'power' => ['wirkleistung'],
+        'imp'   => ['hauptzähler kwh', 'hauptzaehler kwh'],
+    ];
+
+    /**
+     * Findet unterhalb von $rootId (Kategorie oder Instanz, rekursiv über
+     * Kategorien) alle Instanzen, deren Name auf einen bekannten Suffix aus
+     * DEVICE_FAMILY_SUFFIXES endet, gruppiert sie über den gemeinsamen
+     * Namens-Anfang zu einem "Gerät" und liest deren Kind-Variable mit Ident
+     * "Value" aus. Reine Erkennung, keine IPS-Änderung.
+     */
+    private function FindDeviceFamilies(int $rootId): array
+    {
+        $devices = [];
+        $stack = [$rootId];
+        while ($stack) {
+            foreach (IPS_GetChildrenIDs((int)array_pop($stack)) as $cid) {
+                $o = IPS_GetObject($cid);
+                if ($o['ObjectType'] === 0) {
+                    $stack[] = $cid; // Kategorie: weiter absteigen
+                    continue;
+                }
+                if ($o['ObjectType'] !== 1) {
+                    continue; // nur Instanzen tragen hier den bedeutungstragenden Namen
+                }
+                $name = $o['ObjectName'];
+                $lower = mb_strtolower(trim($name));
+                foreach (self::DEVICE_FAMILY_SUFFIXES as $role => $suffixes) {
+                    $matched = false;
+                    foreach ($suffixes as $suffix) {
+                        if (mb_substr($lower, -mb_strlen($suffix)) !== $suffix) {
+                            continue;
+                        }
+                        $matched = true;
+                        $label = trim(mb_substr($name, 0, mb_strlen($name) - mb_strlen($suffix)));
+                        $valueVid = $label !== '' ? (int)@IPS_GetObjectIDByIdent('Value', $cid) : 0;
+                        if ($valueVid > 0) {
+                            if (!isset($devices[$label])) {
+                                $devices[$label] = ['label' => $label, 'power' => 0, 'imp' => 0];
+                            }
+                            if ($devices[$label][$role] === 0) {
+                                $devices[$label][$role] = $valueVid;
+                            }
+                        }
+                        break;
+                    }
+                    if ($matched) {
+                        break; // eine Instanz kann nur einer Rolle entsprechen
+                    }
+                }
+            }
+        }
+        return $devices;
+    }
+
+    /**
+     * Übernimmt eine ganze Geräte-Familie (z. B. alle MDT-AZI-Aktoren unter
+     * einer gewählten Kategorie) als neue Formel-Zeilen — Dietmars Auftrag
+     * 01.09.2026, ausgelöst durch Sepps Diagnose-Ergebnis: bei diesen
+     * Aktoren gibt es keinen gemeinsamen Geräte-Container, den der normale
+     * Geräte-Picker (AddDevice()) nehmen könnte, nur den gemeinsamen
+     * Namens-Anfang vieler Einzel-Instanzen. Schreibt wie AddDevice() nur in
+     * die OFFENE Formularmaske, nicht in die gespeicherte Property.
+     */
+    public function AddDeviceFamily(int $rootId): string
+    {
+        if ($rootId <= 0 || !IPS_ObjectExists($rootId)) {
+            return '❌ Kein Bereich ausgewählt.';
+        }
+        $devices = $this->FindDeviceFamilies($rootId);
+        if (!$devices) {
+            return '❌ Unter „' . IPS_GetName($rootId) . '" wurde kein bekanntes Muster gefunden (aktuell erkannt: Instanzen, die auf „Wirkleistung" oder „Hauptzähler kWh" enden, z. B. MDT AZI). Bitte stattdessen den Geräte-Picker oder „Hinzufügen" in der Tabelle nutzen.';
+        }
+
+        $existing = json_decode($this->ReadPropertyString('Nodes'), true);
+        $existing = is_array($existing) ? $existing : [];
+        $used = [];
+        foreach ($existing as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            foreach (['PowerID', 'EnergyImportID', 'EnergyExportID'] as $f) {
+                $v = (int)($r[$f] ?? 0);
+                if ($v > 0) {
+                    $used[$v] = true;
+                }
+            }
+        }
+
+        $added = [];
+        $alreadyUsed = [];
+        foreach ($devices as $label => $d) {
+            $power = isset($used[$d['power']]) ? 0 : $d['power'];
+            $imp   = isset($used[$d['imp']])   ? 0 : $d['imp'];
+            if ($d['power'] > 0 && $power === 0) {
+                $alreadyUsed[] = $label . ' (Leistung)';
+            }
+            if ($d['imp'] > 0 && $imp === 0) {
+                $alreadyUsed[] = $label . ' (Bezug)';
+            }
+            if ($power === 0 && $imp === 0) {
+                continue; // nichts Neues an diesem Gerät
+            }
+            $existing[] = ['Name' => $label, 'Factor' => 100, 'PowerID' => $power, 'EnergyImportID' => $imp, 'EnergyExportID' => 0];
+            $added[] = $label;
+        }
+
+        if (!$added) {
+            return 'ℹ️ Alle gefundenen Geräte (' . implode(', ', array_keys($devices)) . ') sind bereits vollständig verdrahtet.';
+        }
+
+        $this->UpdateFormField('Nodes', 'values', json_encode($existing));
+        $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($existing)));
+
+        $msg = '✅ ' . count($added) . ' Gerät(e) als neue Zeilen übernommen: ' . implode(', ', $added) . '.';
+        if ($alreadyUsed) {
+            $msg .= "\nℹ️ Bereits anderswo verdrahtet, deshalb nicht erneut eingetragen: " . implode(', ', $alreadyUsed) . '.';
+        }
+        $msg .= ' Bitte in der Tabelle prüfen und „Übernehmen“ nicht vergessen.';
+        return $msg;
+    }
+
     /** Liegt $vid irgendwo unterhalb von $root? ($root = 0: ganze Installation) */
     private function IsBelow(int $vid, int $root): bool
     {
@@ -1402,6 +1549,15 @@ class MeterHubVirtual extends IPSModule
             $meterItems[] = ['type' => 'Label', 'caption' => '⚡ Oder ohne vorherige Suche: Zähler-Instanz/Gerät direkt wählen.'];
             $meterItems[] = ['type' => 'SelectObject', 'name' => 'DevicePick', 'caption' => 'Zähler-Instanz oder Gerät'];
             $meterItems[] = ['type' => 'Button', 'caption' => '✅  Als neue Zeile übernehmen', 'onClick' => 'echo MHUBV_AddDevice($id, $DevicePick);'];
+            // Geräte-Familie ohne gemeinsamen Container (Dietmars Auftrag
+            // 01.09.2026, ausgelöst durch Sepps Diagnose seiner MDT-AZI-
+            // Aktoren): jeder Messwert eine eigene KNX-Instanz, nur der
+            // Namens-Anfang verbindet sie — der Geräte-Picker oben braucht
+            // aber einen Container. Siehe FindDeviceFamilies()/
+            // AddDeviceFamily() für die volle Herleitung.
+            $meterItems[] = ['type' => 'Label', 'caption' => '🏷️ Oder eine ganze Geräte-Familie ohne gemeinsamen Container (z. B. MDT AZI — jeder Messwert eine eigene KNX-Instanz, „…Wirkleistung"/„…Hauptzähler kWh"): Kategorie wählen, die mehrere dieser Instanzen enthält.'];
+            $meterItems[] = ['type' => 'SelectObject', 'name' => 'FamilyRoot', 'caption' => 'Kategorie mit der Geräte-Familie'];
+            $meterItems[] = ['type' => 'Button', 'caption' => '🏷️  Geräte-Familie erkennen und übernehmen', 'onClick' => 'echo MHUBV_AddDeviceFamily($id, $FamilyRoot);'];
             $meterItems[] = ['type' => 'Label', 'caption' => '➕ Von Hand: unter der Tabelle auf „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen — für Einzelfälle, die die automatische Suche nicht (richtig) findet.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '📐 „Anteil (%)" setzen: 100 = voll addieren, −100 = voll abziehen, jeder Wert dazwischen ein Teil-Anteil. Beispiel: eine Einspeisung wird per Quotierung zur Hälfte zwei Mietern zugerechnet → in der Instanz für Mieter A 50, in der für Mieter B ebenfalls 50 (oder −50, je nachdem ob addiert oder abgezogen werden soll) bei DERSELBEN Variable.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Zeilen lassen sich per Drag & Drop umsortieren — rein zur eigenen Übersicht, das Ergebnis ist unabhängig von der Reihenfolge.'];
