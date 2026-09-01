@@ -936,6 +936,40 @@ check('23f: unbekannte Bereichs-ID liefert klare Fehlermeldung, kein Absturz', s
 $emptyCat = obj(60100, 0, 'Leere Kategorie', 10);
 check('23f: Kategorie ohne bekanntes Muster liefert klare Fehlermeldung, kein Absturz', str_contains($fam->AddDeviceFamily($emptyCat), 'kein bekanntes Muster'));
 
+echo "\n  23g) Lingg&Janke-Muster (Sepps zweiter Diagnose-Dump 01.09.2026: getrennte Bezugs-/Einspeisungswerte statt einem Container)\n";
+$knxCat = obj(60200, 0, 'Haus Zähler', 10);
+function knxPoint($iid, $name, $parent, $vid, $value) {
+    obj($iid, 1, $name, $parent); // eigene Instanz je Messwert, wie das echte KNX-Modul
+    vari($vid, 'Value', $iid, 'Value', '', $value);
+}
+knxPoint(60201, 'Zähler Wirkleistung P14 (W)', $knxCat, 60301, 971.0);
+knxPoint(60202, 'Zähler Wirkleistung P23 (W)', $knxCat, 60302, 0.0);
+knxPoint(60203, 'Zähler Wirkenergie A14 (kWh)', $knxCat, 60303, 38543.0);
+knxPoint(60204, 'Zähler Wirkenergie A23 (kWh)', $knxCat, 60304, 171.0);
+// Rauschen, das NICHT erkannt werden darf: Phasenaufteilung, (Wh)-Duplikat, alles andere.
+knxPoint(60211, 'Zähler Wirkleistung P14 L1 (W)', $knxCat, 60311, 369.0);
+knxPoint(60212, 'Zähler Wirkleistung P14 L2 (W)', $knxCat, 60312, 227.0);
+knxPoint(60213, 'Zähler Wirkenergie A14 (Wh)', $knxCat, 60313, 8543487.0);
+knxPoint(60214, 'Zähler Spannung U L1 (V)', $knxCat, 60314, 224.0);
+knxPoint(60215, 'Zähler Blindleistung Q12 (VAR)', $knxCat, 60315, 197.0);
+knxPoint(60216, 'Zähler Status', $knxCat, 60317, 1.0);
+
+$msg23g = $fam->AddDeviceFamily($knxCat);
+check('23g: Ergebnis nennt 1 Gerät als 3 neue Zeilen', str_contains($msg23g, '1 Gerät') && str_contains($msg23g, '3 neue Zeile'), $msg23g);
+$rows23g = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+$bezugRow = null;
+$einspLeistungRow = null;
+$einspEnergieRow = null;
+foreach ($rows23g as $r) {
+    if (($r['Name'] ?? '') === 'Zähler — Bezug') { $bezugRow = $r; }
+    if (($r['Name'] ?? '') === 'Zähler — Einspeisung (Leistung)') { $einspLeistungRow = $r; }
+    if (($r['Name'] ?? '') === 'Zähler — Einspeisung (Energie)') { $einspEnergieRow = $r; }
+}
+check('23g: Bezugs-Zeile hat P14 als Leistung, A14 (kWh, nicht Wh!) als Bezug, Faktor 100', $bezugRow !== null && $bezugRow['PowerID'] === 60301 && $bezugRow['EnergyImportID'] === 60303 && (int)$bezugRow['Factor'] === 100, json_encode($bezugRow));
+check('23g: Einspeisung-Leistung-Zeile hat P23 als Leistung, Faktor -100, keine Energie-Spalte', $einspLeistungRow !== null && $einspLeistungRow['PowerID'] === 60302 && (int)$einspLeistungRow['Factor'] === -100 && $einspLeistungRow['EnergyImportID'] === 0 && $einspLeistungRow['EnergyExportID'] === 0, json_encode($einspLeistungRow));
+check('23g: Einspeisung-Energie-Zeile hat A23 als Einspeisung, Faktor 100, keine Leistungs-Spalte', $einspEnergieRow !== null && $einspEnergieRow['EnergyExportID'] === 60304 && (int)$einspEnergieRow['Factor'] === 100 && $einspEnergieRow['PowerID'] === 0, json_encode($einspEnergieRow));
+check('23g: Phasenaufteilung/Wh-Duplikat/sonstige Werte tauchen in KEINER Zeile auf', !in_array(60311, [$bezugRow['PowerID'] ?? 0, $einspLeistungRow['PowerID'] ?? 0]) && !in_array(60313, [$bezugRow['EnergyImportID'] ?? 0]), json_encode([$bezugRow, $einspLeistungRow, $einspEnergieRow]));
+
 echo "\n24) AddCalculatedEnergy()/AdvanceCalculatedEnergy() — Leistung × Intervall hochrechnen, wenn der Bezug fehlt (Dietmars Auftrag 01.09.2026, ausdrücklich \"hochgerechnet\", nicht \"geschätzt\")\n";
 $calcPowerCat = obj(61000, 0, 'Hochrechnungs-Test', 10);
 vari(61001, 'Nur-Leistung-Quelle', $calcPowerCat, '', 'MHB.W', 900.0);

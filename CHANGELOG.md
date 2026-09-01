@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.24.20-beta.1 (2026-09-01)
+
+- **🆕 „Geräte-Familie erkennen" versteht jetzt auch KNX-Zähler mit getrennten Bezugs-/
+  Einspeisungswerten** (z. B. Lingg&Janke „Haus Zähler": P14/P23 Leistung, A14/A23 Energie
+  in kWh) — bisher nur das MDT-AZI-Muster (ein Wert = eine Wirkleistung + ein Hauptzähler
+  kWh). Anders als bei AZI liefert dieser Zählertyp keinen vorzeichenbehafteten Netzwert
+  wie ein Modbus-Zähler, sondern vier getrennte, immer positive Werte — ein Klick baut jetzt
+  automatisch die dafür nötige Drei-Zeilen-Verdrahtung: „Bezug" (P14 + A14, Faktor 100),
+  „Einspeisung (Leistung)" (P23 allein, Faktor −100 — ergibt zusammen mit der Bezugs-Leistung
+  eine signierte Summe) und „Einspeisung (Energie)" (A23 allein, Faktor 100). Erkennt gezielt
+  nur die Gesamtwerte „…Wirkleistung P14/P23 (W)"/„…Wirkenergie A14/A23 (kWh)" — die
+  Phasenaufteilung (P14 L1/L2/L3) und das (Wh)-Duplikat (statt kWh) werden bewusst
+  übersprungen.
+
 ## 0.24.19-beta.1 (2026-09-01)
 
 - **🆕 Fehlende Bezugswerte aus der Leistung hochrechnen (MeterHubVirtual).** Auslöser:

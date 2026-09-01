@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.19';
+    private const NEWS_VERSION = '0.24.20';
 
     public function Create()
     {
@@ -180,6 +180,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" fehlschlagen, wenn eine Verdichtungsstufe auf „aus" stand oder eine Alt-Regel von einer früheren Einstellung im Archiv übrig war — beides räumt die Archiv-Verdichtung jetzt sauber auf.'],
                 ['type' => 'Label', 'caption' => '• Fix: „Jetzt neu berechnen" meldete zwar Erfolg, das Panel „Prüfung & Vorschau" zeigte aber weiter die alten Werte — der Knopf lädt das Formular jetzt mit den frischen Werten neu.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Geräte-Familien ohne gemeinsamen Container (z. B. MDT AZI — jeder Messwert eine eigene KNX-Instanz): Kategorie wählen, „Geräte-Familie erkennen" liefert alle passenden Geräte auf einmal als neue Zeilen.'],
+                ['type' => 'Label', 'caption' => '• 🆕 „Geräte-Familie erkennen" versteht jetzt auch KNX-Zähler mit getrennten Bezugs-/Einspeisungswerten (z. B. Lingg&Janke, P14/P23/A14/A23) — ergibt automatisch die richtige Drei-Zeilen-Verdrahtung mit Vorzeichen, statt sie von Hand zusammenzustellen.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Fehlt bei einem Zähler der Bezugswert (z. B. reine Wirkleistungs-Aktoren): „Fehlende Energiewerte aus der Leistung hochrechnen" rechnet Leistung × Berechnungs-Intervall zu einer eigenen, klar beschrifteten Variable auf — keine Schätzung, aber ungenauer als ein echter Zähler.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „Prüfung & Vorschau" warnt jetzt (⚠️, nicht blockierend), wenn eine Zeile Leistung, aber keinen Bezug hat, während andere Zeilen derselben Formel einen haben — sonst würde die Bezug-Summe diese Zeile still mit 0 kWh mitzählen.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
@@ -1074,10 +1075,27 @@ class MeterHubVirtual extends IPSModule
      * "Zwischenzähler" wird bewusst NICHT als Energiequelle erkannt: laut
      * Namen ein rücksetzbarer Zwischenstand, kein dauerhaft aufsummierender
      * Hauptzähler — würde dem Archiv Sprünge nach unten liefern.
+     *
+     * Zweites Muster (01.09.2026, Sepps zweiter Diagnose-Dump): Lingg&Janke-
+     * KNX-Zähler wie "Haus Zähler". Anders als bei AZI tragen dessen
+     * Variablen zwar ein echtes System-Profil (der normale Suchlauf findet
+     * sie also einzeln) — aber Bezug und Einspeisung stehen dort als VIER
+     * getrennte, alle einzeln positive Werte (P14/P23 Leistung, A14/A23
+     * Energie in kWh, live an Sepps Anlage verifiziert), kein
+     * vorzeichenbehafteter Netzwert wie beim PAC2200. Ein Klick auf
+     * „Geräte-Familie erkennen" spart hier das manuelle Verdrahten der in
+     * AddDeviceFamily() beschriebenen Drei-Zeilen-Lösung (siehe dort). Die
+     * L1/L2/L3-Phasenaufteilung UND die (Wh)-Duplikate (statt kWh) werden
+     * bewusst NICHT erkannt — `mb_substr(...) === $suffix` prüft exakt das
+     * Ende des Namens, "P14 L1 (W)" endet nicht auf "p14 (w)".
      */
     private const DEVICE_FAMILY_SUFFIXES = [
         'power' => ['wirkleistung'],
         'imp'   => ['hauptzähler kwh', 'hauptzaehler kwh'],
+        'power_import' => ['wirkleistung p14 (w)'],
+        'power_export' => ['wirkleistung p23 (w)'],
+        'energy_import' => ['wirkenergie a14 (kwh)'],
+        'energy_export' => ['wirkenergie a23 (kwh)'],
     ];
 
     /**
@@ -1114,7 +1132,11 @@ class MeterHubVirtual extends IPSModule
                         $valueVid = $label !== '' ? (int)@IPS_GetObjectIDByIdent('Value', $cid) : 0;
                         if ($valueVid > 0) {
                             if (!isset($devices[$label])) {
-                                $devices[$label] = ['label' => $label, 'power' => 0, 'imp' => 0];
+                                $devices[$label] = [
+                                    'label' => $label, 'power' => 0, 'imp' => 0,
+                                    'power_import' => 0, 'power_export' => 0,
+                                    'energy_import' => 0, 'energy_export' => 0,
+                                ];
                             }
                             if ($devices[$label][$role] === 0) {
                                 $devices[$label][$role] = $valueVid;
@@ -1132,13 +1154,27 @@ class MeterHubVirtual extends IPSModule
     }
 
     /**
-     * Übernimmt eine ganze Geräte-Familie (z. B. alle MDT-AZI-Aktoren unter
-     * einer gewählten Kategorie) als neue Formel-Zeilen — Dietmars Auftrag
-     * 01.09.2026, ausgelöst durch Sepps Diagnose-Ergebnis: bei diesen
-     * Aktoren gibt es keinen gemeinsamen Geräte-Container, den der normale
-     * Geräte-Picker (AddDevice()) nehmen könnte, nur den gemeinsamen
-     * Namens-Anfang vieler Einzel-Instanzen. Schreibt wie AddDevice() nur in
-     * die OFFENE Formularmaske, nicht in die gespeicherte Property.
+     * Übernimmt eine ganze Geräte-Familie als neue Formel-Zeilen — Dietmars
+     * Auftrag 01.09.2026, ausgelöst durch Sepps Diagnose-Ergebnisse. Zwei
+     * unterschiedliche Muster, je nachdem welche Felder FindDeviceFamilies()
+     * für ein Gerät gefunden hat:
+     *
+     * 1. AZI-Muster ('power'/'imp'): EINE Zeile, Leistung + Bezug zusammen,
+     *    Faktor 100 — dort gibt es keinen gemeinsamen Geräte-Container, den
+     *    der normale Geräte-Picker (AddDevice()) nehmen könnte.
+     * 2. Lingg&Janke-Muster ('power_import'/'power_export'/'energy_import'/
+     *    'energy_export'): BIS ZU DREI Zeilen, weil P14/P23 zwei getrennte,
+     *    immer positive Leistungswerte sind (keine vorzeichenbehaftete
+     *    Netzleistung wie beim PAC2200) — siehe die volle Herleitung in der
+     *    Konversation mit Dietmar (01.09.2026): P14 und A14 teilen sich eine
+     *    Zeile (beide brauchen Faktor +100), P23 braucht eine EIGENE Zeile
+     *    mit Faktor −100 (nur die Leistungs-Spalte, sonst würde A23 mit ins
+     *    Negative rutschen), A23 wieder eine eigene mit Faktor +100.
+     *
+     * Beide Muster können am selben Gerät gleichzeitig zutreffen (theoretisch
+     * denkbar, in der Praxis nicht beobachtet) — dann entstehen einfach
+     * beide Zeilensätze. Schreibt wie AddDevice() nur in die OFFENE
+     * Formularmaske, nicht in die gespeicherte Property.
      */
     public function AddDeviceFamily(int $rootId): string
     {
@@ -1147,7 +1183,7 @@ class MeterHubVirtual extends IPSModule
         }
         $devices = $this->FindDeviceFamilies($rootId);
         if (!$devices) {
-            return '❌ Unter „' . IPS_GetName($rootId) . '" wurde kein bekanntes Muster gefunden (aktuell erkannt: Instanzen, die auf „Wirkleistung" oder „Hauptzähler kWh" enden, z. B. MDT AZI). Bitte stattdessen den Geräte-Picker oder „Hinzufügen" in der Tabelle nutzen.';
+            return '❌ Unter „' . IPS_GetName($rootId) . '" wurde kein bekanntes Muster gefunden (aktuell erkannt: Instanzen, die auf „Wirkleistung"/„Hauptzähler kWh" enden, z. B. MDT AZI, oder auf „Wirkleistung P14/P23 (W)"/„Wirkenergie A14/A23 (kWh)", z. B. Lingg&Janke). Bitte stattdessen den Geräte-Picker oder „Hinzufügen" in der Tabelle nutzen.';
         }
 
         $existing = json_decode($this->ReadPropertyString('Nodes'), true);
@@ -1166,20 +1202,53 @@ class MeterHubVirtual extends IPSModule
         }
 
         $added = [];
+        $addedRows = 0;
         $alreadyUsed = [];
+        $useField = function (array $d, string $field, string $label, string $fieldLabel) use ($used, &$alreadyUsed): int {
+            $vid = (int)$d[$field];
+            if ($vid <= 0) {
+                return 0;
+            }
+            if (isset($used[$vid])) {
+                $alreadyUsed[] = "$label ($fieldLabel)";
+                return 0;
+            }
+            return $vid;
+        };
         foreach ($devices as $label => $d) {
-            $power = isset($used[$d['power']]) ? 0 : $d['power'];
-            $imp   = isset($used[$d['imp']])   ? 0 : $d['imp'];
-            if ($d['power'] > 0 && $power === 0) {
-                $alreadyUsed[] = $label . ' (Leistung)';
+            $rowsForDevice = [];
+
+            $power = $useField($d, 'power', $label, 'Leistung');
+            $imp   = $useField($d, 'imp', $label, 'Bezug');
+            if ($power > 0 || $imp > 0) {
+                $rowsForDevice[] = ['Name' => $label, 'Factor' => 100, 'PowerID' => $power, 'EnergyImportID' => $imp, 'EnergyExportID' => 0];
             }
-            if ($d['imp'] > 0 && $imp === 0) {
-                $alreadyUsed[] = $label . ' (Bezug)';
+
+            $powerImport  = $useField($d, 'power_import', $label, 'Bezug-Leistung');
+            $powerExport  = $useField($d, 'power_export', $label, 'Einspeisung-Leistung');
+            $energyImport = $useField($d, 'energy_import', $label, 'Bezug-Energie');
+            $energyExport = $useField($d, 'energy_export', $label, 'Einspeisung-Energie');
+            if ($powerImport > 0 || $energyImport > 0) {
+                $rowsForDevice[] = ['Name' => $label . ' — Bezug', 'Factor' => 100, 'PowerID' => $powerImport, 'EnergyImportID' => $energyImport, 'EnergyExportID' => 0];
             }
-            if ($power === 0 && $imp === 0) {
+            if ($powerExport > 0) {
+                // Eigene Zeile, NICHT mit der Bezugs-Zeile zusammengelegt:
+                // die Leistung braucht hier Faktor -100 (signierte Summe),
+                // eine gemeinsame Zeile würde ein gleichzeitig eingetragenes
+                // A23 fälschlich mit ins Negative ziehen.
+                $rowsForDevice[] = ['Name' => $label . ' — Einspeisung (Leistung)', 'Factor' => -100, 'PowerID' => $powerExport, 'EnergyImportID' => 0, 'EnergyExportID' => 0];
+            }
+            if ($energyExport > 0) {
+                $rowsForDevice[] = ['Name' => $label . ' — Einspeisung (Energie)', 'Factor' => 100, 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => $energyExport];
+            }
+
+            if (!$rowsForDevice) {
                 continue; // nichts Neues an diesem Gerät
             }
-            $existing[] = ['Name' => $label, 'Factor' => 100, 'PowerID' => $power, 'EnergyImportID' => $imp, 'EnergyExportID' => 0];
+            foreach ($rowsForDevice as $r) {
+                $existing[] = $r;
+                $addedRows++;
+            }
             $added[] = $label;
         }
 
@@ -1190,7 +1259,7 @@ class MeterHubVirtual extends IPSModule
         $this->UpdateFormField('Nodes', 'values', json_encode($existing));
         $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($existing)));
 
-        $msg = '✅ ' . count($added) . ' Gerät(e) als neue Zeilen übernommen: ' . implode(', ', $added) . '.';
+        $msg = '✅ ' . count($added) . ' Gerät(e) als ' . $addedRows . ' neue Zeile(n) übernommen: ' . implode(', ', $added) . '.';
         if ($alreadyUsed) {
             $msg .= "\nℹ️ Bereits anderswo verdrahtet, deshalb nicht erneut eingetragen: " . implode(', ', $alreadyUsed) . '.';
         }
@@ -1735,7 +1804,7 @@ class MeterHubVirtual extends IPSModule
             // Namens-Anfang verbindet sie — der Geräte-Picker oben braucht
             // aber einen Container. Siehe FindDeviceFamilies()/
             // AddDeviceFamily() für die volle Herleitung.
-            $meterItems[] = ['type' => 'Label', 'caption' => '🏷️ Oder eine ganze Geräte-Familie ohne gemeinsamen Container (z. B. MDT AZI — jeder Messwert eine eigene KNX-Instanz, „…Wirkleistung"/„…Hauptzähler kWh"): Kategorie wählen, die mehrere dieser Instanzen enthält.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '🏷️ Oder mehrere Zähler auf einmal erkennen — zwei Muster: Geräte ohne gemeinsamen Container, jeder Messwert eine eigene KNX-Instanz (z. B. MDT AZI, „…Wirkleistung"/„…Hauptzähler kWh"); oder ein KNX-Zähler mit getrennten Bezugs-/Einspeisungswerten (z. B. Lingg&Janke, „…Wirkleistung P14/P23 (W)"/„…Wirkenergie A14/A23 (kWh)" — ergibt automatisch die richtige Verdrahtung mit Vorzeichen). Kategorie wählen, die die passenden Instanzen enthält.'];
             $meterItems[] = ['type' => 'SelectObject', 'name' => 'FamilyRoot', 'caption' => 'Kategorie mit der Geräte-Familie'];
             $meterItems[] = ['type' => 'Button', 'caption' => '🏷️  Geräte-Familie erkennen und übernehmen', 'onClick' => 'echo MHUBV_AddDeviceFamily($id, $FamilyRoot);'];
             $meterItems[] = ['type' => 'Label', 'caption' => '➕ Von Hand: unter der Tabelle auf „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen — für Einzelfälle, die die automatische Suche nicht (richtig) findet.'];
