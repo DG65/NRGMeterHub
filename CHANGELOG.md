@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.24.14-beta.1 (2026-09-01)
+
+- **Fix: „aus" bei einer Verdichtungsstufe löschte die Regel im Archiv nicht wirklich.** Dietmars
+  Live-Fund: „nach so viel Monaten = aus" eingestellt, aber die Regel stand danach weiter in
+  den Archiv-Einstellungen. Ursache, live an `AC_SetCompaction()` verifiziert: eine
+  ausgeschaltete Stufe wurde bisher einfach übersprungen (kein Aufruf), das ließ eine schon
+  vorhandene Regel unangetastet. Fix: jede Stufe bekommt jetzt IMMER einen
+  `AC_SetCompaction()`-Aufruf — Verdichtungstyp `-1` löscht die Regel am jeweiligen Monats-
+  Offset aktiv (bestätigt per `AC_GetCompaction()` vorher/nachher). Betrifft auch den
+  rechnerischen Leerlauf-Fall (Zielauflösung nicht gröber als das Intervall), nicht nur ein
+  bewusstes „aus".
+- **Hauptschalter „Automatische Verdichtung aktivieren" setzt jetzt ebenfalls aktiv zurück,
+  statt nur nichts mehr zu tun** (Dietmars Entscheidung, konsistent zur Einzelstufen-Regel) —
+  räumt beim Ausschalten auch Regeln aus einem früheren „an"-Zustand auf. Ein Warnhinweis
+  direkt am Schalter macht das jetzt ausdrücklich klar: das Ausschalten überschreibt auch von
+  Hand in der Konsole gesetzte Verdichtungsregeln.
+
 ## 0.24.13-beta.1 (2026-08-31)
 
 - **Archiv-Verdichtung: zwei eigene Panels statt einem gemeinsamen.** Dietmars Frage, ob die

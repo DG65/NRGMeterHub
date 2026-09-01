@@ -723,9 +723,12 @@ echo "\n20) CompactionPlan() — Staffelung skaliert mit dem Update-Intervall UN
 $plan = new ReflectionMethod('MeterHubVirtual', 'CompactionPlan');
 $anyInstance = $GLOBALS['MODOBJ'][$new];
 check('20a: < 60s (typisch, viele Werte) — volle Staffelung (Power)', $plan->invoke($anyInstance, 10, 'Power') === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 10, 'Power')));
-check('20b: 60s..299s — "direkt" entfällt (wäre Leerlauf), Rest bleibt', $plan->invoke($anyInstance, 60, 'Power') === [[1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 60, 'Power')));
-check('20c: 300s..3599s — nur noch die 12-Monats-Stufe', $plan->invoke($anyInstance, 300, 'Power') === [[12, 2]], json_encode($plan->invoke($anyInstance, 300, 'Power')));
-check('20d: >= 3600s — bereits gröber als jede Stufe, keine Verdichtung nötig', $plan->invoke($anyInstance, 3600, 'Power') === [], json_encode($plan->invoke($anyInstance, 3600, 'Power')));
+// Seit 01.09.2026 IMMER drei Paare — eine Leerlauf-Stufe bekommt aktiv
+// Verdichtungstyp -1 statt einfach zu fehlen (Dietmars Fund: "aus"
+// eingestellt, aber die Regel blieb im Archiv stehen, siehe SetArchive()).
+check('20b: 60s..299s — "direkt" wird aktiv auf -1 gesetzt (wäre Leerlauf), Rest bleibt', $plan->invoke($anyInstance, 60, 'Power') === [[-1, -1], [1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 60, 'Power')));
+check('20c: 300s..3599s — nur noch die 12-Monats-Stufe aktiv, Rest auf -1', $plan->invoke($anyInstance, 300, 'Power') === [[-1, -1], [1, -1], [12, 2]], json_encode($plan->invoke($anyInstance, 300, 'Power')));
+check('20d: >= 3600s — bereits gröber als jede Stufe, alle drei aktiv auf -1', $plan->invoke($anyInstance, 3600, 'Power') === [[-1, -1], [1, -1], [12, -1]], json_encode($plan->invoke($anyInstance, 3600, 'Power')));
 check('20d2: dieselbe Vorbelegung gilt unabhängig für Energy', $plan->invoke($anyInstance, 10, 'Energy') === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 10, 'Energy')));
 $planHub = new ReflectionMethod('MeterHub', 'CompactionPlan');
 $hubInstance = new MeterHub(998);
@@ -734,7 +737,10 @@ check('20e: identische Staffelung im Schwestermodul MeterHub', $planHub->invoke(
 
 echo "\n  20f) Wirklich konfigurierbar (Dietmars Einwand 31.08.2026: \"ich bin nicht der einzigste Nutzer\") — nicht nur intervallabhängig, sondern von den Formularwerten\n";
 IPS_SetProperty(8100, 'AutoCompactionPower', false);
-check('20f: AutoCompactionPower aus -> leere Staffelung für Power, unabhängig vom Intervall', $plan->invoke($fresh2, 10, 'Power') === [], json_encode($plan->invoke($fresh2, 10, 'Power')));
+// Dietmars Entscheidung 01.09.2026: der Hauptschalter setzt aktiv zurück
+// (alle drei Stufen auf -1), statt einfach nichts mehr zu tun — konsistent
+// zur Einzelstufen-Regel, räumt auch Regeln aus einem früheren "an" auf.
+check('20f: AutoCompactionPower aus -> aktiv alle drei Power-Stufen auf -1, unabhängig vom Intervall', $plan->invoke($fresh2, 10, 'Power') === [[-1, -1], [1, -1], [12, -1]], json_encode($plan->invoke($fresh2, 10, 'Power')));
 check('20f: Energy bleibt davon unberührt (getrennt konfigurierbar)', $plan->invoke($fresh2, 10, 'Energy') === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($fresh2, 10, 'Energy')));
 IPS_SetProperty(8100, 'AutoCompactionPower', true);
 IPS_SetProperty(8100, 'CompactDirectPower', -1);       // Stufe 1 bewusst aus
@@ -742,7 +748,7 @@ IPS_SetProperty(8100, 'CompactStage2MonthsPower', 3);  // andere Werte als Dietm
 IPS_SetProperty(8100, 'CompactStage2TypePower', 3);    // 1×/Tag statt 1×/5 Min
 IPS_SetProperty(8100, 'CompactStage3MonthsPower', 6);
 IPS_SetProperty(8100, 'CompactStage3TypePower', 7);    // löschen statt verdichten
-check('20f: eigene Power-Werte kommen 1:1 an, "aus" wird respektiert', $plan->invoke($fresh2, 10, 'Power') === [[3, 3], [6, 7]], json_encode($plan->invoke($fresh2, 10, 'Power')));
+check('20f: eigene Power-Werte kommen 1:1 an, "aus" bei der Direkt-Stufe wird aktiv als -1 gesetzt', $plan->invoke($fresh2, 10, 'Power') === [[-1, -1], [3, 3], [6, 7]], json_encode($plan->invoke($fresh2, 10, 'Power')));
 check('20f: Energy weiterhin unverändert bei Dietmars Standardwerten', $plan->invoke($fresh2, 10, 'Energy') === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($fresh2, 10, 'Energy')));
 IPS_SetProperty(8100, 'CompactDirectPower', 0);
 IPS_SetProperty(8100, 'CompactStage2MonthsPower', 1);
@@ -769,6 +775,8 @@ foreach (['Power', 'Energy'] as $kind) {
     }
 }
 check('20g: alle zwölf Einstellfelder vorhanden (getrennt für Power/Energy)', array_diff($expectedCompactFields, $compactFieldNames) === [], implode(',', $compactFieldNames));
+$compactPowerText = implode(' ', array_column($compactPanelPower['items'] ?? [], 'caption'));
+check('20h: Hauptschalter warnt vor dem aktiven Zurücksetzen (Dietmars Auftrag 01.09.2026)', str_contains($compactPowerText, '⚠️') && str_contains($compactPowerText, 'löscht aktiv'), $compactPowerText);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

@@ -3772,6 +3772,7 @@ class MeterHub extends IPSModule
         $opts = $this->CompactionTypeOptions();
         return [
             ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
+            ['type' => 'Label', 'caption' => '⚠️ Ausschalten löscht aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte) — kein „einfach nicht mehr anfassen", sondern ein echtes Zurücksetzen auf „aus" bei jedem „Übernehmen".'],
             ['type' => 'Select', 'name' => 'CompactDirect' . $kind, 'caption' => 'Direkt verdichten auf', 'options' => $opts],
             ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
             ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'caption' => '… verdichten auf', 'options' => $opts],
@@ -3789,20 +3790,31 @@ class MeterHub extends IPSModule
      * Getrennt nach Leistung/Energie (Dietmars Ergänzung, noch am selben
      * Tag: „wir müssen zwischen Leistungswerten und Energiewerten
      * unterscheiden"), daher `$kind` = 'Power' oder 'Energy' als Suffix der
-     * gelesenen Properties. Jede Stufe nur, wenn ihre Ziel-Auflösung
-     * tatsächlich GRÖBER ist als das Roh-Intervall — sonst wäre sie ein
-     * Leerlauf; Typ 7 (löschen) hat keine Auflösung und wird immer
+     * gelesenen Properties. Jede Stufe nur mit ihrer gewählten Auflösung,
+     * wenn diese tatsächlich GRÖBER ist als das Roh-Intervall — sonst wäre
+     * sie ein Leerlauf; Typ 7 (löschen) hat keine Auflösung und wird immer
      * übernommen, wenn gewählt. Intervall bewusst aus der Instanz-eigenen
      * Konfiguration (IntervalFast/IntervalSlow) abgeleitet statt aus der
      * Archiv-Historie geschätzt — die ist bei einer frisch angelegten
      * Instanz noch leer.
-     * Rückgabe: Liste von [MonatsVersatz, Verdichtungstyp]-Paaren für
-     * `AC_SetCompaction()`.
+     * Rückgabe: IMMER drei [MonatsVersatz, Verdichtungstyp]-Paare für
+     * `AC_SetCompaction()` — eine bewusst ausgeschaltete oder rechnerisch
+     * überflüssige Stufe bekommt Verdichtungstyp -1 statt zu fehlen (siehe
+     * SetArchive()).
      */
     private function CompactionPlan(int $intervalSeconds, string $kind): array
     {
         if (!$this->ReadPropertyBoolean('AutoCompaction' . $kind)) {
-            return [];
+            // Aktiv zurücksetzen statt nur nichts mehr zu tun (Dietmars
+            // Entscheidung 01.09.2026, konsistent zur Einzelstufen-Regel
+            // oben): alle drei Stufen explizit auf -1, damit auch Regeln aus
+            // einem früheren "an"-Zustand verschwinden. Der Hauptschalter
+            // im Formular warnt deshalb ausdrücklich davor.
+            return [
+                [-1, -1],
+                [(int)$this->ReadPropertyInteger('CompactStage2Months' . $kind), -1],
+                [(int)$this->ReadPropertyInteger('CompactStage3Months' . $kind), -1],
+            ];
         }
         $plan = [];
         $stages = [
@@ -3811,11 +3823,18 @@ class MeterHub extends IPSModule
             [(int)$this->ReadPropertyInteger('CompactStage3Months' . $kind), (int)$this->ReadPropertyInteger('CompactStage3Type' . $kind)],
         ];
         foreach ($stages as [$offset, $type]) {
-            if ($type === -1) {
-                continue; // diese Stufe ist bewusst ausgeschaltet
-            }
-            if ($type === 7 || self::COMPACTION_SECONDS[$type] > $intervalSeconds) {
+            // Live verifiziert (Dietmars Fund 01.09.2026: "aus" eingestellt,
+            // aber die Monate standen weiter in der Verdichtung): jede Stufe
+            // bekommt IMMER einen AC_SetCompaction()-Aufruf, nie einfach
+            // übersprungen — Verdichtungstyp -1 löscht die Regel am
+            // jeweiligen Monats-Offset aktiv (bestätigt per AC_GetCompaction()
+            // vorher/nachher), ein reines "nichts aufrufen" ließ eine schon
+            // vorhandene Regel unangetastet stehen. Betrifft nicht nur ein
+            // bewusstes "aus", sondern auch den rechnerischen Leerlauf-Fall.
+            if ($type !== -1 && ($type === 7 || self::COMPACTION_SECONDS[$type] > $intervalSeconds)) {
                 $plan[] = [$offset, $type];
+            } else {
+                $plan[] = [$offset, -1];
             }
         }
         return $plan;

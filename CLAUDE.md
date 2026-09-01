@@ -1290,3 +1290,42 @@ Zwischenüberschrift, im Panel per `array_merge()` zweimal eingebunden (⚡ Leis
 Beide Kategorien starten mit identischen Vorbelegungen (Dietmars ursprüngliche Werte) — er hat
 zu diesem Zeitpunkt keine unterschiedlichen Zahlen für die beiden Kategorien genannt, nur die
 strukturelle Trennung gefordert.
+
+## Verdichtung „aus" muss die Archiv-Regel aktiv löschen (01.09.2026)
+
+**Auslöser:** Dietmar prüfte die neue Verdichtungs-Automatik live an einer echten Instanz
+(#40325) und ihrem Energiezähler-Kind, fand die Staffelung dort korrekt (Leistung: alle drei
+Stufen, Energie: „direkt" fehlt zu Recht — 1×/Minute wäre bei `IntervalSlow`=60s ein echter
+Leerlauf). Danach der eigentliche Fund: „nach so viel Monaten = aus" eingestellt, aber die
+Monate standen weiter in den Verdichtungseinstellungen.
+
+**Root Cause, live verifiziert statt vermutet:** `CompactionPlan()` hat eine ausgeschaltete
+Stufe (`Verdichtungstyp === -1`) bisher einfach mit `continue` übersprungen — kein
+`AC_SetCompaction()`-Aufruf für diesen Monats-Offset. Test direkt an Dietmars Anlage
+(`AC_SetCompaction($ac, $vid, 1, -1)`, davor/danach `AC_GetCompaction()` verglichen, anschließend
+per `IPS_ApplyChanges()` wiederhergestellt): Verdichtungstyp `-1` an einem SPEZIFISCHEN
+Monats-Offset **löscht diese eine Regel aktiv** aus der Liste — das ist also keine
+Sonderbedeutung "nichts tun", sondern eine funktionierende, gezielte Lösch-Operation der API.
+„Nichts aufrufen" und „aktiv auf -1 setzen" sind NICHT dasselbe — nur Letzteres räumt eine
+bereits vorhandene Regel weg.
+
+**Fix:** Jede der drei Stufen bekommt jetzt IMMER einen `AC_SetCompaction()`-Aufruf — mit ihrem
+echten Verdichtungstyp, wenn er sinnvoll ist (gröber als das Intervall), sonst mit `-1`. Das
+deckt sowohl ein bewusstes „aus" als auch den rechnerischen Leerlauf-Fall ab (z. B. wenn ein
+Intervall nachträglich vergrößert wurde und eine vorher sinnvolle Stufe jetzt keinen Sinn mehr
+ergibt — auch dort blieb bisher eine Regel aus einem früheren, kleineren Intervall stehen).
+
+**Nachtrag — Hauptschalter:** Dietmars Nachfrage „und wie sieht es mit den anderen
+Einstellungen aus" führte zur Prüfung von `AC_SetLoggingStatus`/`AC_SetAggregationType` (beide
+unbedingte Skalar-Zuweisungen bei jedem Aufruf, kein Leerlauf-Risiko) und zur offenen Frage
+beim `AutoCompaction`-Hauptschalter: der gab bei „aus" bisher `[]` zurück, die `foreach`-Schleife
+lief dann gar nicht — auch hier blieben vorhandene Regeln unangetastet. Dietmars Entscheidung:
+**aktiv zurücksetzen**, konsistent zur Einzelstufen-Regel — `CompactionPlan()` liefert bei
+ausgeschaltetem Hauptschalter jetzt `[[-1,-1], [Stage2Months,-1], [Stage3Months,-1]]` statt `[]`.
+Auf Dietmars ausdrücklichen Wunsch trägt der Schalter jetzt eine Warn-Label direkt daneben: das
+Ausschalten überschreibt auch von Hand in der Konsole gesetzte Verdichtungsregeln, kein
+"einfach nicht mehr anfassen".
+
+Verifiziert in `.tools/test-virtual.php` Block 20b–20d (jede Stufe liefert IMMER drei Paare,
+Leerlauf-Stufen mit `-1`), 20f (Hauptschalter aus → alle drei aktiv auf `-1`, eigene „aus"-Wahl
+bei einer Einzelstufe ebenso) und 20h (Warntext am Schalter vorhanden).
