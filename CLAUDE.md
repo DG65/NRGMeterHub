@@ -569,15 +569,22 @@ den neuen/wichtigen Doku-Zeilen. Referenzimplementierung jetzt `MeterHubVirtual:
 kopieren statt neu zu entwerfen. Verifiziert in `.tools/test-virtual.php` Block 11 (News-Panel
 erscheint/verschwindet korrekt, Doku-Panel enthält Versionsnummer + alle Verdrahtungs-Muster).
 
-**Bei MeterHub/MeterHubDiscovery weiterhin nicht umgesetzt** (kein aktueller Anlass, dieselben
-Gründe wie bisher):
-- Ausdrücklich als nicht eilig markiert („bei Gelegenheit nachziehen").
-- **Blockierende Abhängigkeit für Teil 4 (Forum-Hinweis, gilt weiter für alle drei Module
-  inkl. MeterHubVirtual):** bräuchte einen echten Link zum MeterHub-Thread — der Entwurf in
-  `.forum/ankuendigung.md` ist noch nicht veröffentlicht, es gibt also noch keine URL zum
-  Verlinken. Erst nach Veröffentlichung einbauen.
-- Beide haben wie MeterHubVirtual **kein separates `form.json`** — Struktur passt also direkt
-  hinein, sobald angegangen (kein technisches Hindernis, nur bisher kein Anlass).
+**Seit 01.09.2026 auch in `MeterHub` und `MeterHubDiscovery` umgesetzt** (Dietmars Auftrag,
+vollständiger Abgleich aller drei Instanzformulare gegen dieses Manifest): `MeterHub` bekam
+News-Panel (`NEWS_VERSION`, `NewsBanner()`/`AckNews()`), Versionsnummer im Doku-Panel und den
+Forum-Hinweis; `MeterHubDiscovery` bekam Versionsnummer im Doku-Panel und den Forum-Hinweis,
+bewusst **ohne** News-Panel — an diesem Modul gab es zuletzt nichts Neues zu vermelden, und ein
+News-Panel ohne echten Inhalt wäre erfundene Neuigkeit (siehe Grundregel „keine eigene Anlage
+als Norm" — analog gilt: keine erfundenen Neuigkeiten). `NEWS_VERSION`/Doku-Versionstext in
+allen drei Modulen synchron auf denselben `library.json`-Stand gehalten.
+
+**Forum-Hinweis (Teil 4) ist NICHT mehr blockiert.** Dietmar hat am 01.09.2026 ausdrücklich
+grünes Licht für einen Platzhalter-Link gegeben („im Forum habe ich noch nichts
+veröffentlicht, ich möchte da aber trotzdem die Zeile sehen, auch wenn nur eine Phantasie-URL
+drinnstehen würde") — `FORUM_THREAD_URL` trägt in allen drei Modulen denselben Platzhalter
+(`community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000`) samt sichtbarem
+Warnhinweis im Panel-Text. **Vor dem tatsächlichen Store-Release durch den echten Thread-Link
+ersetzen** — in allen drei Modulen gleichzeitig, sonst laufen sie auseinander.
 
 ## Formularfelder live umschalten: `onChange` + `UpdateFormField`, nicht `PropertyCondition`
 

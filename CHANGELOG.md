@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.24.15-beta.1 (2026-09-01)
+
+- **Formular-Konvention (SUITE.md „Einheitliche Formular-Optik") jetzt in allen drei Modulen
+  umgesetzt**, nicht nur in `MeterHubVirtual`. Auslöser: Dietmars vollständiger Abgleich aller
+  Instanzformulare gegen das Verbund-Manifest.
+  - **`MeterHub`**: neues News-Panel (Archiv-Verdichtung, Aggregationstyp-Fix, neue Felder
+    „Zählerbezeichnung"/„Standort"), Versionsnummer im Doku-Panel, Symcon-Forum-Hinweis
+    (Platzhalter-Link, siehe unten).
+  - **`MeterHubDiscovery`**: Versionsnummer im Doku-Panel, Symcon-Forum-Hinweis. Kein
+    News-Panel — an diesem Modul gab es zuletzt nichts Neues zu vermelden.
+  - **`MeterHubVirtual`**: veraltete Versionsnummer im News-Panel (`0.24.5`) auf den aktuellen
+    Stand nachgezogen, Inhalt um alles seit `0.24.5` Verschiffte ergänzt (Archiv-Verdichtung,
+    Zählerbezeichnung/Standort, zwei Nachkommastellen bei „Anteil (%)").
+  - `🆕`-Präfix jetzt direkt an den tatsächlichen Feld-Beschriftungen „Zählerbezeichnung" und
+    „Standort" (beide Module), nicht mehr nur im News-Panel-Text.
+- **„Zählerbezeichnung"/„Standort" jetzt auch im normalen `MeterHub`-Instanzformular**, nicht
+  mehr nur in `MeterHubVirtual`. Identisches Muster: `InstanceName`-Feld ruft `IPS_SetName()`
+  sofort per `onChange`, `Location` ist ein freies Textfeld mit Vorschlägen aus bereits
+  benutzten Werten — der Vorschlagspool umfasst jetzt beide Module gemeinsam (`MeterHub` und
+  `MeterHubVirtual`).
+- **Symcon-Forum-Hinweis** (SUITE.md-Konvention, Punkt 4) in allen drei Modulen ergänzt.
+  Bisher blockiert, weil kein echter Thread-Link existierte — Dietmar hat für einen
+  Platzhalter-Link ausdrücklich grünes Licht gegeben, bis der Thread veröffentlicht ist
+  („auch wenn nur eine Phantasie-URL drinnsteht"). Vor dem Store-Release durch den echten
+  Link ersetzen.
+- **„Anteil (%)" erlaubt jetzt bis zu zwei Nachkommastellen** (`MeterHubVirtual`), z. B. für
+  eine exakte Drittel-Aufteilung — bisher nur ganze Prozent.
+- **Schritt-für-Schritt-Anleitung (`MeterHubVirtual`-Doku-Panel) nachgebessert:** die neuen
+  Felder „Zählerbezeichnung" und „Standort" fehlten dort bisher komplett.
+- Store-Review-Fix: `library.json`s `name` trug bisher das Suffix „for IP-Symcon" — laut
+  SUITE.md-Checkliste (Punkt 6) nicht zulässig, jetzt „NRG-Stack MeterHub".
+
 ## 0.24.14-beta.1 (2026-09-01)
 
 - **Fix: „aus" bei einer Verdichtungsstufe löschte die Regel im Archiv nicht wirklich.** Dietmars

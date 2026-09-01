@@ -61,6 +61,40 @@ class MeterHubDiscovery extends IPSModule
         // Für die Status-Kopfzeile (siehe ScanSummaryLine()) — Verbund-Konvention
         // „Einheitliche Verbund-Status-Kopfzeile" (SUITE.md, 20.08.2026).
         $this->RegisterAttributeInteger('LastScanTs', 0);
+        // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik") — Forum-
+        // Hinweis + Versionsnummer im Doku-Panel nachgezogen 01.09.2026 im Zuge
+        // von Dietmars Manifest-Abgleich-Auftrag, Muster 1:1 aus MeterHub/
+        // MeterHubVirtual übernommen. Kein News-Panel: an diesem Modul gab es
+        // zuletzt nichts Neues anzukündigen — ein News-Panel ohne echten Inhalt
+        // wäre erfundene Neuigkeit.
+        $this->RegisterAttributeBoolean('ForumHintGone', false);
+    }
+
+    private const NEWS_VERSION = '0.24.15';
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
+
+    /** Symcon-Forum-Hinweis — einmalig dismissible, kein Versionsbezug, siehe MeterHubVirtual::ForumHint(). */
+    private function ForumHint(): ?array
+    {
+        if ($this->ReadAttributeBoolean('ForumHintGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
+            'caption' => '💬  Feedback im Symcon-Forum',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'MeterHubDiscovery ist Beta — Rückmeldungen, gerade zu neu erkannten Zählertypen, sind ausdrücklich willkommen im Community-Thread.'],
+                ['type' => 'Label', 'caption' => '⚠️ Platzhalter-Link, Thread noch nicht veröffentlicht.'],
+                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'link' => self::FORUM_THREAD_URL],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBD_AckForumHint($id);'],
+            ],
+        ];
+    }
+
+    public function AckForumHint()
+    {
+        $this->WriteAttributeBoolean('ForumHintGone', true);
+        $this->UpdateFormField('ForumHintPanel', 'visible', false);
     }
 
     /**
@@ -192,12 +226,13 @@ class MeterHubDiscovery extends IPSModule
         }
 
         $form = [
-            'elements' => [
+            'elements' => array_values(array_filter(array_merge([
                 [
                     'type'     => 'ExpansionPanel',
                     'caption'  => '📖  Dokumentation & Hilfe',
                     'expanded' => false,
                     'items'    => [
+                        ['type' => 'Label', 'caption' => 'MeterHubDiscovery ' . self::NEWS_VERSION . ' — Stand dieser Anleitung.'],
                         ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Energiezählern auf Modbus-TCP-Port 502 und erkennt den Zählertyp anhand eines charakteristischen Registers (Frequenz + Spannung als Plausibilitätsprüfung).'],
                         ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Zähler erscheinen unten — Klick auf „Erstellen" legt eine MeterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Zählertyp an.'],
                         ['type' => 'Label', 'caption' => '🔀 Neue Instanz kommt mit „Kommunikation aktiv" bereits eingeschaltet. Falls ein Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie geplant ist: direkt nach dem Anlegen an der neuen MeterHub-Instanz wieder ausschalten, bis MigrationsHub die alte Historie übernommen hat — sonst überlappen sich die neu geloggten Werte mit der übertragenen Alt-Historie.'],
@@ -266,7 +301,7 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'OpenObjectButton', 'name' => 'BtnOpenMigration', 'caption' => '→ Zur MigrationsHub-Instanz', 'objectID' => 0, 'visible' => false],
                     ],
                 ],
-            ],
+            ], [$this->ForumHint()]))),
             'actions' => [
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
             ],

@@ -2148,6 +2148,10 @@ class MeterHub extends IPSModule
         parent::Create();
 
         $this->RegisterPropertyBoolean('Active', true);
+        // Rein informativer Standort (Raum/Geschoss) — Dietmars Auftrag
+        // 01.09.2026, aus MeterHubVirtual übernommen: geteilter Vorschlags-
+        // pool über beide Modultypen (siehe GetConfigurationForm()).
+        $this->RegisterPropertyString('Location', '');
         $this->RegisterPropertyString('Meter', 'siemens_pac2200');
         // Zähler-Rolle: bestimmt nur die Vorzeichen-Semantik/Dokumentation.
         //   grid        = Netz-/NAP-Zähler (+ Bezug / − Einspeisung)
@@ -2254,6 +2258,93 @@ class MeterHub extends IPSModule
 
         $this->RegisterTimer('FastTimer', 0, 'MHUB_ReadFast($_IPS[\'TARGET\']);');
         $this->RegisterTimer('SlowTimer', 0, 'MHUB_ReadSlow($_IPS[\'TARGET\']);');
+
+        // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik") — bei
+        // MeterHub/MeterHubDiscovery bisher NICHT umgesetzt (siehe CLAUDE.md,
+        // "nicht eilig, bei Gelegenheit nachziehen"). Nachgezogen 01.09.2026
+        // im Zuge von Dietmars Manifest-Abgleich-Auftrag, Muster 1:1 aus
+        // MeterHubVirtual übernommen (dort seit 31.08.2026 Referenz).
+        $this->RegisterAttributeString('SeenNews', '');
+        $this->RegisterAttributeBoolean('ForumHintGone', false);
+    }
+
+    private const NEWS_VERSION = '0.24.15';
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
+
+    /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHubVirtual::NewsBanner(). */
+    private function NewsBanner(): ?array
+    {
+        if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
+            'caption' => '🆕  Neu in dieser Version',
+            'items' => [
+                ['type' => 'Label', 'caption' => '• 🆕 Archiv-Verdichtung läuft jetzt automatisch: bei jedem „Übernehmen" wird eine konfigurierbare Staffelung gesetzt (Panel „🗄️ Archiv-Verdichtung", getrennt für Leistung/Energie), statt sie für jeden Datenpunkt von Hand in der Konsole einzustellen.'],
+                ['type' => 'Label', 'caption' => '• Fix: Energiezähler (Bezug/Einspeisung) bekamen bisher den falschen Archiv-Aggregationstyp („Standard" statt „Zähler") — betrifft auch bereits bestehende Instanzen automatisch beim nächsten „Übernehmen".'],
+                ['type' => 'Label', 'caption' => '• 🆕 Neues Feld „Zählerbezeichnung" — benennt die Instanz direkt im Formular um, ohne Umweg über die Konsole.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Neues Feld „Standort" (Raum/Geschoss) — reines Freitext-Label mit Vorschlägen aus bereits benutzten Werten (auch aus MeterHubVirtual-Instanzen).'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
+            ],
+        ];
+    }
+
+    public function AckNews()
+    {
+        $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+        $this->UpdateFormField('NewsPanel', 'visible', false);
+    }
+
+    /** Symcon-Forum-Hinweis — einmalig dismissible, kein Versionsbezug, siehe MeterHubVirtual::ForumHint(). */
+    private function ForumHint(): ?array
+    {
+        if ($this->ReadAttributeBoolean('ForumHintGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
+            'caption' => '💬  Feedback im Symcon-Forum',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'MeterHub ist Beta — Rückmeldungen, gerade zu den 🔧/🧪 markierten Zählertypen, sind ausdrücklich willkommen im Community-Thread.'],
+                ['type' => 'Label', 'caption' => '⚠️ Platzhalter-Link, Thread noch nicht veröffentlicht.'],
+                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'link' => self::FORUM_THREAD_URL],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckForumHint($id);'],
+            ],
+        ];
+    }
+
+    public function AckForumHint()
+    {
+        $this->WriteAttributeBoolean('ForumHintGone', true);
+        $this->UpdateFormField('ForumHintPanel', 'visible', false);
+    }
+
+    /**
+     * Übernimmt einen gewählten Standort-Vorschlag ins Freitext-Feld
+     * "Location" — siehe MeterHubVirtual::ApplyLocationPreset(), identisches
+     * Muster. Keine echte eigene Property: der Vorschlag ist nur ein
+     * Schnellausfüller, gespeichert wird ausschließlich "Location".
+     */
+    public function ApplyLocationPreset(string $preset)
+    {
+        if (trim($preset) !== '') {
+            $this->UpdateFormField('Location', 'value', $preset);
+        }
+    }
+
+    /**
+     * Benennt die Instanz um — siehe MeterHubVirtual::RenameInstance(),
+     * identisches Muster (Dietmars Fund: Symcon zeigt kein natives
+     * Namensfeld). `IPS_SetName()` ist KEINE registrierte Property, wirkt
+     * sofort per `onChange`.
+     */
+    public function RenameInstance(string $name)
+    {
+        $name = trim($name);
+        if ($name !== '' && $name !== IPS_GetName($this->InstanceID)) {
+            IPS_SetName($this->InstanceID, $name);
+        }
     }
 
     public function ApplyChanges()
@@ -2485,6 +2576,23 @@ class MeterHub extends IPSModule
         $driver = $this->GetDriver();
         $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
 
+        // Vorschlagsliste für "Standort": geteilter Pool über MeterHub UND
+        // MeterHubVirtual (Dietmars Auftrag 01.09.2026) — siehe
+        // MeterHubVirtual::GetConfigurationForm() für dieselbe Logik.
+        $locationOptions = [['caption' => '— Vorschlag wählen —', 'value' => '']];
+        $seenLocations = [];
+        foreach (array_merge(IPS_GetInstanceListByModuleID(self::GUID_METER), IPS_GetInstanceListByModuleID(self::GUID_VIRTUAL)) as $iid) {
+            $loc = trim((string)@IPS_GetProperty($iid, 'Location'));
+            if ($loc !== '' && !isset($seenLocations[$loc])) {
+                $seenLocations[$loc] = true;
+            }
+        }
+        $sortedLocations = array_keys($seenLocations);
+        sort($sortedLocations, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach ($sortedLocations as $loc) {
+            $locationOptions[] = ['caption' => $loc, 'value' => $loc];
+        }
+
         // Verbindungspanel je nach Transport: Cloud-Anmeldung (Inexogy) oder
         // Modbus-TCP-Adresse. Bei Cloud sind Host/Port/UnitId gegenstandslos.
         //
@@ -2621,12 +2729,13 @@ class MeterHub extends IPSModule
         }
 
         $form = [
-            'elements' => [
+            'elements' => array_values(array_filter(array_merge([$this->NewsBanner()], [
                 [
                     'type'     => 'ExpansionPanel',
                     'caption'  => '📖  Dokumentation & Hilfe',
                     'expanded' => false,
                     'items'    => [
+                        ['type' => 'Label', 'caption' => 'MeterHub ' . self::NEWS_VERSION . ' — Stand dieser Anleitung.'],
                         ['type' => 'Label', 'caption' => 'MeterHub liest Energiezähler verschiedener Hersteller direkt per Modbus TCP aus. Zählertyp wählen, IP-Adresse (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Bedarf aktivieren.'],
                         ['type' => 'Label', 'caption' => '🔀 Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie geplant? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und konfigurieren, dann mit MigrationsHub die alte Historie übernehmen, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene, sich mit der Alt-Historie überlappende Werte.'],
                         ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (FC 0x03); Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 klassische Karte, UMG 800 Werkskarte, FC 0x03); Eastron SDM72D-M v2, WhatWatt und Phoenix Contact EEM-EM375/EEM-XM (FC 0x04, Input-Register).'],
@@ -2641,6 +2750,12 @@ class MeterHub extends IPSModule
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
                     ],
                 ],
+                // Zählerbezeichnung + Standort (Dietmars Auftrag 01.09.2026,
+                // aus MeterHubVirtual übernommen — identisches Muster,
+                // geteilter Standort-Vorschlagspool über beide Modultypen).
+                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => '🆕 Zählerbezeichnung', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUB_RenameInstance($id, $InstanceName);'],
+                ['type' => 'Select', 'name' => 'LocationPreset', 'caption' => 'Standort (Vorschlag übernehmen …)', 'options' => $locationOptions, 'value' => '', 'onChange' => 'MHUB_ApplyLocationPreset($id, $LocationPreset);'],
+                ['type' => 'ValidationTextBox', 'name' => 'Location', 'caption' => '🆕 Standort (Raum/Geschoss, frei eintragbar)'],
                 [
                     'type'    => 'CheckBox',
                     'name'    => 'Active',
@@ -2770,7 +2885,7 @@ class MeterHub extends IPSModule
                         ],
                     ]),
                 ],
-            ],
+            ], [$this->ForumHint()]))),
             'actions' => [
                 ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo MHUB_TestConnection($id);'],
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],

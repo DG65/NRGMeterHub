@@ -70,6 +70,9 @@ class IPSModule
     protected function RegisterAttributeInteger($n, $v) { $this->defs['@' . $n] = $v; }
     public function ReadAttributeInteger($n)  { return (int)($GLOBALS['ATTR'][$this->InstanceID][$n] ?? $this->defs['@' . $n] ?? 0); }
     public function WriteAttributeInteger($n, $v) { $GLOBALS['ATTR'][$this->InstanceID][$n] = $v; }
+    protected function RegisterAttributeBoolean($n, $v) { $this->defs['@' . $n] = $v; }
+    public function ReadAttributeBoolean($n)  { return (bool)($GLOBALS['ATTR'][$this->InstanceID][$n] ?? $this->defs['@' . $n] ?? false); }
+    public function WriteAttributeBoolean($n, $v) { $GLOBALS['ATTR'][$this->InstanceID][$n] = $v; }
 }
 
 require_once dirname(__DIR__) . '/MeterHub/module.php';

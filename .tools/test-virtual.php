@@ -134,6 +134,9 @@ class IPSModule
     protected function RegisterAttributeInteger($n, $v) { $this->defs['@' . $n] = $v; }
     public function ReadAttributeInteger($n)  { return (int)($GLOBALS['ATTR'][$this->InstanceID][$n] ?? $this->defs['@' . $n] ?? 0); }
     public function WriteAttributeInteger($n, $v) { $GLOBALS['ATTR'][$this->InstanceID][$n] = $v; }
+    protected function RegisterAttributeBoolean($n, $v) { $this->defs['@' . $n] = $v; }
+    public function ReadAttributeBoolean($n)  { return (bool)($GLOBALS['ATTR'][$this->InstanceID][$n] ?? $this->defs['@' . $n] ?? false); }
+    public function WriteAttributeBoolean($n, $v) { $GLOBALS['ATTR'][$this->InstanceID][$n] = $v; }
 }
 
 require_once dirname(__DIR__) . '/MeterHub/module.php';
@@ -777,6 +780,33 @@ foreach (['Power', 'Energy'] as $kind) {
 check('20g: alle zwölf Einstellfelder vorhanden (getrennt für Power/Energy)', array_diff($expectedCompactFields, $compactFieldNames) === [], implode(',', $compactFieldNames));
 $compactPowerText = implode(' ', array_column($compactPanelPower['items'] ?? [], 'caption'));
 check('20h: Hauptschalter warnt vor dem aktiven Zurücksetzen (Dietmars Auftrag 01.09.2026)', str_contains($compactPowerText, '⚠️') && str_contains($compactPowerText, 'löscht aktiv'), $compactPowerText);
+
+echo "\n21) Anteil (%) mit bis zu zwei Nachkommastellen (Dietmars Auftrag 01.09.2026: krumme Aufteilungen wie Drittel)\n";
+$fracCat = obj(970, 0, 'Drittel-Test', 10);
+vari(971, 'Quelle', $fracCat, '', 'MHB.W', 900.0);
+$fracIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($fracIid, 1, 'Anteil-Test', 10);
+IPS_SetProperty($fracIid, 'Nodes', json_encode([
+    ['Name' => 'Quelle (ein Drittel)', 'Factor' => 33.33, 'PowerID' => 971, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+]));
+IPS_ApplyChanges($fracIid);
+$GLOBALS['MODOBJ'][$fracIid]->Recalc();
+$fracOut = (int)@IPS_GetObjectIDByIdent('power', $fracIid);
+check('21a: 33,33 % von 900 W = 299,97 W (nicht auf ganze Prozent gerundet)', abs(GetValue($fracOut) - 299.97) < 0.01, 'ist ' . GetValue($fracOut));
+$formFrac = json_decode($GLOBALS['MODOBJ'][$fracIid]->GetConfigurationForm(), true);
+$fracListField = null;
+foreach ($formFrac['elements'] ?? [] as $el) {
+    if (($el['caption'] ?? '') === '🔌  Zähler') {
+        foreach ($el['items'] ?? [] as $it) { if (($it['name'] ?? '') === 'Nodes') { $fracListField = $it; } }
+    }
+}
+$fracFactorCol = null;
+foreach ($fracListField['columns'] ?? [] as $col) { if (($col['name'] ?? '') === 'Factor') { $fracFactorCol = $col; } }
+check('21b: Anteil-Spalte erlaubt zwei Nachkommastellen (digits=2)', ($fracFactorCol['edit']['digits'] ?? null) === 2, json_encode($fracFactorCol));
+$checkPanelFrac = null;
+foreach ($formFrac['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🔎  Prüfung & Vorschau') { $checkPanelFrac = $el; } }
+$checkTextFrac = implode(' ', array_column($checkPanelFrac['items'] ?? [], 'caption'));
+check('21c: Vorschau zeigt "× 33,33 %" (keine Rundung, kein Nachkomma-Abschneiden)', str_contains($checkTextFrac, '× 33,33 %'), $checkTextFrac);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

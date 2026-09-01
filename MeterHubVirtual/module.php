@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.5';
+    private const NEWS_VERSION = '0.24.15';
 
     public function Create()
     {
@@ -117,7 +117,40 @@ class MeterHubVirtual extends IPSModule
         // Nachschauen, wo ein bestimmter Zähler sonst noch eingeht.
         $this->RegisterPropertyBoolean('ScanOnlyUsedElsewhere', false);
         $this->RegisterAttributeString('SeenNews', '');
+        // Symcon-Forum-Hinweis (SUITE.md "Einheitliche Formular-Optik", Punkt
+        // 4): einmalig dismissible, kein Versionsbezug. URL noch ein
+        // Platzhalter (Dietmar, 01.09.2026: ".forum/ankuendigung.md" ist noch
+        // nicht veröffentlicht, "auch wenn nur eine Phantasie-URL drinnsteht"
+        // soll die Zeile schon jetzt sichtbar sein) — vor main/Store-Release
+        // durch den echten Thread-Link ersetzen.
+        $this->RegisterAttributeBoolean('ForumHintGone', false);
         $this->RegisterTimer('Recalc', 0, 'MHUBV_Recalc($_IPS[\'TARGET\']);');
+    }
+
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
+
+    /** Symcon-Forum-Hinweis — einmalig dismissible, kein Versionsbezug (siehe NewsBanner() für das Versions-Pendant). */
+    private function ForumHint(): ?array
+    {
+        if ($this->ReadAttributeBoolean('ForumHintGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
+            'caption' => '💬  Feedback im Symcon-Forum',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'MeterHub/MeterHubVirtual sind Beta — Rückmeldungen, gerade zu neuen/ungetesteten Zählertypen, sind ausdrücklich willkommen im Community-Thread.'],
+                ['type' => 'Label', 'caption' => '⚠️ Platzhalter-Link, Thread noch nicht veröffentlicht.'],
+                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'link' => self::FORUM_THREAD_URL],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckForumHint($id);'],
+            ],
+        ];
+    }
+
+    public function AckForumHint()
+    {
+        $this->WriteAttributeBoolean('ForumHintGone', true);
+        $this->UpdateFormField('ForumHintPanel', 'visible', false);
     }
 
     /**
@@ -136,12 +169,13 @@ class MeterHubVirtual extends IPSModule
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
                 ['type' => 'Label', 'caption' => '• Komplett neues, einfacheres Modell: Diese Instanz ist jetzt selbst die oberste Ebene. Jede Zeile ist ein Term mit einem Anteil in Prozent — kein „Kürzel“, kein „hängt hinter“, keine Sammelzeilen mehr.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Ein Zähler lässt sich jetzt aufteilen: Spalte „Anteil (%)“ statt nur +/− — 100/−100 wie bisher, jeder Wert dazwischen ein Teil-Anteil (z. B. für eine anteilige Einspeisevergütung auf mehrere Instanzen/Mieter). Details samt Beispiel im Doku-Panel unten.'],
-                ['type' => 'Label', 'caption' => '• 🆕 „Zähler suchen“ trägt nichts mehr automatisch ein, sondern zeigt nur noch die Fundstellen — aufgenommen wird über das normale „+“ mit dem eingebauten Symcon-Variablenpicker. Kein Aufräumen unerwünschter Funde mehr nötig.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Zeilen lassen sich per Drag & Drop umsortieren, und „Prüfung & Vorschau“ zeigt jetzt die aktuellen Live-Werte samt Rechenergebnis, nicht nur die Formel-Struktur.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Neues Feld „Standort“ (Raum/Geschoss) — reines Freitext-Label, unabhängig von „Funktion“, mit Vorschlägen aus bereits benutzten Werten.'],
-                ['type' => 'Label', 'caption' => '• Die Funktion (fürs Dashboard) wird jetzt einmal für die ganze Instanz gesetzt, nicht mehr pro Zeile.'],
-                ['type' => 'Label', 'caption' => '• Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht jetzt über mehrere verkettete Instanzen statt innerhalb einer einzigen — Details im Doku-Panel unten.'],
+                ['type' => 'Label', 'caption' => '• Ein Zähler lässt sich aufteilen: Spalte „Anteil (%)“ statt nur +/− — 100/−100 wie bisher, jeder Wert dazwischen ein Teil-Anteil, jetzt mit bis zu zwei Nachkommastellen (z. B. exakt ein Drittel). Details samt Beispiel im Doku-Panel unten.'],
+                ['type' => 'Label', 'caption' => '• „Zähler suchen“ trägt nichts mehr automatisch ein, sondern zeigt nur noch die Fundstellen — aufgenommen wird über das normale „+“ mit dem eingebauten Symcon-Variablenpicker oder den neuen Geräte-Picker („Gerät wählen“).'],
+                ['type' => 'Label', 'caption' => '• Zeilen lassen sich per Drag & Drop umsortieren, und „Prüfung & Vorschau“ zeigt die aktuellen Live-Werte samt Rechenergebnis, nicht nur die Formel-Struktur.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Neue Felder „Zählerbezeichnung“ (benennt die Instanz direkt im Formular um) und „Standort“ (Raum/Geschoss, mit Vorschlägen aus bereits benutzten Werten — jetzt auch aus normalen MeterHub-Instanzen).'],
+                ['type' => 'Label', 'caption' => '• 🆕 Archiv-Verdichtung läuft automatisch: bei jedem „Übernehmen" wird eine konfigurierbare Staffelung gesetzt (Panels „🗄️ Archiv-Verdichtung", getrennt für Leistung/Energie), statt sie für jeden Datenpunkt von Hand in der Konsole einzustellen. Ein Fix stellt sicher, dass „aus" eine vorhandene Verdichtungsregel auch wirklich löscht.'],
+                ['type' => 'Label', 'caption' => '• Die Funktion (fürs Dashboard) wird einmal für die ganze Instanz gesetzt, nicht mehr pro Zeile.'],
+                ['type' => 'Label', 'caption' => '• Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere verkettete Instanzen statt innerhalb einer einzigen — Details im Doku-Panel unten.'],
                 ['type' => 'Label', 'caption' => '• Schon verdrahtete Instanzen (altes Baum-Format) brauchen eine einmalige Bestätigung: ein Migrations-Panel zeigt die bisherigen Zeilen als Vorschlag, nichts wird automatisch übernommen.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
@@ -652,6 +686,10 @@ class MeterHubVirtual extends IPSModule
     // -----------------------------------------------------------------------
 
     private const GUID_VIRTUAL = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
+    // Für die "Standort"-Vorschlagsliste (Dietmars Auftrag 01.09.2026: das
+    // Feld soll auch bei echten MeterHub-Zählern existieren, mit GETEILTER
+    // Vorschlagsliste über beide Modultypen hinweg).
+    private const GUID_METER = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
 
     /**
      * Klassifiziert eine Variable anhand ihres Profil-Suffixes.
@@ -1171,12 +1209,14 @@ class MeterHubVirtual extends IPSModule
         }
 
         // Vorschlagsliste für "Standort": alle Werte, die irgendeine
-        // MeterHubVirtual-Instanz (auch diese selbst) schon eingetragen hat —
-        // wächst mit der eigenen Nutzung, statt eine erfundene Raumliste
-        // vorzugeben, die an keiner echten Anlage passt.
+        // MeterHub- ODER MeterHubVirtual-Instanz (auch diese selbst) schon
+        // eingetragen hat — geteilter Vorschlagspool über beide Modultypen
+        // (Dietmars Auftrag 01.09.2026, Standort jetzt auch bei echten
+        // Zählern), wächst mit der eigenen Nutzung statt eine erfundene
+        // Raumliste vorzugeben, die an keiner echten Anlage passt.
         $locationOptions = [['caption' => '— Vorschlag wählen —', 'value' => '']];
         $seenLocations = [];
-        foreach (IPS_GetInstanceListByModuleID(self::GUID_VIRTUAL) as $iid) {
+        foreach (array_merge(IPS_GetInstanceListByModuleID(self::GUID_VIRTUAL), IPS_GetInstanceListByModuleID(self::GUID_METER)) as $iid) {
             $loc = trim((string)@IPS_GetProperty($iid, 'Location'));
             if ($loc !== '' && !isset($seenLocations[$loc])) {
                 $seenLocations[$loc] = true;
@@ -1225,7 +1265,10 @@ class MeterHubVirtual extends IPSModule
                 // wie das bisherige +/−, jeder Wert dazwischen ist ein
                 // echter Anteil. Ältere Zeilen mit "Sign" statt "Factor"
                 // werden weiterhin gelesen, siehe Nodes().
-                ['caption' => 'Anteil (%)', 'name' => 'Factor', 'width' => '130px', 'add' => 100, 'edit' => ['type' => 'NumberSpinner', 'minimum' => -1000, 'maximum' => 1000, 'suffix' => ' %']],
+                // digits=2 (Dietmars Auftrag 01.09.2026): krumme Aufteilungen
+                // wie 33,33 % (Drittel) müssen sich exakt eintragen lassen,
+                // nicht nur ganze Prozentpunkte.
+                ['caption' => 'Anteil (%)', 'name' => 'Factor', 'width' => '130px', 'add' => 100, 'edit' => ['type' => 'NumberSpinner', 'minimum' => -1000, 'maximum' => 1000, 'digits' => 2, 'suffix' => ' %']],
                 // Feste statt "auto" Breite (Dietmars Fund 31.08.2026: eine
                 // SelectVariable-Spalte zeigt den vollen Objektpfad, "auto"
                 // ließ die Zeile dadurch beliebig breit werden — Papierkorb-
@@ -1304,12 +1347,13 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'Label', 'caption' => 'Beispiel „Aufteilen“: eine PV-Anlage mit mehreren Erzeugungsjahren bekommt die Einspeisevergütung anteilig nach Quotierung — dieselbe Einspeisungs-Variable wird in der Instanz für den einen Anteil mit z. B. 60 % eingetragen, in einer zweiten Instanz für den anderen Anteil mit 40 %. Dasselbe funktioniert für eine anteilige Zuordnung an mehrere Mieter.'],
                         ['type' => 'Label', 'caption' => 'Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere Instanzen: eine Instanz rechnet den Zwischenwert, dessen Ausgabe wird als ganz normale Zeile in der nächsten Instanz verdrahtet — nicht mehr innerhalb einer einzigen Instanz.'],
                         ['type' => 'Label', 'caption' => '━━━ Schritt für Schritt ━━━'],
-                        ['type' => 'Label', 'caption' => '1. Optional zur Übersicht: „Zähler suchen" unten klicken — zeigt brauchbare Kandidaten im Ergebnistext, trägt aber nichts ein.'],
-                        ['type' => 'Label', 'caption' => '2. Je Zähler eine Zeile — drei Wege: nach dem Suchlauf bei „Fund auswählen" wählen und übernehmen; ohne Suche direkt bei „Zähler-Instanz oder Gerät" wählen und übernehmen; oder von Hand unter der Tabelle „Hinzufügen" klicken und je Spalte mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen. In allen drei Fällen werden Leistung/Bezug/Einspeisung außer beim letzten automatisch gesucht.'],
-                        ['type' => 'Label', 'caption' => '3. „Anteil (%)" setzen: 100 addiert voll, −100 zieht voll ab, jeder Wert dazwischen ist ein Teil-Anteil (siehe Beispiel „Aufteilen").'],
-                        ['type' => 'Label', 'caption' => '4. „Übernehmen“ klicken.'],
-                        ['type' => 'Label', 'caption' => '5. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt die fertige Formel MIT aktuellen Werten, ❌ nennt genau, was noch fehlt.'],
-                        ['type' => 'Label', 'caption' => '6. Optional: „Funktion“ oben setzen, damit das Dashboard diese Instanz als Verbraucher erkennt.'],
+                        ['type' => 'Label', 'caption' => '1. Optional zuerst: „Zählerbezeichnung“ oben setzen — das ist zugleich der Name dieser Instanz im Objektbaum, keine zwei getrennten Namen zu pflegen.'],
+                        ['type' => 'Label', 'caption' => '2. Optional zur Übersicht: „Zähler suchen" unten klicken — zeigt brauchbare Kandidaten im Ergebnistext, trägt aber nichts ein.'],
+                        ['type' => 'Label', 'caption' => '3. Je Zähler eine Zeile — drei Wege: nach dem Suchlauf bei „Fund auswählen" wählen und übernehmen; ohne Suche direkt bei „Zähler-Instanz oder Gerät" wählen und übernehmen; oder von Hand unter der Tabelle „Hinzufügen" klicken und je Spalte mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen. In allen drei Fällen werden Leistung/Bezug/Einspeisung außer beim letzten automatisch gesucht.'],
+                        ['type' => 'Label', 'caption' => '4. „Anteil (%)" setzen: 100 addiert voll, −100 zieht voll ab, jeder Wert dazwischen ist ein Teil-Anteil, auch mit Nachkommastellen (siehe Beispiel „Aufteilen").'],
+                        ['type' => 'Label', 'caption' => '5. „Übernehmen“ klicken.'],
+                        ['type' => 'Label', 'caption' => '6. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt die fertige Formel MIT aktuellen Werten, ❌ nennt genau, was noch fehlt.'],
+                        ['type' => 'Label', 'caption' => '7. Optional: „Funktion“ setzen, damit das Dashboard diese Instanz als Verbraucher erkennt; „Standort“ (Raum/Geschoss) für die eigene Übersicht, unabhängig von der Funktion.'],
                         ['type' => 'Label', 'caption' => 'Ein Datenpunkt darf innerhalb DERSELBEN Instanz nur in EINER Zeile stehen — sonst würde er doppelt gezählt, die Prüfung meldet das. Über mehrere Instanzen hinweg ist dieselbe Variable dagegen ausdrücklich erlaubt (siehe „Aufteilen") — die Verantwortung, dass die Anteile insgesamt sinnvoll sind, liegt dann bei dir.'],
                         ['type' => 'Label', 'caption' => 'Einheiten: Leistung in W, Energie als kumulative kWh-Zählerstände. Alle Datenpunkte je Spalte müssen dieselbe Einheit haben; Abweichungen meldet die Prüfung.'],
                         ['type' => 'Label', 'caption' => 'Zeilen lassen sich per Drag & Drop umsortieren, rein zur eigenen Übersicht — das Ergebnis ist unabhängig von der Reihenfolge.'],
@@ -1322,7 +1366,7 @@ class MeterHubVirtual extends IPSModule
                 // sondern nur mit dem aktuellen IPS-Namen vorbelegt —
                 // IPS_SetName() läuft sofort per onChange, unabhängig vom
                 // Client (Konsole/WebFront/App) und von "Übernehmen".
-                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => 'Zählerbezeichnung', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUBV_RenameInstance($id, $InstanceName);'],
+                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => '🆕 Zählerbezeichnung', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUBV_RenameInstance($id, $InstanceName);'],
                 ['type' => 'CheckBox', 'name' => 'Active', 'caption' => 'Berechnung aktiv'],
                 ['type' => 'Select', 'name' => 'Function', 'caption' => 'Funktion (fürs Dashboard)', 'options' => $funcOptions],
                 // Standort: reines Freitext-Label (Raum/Geschoss …), bewusst
@@ -1332,7 +1376,7 @@ class MeterHubVirtual extends IPSModule
                 // Liste passt (Dietmars Auftrag: "auch die letzten
                 // Absurditäten noch bezeichnen können").
                 ['type' => 'Select', 'name' => 'LocationPreset', 'caption' => 'Standort (Vorschlag übernehmen …)', 'options' => $locationOptions, 'value' => '', 'onChange' => 'MHUBV_ApplyLocationPreset($id, $LocationPreset);'],
-                ['type' => 'ValidationTextBox', 'name' => 'Location', 'caption' => 'Standort (Raum/Geschoss, frei eintragbar)'],
+                ['type' => 'ValidationTextBox', 'name' => 'Location', 'caption' => '🆕 Standort (Raum/Geschoss, frei eintragbar)'],
                 [
                     'type' => 'ExpansionPanel', 'caption' => '🔌  Zähler', 'expanded' => true,
                     'items' => $meterItems,
@@ -1363,6 +1407,7 @@ class MeterHubVirtual extends IPSModule
                         $this->CompactionFields('Energy')
                     ),
                 ],
+                $this->ForumHint(),
             ])),
             'actions' => [
                 ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'echo MHUBV_Recalc($id);'],
