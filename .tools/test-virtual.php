@@ -39,6 +39,7 @@ function IPS_SetName($id, $n)     { $GLOBALS['OBJ'][$id]['ObjectName'] = $n; }
 function IPS_SetParent($id, $p)   { $GLOBALS['OBJ'][$id]['ParentID'] = $p; }
 function IPS_SetIdent($id, $i)    { $GLOBALS['OBJ'][$id]['ObjectIdent'] = $i; }
 function IPS_SetPosition($id, $p) {}
+function IPS_SetInfo($id, $text)  { $GLOBALS['OBJ'][$id]['ObjectInfo'] = $text; }
 function IPS_GetVariableList()    { return array_keys($GLOBALS['VAR']); }
 function GetValue($id)            { return $GLOBALS['VAL'][$id] ?? 0; }
 function SetValueFloat($id, $v)   { $GLOBALS['VAL'][$id] = $v; }
@@ -934,6 +935,111 @@ echo "\n  23f) Randfälle\n";
 check('23f: unbekannte Bereichs-ID liefert klare Fehlermeldung, kein Absturz', str_contains($fam->AddDeviceFamily(999999), 'Kein Bereich'));
 $emptyCat = obj(60100, 0, 'Leere Kategorie', 10);
 check('23f: Kategorie ohne bekanntes Muster liefert klare Fehlermeldung, kein Absturz', str_contains($fam->AddDeviceFamily($emptyCat), 'kein bekanntes Muster'));
+
+echo "\n24) AddCalculatedEnergy()/AdvanceCalculatedEnergy() — Leistung × Intervall hochrechnen, wenn der Bezug fehlt (Dietmars Auftrag 01.09.2026, ausdrücklich \"hochgerechnet\", nicht \"geschätzt\")\n";
+$calcPowerCat = obj(61000, 0, 'Hochrechnungs-Test', 10);
+vari(61001, 'Nur-Leistung-Quelle', $calcPowerCat, '', 'MHB.W', 900.0);
+vari(61002, 'Mit-Bezug-Quelle', $calcPowerCat, '', 'MHB.W', 500.0);
+vari(61003, 'Mit-Bezug-Quelle Bezug', $calcPowerCat, '', 'MHB.kWh', 42.0);
+
+$calcIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($calcIid, 1, 'Hochrechnungs-Instanz', 10);
+IPS_SetProperty($calcIid, 'Interval', 3600); // 1 Stunde -- macht die Rechnung leicht nachvollziehbar
+IPS_SetProperty($calcIid, 'Nodes', json_encode([
+    ['Name' => 'Nur Leistung', 'Factor' => 100, 'PowerID' => 61001, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+    ['Name' => 'Mit Bezug', 'Factor' => 100, 'PowerID' => 61002, 'EnergyImportID' => 61003, 'EnergyExportID' => 0],
+]));
+IPS_ApplyChanges($calcIid);
+$calc = $GLOBALS['MODOBJ'][$calcIid];
+
+$msg24a = $calc->AddCalculatedEnergy(IPS_GetProperty($calcIid, 'Nodes'));
+check('24a: Ergebnis nennt "hochgerechnet" und stellt klar "keine Schätzung", nie "geschätzt"', str_contains($msg24a, 'hochgerechnet') && str_contains($msg24a, 'keine Schätzung') && !str_contains($msg24a, 'geschätzt'), $msg24a);
+check('24a: nur die Zeile ohne Bezug wird genannt', str_contains($msg24a, 'Nur Leistung') && !str_contains($msg24a, 'Mit Bezug'), $msg24a);
+
+$rows24 = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+$calcVid = null;
+$mitBezugRow = null;
+foreach ($rows24 as $r) {
+    if ($r['Name'] === 'Nur Leistung') { $calcVid = (int)$r['EnergyImportID']; }
+    if ($r['Name'] === 'Mit Bezug') { $mitBezugRow = $r; }
+}
+check('24b: neue Variable angelegt und in die Zeile eingetragen', $calcVid > 0 && IPS_VariableExists($calcVid));
+check('24b: Zeile mit vorhandenem Bezug bleibt unverändert', ($mitBezugRow['EnergyImportID'] ?? null) === 61003, json_encode($mitBezugRow));
+check('24c: Name endet auf "— Energie hochgerechnet"', str_ends_with(IPS_GetName($calcVid), '— Energie hochgerechnet'), IPS_GetName($calcVid));
+check('24c: Beschreibung nennt "Hochgerechnet", keine "Schätzung"', str_contains($GLOBALS['OBJ'][$calcVid]['ObjectInfo'] ?? '', 'Hochgerechnet'), json_encode($GLOBALS['OBJ'][$calcVid] ?? null));
+
+echo "\n  24d) Übernehmen: neue Zeile mit der hochgerechneten Variable wirklich speichern und archivieren lassen\n";
+IPS_SetProperty($calcIid, 'Nodes', json_encode($rows24));
+IPS_ApplyChanges($calcIid);
+check('24d: Variable übersteht RegisterVariables() (keine Aufräumung, obwohl ihr Ident nicht in OutputDefs() steht)', IPS_VariableExists($calcVid));
+check('24d: bekommt Aggregationstyp "Zähler" (1), wie ein echter Bezugszähler', ($GLOBALS['AGGTYPE'][$calcVid] ?? null) === 1, json_encode($GLOBALS['AGGTYPE'] ?? null));
+// ApplyChanges() ruft am Ende selbst schon einmal Recalc() auf — der erste
+// Durchlauf ist also bereits mit "Übernehmen" gelaufen: 900 W × 1 h = 0,9 kWh.
+check('24d: ApplyChanges() hat selbst schon einen Durchlauf gerechnet: 900 W × 1 h = 0,9 kWh', abs(GetValue($calcVid) - 0.9) < 0.0001, 'ist ' . GetValue($calcVid));
+
+$calc->Recalc();
+check('24e: weiterer Durchlauf addiert 0,9 kWh drauf (0,9 + 0,9 = 1,8 kWh), kein Reset', abs(GetValue($calcVid) - 1.8) < 0.0001, 'ist ' . GetValue($calcVid));
+$calc->Recalc();
+check('24f: noch ein Durchlauf (1,8 + 0,9 = 2,7 kWh)', abs(GetValue($calcVid) - 2.7) < 0.0001, 'ist ' . GetValue($calcVid));
+
+echo "\n  24g) Randfälle\n";
+$msg24g = $calc->AddCalculatedEnergy(json_encode([['Name' => 'Alles ohne Leistung', 'Factor' => 100, 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 0]]));
+check('24g: keine Zeile mit Leistung -> klare "nichts zu tun"-Meldung', str_contains($msg24g, 'nichts zu tun'), $msg24g);
+$calc->AddCalculatedEnergy(json_encode([['Name' => 'Nur Leistung', 'Factor' => 100, 'PowerID' => 61001, 'EnergyImportID' => 0, 'EnergyExportID' => 0]]));
+$rowsAgain = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+check('24g: erneuter Aufruf für dieselbe PowerID liefert dieselbe Variable (idempotent über den Ident)', (int)($rowsAgain[0]['EnergyImportID'] ?? 0) === $calcVid, json_encode($rowsAgain));
+
+echo "\n25) Warnings() — Hinweis, wenn eine Zeile Leistung aber keinen Bezug hat, obwohl andere Zeilen einen haben (Dietmars Auftrag 01.09.2026, nicht blockierend)\n";
+$warnCat = obj(62000, 0, 'Warnungs-Test', 10);
+vari(62001, 'Zähler A Leistung', $warnCat, '', 'MHB.W', 300.0);
+vari(62002, 'Zähler A Bezug', $warnCat, '', 'MHB.kWh', 10.0);
+vari(62003, 'Zähler B Leistung', $warnCat, '', 'MHB.W', 150.0);
+
+$warnIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($warnIid, 1, 'Warnungs-Instanz', 10);
+IPS_SetProperty($warnIid, 'Nodes', json_encode([
+    ['Name' => 'Zähler A', 'Factor' => 100, 'PowerID' => 62001, 'EnergyImportID' => 62002, 'EnergyExportID' => 0],
+    ['Name' => 'Zähler B', 'Factor' => 100, 'PowerID' => 62003, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+]));
+IPS_ApplyChanges($warnIid);
+
+function checkPanelText($iid) {
+    $form = json_decode($GLOBALS['MODOBJ'][$iid]->GetConfigurationForm(), true);
+    foreach ($form['elements'] ?? [] as $el) {
+        if (($el['caption'] ?? '') === '🔎  Prüfung & Vorschau') {
+            return implode(' | ', array_column($el['items'] ?? [], 'caption'));
+        }
+    }
+    return '';
+}
+
+$checkTextWarn = checkPanelText($warnIid);
+check('25a: Formel bleibt gültig (nicht blockierend) trotz Warnung', str_contains($checkTextWarn, '✅ Formel schlüssig'), $checkTextWarn);
+check('25a: Warnung nennt "Zeile 2 (Zähler B)" und den fehlenden Bezug', str_contains($checkTextWarn, 'Zeile 2 („Zähler B“)') && str_contains($checkTextWarn, 'keinen Bezug'), $checkTextWarn);
+check('25a: Warnung verweist aufs Hochrechnen', str_contains($checkTextWarn, 'hochrechnen'), $checkTextWarn);
+check('25a: "Zeile 1 (Zähler A)" (vollständig) wird NICHT gewarnt', !str_contains($checkTextWarn, 'Zeile 1 („Zähler A“)'), $checkTextWarn);
+
+echo "\n  25b) Keine Warnung, wenn KEINE Zeile einen Bezug hat (reine Leistungs-Formel ist ein gültiger, gewollter Fall)\n";
+IPS_SetProperty($warnIid, 'Nodes', json_encode([
+    ['Name' => 'Nur Leistung A', 'Factor' => 100, 'PowerID' => 62001, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+    ['Name' => 'Nur Leistung B', 'Factor' => 100, 'PowerID' => 62003, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+]));
+IPS_ApplyChanges($warnIid);
+$checkTextWarn2 = checkPanelText($warnIid);
+check('25b: keine Warnung, wenn gar keine Zeile Bezug hat', !str_contains($checkTextWarn2, '⚠️'), $checkTextWarn2);
+
+echo "\n  25c) Warnung verschwindet, sobald der fehlende Wert hochgerechnet und übernommen wird\n";
+IPS_SetProperty($warnIid, 'Nodes', json_encode([
+    ['Name' => 'Zähler A', 'Factor' => 100, 'PowerID' => 62001, 'EnergyImportID' => 62002, 'EnergyExportID' => 0],
+    ['Name' => 'Zähler B', 'Factor' => 100, 'PowerID' => 62003, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+]));
+IPS_ApplyChanges($warnIid);
+$GLOBALS['MODOBJ'][$warnIid]->AddCalculatedEnergy(IPS_GetProperty($warnIid, 'Nodes'));
+$rowsWarnAfter = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+IPS_SetProperty($warnIid, 'Nodes', json_encode($rowsWarnAfter));
+IPS_ApplyChanges($warnIid);
+$checkTextWarn3 = checkPanelText($warnIid);
+check('25c: Warnung verschwindet nach Hochrechnen + Übernehmen', !str_contains($checkTextWarn3, '⚠️'), $checkTextWarn3);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

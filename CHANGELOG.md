@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.24.19-beta.1 (2026-09-01)
+
+- **🆕 Fehlende Bezugswerte aus der Leistung hochrechnen (MeterHubVirtual).** Auslöser:
+  Sepps AZI-Aktoren, bei denen manche Geräte nur eine Wirkleistung, aber keinen Hauptzähler
+  kWh liefern (z. B. „AZI Backofen"). Neuer Knopf im Panel „🔌 Verdrahtung": „Fehlende
+  Energiewerte aus der Leistung hochrechnen" — legt für jede Zeile mit Leistung, aber ohne
+  Bezug, eine eigene, klar beschriftete Variable an (Name endet auf „— Energie
+  hochgerechnet") und summiert dort bei jedem Berechnungsdurchlauf Leistung × Berechnungs-
+  Intervall auf. **Bewusst „hochgerechnet", nicht „geschätzt"** (Dietmars Grundsatzeinwand:
+  das ist eine echte Rechnung aus real gemessenen Werten, keine Vermutung — die Genauigkeit
+  hängt vom Berechnungs-Intervall ab, das steht so auch im Ergebnistext und an der Variable
+  selbst). Schreibt wie die anderen Picker nur ins offene Formular, „Übernehmen" bleibt der
+  letzte Schritt; die Variable bekommt bei „Übernehmen" dieselbe Archiv-Behandlung
+  (Aggregationstyp „Zähler", Verdichtungs-Staffelung) wie ein echter Bezugszähler und
+  übersteht die normale Variablen-Aufräumung, auch wenn keine Zeile mehr auf sie verweist
+  (bleibt als Historie stehen, wird dann aber nicht mehr fortgeschrieben).
+- **🆕 „Prüfung & Vorschau" warnt jetzt vor unvollständigen Zeilen** (nicht blockierend):
+  hat eine Zeile eine Leistung, aber keinen Bezug, während andere Zeilen derselben Formel
+  einen Bezug haben, zählt die Bezug-Summe diese Zeile bisher lautlos mit 0 kWh statt mit
+  ihrem tatsächlichen Verbrauch — jetzt weist ein ⚠️-Hinweis direkt darauf hin und verlinkt
+  auf die neue Hochrechnen-Funktion. Eine reine Leistungs-Formel (keine Zeile hat einen
+  Bezug) bleibt bewusst ohne Warnung — das ist ein gültiger, oft gewollter Fall.
+
 ## 0.24.18-beta.1 (2026-09-01)
 
 - **🆕 Geräte-Familien ohne gemeinsamen Container erkennen (MeterHubVirtual).** Auslöser:

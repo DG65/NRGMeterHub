@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.18';
+    private const NEWS_VERSION = '0.24.19';
 
     public function Create()
     {
@@ -180,6 +180,8 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" fehlschlagen, wenn eine Verdichtungsstufe auf „aus" stand oder eine Alt-Regel von einer früheren Einstellung im Archiv übrig war — beides räumt die Archiv-Verdichtung jetzt sauber auf.'],
                 ['type' => 'Label', 'caption' => '• Fix: „Jetzt neu berechnen" meldete zwar Erfolg, das Panel „Prüfung & Vorschau" zeigte aber weiter die alten Werte — der Knopf lädt das Formular jetzt mit den frischen Werten neu.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Geräte-Familien ohne gemeinsamen Container (z. B. MDT AZI — jeder Messwert eine eigene KNX-Instanz): Kategorie wählen, „Geräte-Familie erkennen" liefert alle passenden Geräte auf einmal als neue Zeilen.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Fehlt bei einem Zähler der Bezugswert (z. B. reine Wirkleistungs-Aktoren): „Fehlende Energiewerte aus der Leistung hochrechnen" rechnet Leistung × Berechnungs-Intervall zu einer eigenen, klar beschrifteten Variable auf — keine Schätzung, aber ungenauer als ein echter Zähler.'],
+                ['type' => 'Label', 'caption' => '• 🆕 „Prüfung & Vorschau" warnt jetzt (⚠️, nicht blockierend), wenn eine Zeile Leistung, aber keinen Bezug hat, während andere Zeilen derselben Formel einen haben — sonst würde die Bezug-Summe diese Zeile still mit 0 kWh mitzählen.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -393,6 +395,45 @@ class MeterHubVirtual extends IPSModule
         return $errors;
     }
 
+    /**
+     * Nicht-blockierende Hinweise, im Unterschied zu Validate()'s Fehlern
+     * (die RegisterVariables() komplett stoppen) — Dietmars Auftrag
+     * 01.09.2026: eine Zeile mit Leistung, aber ohne Bezug, während andere
+     * Zeilen derselben Formel einen Bezug haben, verfälscht die Bezug-
+     * Summe still — Recalc() zählt eine fehlende EnergyImportID einfach mit
+     * 0 kWh mit, kein Fehler, keine Meldung (siehe Recalc()). Blockiert
+     * hier bewusst nichts: eine unvollständige Zeile kann gewollt sein
+     * (z. B. interessiert nur die Leistung).
+     */
+    private function Warnings(array $nodes): array
+    {
+        $warnings = [];
+        $anyImp = false;
+        $anyExp = false;
+        foreach ($nodes as $n) {
+            if ($n['imp'] > 0) {
+                $anyImp = true;
+            }
+            if ($n['exp'] > 0) {
+                $anyExp = true;
+            }
+        }
+        foreach ($nodes as $i => $n) {
+            if ($n['power'] <= 0) {
+                continue;
+            }
+            $nr = $i + 1;
+            $name = $n['name'] !== '' ? '„' . $n['name'] . '“' : 'ohne Bezeichnung';
+            if ($anyImp && $n['imp'] <= 0) {
+                $warnings[] = "Zeile $nr ($name): hat eine Leistung, aber keinen Bezug — andere Zeilen in dieser Formel haben einen. Die Bezug-Summe zählt diese Zeile mit 0 kWh statt mit ihrem tatsächlichen Verbrauch. Unten lässt sich der fehlende Wert aus der Leistung hochrechnen.";
+            }
+            if ($anyExp && $n['exp'] <= 0) {
+                $warnings[] = "Zeile $nr ($name): hat eine Leistung, aber keine Einspeisung — andere Zeilen in dieser Formel haben eine. Die Einspeisung-Summe zählt diese Zeile mit 0 kWh mit.";
+            }
+        }
+        return $warnings;
+    }
+
     /** Hat die Instanz schon mindestens eine registrierte Ausgabevariable? */
     private function HasExistingOutputs(): bool
     {
@@ -486,7 +527,13 @@ class MeterHubVirtual extends IPSModule
         }
         foreach (IPS_GetChildrenIDs($this->InstanceID) as $cid) {
             $o = IPS_GetObject($cid);
-            if ($o['ObjectType'] === 2 && $o['ObjectIdent'] !== '' && !isset($valid[$o['ObjectIdent']])) {
+            // "Energie hochgerechnet"-Variablen (siehe CALC_ENERGY_IDENT_PREFIX)
+            // bleiben von dieser Aufräumung ausgenommen — sie sollen auch dann
+            // als Historie stehen bleiben, wenn keine Zeile sie gerade mehr
+            // referenziert (AddCalculatedEnergy()), nur ihre Fortschreibung
+            // in AdvanceCalculatedEnergy() endet dann.
+            if ($o['ObjectType'] === 2 && $o['ObjectIdent'] !== '' && !isset($valid[$o['ObjectIdent']])
+                && !str_starts_with($o['ObjectIdent'], self::CALC_ENERGY_IDENT_PREFIX)) {
                 @IPS_DeleteVariable($cid);
             }
         }
@@ -512,6 +559,18 @@ class MeterHubVirtual extends IPSModule
             // Typ, ist Standard, muss Zähler sein“, da bisher pauschal
             // Standard (0) für jede Ausgabe gesetzt wurde.
             $this->SetArchive($vid, $field !== 'power', $this->ReadPropertyInteger('Interval'));
+        }
+
+        // "Energie hochgerechnet"-Variablen sind kumulative Zählerstände wie
+        // ein echter Bezugszähler — bekommen bei jedem "Übernehmen" dieselbe
+        // Archiv-Behandlung (Aggregationstyp "Zähler", Verdichtungs-Staffelung).
+        foreach ($this->Nodes() as $n) {
+            foreach (['imp', 'exp'] as $ef) {
+                $vid = (int)$n[$ef];
+                if ($vid > 0 && $this->IsOwnCalculatedEnergyVar($vid)) {
+                    $this->SetArchive($vid, true, $this->ReadPropertyInteger('Interval'));
+                }
+            }
         }
     }
 
@@ -715,6 +774,7 @@ class MeterHubVirtual extends IPSModule
             return 'ℹ️ Instanz ist deaktiviert, es wurde nichts berechnet.';
         }
         $nodes = $this->Nodes();
+        $this->AdvanceCalculatedEnergy($nodes);
 
         $count = 0;
         foreach ($this->OutputDefs() as [$ident, , , $field]) {
@@ -1138,6 +1198,123 @@ class MeterHubVirtual extends IPSModule
         return $msg;
     }
 
+    /**
+     * Ident-Präfix für selbst gepflegte "Energie hochgerechnet"-Variablen
+     * (AddCalculatedEnergy()/AdvanceCalculatedEnergy()). Dietmars
+     * Grundsatzeinwand 01.09.2026: "kannst Du nicht von Schätzung reden",
+     * weil Leistung × Berechnungs-Intervall eine echte Rechnung aus real
+     * gemessenen Werten ist, keine Vermutung — deshalb im gesamten
+     * Nutzertext "hochgerechnet", nie "geschätzt". Der Ident selbst bleibt
+     * technisches Englisch (API, nie übersetzt, siehe Sprachregel).
+     * Enthält die PowerID statt einer Zeilen-Nummer, weil Zeilen per Drag &
+     * Drop umsortierbar sind und seit 0.24.0 keinen eigenen Ident mehr
+     * tragen — die PowerID ist der stabile Bezug.
+     */
+    private const CALC_ENERGY_IDENT_PREFIX = 'calc_energy_';
+
+    /** Ist $vid eine von dieser Instanz selbst angelegte "Energie hochgerechnet"-Variable? */
+    private function IsOwnCalculatedEnergyVar(int $vid): bool
+    {
+        if ($vid <= 0 || !IPS_VariableExists($vid) || @IPS_GetParent($vid) !== $this->InstanceID) {
+            return false;
+        }
+        $ident = IPS_GetObject($vid)['ObjectIdent'] ?? '';
+        return str_starts_with($ident, self::CALC_ENERGY_IDENT_PREFIX);
+    }
+
+    /** Legt bei Bedarf die "Energie hochgerechnet"-Variable für $powerId an (idempotent über den Ident) und liefert ihre ID. */
+    private function EnsureCalculatedEnergyVar(int $powerId, string $label): int
+    {
+        $ident = self::CALC_ENERGY_IDENT_PREFIX . $powerId;
+        $existing = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+        if ($existing) {
+            return $existing;
+        }
+        $this->CreateProfiles();
+        $vid = IPS_CreateVariable(VARIABLETYPE_FLOAT);
+        IPS_SetIdent($vid, $ident);
+        IPS_SetParent($vid, $this->InstanceID);
+        IPS_SetName($vid, $label . ' — Energie hochgerechnet');
+        IPS_SetPosition($vid, 500);
+        IPS_SetVariableCustomProfile($vid, 'NRG.kWh');
+        IPS_SetInfo($vid, 'Hochgerechnet aus Leistung × Berechnungs-Intervall, kein echter Zählerstand — Genauigkeit hängt vom Intervall ab.');
+        SetValueFloat($vid, 0.0);
+        return $vid;
+    }
+
+    /**
+     * Trägt für Zeilen mit Leistung, aber ohne Bezug (kWh) im OFFENEN
+     * Formular eine hochgerechnete Bezugs-Variable ein — Dietmars Auftrag
+     * 01.09.2026, ausgelöst durch AZI-Geräte, die nur eine Wirkleistung
+     * liefern (z. B. "AZI Backofen", siehe FindDeviceFamilies()). Schreibt
+     * wie AddDevice()/AddDeviceFamily() nur ins offene Formular — die neue
+     * Variable existiert danach zwar schon real in IPS (sie muss, um eine
+     * ID für das Formularfeld zu haben), wird aber erst mit „Übernehmen"
+     * dauerhaft in die Formel-Summe einbezogen und archiviert (siehe
+     * RegisterVariables()).
+     */
+    public function AddCalculatedEnergy(string $nodesJson): string
+    {
+        $rows = json_decode($nodesJson, true);
+        $rows = is_array($rows) ? $rows : [];
+        $touched = [];
+        foreach ($rows as $i => &$r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $powerId = (int)($r['PowerID'] ?? 0);
+            $impId   = (int)($r['EnergyImportID'] ?? 0);
+            if ($powerId <= 0 || $impId > 0 || !IPS_VariableExists($powerId)) {
+                continue;
+            }
+            $label = trim((string)($r['Name'] ?? '')) ?: ('Zeile ' . ($i + 1));
+            $r['EnergyImportID'] = $this->EnsureCalculatedEnergyVar($powerId, $label);
+            $touched[] = $label;
+        }
+        unset($r);
+
+        if (!$touched) {
+            return 'ℹ️ Keine Zeile gefunden, die eine Leistung, aber keinen Bezug hat — nichts zu tun.';
+        }
+
+        $this->UpdateFormField('Nodes', 'values', json_encode($rows));
+        $msg = '✅ ' . count($touched) . ' Zeile(n) bekommen eine hochgerechnete Bezugs-Variable (Leistung × Berechnungs-Intervall — keine Schätzung, aber ungenauer als ein echter Zähler): ' . implode(', ', $touched) . '.';
+        $msg .= ' Bitte in der Tabelle prüfen und „Übernehmen“ nicht vergessen.';
+        return $msg;
+    }
+
+    /**
+     * Rechnet alle SELBST gepflegten "Energie hochgerechnet"-Variablen um
+     * ein weiteres Berechnungs-Intervall hoch (Leistung × Intervall,
+     * aufsummiert auf den bisherigen Stand) — läuft VOR der eigentlichen
+     * Summenbildung in Recalc(), damit der neue Stand noch im selben
+     * Durchlauf einfließt. Erkennt eigene Variablen ausschließlich über
+     * IsOwnCalculatedEnergyVar() (Ident-Präfix + Elternschaft), kein
+     * zusätzliches Register nötig — bleibt so auch über Zeilen-
+     * Umsortierung (Drag & Drop) hinweg stabil, weil sie an der PowerID
+     * hängt, nicht an der Zeilen-Position.
+     */
+    private function AdvanceCalculatedEnergy(array $nodes): void
+    {
+        $intervalHours = max(2, $this->ReadPropertyInteger('Interval')) / 3600.0;
+        foreach ($nodes as $n) {
+            $powerId = (int)$n['power'];
+            if ($powerId <= 0 || !IPS_VariableExists($powerId)) {
+                continue;
+            }
+            $deltaKWh = (float)GetValue($powerId) * $intervalHours / 1000.0;
+            if (!is_finite($deltaKWh)) {
+                continue;
+            }
+            foreach (['imp', 'exp'] as $ef) {
+                $vid = (int)$n[$ef];
+                if ($vid > 0 && $this->IsOwnCalculatedEnergyVar($vid)) {
+                    SetValueFloat($vid, (float)GetValue($vid) + $deltaKWh);
+                }
+            }
+        }
+    }
+
     /** Liegt $vid irgendwo unterhalb von $root? ($root = 0: ganze Installation) */
     private function IsBelow(int $vid, int $root): bool
     {
@@ -1467,6 +1644,9 @@ class MeterHubVirtual extends IPSModule
             foreach ($this->FormulaPreview($nodes) as $line) {
                 $check[] = ['type' => 'Label', 'caption' => $line];
             }
+            foreach ($this->Warnings($nodes) as $w) {
+                $check[] = ['type' => 'Label', 'caption' => '⚠️ ' . $w];
+            }
         }
 
         $migrationPanel = null;
@@ -1561,6 +1741,16 @@ class MeterHubVirtual extends IPSModule
             $meterItems[] = ['type' => 'Label', 'caption' => '➕ Von Hand: unter der Tabelle auf „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen — für Einzelfälle, die die automatische Suche nicht (richtig) findet.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '📐 „Anteil (%)" setzen: 100 = voll addieren, −100 = voll abziehen, jeder Wert dazwischen ein Teil-Anteil. Beispiel: eine Einspeisung wird per Quotierung zur Hälfte zwei Mietern zugerechnet → in der Instanz für Mieter A 50, in der für Mieter B ebenfalls 50 (oder −50, je nachdem ob addiert oder abgezogen werden soll) bei DERSELBEN Variable.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Zeilen lassen sich per Drag & Drop umsortieren — rein zur eigenen Übersicht, das Ergebnis ist unabhängig von der Reihenfolge.'];
+            // Fehlende Bezugswerte hochrechnen (Dietmars Auftrag 01.09.2026,
+            // ausgelöst durch AZI-Geräte mit reiner Wirkleistung ohne
+            // Hauptzähler kWh, z. B. "AZI Backofen"). Bewusst "hochgerechnet",
+            // nicht "geschätzt" — Dietmars Grundsatzeinwand: Leistung ×
+            // Berechnungs-Intervall ist eine echte Rechnung aus real
+            // gemessenen Werten, keine Vermutung. Siehe AddCalculatedEnergy().
+            // Nur außerhalb der Migration sinnvoll, die Nodes-Liste zeigt
+            // dort erst einen unbestätigten Alt-Vorschlag.
+            $meterItems[] = ['type' => 'Label', 'caption' => '🧮 Zeilen mit Leistung, aber ohne Bezug: aus Leistung × Berechnungs-Intervall hochrechnen (keine Schätzung, aber ungenauer als ein echter Zähler — genauer bei kurzem Intervall, bei sprunghaften Verbrauchern wie einer Waschmaschine ungenauer).'];
+            $meterItems[] = ['type' => 'Button', 'caption' => '🧮  Fehlende Energiewerte aus der Leistung hochrechnen', 'onClick' => 'echo MHUBV_AddCalculatedEnergy($id, $Nodes);'];
             $meterItems[] = ['type' => 'Label', 'caption' => '✅ Zuletzt „Übernehmen" klicken (Formular-Ende).'];
         }
         $meterItems[] = $listDef;
@@ -1582,10 +1772,10 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'Label', 'caption' => '━━━ Schritt für Schritt ━━━'],
                         ['type' => 'Label', 'caption' => '1. Optional zuerst: „Zählerbezeichnung“ oben setzen — das ist zugleich der Name dieser Instanz im Objektbaum, keine zwei getrennten Namen zu pflegen.'],
                         ['type' => 'Label', 'caption' => '2. Optional zur Übersicht: „Zähler suchen" unten klicken — zeigt brauchbare Kandidaten im Ergebnistext, trägt aber nichts ein.'],
-                        ['type' => 'Label', 'caption' => '3. Je Zähler eine Zeile — drei Wege: nach dem Suchlauf bei „Fund auswählen" wählen und übernehmen; ohne Suche direkt bei „Zähler-Instanz oder Gerät" wählen und übernehmen; oder von Hand unter der Tabelle „Hinzufügen" klicken und je Spalte mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen. In allen drei Fällen werden Leistung/Bezug/Einspeisung außer beim letzten automatisch gesucht.'],
+                        ['type' => 'Label', 'caption' => '3. Je Zähler eine Zeile — vier Wege: nach dem Suchlauf bei „Fund auswählen" wählen und übernehmen; ohne Suche direkt bei „Zähler-Instanz oder Gerät" wählen und übernehmen; bei mehreren Geräten ohne gemeinsamen Container (z. B. MDT AZI) eine Kategorie bei „Geräte-Familie erkennen" wählen — findet alle passenden Geräte auf einmal; oder von Hand unter der Tabelle „Hinzufügen" klicken und je Spalte mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen. In den ersten drei Fällen werden Leistung/Bezug/Einspeisung automatisch gesucht.'],
                         ['type' => 'Label', 'caption' => '4. „Anteil (%)" setzen: 100 addiert voll, −100 zieht voll ab, jeder Wert dazwischen ist ein Teil-Anteil, auch mit Nachkommastellen (siehe Beispiel „Aufteilen").'],
                         ['type' => 'Label', 'caption' => '5. „Übernehmen“ klicken.'],
-                        ['type' => 'Label', 'caption' => '6. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt die fertige Formel MIT aktuellen Werten, ❌ nennt genau, was noch fehlt.'],
+                        ['type' => 'Label', 'caption' => '6. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt die fertige Formel MIT aktuellen Werten, ❌ nennt genau, was noch fehlt, ⚠️ weist auf Zeilen hin, die Leistung aber keinen Bezug haben, obwohl andere Zeilen einen haben (blockiert nichts, kann aber die Bezug-Summe zu niedrig ausfallen lassen). Fehlt bei einem Zähler grundsätzlich der Bezugswert (z. B. reine Wirkleistungs-Aktoren wie MDT AZI): „Fehlende Energiewerte aus der Leistung hochrechnen" klicken — rechnet Leistung × Berechnungs-Intervall zu einer eigenen, klar beschrifteten Variable auf (keine Schätzung, aber ungenauer als ein echter Zähler).'],
                         ['type' => 'Label', 'caption' => '7. Optional: „Funktion“ setzen, damit das Dashboard diese Instanz als Verbraucher erkennt; „Standort“ (Raum/Geschoss) für die eigene Übersicht, unabhängig von der Funktion.'],
                         ['type' => 'Label', 'caption' => 'Ein Datenpunkt darf innerhalb DERSELBEN Instanz nur in EINER Zeile stehen — sonst würde er doppelt gezählt, die Prüfung meldet das. Über mehrere Instanzen hinweg ist dieselbe Variable dagegen ausdrücklich erlaubt (siehe „Aufteilen") — die Verantwortung, dass die Anteile insgesamt sinnvoll sind, liegt dann bei dir.'],
                         ['type' => 'Label', 'caption' => 'Einheiten: Leistung in W, Energie als kumulative kWh-Zählerstände. Alle Datenpunkte je Spalte müssen dieselbe Einheit haben; Abweichungen meldet die Prüfung.'],
