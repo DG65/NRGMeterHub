@@ -74,7 +74,7 @@ class MeterHubDiscovery extends IPSModule
         $this->RegisterAttributeBoolean('ForumHintGone', false);
     }
 
-    private const NEWS_VERSION = '0.24.16';
+    private const NEWS_VERSION = '0.24.17';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
 
     /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHub::NewsBanner(). */

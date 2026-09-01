@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.24.17-beta.1 (2026-09-01)
+
+- **Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" (Code -32603)
+  fehlschlagen**, sobald an der Archiv-Verdichtung etwas geändert wurde — zwei getrennte,
+  live nachgestellte Ursachen (Sepps Testerfund, „Hausverbrauch"-Instanz):
+  1. Eine Verdichtungsstufe auf „aus" gestellt, an deren Monats-Offset noch NIE eine Regel
+     im Archiv existierte (z. B. gleich beim Anlegen einer neuen Instanz): `AC_SetCompaction()`
+     wirft dafür eine PHP-Warnung („Der zu löschende Verdichtungseintrag wurde nicht
+     gefunden"), die unbehandelt das ganze „Übernehmen" scheitern ließ. Der Aufruf ist jetzt
+     bewusst mit `@` abgesichert — live geprüft, dass das die Warnung zuverlässig unterdrückt.
+  2. Eine Verdichtungsregel an einem Monats-Offset AUSSERHALB der aktuell konfigurierten drei
+     Stufen (z. B. von einer früheren „Nach so vielen Monaten"-Einstellung, oder weil die
+     Variable schon vor der Aufnahme in MeterHub/MeterHubVirtual eine eigene Verdichtung
+     hatte — bei extern verdrahteten Datenpunkten wie KNX-Zählern durchaus möglich) blieb
+     bisher für immer im Archiv stehen. IPS verlangt aber, dass der Verdichtungstyp mit
+     wachsendem Monats-Offset nie wieder feiner wird — eine solche verwaiste Regel kann das
+     brechen und jedes künftige „Übernehmen" blockieren. `SetArchive()` räumt jetzt vor dem
+     Setzen der neuen Staffelung jede Regel weg, die nicht zum aktuellen Plan gehört.
+- **Fix: „Jetzt neu berechnen" (MeterHubVirtual) aktualisierte das offene Formular nicht.**
+  Der Knopf meldete zwar per Text Erfolg, das Panel „Prüfung & Vorschau" — aus den Werten im
+  bereits offenen Formular berechnet — blieb aber auf dem alten Stand (Stolperfalle 12,
+  SUITE.md: ein per `onClick` aufgerufener Button aktualisiert ein offenes Formular nicht von
+  selbst). Ruft nach dem Neuberechnen jetzt zusätzlich `ReloadForm()` auf.
+
 ## 0.24.16-beta.1 (2026-09-01)
 
 - **Feld-Hilfestellung („?"-PopupButtons) ergänzt** — Dietmars Rückmeldung zu 0.24.15: das neue

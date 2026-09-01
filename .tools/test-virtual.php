@@ -105,7 +105,43 @@ function IPS_ApplyChanges($iid) {
 }
 function AC_SetLoggingStatus($a, $b, $c) {}
 function AC_SetAggregationType($a, $vid, $type) { $GLOBALS['AGGTYPE'][$vid] = $type; }
-function AC_SetCompaction($a, $vid, $offset, $type) { $GLOBALS['COMPACTION'][$vid][] = [$offset, $type]; }
+// Bildet Sepps zweiten Fund vom 01.09.2026 nach ("Verdichtungseinträge, die
+// näher an der Gegenwart sind, müssen lockerer als die vorherigen sein"),
+// live an Dietmars Archiv nachgestellt: der Verdichtungstyp darf mit
+// wachsendem Monats-Offset nie wieder feiner werden. $GLOBALS['COMPACTION']
+// bleibt als reines Aufruf-Protokoll bestehen (viele bestehende Prüfungen
+// verlassen sich darauf) — $GLOBALS['COMPACTION_STATE'] bildet zusätzlich den
+// tatsächlichen Archiv-Zustand je Variable nach, inkl. der beiden echten
+// IPS-Warnungen als PHP-Warnung (durch @ im Modulcode unterdrückt).
+function AC_SetCompaction($a, $vid, $offset, $type) {
+    $GLOBALS['COMPACTION'][$vid][] = [$offset, $type];
+    $state = $GLOBALS['COMPACTION_STATE'][$vid] ?? [];
+    if ($type === -1) {
+        if (!array_key_exists($offset, $state)) {
+            trigger_error('Der zu löschende Verdichtungseintrag wurde nicht gefunden', E_USER_WARNING);
+            return false;
+        }
+        unset($state[$offset]);
+        $GLOBALS['COMPACTION_STATE'][$vid] = $state;
+        return true;
+    }
+    foreach ($state as $existOffset => $existType) {
+        if (($existOffset < $offset && $existType > $type) || ($existOffset > $offset && $existType < $type)) {
+            trigger_error('Verdichtungseinträge, die näher an der Gegenwart sind, müssen lockerer als die vorherigen sein', E_USER_WARNING);
+            return false;
+        }
+    }
+    $state[$offset] = $type;
+    $GLOBALS['COMPACTION_STATE'][$vid] = $state;
+    return true;
+}
+function AC_GetCompaction($a, $vid) {
+    $out = [];
+    foreach (($GLOBALS['COMPACTION_STATE'][$vid] ?? []) as $offset => $type) {
+        $out[] = ['MonthOffset' => $offset, 'CompactionType' => $type];
+    }
+    return $out;
+}
 function AC_GetLoggingStatus($a, $vid) { return isset($GLOBALS['ARCHIVED'][$vid]); }
 
 class IPSModule
@@ -807,6 +843,43 @@ $checkPanelFrac = null;
 foreach ($formFrac['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🔎  Prüfung & Vorschau') { $checkPanelFrac = $el; } }
 $checkTextFrac = implode(' ', array_column($checkPanelFrac['items'] ?? [], 'caption'));
 check('21c: Vorschau zeigt "× 33,33 %" (keine Rundung, kein Nachkomma-Abschneiden)', str_contains($checkTextFrac, '× 33,33 %'), $checkTextFrac);
+
+echo "\n22) SetArchive() — Sepps zwei Live-Funde 01.09.2026 (Testerfund, echte Warnungen von AC_SetCompaction)\n";
+$setArchive = new ReflectionMethod('MeterHubVirtual', 'SetArchive');
+
+echo "\n  22a) \"Direkt\" gleich beim Anlegen auf \"aus\": löscht einen NIE vorhandenen Eintrag — darf ApplyChanges() nicht zum Scheitern bringen\n";
+IPS_SetProperty(8100, 'CompactDirectPower', -1); // "Direkt" = aus, Stage2/3 auf Standard (siehe unten)
+IPS_SetProperty(8100, 'CompactStage2MonthsPower', 1);
+IPS_SetProperty(8100, 'CompactStage2TypePower', 1);
+IPS_SetProperty(8100, 'CompactStage3MonthsPower', 12);
+IPS_SetProperty(8100, 'CompactStage3TypePower', 2);
+$freshVid = 9998; // taucht in COMPACTION_STATE noch nirgends auf -- genau Sepps Fall (brandneue Instanz)
+$setArchive->invoke($fresh2, $freshVid, false, 10);
+$stateA = $GLOBALS['COMPACTION_STATE'][$freshVid] ?? [];
+check('22a: Löschversuch an nie vorhandenem Offset -1 wirft keinen Fehler (nur @-unterdrückte Warnung)', !array_key_exists(-1, $stateA), json_encode($stateA));
+check('22a: die beiden echten Stufen kommen trotzdem an', ($stateA[1] ?? null) === 1 && ($stateA[12] ?? null) === 2, json_encode($stateA));
+
+echo "\n  22b) Verwaiste Regel an einem Offset AUSSERHALB des aktuellen Plans (z. B. von einer früher anderen \"Nach so vielen Monaten\"-Einstellung, oder weil die Variable schon vorher eine eigene Verdichtung hatte) — muss vor der neuen Staffelung bereinigt werden\n";
+$orphanVid = 9997;
+$GLOBALS['COMPACTION_STATE'][$orphanVid] = [6 => 0]; // Fremd-/Alt-Regel, nicht Teil des Plans [-1,1,12]
+$setArchive->invoke($fresh2, $orphanVid, false, 10);
+$stateB = $GLOBALS['COMPACTION_STATE'][$orphanVid] ?? [];
+check('22b: verwaister Offset 6 ist verschwunden', !array_key_exists(6, $stateB), json_encode($stateB));
+check('22b: der eigentliche Plan wurde trotzdem vollständig gesetzt', $stateB === [1 => 1, 12 => 2], json_encode($stateB));
+IPS_SetProperty(8100, 'CompactDirectPower', 0);
+IPS_SetProperty(8100, 'CompactStage2MonthsPower', 1);
+IPS_SetProperty(8100, 'CompactStage2TypePower', 1);
+IPS_SetProperty(8100, 'CompactStage3MonthsPower', 12);
+IPS_SetProperty(8100, 'CompactStage3TypePower', 2);
+
+echo "\n  22c) \"Jetzt neu berechnen\" muss das offene Formular mitziehen (Sepps dritter Fund 01.09.2026: Knopf meldete Erfolg, Panel \"Prüfung & Vorschau\" blieb auf alten Werten stehen)\n";
+$virtRefresh = $GLOBALS['MODOBJ'][$new];
+$msgOld = $virtRefresh->Recalc();
+$msgNew = $virtRefresh->RecalcAndRefreshForm();
+check('22c: RecalcAndRefreshForm() liefert dieselbe Erfolgsmeldung wie Recalc()', str_starts_with($msgNew, '✅ Neu berechnet') && str_starts_with($msgOld, '✅ Neu berechnet'), $msgNew);
+$formRefresh = json_decode($virtRefresh->GetConfigurationForm(), true);
+$actionCaptions = array_column($formRefresh['actions'] ?? [], 'onClick', 'caption');
+check('22c: Formular-Knopf ruft die refreshende Variante auf, nicht mehr das bloße Recalc()', str_contains($actionCaptions['Jetzt neu berechnen'] ?? '', 'MHUBV_RecalcAndRefreshForm'), json_encode($actionCaptions));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

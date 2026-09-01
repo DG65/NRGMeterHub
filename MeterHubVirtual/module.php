@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.16';
+    private const NEWS_VERSION = '0.24.17';
 
     public function Create()
     {
@@ -177,6 +177,8 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• Die Funktion (fürs Dashboard) wird einmal für die ganze Instanz gesetzt, nicht mehr pro Zeile.'],
                 ['type' => 'Label', 'caption' => '• Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere verkettete Instanzen statt innerhalb einer einzigen — Details im Doku-Panel unten.'],
                 ['type' => 'Label', 'caption' => '• Schon verdrahtete Instanzen (altes Baum-Format) brauchen eine einmalige Bestätigung: ein Migrations-Panel zeigt die bisherigen Zeilen als Vorschlag, nichts wird automatisch übernommen.'],
+                ['type' => 'Label', 'caption' => '• Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" fehlschlagen, wenn eine Verdichtungsstufe auf „aus" stand oder eine Alt-Regel von einer früheren Einstellung im Archiv übrig war — beides räumt die Archiv-Verdichtung jetzt sauber auf.'],
+                ['type' => 'Label', 'caption' => '• Fix: „Jetzt neu berechnen" meldete zwar Erfolg, das Panel „Prüfung & Vorschau" zeigte aber weiter die alten Werte — der Knopf lädt das Formular jetzt mit den frischen Werten neu.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -633,8 +635,47 @@ class MeterHubVirtual extends IPSModule
         if (count($ids) > 0) {
             AC_SetLoggingStatus($ids[0], $vid, true);
             AC_SetAggregationType($ids[0], $vid, $counter ? 1 : 0);
-            foreach ($this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power') as [$offset, $type]) {
-                AC_SetCompaction($ids[0], $vid, $offset, $type);
+            $plan = $this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power');
+            // Verwaiste Regeln an anderen Monats-Offsets zuerst entfernen —
+            // Sepps zweiter Fund 01.09.2026 (Fehler "Verdichtungseinträge,
+            // die näher an der Gegenwart sind, müssen lockerer als die
+            // vorherigen sein"), live an Dietmars Archiv nachgestellt: IPS
+            // verlangt, dass der Verdichtungstyp mit wachsendem Monats-
+            // Offset nie wieder FEINER wird. Unser Plan selbst ist immer
+            // konsistent (Stufen liegen aufsteigend), aber eine Regel an
+            // einem Offset AUSSERHALB des aktuellen Plans — z. B. von einem
+            // früher anderen "Nach so vielen Monaten"-Wert, oder weil die
+            // Variable schon vor der Aufnahme in diese Instanz eine eigene
+            // Verdichtung hatte (bei extern verdrahteten Datenpunkten wie
+            // KNX-Zählern durchaus möglich) — kann diese Konsistenz brechen
+            // und jeden künftigen "Übernehmen"-Versuch blockieren, bis sie
+            // von Hand in der Konsole entfernt wird. Live verifiziert: nach
+            // Bereinigung greift derselbe Plan anstandslos.
+            $plannedOffsets = array_column($plan, 0);
+            $existing = @AC_GetCompaction($ids[0], $vid);
+            if (is_array($existing)) {
+                foreach ($existing as $entry) {
+                    $offset = (int)($entry['MonthOffset'] ?? 0);
+                    if (!in_array($offset, $plannedOffsets, true)) {
+                        @AC_SetCompaction($ids[0], $vid, $offset, -1);
+                    }
+                }
+            }
+            foreach ($plan as [$offset, $type]) {
+                // @ ist hier bewusst und live geprüft (Sepps Fund 01.09.2026,
+                // Fehler "Der zu löschende Verdichtungseintrag wurde nicht
+                // gefunden"): löscht man Typ -1 an einem Monats-Offset, an
+                // dem NIE zuvor eine Regel gesetzt war (z. B. "Direkt" gleich
+                // beim Anlegen auf "aus"), wirft AC_SetCompaction() eine
+                // PHP-Warnung — die lässt ApplyChanges() als "Fehler beim
+                // Übernehmen" (Code -32603) fehlschlagen, obwohl fachlich
+                // nichts schiefging (nichts zu löschen ist kein Fehler).
+                // Live an Dietmars Archiv nachgestellt: ohne @ erscheint
+                // exakt Sepps Warnung, mit @ nicht — anders als beim
+                // ArgumentCountError aus dem MigrationsHub-Vorfall (siehe
+                // CLAUDE.md) unterdrückt @ eine echte PHP-Warnung hier
+                // zuverlässig, nur Fatal Errors kann @ nicht aufhalten.
+                @AC_SetCompaction($ids[0], $vid, $offset, $type);
             }
         }
     }
@@ -693,6 +734,28 @@ class MeterHubVirtual extends IPSModule
         return $count > 0
             ? "✅ Neu berechnet: $count Ausgabe(n) aktualisiert (" . date('H:i:s') . ' Uhr).'
             : 'ℹ️ Keine Ausgabe zum Berechnen vorhanden — erst oben Zähler eintragen und übernehmen.';
+    }
+
+    /**
+     * Für den Formular-Knopf „Jetzt neu berechnen": Sepps Fund 01.09.2026 —
+     * der Knopf meldete zwar per echo Erfolg, aber das Panel „Prüfung &
+     * Vorschau" (aus den Werten im BEREITS OFFENEN Formular berechnet) blieb
+     * auf den alten Werten stehen. Stolperfalle 12 (SUITE.md, EMS-Fund
+     * 20.08.2026): ein per onClick aufgerufener Button aktualisiert ein
+     * bereits offenes Formular nicht automatisch. Das Vorschau-Panel hat
+     * keinen eigenen `name` und lässt sich daher nicht gezielt per
+     * UpdateFormField patchen — ReloadForm() baut das ganze Formular mit den
+     * frisch berechneten Werten neu auf (dieselbe, von InverterHub live
+     * bestätigte Alternative, die auch MeterHubDiscovery::Discover() nutzt).
+     * Der Timer-Aufruf von Recalc() bleibt davon unberührt — der ruft nach
+     * wie vor die einfache Recalc() direkt auf, ein ständiges ReloadForm()
+     * im Hintergrund wäre unnötig und störend.
+     */
+    public function RecalcAndRefreshForm(): string
+    {
+        $msg = $this->Recalc();
+        $this->ReloadForm();
+        return $msg;
     }
 
     // -----------------------------------------------------------------------
@@ -1424,7 +1487,7 @@ class MeterHubVirtual extends IPSModule
                 $this->ForumHint(),
             ])),
             'actions' => [
-                ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'echo MHUBV_Recalc($id);'],
+                ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'echo MHUBV_RecalcAndRefreshForm($id);'],
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
             ],
             'status' => [

@@ -2268,7 +2268,7 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('ForumHintGone', false);
     }
 
-    private const NEWS_VERSION = '0.24.16';
+    private const NEWS_VERSION = '0.24.17';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
 
     /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHubVirtual::NewsBanner(). */
@@ -2286,6 +2286,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 Neues Feld „Zählerbezeichnung" — benennt die Instanz direkt im Formular um, ohne Umweg über die Konsole.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Neues Feld „Standort" (Raum/Geschoss) — reines Freitext-Label mit Vorschlägen aus bereits benutzten Werten (auch aus MeterHubVirtual-Instanzen).'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zusätzliche „?"-Erklärungen bei „Bezug/Einspeisung vertauscht", „Zusätzliche Sammel-Variablen" und den Archiv-Verdichtungsstufen — bei Bedarf anklicken, ohne den Rest des Formulars zuzutexten.'],
+                ['type' => 'Label', 'caption' => '• Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" fehlschlagen, wenn eine Verdichtungsstufe auf „aus" stand oder eine Alt-Regel von einer früheren Einstellung im Archiv übrig war — beides räumt die Archiv-Verdichtung jetzt sauber auf.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
@@ -3999,8 +4000,29 @@ class MeterHub extends IPSModule
         if (count($archiveIDs) > 0) {
             AC_SetLoggingStatus($archiveIDs[0], $vid, true);
             AC_SetAggregationType($archiveIDs[0], $vid, $counter ? 1 : 0);
-            foreach ($this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power') as [$offset, $type]) {
-                AC_SetCompaction($archiveIDs[0], $vid, $offset, $type);
+            $plan = $this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power');
+            // Verwaiste Regeln an anderen Monats-Offsets zuerst entfernen —
+            // siehe MeterHubVirtual::SetArchive() für die volle Herleitung
+            // (Sepps zweiter Fund 01.09.2026: "Verdichtungseinträge, die
+            // näher an der Gegenwart sind, müssen lockerer als die
+            // vorherigen sein"). Live verifiziert.
+            $plannedOffsets = array_column($plan, 0);
+            $existing = @AC_GetCompaction($archiveIDs[0], $vid);
+            if (is_array($existing)) {
+                foreach ($existing as $entry) {
+                    $offset = (int)($entry['MonthOffset'] ?? 0);
+                    if (!in_array($offset, $plannedOffsets, true)) {
+                        @AC_SetCompaction($archiveIDs[0], $vid, $offset, -1);
+                    }
+                }
+            }
+            foreach ($plan as [$offset, $type]) {
+                // @ ist hier bewusst und live geprüft — siehe
+                // MeterHubVirtual::SetArchive() für die volle Herleitung
+                // (Sepps Fund 01.09.2026: löscht man Typ -1 an einem Monats-
+                // Offset ohne vorhandene Regel, wirft AC_SetCompaction() eine
+                // PHP-Warnung, die ApplyChanges() als Fehler durchreicht).
+                @AC_SetCompaction($archiveIDs[0], $vid, $offset, $type);
             }
         }
     }
