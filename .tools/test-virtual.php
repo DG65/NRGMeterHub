@@ -1096,7 +1096,7 @@ foreach ($licPanel['items'] ?? [] as $it) {
     if (($it['caption'] ?? '') === 'Lizenztext ansehen') { $licenseBtn = $it; }
     if (($it['caption'] ?? '') === '☕  Spenden via PayPal') { $paypalBtn = $it; }
 }
-check('26c: Lizenz-Knopf hat link=true und onClick echot die LICENSE-URL', $licenseBtn['link'] === true && str_contains($licenseBtn['onClick'] ?? '', "echo 'https://github.com/DG65/NRGMeterHub/blob/main/LICENSE'"), json_encode($licenseBtn));
+check('26c: Lizenz-Knopf hat link=true und onClick echot die LICENSE-URL', $licenseBtn['link'] === true && str_contains($licenseBtn['onClick'] ?? '', "echo 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE'"), json_encode($licenseBtn));
 check('26c: PayPal-Knopf hat link=true und onClick echot die PayPal-URL', $paypalBtn['link'] === true && str_contains($paypalBtn['onClick'] ?? '', "echo 'https://paypal.me/DietmarGureth'"), json_encode($paypalBtn));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");

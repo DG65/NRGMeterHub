@@ -76,7 +76,7 @@ class MeterHubDiscovery extends IPSModule
 
     private const NEWS_VERSION = '0.24.22';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
-    private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/main/LICENSE';
+    private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
 
     /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHub::NewsBanner(). */

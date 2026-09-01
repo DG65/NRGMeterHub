@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.24-beta.1 (2026-09-01)
+
+- **Fix: „Lizenztext ansehen" zeigte die alte MIT-Lizenz statt PolyForm Noncommercial.**
+  Dietmars Fund: der Knopf verlinkte auf `main`, dessen `LICENSE`-Datei noch die MIT-Lizenz
+  aus der Repo-Frühphase trägt — laut SUITE.md-Konvention bewusst so, der Lizenzwechsel
+  wirkt nur nach vorn und gilt erst ab dem jeweiligen beta→main-Release. Der Knopf verlinkt
+  jetzt auf den `ems-integration`-Branch, wo bereits die aktuelle PolyForm-Lizenz steht.
+
 ## 0.24.23-beta.1 (2026-09-01)
 
 - **Fix: „Lizenztext ansehen"/„Spenden via PayPal" (und „Zum Forums-Thread") taten beim
