@@ -2268,8 +2268,10 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('ForumHintGone', false);
     }
 
-    private const NEWS_VERSION = '0.24.20';
+    private const NEWS_VERSION = '0.24.22';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
+    private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/main/LICENSE';
+    private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
 
     /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHubVirtual::NewsBanner(). */
     private function NewsBanner(): ?array
@@ -2287,6 +2289,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 Neues Feld „Standort" (Raum/Geschoss) — reines Freitext-Label mit Vorschlägen aus bereits benutzten Werten (auch aus MeterHubVirtual-Instanzen).'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zusätzliche „?"-Erklärungen bei „Bezug/Einspeisung vertauscht", „Zusätzliche Sammel-Variablen" und den Archiv-Verdichtungsstufen — bei Bedarf anklicken, ohne den Rest des Formulars zuzutexten.'],
                 ['type' => 'Label', 'caption' => '• Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" fehlschlagen, wenn eine Verdichtungsstufe auf „aus" stand oder eine Alt-Regel von einer früheren Einstellung im Archiv übrig war — beides räumt die Archiv-Verdichtung jetzt sauber auf.'],
+                ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
@@ -2320,6 +2323,32 @@ class MeterHub extends IPSModule
     {
         $this->WriteAttributeBoolean('ForumHintGone', true);
         $this->UpdateFormField('ForumHintPanel', 'visible', false);
+    }
+
+    /**
+     * Lizenz-/Unterstützungs-Hinweis — Dietmars Auftrag 01.09.2026, Wortlaut
+     * ("Variante A") verbundweit als SUITE.md-Konvention festgehalten, damit
+     * alle NRG-Stack-Module denselben Text verwenden. Anders als der
+     * Forum-Hinweis bewusst NICHT wegklickbar — eine Lizenz ist kein
+     * einmaliger Hinweis, der nach dem ersten Lesen verschwinden sollte.
+     * Eingeklappt by default (kein `ExpansionPanel`-`name` nötig, da nichts
+     * per UpdateFormField() geschlossen wird), aber immer im Formular
+     * vorhanden, ganz unten nach dem Forum-Hinweis.
+     */
+    private function LicenseHint(): array
+    {
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🧡  Über dieses Modul',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
+                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
+                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'link' => self::LICENSE_URL],
+                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
+                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'link' => self::PAYPAL_URL],
+            ],
+        ];
     }
 
     /**
@@ -2910,7 +2939,7 @@ class MeterHub extends IPSModule
                         ],
                     ]),
                 ],
-            ], [$this->ForumHint()]))),
+            ], [$this->ForumHint(), $this->LicenseHint()]))),
             'actions' => [
                 ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo MHUB_TestConnection($id);'],
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],

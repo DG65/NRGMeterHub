@@ -1075,5 +1075,18 @@ IPS_ApplyChanges($warnIid);
 $checkTextWarn3 = checkPanelText($warnIid);
 check('25c: Warnung verschwindet nach Hochrechnen + Übernehmen', !str_contains($checkTextWarn3, '⚠️'), $checkTextWarn3);
 
+echo "\n26) Lizenz-/Unterstützungs-Hinweis — verbundweite Konvention \"Variante A\" (Dietmars Auftrag 01.09.2026), nicht wegklickbar\n";
+$formLic = json_decode($GLOBALS['MODOBJ'][$warnIid]->GetConfigurationForm(), true);
+$licPanel = null;
+foreach ($formLic['elements'] ?? [] as $el) {
+    if (($el['caption'] ?? '') === '🧡  Über dieses Modul') { $licPanel = $el; }
+}
+check('26a: Panel vorhanden und eingeklappt by default', $licPanel !== null && $licPanel['expanded'] === false, json_encode($licPanel));
+check('26a: kein "name" -> nicht wegklickbar (kein AckX() kann es per UpdateFormField ausblenden)', !array_key_exists('name', $licPanel), json_encode($licPanel));
+$licText = implode(' | ', array_column($licPanel['items'] ?? [], 'caption'));
+check('26b: nennt PolyForm Noncommercial 1.0.0 und die Kontakt-E-Mail', str_contains($licText, 'PolyForm Noncommercial 1.0.0') && str_contains($licText, 'dietmar@gureth.eu'), $licText);
+$licLinks = array_column($licPanel['items'] ?? [], 'link');
+check('26c: Buttons verlinken auf LICENSE-Datei und PayPal', in_array('https://github.com/DG65/NRGMeterHub/blob/main/LICENSE', $licLinks, true) && in_array('https://paypal.me/DietmarGureth', $licLinks, true), json_encode($licLinks));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

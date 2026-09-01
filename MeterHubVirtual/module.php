@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.20';
+    private const NEWS_VERSION = '0.24.22';
 
     public function Create()
     {
@@ -128,6 +128,8 @@ class MeterHubVirtual extends IPSModule
     }
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
+    private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/main/LICENSE';
+    private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
 
     /** Symcon-Forum-Hinweis — einmalig dismissible, kein Versionsbezug (siehe NewsBanner() für das Versions-Pendant). */
     private function ForumHint(): ?array
@@ -151,6 +153,31 @@ class MeterHubVirtual extends IPSModule
     {
         $this->WriteAttributeBoolean('ForumHintGone', true);
         $this->UpdateFormField('ForumHintPanel', 'visible', false);
+    }
+
+    /**
+     * Lizenz-/Unterstützungs-Hinweis — Dietmars Auftrag 01.09.2026, Wortlaut
+     * ("Variante A") verbundweit als SUITE.md-Konvention festgehalten, damit
+     * alle NRG-Stack-Module denselben Text verwenden. Anders als der
+     * Forum-Hinweis bewusst NICHT wegklickbar — eine Lizenz ist kein
+     * einmaliger Hinweis, der nach dem ersten Lesen verschwinden sollte.
+     * Eingeklappt by default, aber immer im Formular vorhanden, ganz unten
+     * nach dem Forum-Hinweis.
+     */
+    private function LicenseHint(): array
+    {
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🧡  Über dieses Modul',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
+                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
+                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'link' => self::LICENSE_URL],
+                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
+                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'link' => self::PAYPAL_URL],
+            ],
+        ];
     }
 
     /**
@@ -183,6 +210,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 „Geräte-Familie erkennen" versteht jetzt auch KNX-Zähler mit getrennten Bezugs-/Einspeisungswerten (z. B. Lingg&Janke, P14/P23/A14/A23) — ergibt automatisch die richtige Drei-Zeilen-Verdrahtung mit Vorzeichen, statt sie von Hand zusammenzustellen.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Fehlt bei einem Zähler der Bezugswert (z. B. reine Wirkleistungs-Aktoren): „Fehlende Energiewerte aus der Leistung hochrechnen" rechnet Leistung × Berechnungs-Intervall zu einer eigenen, klar beschrifteten Variable auf — keine Schätzung, aber ungenauer als ein echter Zähler.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „Prüfung & Vorschau" warnt jetzt (⚠️, nicht blockierend), wenn eine Zeile Leistung, aber keinen Bezug hat, während andere Zeilen derselben Formel einen haben — sonst würde die Bezug-Summe diese Zeile still mit 0 kWh mitzählen.'],
+                ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -1900,6 +1928,7 @@ class MeterHubVirtual extends IPSModule
                     ),
                 ],
                 $this->ForumHint(),
+                $this->LicenseHint(),
             ])),
             'actions' => [
                 ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'echo MHUBV_RecalcAndRefreshForm($id);'],

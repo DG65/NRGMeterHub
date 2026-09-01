@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.24.22-beta.1 (2026-09-01)
+
+- **🆕 Neues Panel „🧡 Über dieses Modul"** ganz unten in allen drei Formularen (nach dem
+  Forum-Hinweis), verbundweite Konvention ab sofort — Dietmars Auftrag: die Modulentwicklung
+  soll erwähnen, dass sie mit Freude entsteht, aber auch geistiges Eigentum ist und Geld
+  kostet. Nennt die Lizenz (PolyForm Noncommercial 1.0.0, privat/nicht-kommerziell frei,
+  gewerblich lizenzpflichtig) mit Link zum vollständigen Lizenztext, eine Kontakt-E-Mail für
+  Lizenzanfragen (dietmar@gureth.eu) und einen PayPal-Link für freiwillige Unterstützung.
+  Anders als der Forum-Hinweis bewusst NICHT wegklickbar — eingeklappt, aber dauerhaft
+  vorhanden. Wortlaut jetzt in SUITE.md „Einheitliche Formular-Optik" festgehalten, damit
+  alle NRG-Stack-Module denselben Text übernehmen.
+
 ## 0.24.21-beta.1 (2026-09-01)
 
 - **Fix: doppeltes Fragezeichen an allen sechs „?"-Hilfe-Knöpfen** (z. B. „Was bedeuten die
