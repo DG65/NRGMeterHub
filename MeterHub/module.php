@@ -2268,7 +2268,7 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('ForumHintGone', false);
     }
 
-    private const NEWS_VERSION = '0.24.15';
+    private const NEWS_VERSION = '0.24.16';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
 
     /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHubVirtual::NewsBanner(). */
@@ -2285,6 +2285,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• Fix: Energiezähler (Bezug/Einspeisung) bekamen bisher den falschen Archiv-Aggregationstyp („Standard" statt „Zähler") — betrifft auch bereits bestehende Instanzen automatisch beim nächsten „Übernehmen".'],
                 ['type' => 'Label', 'caption' => '• 🆕 Neues Feld „Zählerbezeichnung" — benennt die Instanz direkt im Formular um, ohne Umweg über die Konsole.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Neues Feld „Standort" (Raum/Geschoss) — reines Freitext-Label mit Vorschlägen aus bereits benutzten Werten (auch aus MeterHubVirtual-Instanzen).'],
+                ['type' => 'Label', 'caption' => '• 🆕 Zusätzliche „?"-Erklärungen bei „Bezug/Einspeisung vertauscht", „Zusätzliche Sammel-Variablen" und den Archiv-Verdichtungsstufen — bei Bedarf anklicken, ohne den Rest des Formulars zuzutexten.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
@@ -2688,6 +2689,17 @@ class MeterHub extends IPSModule
             $funcItems[] = ['type' => 'ValidationTextBox', 'name' => 'FuncTotalLabel', 'caption' => 'Eigene Bezeichnung (optional, ersetzt den Namen der Funktion)'];
         }
         $funcItems[] = ['type' => 'CheckBox', 'name' => 'FuncMirrors', 'caption' => 'Zusätzliche Sammel-Variablen je Funktion anlegen (Leistung/Bezug/Einspeisung unter „Funktionen")'];
+        $funcItems[] = [
+            'type' => 'PopupButton', 'caption' => 'Was legt das genau an, und wozu? ?', 'width' => '460px',
+            'popup' => [
+                'caption' => 'Sammel-Variablen je Funktion',
+                'items' => [
+                    ['type' => 'Label', 'caption' => 'Ohne diesen Schalter stehen die zugeordneten Werte nur unter ihrem technischen Namen (z. B. „Wirkleistung gesamt") in dieser Instanz — die Funktion ist zwar zugeordnet, aber nirgends eigens sichtbar.'],
+                    ['type' => 'Label', 'caption' => 'Eingeschaltet legt das Modul zusätzlich eine eigene Kategorie „Funktionen" mit klar benannten Kopien an (z. B. „Wärmepumpe — Wirkleistung", „Wärmepumpe — Wirkarbeit Bezug") — praktisch für ein Dashboard oder eine schnelle Übersicht, ohne erst die Funktionszuordnung nachschlagen zu müssen.'],
+                    ['type' => 'Label', 'caption' => 'Andere Module (EMS, Kacheln) brauchen diese Sammel-Variablen NICHT — sie lesen die Zuordnung direkt über MHUB_GetFunctions(). Der Schalter ist reiner Komfort für den eigenen Objektbaum.'],
+                ],
+            ],
+        ];
         $funcItems[] = ['type' => 'Label', 'caption' => 'Die Zuordnung benennt die betroffenen Variablen um (z. B. „Wärmepumpe — Wirkarbeit Bezug") und setzt ein passendes Icon. Andere Module (EMS, Kacheln) können die Zuordnung per MHUB_GetFunctions(' . $this->InstanceID . ') auslesen.'];
 
         // --- Virtueller Zähler: Hinweis und Generator ------------------------
@@ -2872,6 +2884,18 @@ class MeterHub extends IPSModule
                             'type'    => 'CheckBox',
                             'name'    => 'PowerInvert',
                             'caption' => 'Bezug/Einspeisung vertauscht — invertiert Wirkleistung und tauscht die Energiezähler',
+                        ],
+                        [
+                            'type' => 'PopupButton', 'caption' => 'Wann brauche ich das, und was macht es genau? ?', 'width' => '480px',
+                            'popup' => [
+                                'caption' => 'Bezug/Einspeisung vertauscht',
+                                'items' => [
+                                    ['type' => 'Label', 'caption' => 'Typischer Anlass: der Zähler ist verkehrt herum angeschlossen (Stromwandler falsch gepolt) — was eigentlich Bezug ist, meldet er als Einspeisung und umgekehrt.'],
+                                    ['type' => 'Label', 'caption' => 'Bei der Wirkleistung reicht ein Vorzeichenwechsel (+/−), das macht dieser Schalter automatisch.'],
+                                    ['type' => 'Label', 'caption' => 'Bei den Energiezählern reicht das NICHT: „Bezug" und „Abgabe" sind zwei getrennte, immer positive Zählerstände. Ein Vorzeichenwechsel würde daraus negative Zählerstände machen. Richtig ist stattdessen, die beiden Zielvariablen zu VERTAUSCHEN — ein Wert, der eigentlich zum Bezugszähler gehört, landet dann korrekt in der Abgabe-Variable und umgekehrt. Genau das macht dieser Schalter zusätzlich zum Vorzeichenwechsel.'],
+                                    ['type' => 'Label', 'caption' => 'Hat dieser Zähler nur eine Richtung (z. B. reine Verbraucher ohne Einspeisung), bleibt der vorhandene Wert einfach auf seiner Variable liegen — kein Datenverlust.'],
+                                ],
+                            ],
                         ],
                         [
                             'type'    => 'CheckBox',
@@ -3888,6 +3912,20 @@ class MeterHub extends IPSModule
         return [
             ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
             ['type' => 'Label', 'caption' => '⚠️ Ausschalten löscht aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte) — kein „einfach nicht mehr anfassen", sondern ein echtes Zurücksetzen auf „aus" bei jedem „Übernehmen".'],
+            [
+                'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen? ?', 'width' => '480px',
+                'popup' => [
+                    'caption' => 'Archiv-Verdichtung in drei Stufen',
+                    'items' => [
+                        ['type' => 'Label', 'caption' => 'Verdichtung reduziert nachträglich den Detailgrad geloggter Werte, damit das Archiv nicht unbegrenzt wächst — je älter ein Wert, desto gröber genügt er meist. Drei Stufen, jede mit eigenem Zeitpunkt und eigener Ziel-Auflösung:'],
+                        ['type' => 'Label', 'caption' => '„Direkt verdichten auf" — gilt sofort, ab dem ersten geloggten Wert.'],
+                        ['type' => 'Label', 'caption' => '„Nach so vielen Monaten … verdichten auf" (zwei Stufen) — greift erst, sobald ein Wert das angegebene Alter erreicht hat.'],
+                        ['type' => 'Label', 'caption' => 'Beispiel (Standardvorbelegung): direkt 1×/Minute, nach 1 Monat 1×/5 Minuten, nach 12 Monaten 1×/Stunde — Werte werden also mit der Zeit automatisch gröber, nie feiner.'],
+                        ['type' => 'Label', 'caption' => 'Eine Stufe greift nur, wenn ihre Ziel-Auflösung tatsächlich GRÖBER ist als das Polling-Intervall oben — sonst gäbe es dort nichts zu verdichten, die Stufe bleibt dann wirkungslos, auch wenn sie eingestellt ist.'],
+                        ['type' => 'Label', 'caption' => '„— aus —" bei einer einzelnen Stufe LÖSCHT eine dort zuvor gesetzte Regel aktiv, genau wie der Hauptschalter oben — kein „einfach nicht mehr anfassen".'],
+                    ],
+                ],
+            ],
             ['type' => 'Select', 'name' => 'CompactDirect' . $kind, 'caption' => 'Direkt verdichten auf', 'options' => $opts],
             ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
             ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'caption' => '… verdichten auf', 'options' => $opts],

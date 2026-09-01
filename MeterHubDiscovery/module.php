@@ -62,16 +62,45 @@ class MeterHubDiscovery extends IPSModule
         // „Einheitliche Verbund-Status-Kopfzeile" (SUITE.md, 20.08.2026).
         $this->RegisterAttributeInteger('LastScanTs', 0);
         // Formular-Konvention (SUITE.md "Einheitliche Formular-Optik") — Forum-
-        // Hinweis + Versionsnummer im Doku-Panel nachgezogen 01.09.2026 im Zuge
-        // von Dietmars Manifest-Abgleich-Auftrag, Muster 1:1 aus MeterHub/
-        // MeterHubVirtual übernommen. Kein News-Panel: an diesem Modul gab es
-        // zuletzt nichts Neues anzukündigen — ein News-Panel ohne echten Inhalt
-        // wäre erfundene Neuigkeit.
+        // Hinweis + Versionsnummer im Doku-Panel + News-Panel nachgezogen
+        // 01.09.2026 im Zuge von Dietmars Manifest-Abgleich-Auftrag, Muster 1:1
+        // aus MeterHub/MeterHubVirtual übernommen. Ursprünglich ohne News-Panel
+        // begonnen ("nichts Neues anzukündigen") — Dietmars Rückmeldung: das
+        // Modul hatte NIE eines, die längst vorhandenen Fähigkeiten (Migration,
+        // Abbruch, Status-Kopfzeile, immer mehr erkannte Zählertypen) waren also
+        // nie zusammengefasst. Der Inhalt fasst deshalb den aktuellen Stand
+        // zusammen statt nur diese eine Version.
+        $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean('ForumHintGone', false);
     }
 
-    private const NEWS_VERSION = '0.24.15';
+    private const NEWS_VERSION = '0.24.16';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
+
+    /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHub::NewsBanner(). */
+    private function NewsBanner(): ?array
+    {
+        if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
+            'caption' => '🆕  Neu in dieser Version',
+            'items' => [
+                ['type' => 'Label', 'caption' => '• 🔀 Migration von einer Alt-Instanz (anderes Modul, gleiche IP/Unit-ID): „Migration vorbereiten" verknüpft automatisch mit MigrationsHub — Simulieren/Ausführen bleiben dort bewusst manuelle Schritte. Details über das „?" beim Knopf.'],
+                ['type' => 'Label', 'caption' => '• Die Suche lässt sich jederzeit abbrechen („✖ Suche abbrechen"), die Kopfzeile zeigt live, wie viele Zähler bereits gefunden wurden.'],
+                ['type' => 'Label', 'caption' => '• Erkennt inzwischen neun Zählertypen: Siemens PAC2200, Janitza UMG (klassisch + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375, Eastron SDM72D/SDM630, go-e Controller. Details über das „?" beim Suche-Knopf.'],
+                ['type' => 'Label', 'caption' => '• IPs lassen sich gezielt von der Suche ausschließen (Feld „IPs ignorieren").'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBD_AckNews($id);'],
+            ],
+        ];
+    }
+
+    public function AckNews()
+    {
+        $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+        $this->UpdateFormField('NewsPanel', 'visible', false);
+    }
 
     /** Symcon-Forum-Hinweis — einmalig dismissible, kein Versionsbezug, siehe MeterHubVirtual::ForumHint(). */
     private function ForumHint(): ?array
@@ -227,6 +256,7 @@ class MeterHubDiscovery extends IPSModule
 
         $form = [
             'elements' => array_values(array_filter(array_merge([
+                $this->NewsBanner(),
                 [
                     'type'     => 'ExpansionPanel',
                     'caption'  => '📖  Dokumentation & Hilfe',
@@ -252,6 +282,18 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {zaehler} {ip} {unitid} {nr} — z. B. „{zaehler} Keller ({ip})"'],
                         ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'IPs ignorieren (Komma-getrennt)'],
                         ['type' => 'Label', 'caption' => 'Diese Adressen werden bei der Suche komplett übersprungen — z. B. andere Modbus-Geräte, die sonst fälschlich erscheinen würden.'],
+                        [
+                            'type' => 'PopupButton', 'caption' => 'Welche Zähler findet die Suche — und welche nicht? ?', 'width' => '480px',
+                            'popup' => [
+                                'caption' => 'Was die Suche erkennt',
+                                'items' => [
+                                    ['type' => 'Label', 'caption' => 'Erkannt werden: Siemens PAC2200, Janitza UMG (klassisch + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375, Eastron SDM72D/SDM630 und der go-e Controller.'],
+                                    ['type' => 'Label', 'caption' => 'Die Suche prüft nur wenige dokumentierte Standard-Unit-IDs je Zähler, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die MeterHub-Instanz manuell anlegen.'],
+                                    ['type' => 'Label', 'caption' => 'Zähler hinter RTU/TCP-Gateways mit frei wählbarer Unit-ID (z. B. Socomec, MBS) werden nicht automatisch gefunden — dort die Instanz ebenfalls manuell anlegen.'],
+                                    ['type' => 'Label', 'caption' => 'Beim Shelly Pro 3EM muss Modbus TCP am Gerät erst aktiviert werden, sonst antwortet Port 502 gar nicht.'],
+                                ],
+                            ],
+                        ],
                         ['type' => 'Button', 'name' => 'BtnScan',  'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'MHUBD_Discover($id);'],
                         ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Suche abbrechen', 'onClick' => 'MHUBD_AbortScan($id);', 'visible' => false],
                         ['type' => 'Label', 'name' => 'ScanSummary', 'caption' => $this->ScanSummaryLine()],
@@ -289,8 +331,22 @@ class MeterHubDiscovery extends IPSModule
                             'values' => $values,
                         ],
                         [
-                            'type' => 'Label', 'caption' => '🔀 Migration von einer Alt-Instanz (anderes Modul, gleiche IP/Unit-ID): erst oben „Erstellen" klicken — Kommunikation bleibt bei erkannter Alt-Instanz automatisch aus —, dann hier „Migration vorbereiten". Verknüpft die neue mit der alten Instanz in MigrationsHub; Simulation, Bestätigung und Ausführung bleiben dort bewusst manuelle Schritte. Bei mehreren Treffern: nach jeder abgeschlossenen Migration erneut klicken.',
+                            'type' => 'Label', 'caption' => '🔀 Migration von einer Alt-Instanz (anderes Modul, gleiche IP/Unit-ID): erst oben „Erstellen" klicken, dann hier „Migration vorbereiten".',
                             'visible' => function_exists('MIGHUB_FindLegacyCandidates'),
+                        ],
+                        [
+                            'type' => 'PopupButton', 'caption' => 'Wie funktioniert „Migration vorbereiten" genau? ?', 'width' => '480px',
+                            'visible' => function_exists('MIGHUB_FindLegacyCandidates'),
+                            'popup' => [
+                                'caption' => 'Migration vorbereiten',
+                                'items' => [
+                                    ['type' => 'Label', 'caption' => 'Voraussetzung: MigrationsHub ist installiert und kennt eine Alt-Instanz (anderes Modul) an genau derselben IP-Adresse und Unit-ID wie ein hier gefundener Zähler — die Spalte „Alt-Instanz gefunden" zeigt das.'],
+                                    ['type' => 'Label', 'caption' => '1. Oben bei der Fund-Zeile auf „Erstellen" klicken. Die neue MeterHub-Instanz bekommt „Kommunikation aktiv" automatisch AUSGESCHALTET — sonst würden sich neu geloggte Werte mit der noch nicht übertragenen Alt-Historie überlappen.'],
+                                    ['type' => 'Label', 'caption' => '2. Hier „Migration vorbereiten" klicken. Verknüpft die neue Instanz mit der Alt-Instanz in MigrationsHub (legt bei Bedarf eine MigrationsHub-Instanz an).'],
+                                    ['type' => 'Label', 'caption' => '3. Weiter geht es in der MigrationsHub-Instanz (Knopf „→ Zur MigrationsHub-Instanz" erscheint danach) — dort bleiben Simulation, Bestätigung und die eigentliche Übernahme der Archiv-Historie bewusst manuelle, einzeln zu bestätigende Schritte.'],
+                                    ['type' => 'Label', 'caption' => 'Bei mehreren Treffern: immer nur EIN Klick auf „Migration vorbereiten" pro noch offener Migration — erst die laufende in MigrationsHub abschließen, dann hier für den nächsten Treffer erneut klicken.'],
+                                ],
+                            ],
                         ],
                         [
                             'type' => 'Button', 'name' => 'BtnPrepareMigration', 'caption' => '🔀  Migration vorbereiten',

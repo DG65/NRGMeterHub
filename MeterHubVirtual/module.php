@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.15';
+    private const NEWS_VERSION = '0.24.16';
 
     public function Create()
     {
@@ -173,7 +173,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• „Zähler suchen“ trägt nichts mehr automatisch ein, sondern zeigt nur noch die Fundstellen — aufgenommen wird über das normale „+“ mit dem eingebauten Symcon-Variablenpicker oder den neuen Geräte-Picker („Gerät wählen“).'],
                 ['type' => 'Label', 'caption' => '• Zeilen lassen sich per Drag & Drop umsortieren, und „Prüfung & Vorschau“ zeigt die aktuellen Live-Werte samt Rechenergebnis, nicht nur die Formel-Struktur.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Neue Felder „Zählerbezeichnung“ (benennt die Instanz direkt im Formular um) und „Standort“ (Raum/Geschoss, mit Vorschlägen aus bereits benutzten Werten — jetzt auch aus normalen MeterHub-Instanzen).'],
-                ['type' => 'Label', 'caption' => '• 🆕 Archiv-Verdichtung läuft automatisch: bei jedem „Übernehmen" wird eine konfigurierbare Staffelung gesetzt (Panels „🗄️ Archiv-Verdichtung", getrennt für Leistung/Energie), statt sie für jeden Datenpunkt von Hand in der Konsole einzustellen. Ein Fix stellt sicher, dass „aus" eine vorhandene Verdichtungsregel auch wirklich löscht.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Archiv-Verdichtung läuft automatisch: bei jedem „Übernehmen" wird eine konfigurierbare Staffelung gesetzt (Panels „🗄️ Archiv-Verdichtung", getrennt für Leistung/Energie), statt sie für jeden Datenpunkt von Hand in der Konsole einzustellen. Ein Fix stellt sicher, dass „aus" eine vorhandene Verdichtungsregel auch wirklich löscht. Ein neues „?" bei den Verdichtungsstufen erklärt das Zusammenspiel der drei Stufen mit Beispiel.'],
                 ['type' => 'Label', 'caption' => '• Die Funktion (fürs Dashboard) wird einmal für die ganze Instanz gesetzt, nicht mehr pro Zeile.'],
                 ['type' => 'Label', 'caption' => '• Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere verkettete Instanzen statt innerhalb einer einzigen — Details im Doku-Panel unten.'],
                 ['type' => 'Label', 'caption' => '• Schon verdrahtete Instanzen (altes Baum-Format) brauchen eine einmalige Bestätigung: ein Migrations-Panel zeigt die bisherigen Zeilen als Vorschlag, nichts wird automatisch übernommen.'],
@@ -540,6 +540,20 @@ class MeterHubVirtual extends IPSModule
         return [
             ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
             ['type' => 'Label', 'caption' => '⚠️ Ausschalten löscht aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte) — kein „einfach nicht mehr anfassen", sondern ein echtes Zurücksetzen auf „aus" bei jedem „Übernehmen".'],
+            [
+                'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen? ?', 'width' => '480px',
+                'popup' => [
+                    'caption' => 'Archiv-Verdichtung in drei Stufen',
+                    'items' => [
+                        ['type' => 'Label', 'caption' => 'Verdichtung reduziert nachträglich den Detailgrad geloggter Werte, damit das Archiv nicht unbegrenzt wächst — je älter ein Wert, desto gröber genügt er meist. Drei Stufen, jede mit eigenem Zeitpunkt und eigener Ziel-Auflösung:'],
+                        ['type' => 'Label', 'caption' => '„Direkt verdichten auf" — gilt sofort, ab dem ersten geloggten Wert.'],
+                        ['type' => 'Label', 'caption' => '„Nach so vielen Monaten … verdichten auf" (zwei Stufen) — greift erst, sobald ein Wert das angegebene Alter erreicht hat.'],
+                        ['type' => 'Label', 'caption' => 'Beispiel (Standardvorbelegung): direkt 1×/Minute, nach 1 Monat 1×/5 Minuten, nach 12 Monaten 1×/Stunde — Werte werden also mit der Zeit automatisch gröber, nie feiner.'],
+                        ['type' => 'Label', 'caption' => 'Eine Stufe greift nur, wenn ihre Ziel-Auflösung tatsächlich GRÖBER ist als das Berechnungs-Intervall oben — sonst gäbe es dort nichts zu verdichten, die Stufe bleibt dann wirkungslos, auch wenn sie eingestellt ist.'],
+                        ['type' => 'Label', 'caption' => '„— aus —" bei einer einzelnen Stufe LÖSCHT eine dort zuvor gesetzte Regel aktiv, genau wie der Hauptschalter oben — kein „einfach nicht mehr anfassen".'],
+                    ],
+                ],
+            ],
             ['type' => 'Select', 'name' => 'CompactDirect' . $kind, 'caption' => 'Direkt verdichten auf', 'options' => $opts],
             ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
             ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'caption' => '… verdichten auf', 'options' => $opts],

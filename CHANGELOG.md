@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.24.16-beta.1 (2026-09-01)
+
+- **Feld-Hilfestellung („?"-PopupButtons) ergänzt** — Dietmars Rückmeldung zu 0.24.15: das neue
+  News-Panel in `MeterHubDiscovery` fehlte komplett, und an mehreren Stellen mit wirklich
+  nicht-offensichtlichem Verhalten gab es kein „?" (Symcon kennt keinen Mouseover-Tooltip,
+  siehe SUITE.md „Feld-Hilfestellung").
+  - **`MeterHubDiscovery`**: bekommt jetzt doch ein News-Panel (fasst den aktuellen
+    Funktionsstand zusammen, nicht nur diese eine Version — das Modul hatte nie eines).
+    Zwei neue „?": „Welche Zähler findet die Suche — und welche nicht?" (Unit-ID-Grenzen,
+    RTU-Gateways, Shelly-Modbus-Aktivierung) und „Wie funktioniert 'Migration vorbereiten'
+    genau?" (kompletter Drei-Schritt-Ablauf inkl. Active=false-Verhalten).
+  - **`MeterHub`/`MeterHubVirtual`**: neues „?" bei den Archiv-Verdichtungsstufen (erklärt das
+    Zusammenspiel von „direkt"/„nach X Monaten" mit Beispiel und der Intervall-Bedingung).
+  - **`MeterHub`**: zwei weitere neue „?" bei „Bezug/Einspeisung vertauscht" (warum ein reiner
+    Vorzeichenwechsel bei den Energiezählern nicht reicht, sondern die Ziele vertauscht werden)
+    und bei „Zusätzliche Sammel-Variablen je Funktion" (was dabei konkret angelegt wird und
+    wozu es gut ist).
+
 ## 0.24.15-beta.1 (2026-09-01)
 
 - **Formular-Konvention (SUITE.md „Einheitliche Formular-Optik") jetzt in allen drei Modulen
