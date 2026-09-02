@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.22';
+    private const NEWS_VERSION = '0.24.26';
 
     public function Create()
     {
@@ -211,6 +211,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 Fehlt bei einem Zähler der Bezugswert (z. B. reine Wirkleistungs-Aktoren): „Fehlende Energiewerte aus der Leistung hochrechnen" rechnet Leistung × Berechnungs-Intervall zu einer eigenen, klar beschrifteten Variable auf — keine Schätzung, aber ungenauer als ein echter Zähler.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „Prüfung & Vorschau" warnt jetzt (⚠️, nicht blockierend), wenn eine Zeile Leistung, aber keinen Bezug hat, während andere Zeilen derselben Formel einen haben — sonst würde die Bezug-Summe diese Zeile still mit 0 kWh mitzählen.'],
                 ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
+                ['type' => 'Label', 'caption' => '• Übersichtlicher: die vier Wege, eine Zeile hinzuzufügen, stehen jetzt gleich am Anfang als Kurzübersicht mit eigenen Namen (Sucher-/Quick-Pick-/Familien-/Handarbeit-Alternative), jede mit eigener Zwischenüberschrift bei den passenden Bedienelementen.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -1810,7 +1811,25 @@ class MeterHubVirtual extends IPSModule
 
         $meterItems = [];
         if (!$migration) {
-            $meterItems[] = ['type' => 'Label', 'caption' => '🔎 Zähler finden: Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil, gruppiert sie nach Gerät. Trägt nichts automatisch in die Tabelle ein — die Funde stehen danach direkt unter „Fund auswählen" zum Übernehmen bereit. Variablen aus bekannten NRG-Stack-Modulen (EMS, InverterHub, ChargerHub, Prognose, Tibber Grid Rewards …) werden übersprungen — sie sind dort schon korrekt eingebunden.'];
+            // Orientierung VOR den eigentlichen Bedienelementen (Sepps
+            // Rückmeldung 01.09.2026, per Dietmar weitergegeben: "nicht so
+            // klar was erreicht man wie", die vier Wege standen bisher nur
+            // flach hintereinander, ohne erkennbar zu machen, dass es
+            // ALTERNATIVEN sind, keine Abfolge von Schritten). Dieselbe
+            // "vier Wege"-Übersicht stand vorher nur versteckt im
+            // eingeklappten Doku-Panel weiter unten — jetzt zusätzlich hier,
+            // direkt am Ort der Bedienelemente, mit denselben Namen wie die
+            // Zwischenüberschriften darunter (Dietmars Vorgabe: jede
+            // Alternative auch textlich/im Schriftstil herausstellen, z. B.
+            // "Die Quick-Pick-Alternative").
+            $meterItems[] = ['type' => 'Label', 'caption' => 'Vier gleichwertige Alternativen, eine Zeile hinzuzufügen — wähl die, die zu deiner Situation passt (kein Ablauf, den man der Reihe nach abarbeitet):'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '1. Die Sucher-Alternative — das System systematisch nach Kandidaten durchsuchen, dann aus der Fundliste übernehmen.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '2. Die Quick-Pick-Alternative — Zähler-Instanz/Gerät schon bekannt? Direkt wählen, keine Suche nötig.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '3. Die Familien-Alternative — mehrere Geräte auf einmal aus einer Kategorie übernehmen (z. B. viele gleichartige KNX-Aktoren).'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '4. Die Handarbeit-Alternative — von Hand in der Tabelle unten, Feld für Feld mit dem eingebauten Symcon-Variablenpicker.'];
+
+            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 1. Die Sucher-Alternative ━━━'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '🔎 Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil, gruppiert sie nach Gerät. Trägt nichts automatisch in die Tabelle ein — die Funde stehen danach direkt unter „Fund auswählen" zum Übernehmen bereit. Variablen aus bekannten NRG-Stack-Modulen (EMS, InverterHub, ChargerHub, Prognose, Tibber Grid Rewards …) werden übersprungen — sie sind dort schon korrekt eingebunden.'];
             $meterItems[] = ['type' => 'SelectObject', 'name' => 'ScanRoot', 'caption' => 'Nur in diesem Bereich suchen (leer = ganze Installation)'];
             $meterItems[] = ['type' => 'ValidationTextBox', 'name' => 'ScanFilter', 'caption' => 'Nur Geräte, deren Name das hier enthält (leer = alle)'];
             $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanNeedEnergy', 'caption' => 'Nur Geräte mit Energiezähler (kWh) — blendet Schalter aus, die bloß die Momentanleistung melden'];
@@ -1824,6 +1843,7 @@ class MeterHubVirtual extends IPSModule
             // Optionen dieses Felds bei jedem Suchlauf neu (siehe dort).
             $meterItems[] = ['type' => 'Select', 'name' => 'ScanPick', 'caption' => 'Fund auswählen', 'options' => [['caption' => '— erst oben suchen —', 'value' => 0]], 'value' => 0];
             $meterItems[] = ['type' => 'Button', 'caption' => '✅  Fund übernehmen', 'onClick' => 'echo MHUBV_AddDevice($id, $ScanPick);'];
+
             // Schneller Weg OHNE Suche (Dietmars Anregung 31.08.2026: "ich
             // möchte die Zählerinstanz auswählen müssen und der Rest muss
             // von alleine kommen" — drei einzelne Variablen-Picker pro
@@ -1832,19 +1852,26 @@ class MeterHubVirtual extends IPSModule
             // MetersOfDevice()) und als neue Zeile eingetragen — inklusive
             // Ergebnistext, damit sofort sichtbar ist, was gefunden wurde
             // ("genau dieses Ergebnis zu Gesicht bekommen").
-            $meterItems[] = ['type' => 'Label', 'caption' => '⚡ Oder ohne vorherige Suche: Zähler-Instanz/Gerät direkt wählen.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 2. Die Quick-Pick-Alternative ━━━'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '⚡ Ohne vorherige Suche: Zähler-Instanz/Gerät direkt wählen.'];
             $meterItems[] = ['type' => 'SelectObject', 'name' => 'DevicePick', 'caption' => 'Zähler-Instanz oder Gerät'];
             $meterItems[] = ['type' => 'Button', 'caption' => '✅  Als neue Zeile übernehmen', 'onClick' => 'echo MHUBV_AddDevice($id, $DevicePick);'];
+
             // Geräte-Familie ohne gemeinsamen Container (Dietmars Auftrag
             // 01.09.2026, ausgelöst durch Sepps Diagnose seiner MDT-AZI-
             // Aktoren): jeder Messwert eine eigene KNX-Instanz, nur der
             // Namens-Anfang verbindet sie — der Geräte-Picker oben braucht
             // aber einen Container. Siehe FindDeviceFamilies()/
             // AddDeviceFamily() für die volle Herleitung.
-            $meterItems[] = ['type' => 'Label', 'caption' => '🏷️ Oder mehrere Zähler auf einmal erkennen — zwei Muster: Geräte ohne gemeinsamen Container, jeder Messwert eine eigene KNX-Instanz (z. B. MDT AZI, „…Wirkleistung"/„…Hauptzähler kWh"); oder ein KNX-Zähler mit getrennten Bezugs-/Einspeisungswerten (z. B. Lingg&Janke, „…Wirkleistung P14/P23 (W)"/„…Wirkenergie A14/A23 (kWh)" — ergibt automatisch die richtige Verdrahtung mit Vorzeichen). Kategorie wählen, die die passenden Instanzen enthält.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 3. Die Familien-Alternative ━━━'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '🏷️ Mehrere Zähler auf einmal erkennen — zwei Muster: Geräte ohne gemeinsamen Container, jeder Messwert eine eigene KNX-Instanz (z. B. MDT AZI, „…Wirkleistung"/„…Hauptzähler kWh"); oder ein KNX-Zähler mit getrennten Bezugs-/Einspeisungswerten (z. B. Lingg&Janke, „…Wirkleistung P14/P23 (W)"/„…Wirkenergie A14/A23 (kWh)" — ergibt automatisch die richtige Verdrahtung mit Vorzeichen). Kategorie wählen, die die passenden Instanzen enthält.'];
             $meterItems[] = ['type' => 'SelectObject', 'name' => 'FamilyRoot', 'caption' => 'Kategorie mit der Geräte-Familie'];
             $meterItems[] = ['type' => 'Button', 'caption' => '🏷️  Geräte-Familie erkennen und übernehmen', 'onClick' => 'echo MHUBV_AddDeviceFamily($id, $FamilyRoot);'];
-            $meterItems[] = ['type' => 'Label', 'caption' => '➕ Von Hand: unter der Tabelle auf „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen — für Einzelfälle, die die automatische Suche nicht (richtig) findet.'];
+
+            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 4. Die Handarbeit-Alternative ━━━'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '➕ Unter der Tabelle auf „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen — für Einzelfälle, die die automatischen Alternativen nicht (richtig) finden.'];
+
+            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ Danach, für jede Zeile ━━━'];
             $meterItems[] = ['type' => 'Label', 'caption' => '📐 „Anteil (%)" setzen: 100 = voll addieren, −100 = voll abziehen, jeder Wert dazwischen ein Teil-Anteil. Beispiel: eine Einspeisung wird per Quotierung zur Hälfte zwei Mietern zugerechnet → in der Instanz für Mieter A 50, in der für Mieter B ebenfalls 50 (oder −50, je nachdem ob addiert oder abgezogen werden soll) bei DERSELBEN Variable.'];
             $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Zeilen lassen sich per Drag & Drop umsortieren — rein zur eigenen Übersicht, das Ergebnis ist unabhängig von der Reihenfolge.'];
             // Fehlende Bezugswerte hochrechnen (Dietmars Auftrag 01.09.2026,

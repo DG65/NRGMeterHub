@@ -1104,5 +1104,15 @@ foreach ($licPanel['items'] ?? [] as $it) {
 check('26c: Lizenz-Knopf hat link=true und onClick echot die LICENSE-URL', $licenseBtn['link'] === true && str_contains($licenseBtn['onClick'] ?? '', "echo 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE'"), json_encode($licenseBtn));
 check('26c: PayPal-Knopf hat link=true und onClick echot die PayPal-URL', $paypalBtn['link'] === true && str_contains($paypalBtn['onClick'] ?? '', "echo 'https://paypal.me/DietmarGureth'"), json_encode($paypalBtn));
 
+echo "\n27) \"Vier Alternativen\"-Orientierung im Verdrahtungs-Panel (Sepps Rückmeldung 01.09.2026: \"nicht so klar was erreicht man wie\")\n";
+$zaehlerPanel = null;
+foreach ($formLic['elements'] ?? [] as $el) {
+    if (($el['caption'] ?? '') === '🔌  Zähler') { $zaehlerPanel = $el; }
+}
+$zaehlerText = implode(' | ', array_column($zaehlerPanel['items'] ?? [], 'caption'));
+check('27a: Kurzorientierung mit allen vier benannten Alternativen VOR den Bedienelementen', str_contains($zaehlerText, 'Vier gleichwertige Alternativen') && str_contains($zaehlerText, '1. Die Sucher-Alternative') && str_contains($zaehlerText, '2. Die Quick-Pick-Alternative') && str_contains($zaehlerText, '3. Die Familien-Alternative') && str_contains($zaehlerText, '4. Die Handarbeit-Alternative'), $zaehlerText);
+check('27b: jede Alternative hat eine eigene, gleich benannte Zwischenüberschrift', str_contains($zaehlerText, '━━━ 1. Die Sucher-Alternative ━━━') && str_contains($zaehlerText, '━━━ 2. Die Quick-Pick-Alternative ━━━') && str_contains($zaehlerText, '━━━ 3. Die Familien-Alternative ━━━') && str_contains($zaehlerText, '━━━ 4. Die Handarbeit-Alternative ━━━'), $zaehlerText);
+check('27c: Reihenfolge stimmt — Sucher-Überschrift kommt vor Quick-Pick-Überschrift', strpos($zaehlerText, '━━━ 1. Die Sucher-Alternative ━━━') < strpos($zaehlerText, '━━━ 2. Die Quick-Pick-Alternative ━━━'));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

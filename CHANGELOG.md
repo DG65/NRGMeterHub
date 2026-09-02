@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.26-beta.1 (2026-09-01)
+
+- **Übersichtlicheres Verdrahtungs-Panel (MeterHubVirtual).** Sepps Rückmeldung, per
+  Dietmar weitergegeben: „nicht so klar was erreicht man wie" — die vier Wege, eine Zeile
+  hinzuzufügen (Suchlauf, Direktwahl, Geräte-Familie, von Hand), standen bisher flach
+  hintereinander, ohne erkennbar zu machen, dass es gleichwertige ALTERNATIVEN sind, kein
+  Ablauf zum Abarbeiten. Jetzt: eine kurze, benannte Übersicht direkt am Anfang des Panels
+  („1. Die Sucher-Alternative", „2. Die Quick-Pick-Alternative", „3. Die
+  Familien-Alternative", „4. Die Handarbeit-Alternative"), und dieselben Namen als eigene
+  Zwischenüberschrift bei den jeweils passenden Bedienelementen.
+
 ## 0.24.25-beta.1 (2026-09-01)
 
 - **Fix: „Geräte-Familie erkennen" (Lingg&Janke-Muster) erzeugte bei Sepps Zähler eine
