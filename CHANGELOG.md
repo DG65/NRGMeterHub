@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.24.28-beta.1 (2026-09-02)
+
+- **🧪 Experiment: WebFront-Kachel für MeterHubVirtual.** Dietmars Anregung, nach dem
+  Vorbild seiner bereits produktiv laufenden Konfigurationskachel in OCPPHubAbrechnung:
+  „vielleicht bietet HTML eine bessere Alternative um solche Virtuellen Zähler
+  zusammenzubauen." Die Kachel zeigt die Formel-Zeilen mit ihren aktuellen Live-Werten
+  und dem Gesamtergebnis (Leistung/Bezug/Einspeisung), Name und Anteil (%) lassen sich
+  direkt in der Kachel bearbeiten, ebenso das Entfernen einer Zeile. Eine neue Zeile
+  hinzufügen oder eine Variable neu zuweisen bleibt bewusst dem Konsolenformular
+  vorbehalten — Symcons eingebauter Variablenpicker lässt sich in reinem HTML nicht
+  gleichwertig nachbauen. Ergänzt das Konsolenformular, ersetzt es nicht.
+
 ## 0.24.27-beta.1 (2026-09-02)
 
 - **Zweck-Einführung „Wozu dieses Modul?" (alle drei Module).** Sepps Rückmeldung: er wusste

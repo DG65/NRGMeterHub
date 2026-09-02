@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  /* Eigene helle/dunkle Werte statt color:inherit — siehe
+     [[ips-kachel-kein-eigener-titel]]-Nachbar-Lehre in OCPPHubAbrechnung/
+     module.html: inherit liefert im dunklen WebFront ohne eigenes
+     color-scheme zuverlässig schwarz auf schwarz. */
+  :root {
+    color-scheme: light dark;
+    --text: #1c1c1e;
+    --textmuted: #6b6b6f;
+    --border: rgba(0,0,0,0.28);
+    --border-soft: rgba(0,0,0,0.14);
+    --input-bg: rgba(0,0,0,0.045);
+    --panel-bg: rgba(0,0,0,0.03);
+    --accent: #2f8f4e;
+    --accent-text: #fff;
+    --danger: #c0392b;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --text: #f0f0f2;
+      --textmuted: #a3a3a8;
+      --border: rgba(255,255,255,0.3);
+      --border-soft: rgba(255,255,255,0.16);
+      --input-bg: rgba(255,255,255,0.09);
+      --panel-bg: rgba(255,255,255,0.045);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; background: transparent;
+    color: var(--text); font-family: var(--font); font-size: 13px;
+  }
+  /* Symcon zeichnet über eigenen Kachel-Inhalten eine eigene Titelzeile mit
+     variabler Höhe (kompakte Grid-Kachel vs. aufgezogen/Vollbild) — deshalb
+     ein Anteil der Kachelhöhe (vh), keine feste px-Zahl. */
+  body { padding: clamp(28px, 9vh, 100px) 12px 16px; }
+  .sub { color: var(--textmuted); font-size: 12px; margin: -6px 0 12px; }
+  .result-box {
+    display: flex; gap: 16px; flex-wrap: wrap; border: 1px solid var(--border);
+    background: var(--panel-bg); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+  }
+  .result-item .label { font-size: 11px; color: var(--textmuted); }
+  .result-item .value { font-size: 17px; font-weight: 700; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+  th, td { padding: 5px 6px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--border-soft); }
+  th { font-size: 11.5px; font-weight: 600; color: var(--textmuted); white-space: nowrap; }
+  td.term { font-size: 12px; }
+  td.term .name { color: var(--textmuted); }
+  td.term .val { font-variant-numeric: tabular-nums; }
+  input[type=text], input[type=number] {
+    width: 100%; min-width: 60px; font: inherit; color: var(--text);
+    background: var(--input-bg); border: 1px solid var(--border); border-radius: 5px;
+    padding: 4px 6px;
+  }
+  .row-actions { white-space: nowrap; }
+  button {
+    font: inherit; border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px;
+    background: var(--input-bg); color: var(--text); cursor: pointer;
+  }
+  button:hover { filter: brightness(0.92); }
+  @media (prefers-color-scheme: dark) {
+    button:hover { filter: brightness(1.3); }
+  }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.primary:hover { filter: brightness(1.08); }
+  button.danger-ghost { padding: 3px 7px; color: var(--danger); border-color: rgba(192,57,43,0.4); background: transparent; }
+  .toolbar { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .status-msg { font-size: 12px; color: var(--textmuted); }
+  .status-msg.ok { color: var(--accent); }
+  .status-msg.err { color: var(--danger); }
+  .empty-hint { color: var(--textmuted); font-size: 12px; padding: 4px 0 8px; }
+  .hint-box {
+    border: 1px solid var(--border-soft); background: var(--panel-bg); border-radius: 8px;
+    padding: 8px 12px; margin-top: 12px; font-size: 12px; color: var(--textmuted); line-height: 1.5;
+  }
+  .error-banner {
+    display: none; border: 1px solid rgba(192,57,43,0.5); background: rgba(192,57,43,0.14);
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 12.5px; line-height: 1.5;
+  }
+  .error-banner.show { display: block; }
+</style>
+</head>
+<body>
+  <!-- Bewusst KEIN eigener <h1>-Titel: Symcon zeigt den Instanznamen als
+       Kachel-Überschrift selbst an — siehe [[ips-kachel-kein-eigener-titel]]. -->
+
+  <div class="error-banner" id="errorBanner">
+    ⚠️ Formel unvollständig oder widersprüchlich — bitte im Konsolenformular unter
+    „🔎 Prüfung & Vorschau" nachsehen, dort steht die genaue Ursache.
+  </div>
+
+  <div class="sub" id="subline"></div>
+
+  <div class="result-box" id="resultBox"></div>
+
+  <div id="tbl"></div>
+  <div class="toolbar">
+    <button class="primary" onclick="saveNodes()">💾 Speichern</button>
+    <span class="status-msg" id="status"></span>
+  </div>
+
+  <div class="hint-box">
+    ℹ️ Diese Kachel ist ein Experiment und ergänzt das Konsolenformular, ersetzt es nicht:
+    Name und Anteil (%) lassen sich hier bearbeiten, ebenso das Entfernen einer Zeile. Eine
+    NEUE Zeile hinzufügen oder eine Variable neu zuweisen geht weiterhin nur im
+    Konsolenformular — dort übernimmt Symcons eingebauter Variablenpicker die Auswahl aus
+    dem ganzen Objektbaum, das lässt sich hier nicht gleichwertig nachbauen.
+  </div>
+
+<script>
+let PAYLOAD = null;
+let HOOK_PATH = '';
+let DRAFT = [];
+let TOUCHED = false;
+
+function cloneRow(row) {
+  return Object.assign({}, row);
+}
+
+function fmt(v, unit) {
+  if (v === null || v === undefined) return '–';
+  const digits = unit === 'W' ? 0 : 1;
+  return Number(v).toLocaleString('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits }) + ' ' + unit;
+}
+
+function renderResult() {
+  const r = (PAYLOAD && PAYLOAD.result) || {};
+  const items = [
+    ['Leistung', r.power, 'W'],
+    ['Bezug', r.energy_import, 'kWh'],
+    ['Einspeisung', r.energy_export, 'kWh']
+  ];
+  let html = '';
+  items.forEach(function (it) {
+    if (it[1] === null || it[1] === undefined) return;
+    html += '<div class="result-item"><div class="label">' + it[0] + '</div><div class="value">' + fmt(it[1], it[2]) + '</div></div>';
+  });
+  document.getElementById('resultBox').innerHTML = html || '<div class="empty-hint">Noch kein Ergebnis — Formel prüfen.</div>';
+}
+
+function renderSubline() {
+  const p = PAYLOAD || {};
+  const parts = [];
+  if (p.function) parts.push('Funktion: ' + p.function);
+  if (p.location) parts.push('Standort: ' + p.location);
+  document.getElementById('subline').textContent = parts.join(' · ');
+}
+
+function termCell(name, val, id, unit) {
+  if (!id) return '<span class="empty-hint">–</span>';
+  return '<div class="term"><div class="name">' + escapeHtml(name || ('#' + id)) + '</div><div class="val">' + fmt(val, unit) + '</div></div>';
+}
+
+function renderTable() {
+  const box = document.getElementById('tbl');
+  if (DRAFT.length === 0) {
+    box.innerHTML = '<div class="empty-hint">Noch keine Zeilen — im Konsolenformular unter „🔌 Zähler" hinzufügen.</div>';
+    return;
+  }
+  let html = '<table><thead><tr>'
+    + '<th>Name</th><th>Anteil (%)</th><th>Leistung</th><th>Bezug</th><th>Einspeisung</th><th></th>'
+    + '</tr></thead><tbody>';
+  DRAFT.forEach(function (row, idx) {
+    html += '<tr>'
+      + '<td><input type="text" value="' + escapeHtml(row.name || '') + '" onchange="onNameChange(' + idx + ',this)"></td>'
+      + '<td><input type="number" step="0.1" value="' + Number(row.factor) + '" onchange="onFactorChange(' + idx + ',this)"></td>'
+      + '<td class="term">' + termCell(row.powerName, row.powerVal, row.powerId, 'W') + '</td>'
+      + '<td class="term">' + termCell(row.impName, row.impVal, row.impId, 'kWh') + '</td>'
+      + '<td class="term">' + termCell(row.expName, row.expVal, row.expId, 'kWh') + '</td>'
+      + '<td class="row-actions"><button class="danger-ghost" onclick="deleteRow(' + idx + ')">🗑</button></td>'
+      + '</tr>';
+  });
+  html += '</tbody></table>';
+  box.innerHTML = html;
+}
+
+function onNameChange(idx, el) {
+  DRAFT[idx].name = el.value;
+  TOUCHED = true;
+}
+
+function onFactorChange(idx, el) {
+  DRAFT[idx].factor = Number(el.value);
+  TOUCHED = true;
+}
+
+function deleteRow(idx) {
+  DRAFT.splice(idx, 1);
+  TOUCHED = true;
+  renderTable();
+}
+
+function setStatus(text, isError) {
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.className = 'status-msg' + (isError ? ' err' : (text ? ' ok' : ''));
+  if (text && !isError) {
+    setTimeout(function () { if (el.textContent === text) { el.textContent = ''; el.className = 'status-msg'; } }, 4000);
+  }
+}
+
+function saveNodes() {
+  if (!HOOK_PATH) return;
+  setStatus('Speichere …');
+  fetch(HOOK_PATH + '?action=saveNodes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(DRAFT)
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      TOUCHED = false;
+      handleMessage(data);
+      setStatus('Gespeichert.');
+    })
+    .catch(function () { setStatus('Fehler beim Speichern — bitte erneut versuchen.', true); });
+}
+
+function renderErrorBanner() {
+  const banner = document.getElementById('errorBanner');
+  banner.classList.toggle('show', PAYLOAD && PAYLOAD.status === 201);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function handleMessage(payload) {
+  if (typeof payload === 'string') {
+    try { payload = JSON.parse(payload); } catch (e) { return; }
+  }
+  if (!payload || typeof payload !== 'object') return;
+  PAYLOAD = payload;
+  if (payload.hookPath) { HOOK_PATH = payload.hookPath; }
+  if (!TOUCHED) {
+    DRAFT = (payload.rows || []).map(cloneRow);
+  }
+  renderSubline();
+  renderResult();
+  renderErrorBanner();
+  renderTable();
+}
+
+setInterval(function () {
+  if (!HOOK_PATH) return;
+  fetch(HOOK_PATH + '?json=1')
+    .then(function (r) { return r.text(); })
+    .then(function (t) { handleMessage(t); })
+    .catch(function () {});
+}, 15000);
+</script>
+</body>
+</html>

@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.27';
+    private const NEWS_VERSION = '0.24.28';
 
     public function Create()
     {
@@ -266,6 +266,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• Übersichtlicher: die vier Wege, eine Zeile hinzuzufügen, stehen jetzt gleich am Anfang als Kurzübersicht mit eigenen Namen (Sucher-/Quick-Pick-/Familien-/Handarbeit-Alternative), jede mit eigener Zwischenüberschrift bei den passenden Bedienelementen.'],
                 ['type' => 'Label', 'caption' => '• 👋 Neue Zweck-Einführung „Wozu dieses Modul?" ganz oben im Formular — kurz und knapp, wofür MeterHubVirtual gedacht ist, bevor es an die Bedienung geht.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Neue Übersichtsgrafik im Doku-Panel — zeigt die drei Verdrahtungs-Muster (Sammeln/Abziehen/Aufteilen) als Skizze, passend zu den bestehenden Text-Beispielen.'],
+                ['type' => 'Label', 'caption' => '• 🧪 Experiment: WebFront-Kachel — zeigt die Formel-Zeilen mit Live-Werten und Ergebnis, Name/Anteil lassen sich direkt dort bearbeiten. Ergänzt das Konsolenformular, ersetzt es nicht (neue Zeilen/Variablen weiterhin dort).'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -342,6 +343,23 @@ class MeterHubVirtual extends IPSModule
     {
         parent::ApplyChanges();
 
+        // Experimentelle WebFront-Kachel (Dietmars Anregung 02.09.2026:
+        // "vielleicht bietet HTML eine bessere Alternative ... Kannst du das
+        // auch mal probieren?", ausgelöst durch seine bereits produktiv
+        // laufende Konfigurationskachel in OCPPHubAbrechnung/module.php).
+        // Muster 1:1 von dort übernommen (RegisterHook()/MessageSink()/
+        // ProcessHookData()-Struktur, dort bereits verbundweit bewährt).
+        // Bewusst VOR jedem möglichen frühen Return unten registriert — die
+        // Kachel soll auch bei anstehender Migration oder einem Formelfehler
+        // erreichbar bleiben und den jeweiligen Status anzeigen, statt bei
+        // einem Fehler ganz zu verschwinden.
+        $this->SetVisualizationType(1);
+        if (IPS_GetKernelRunlevel() === KR_READY) {
+            $this->RegisterHook('/hook/mhubvtile' . $this->InstanceID);
+        } else {
+            $this->RegisterMessage(0, IPS_KERNELMESSAGE);
+        }
+
         $rawRows = json_decode($this->ReadPropertyString('Nodes'), true);
         $rawRows = is_array($rawRows) ? $rawRows : [];
 
@@ -369,6 +387,150 @@ class MeterHubVirtual extends IPSModule
         $this->SetTimerInterval('Recalc', max(2, $this->ReadPropertyInteger('Interval')) * 1000);
         $this->SetStatus(102);
         $this->Recalc();
+    }
+
+    // -----------------------------------------------------------------------
+    // WebFront-Kachel (Experiment, 02.09.2026) — reine Ergänzung zum
+    // Konsolenformular, kein Ersatz: Zeilen hinzufügen und Variablen wählen
+    // bleibt bewusst dort (Symcons eingebauter Variablenpicker im
+    // "+"-Zeileneditor lässt sich in reinem HTML nicht gleichwertig
+    // nachbauen, siehe SUITE.md "Symcon-Recherche: Tree+multiAdd..."). Die
+    // Kachel kann: Name/Anteil je Zeile bearbeiten, eine Zeile entfernen,
+    // die aktuellen Werte je Zeile und das Gesamtergebnis live sehen.
+    // -----------------------------------------------------------------------
+
+    public function MessageSink($timestamp, $senderID, $message, $data)
+    {
+        if ($message === IPS_KERNELMESSAGE && isset($data[0]) && $data[0] === KR_READY) {
+            $this->ApplyChanges();
+        }
+    }
+
+    // Standard-WebHook-Registrierungsmuster (1:1 aus OCPPHubAbrechnung
+    // übernommen, generischer Symcon-Mechanismus, keine modul-eigene Logik).
+    private function RegisterHook(string $WebHook): void
+    {
+        $ids = IPS_GetInstanceListByModuleID('{015A6EB8-D6E5-4B93-B496-0D3F77AE9FE1}');
+        if (count($ids) === 0) {
+            return;
+        }
+        $hooks = json_decode(IPS_GetProperty($ids[0], 'Hooks'), true);
+        if (!is_array($hooks)) {
+            $hooks = [];
+        }
+        foreach ($hooks as $index => $hook) {
+            if ($hook['Hook'] === $WebHook) {
+                if ((int)$hook['TargetID'] === $this->InstanceID) {
+                    return;
+                }
+                $hooks[$index]['TargetID'] = $this->InstanceID;
+                IPS_SetProperty($ids[0], 'Hooks', json_encode($hooks));
+                IPS_ApplyChanges($ids[0]);
+                return;
+            }
+        }
+        $hooks[] = ['Hook' => $WebHook, 'TargetID' => $this->InstanceID];
+        IPS_SetProperty($ids[0], 'Hooks', json_encode($hooks));
+        IPS_ApplyChanges($ids[0]);
+    }
+
+    public function GetVisualizationTile()
+    {
+        $html = file_get_contents(__DIR__ . '/module.html');
+        $html .= '<script>handleMessage(' . json_encode($this->buildTilePayload()) . ');</script>';
+        return $html;
+    }
+
+    // Bedient sowohl die eingebettete WebFront-Kachel als auch eine
+    // eigenständige Seite. Schreibzugriffe (?action=saveNodes) persistieren
+    // SOFORT per IPS_SetProperty()+IPS_ApplyChanges() — anders als im
+    // Konsolenformular gibt es hier keinen umschließenden "Übernehmen"-
+    // Dialog (siehe ProcessHookData()-Docblock in OCPPHubAbrechnung).
+    public function ProcessHookData()
+    {
+        if (isset($_GET['action']) && $_GET['action'] === 'saveNodes') {
+            header('Content-Type: application/json; charset=utf-8');
+            $rows = json_decode((string)file_get_contents('php://input'), true);
+            if (!is_array($rows)) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'Ungültige Daten.']);
+                return;
+            }
+            IPS_SetProperty($this->InstanceID, 'Nodes', json_encode($this->sanitizeNodeRows($rows)));
+            IPS_ApplyChanges($this->InstanceID);
+            echo json_encode($this->buildTilePayload());
+            return;
+        }
+        if (isset($_GET['json'])) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode($this->buildTilePayload());
+            return;
+        }
+        header('Content-Type: text/html; charset=utf-8');
+        $html = file_get_contents(__DIR__ . '/module.html');
+        $html .= '<script>handleMessage(' . json_encode($this->buildTilePayload()) . ');</script>';
+        echo $html;
+    }
+
+    // Whitelist der per Kachel schreibbaren Felder je Zeile — Sicherheit
+    // (kein beliebiger Property-Name über die Kachel erreichbar) UND
+    // Datenhygiene (ungeprüfte JS-Werte). Die Variablen-IDs selbst kommen
+    // unverändert aus dem zuvor gesendeten Payload zurück (die Kachel bietet
+    // dafür keinen eigenen Picker an, siehe Klassenkommentar oben) —
+    // trotzdem als int erzwungen, nicht blind durchgereicht.
+    private function sanitizeNodeRows(array $rows): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $out[] = [
+                'Name'           => (string)($row['name'] ?? ''),
+                'Factor'         => (float)($row['factor'] ?? 100),
+                'PowerID'        => (int)($row['powerId'] ?? 0),
+                'EnergyImportID' => (int)($row['impId'] ?? 0),
+                'EnergyExportID' => (int)($row['expId'] ?? 0),
+            ];
+        }
+        return $out;
+    }
+
+    private function buildTilePayload(): array
+    {
+        $nodes = $this->Nodes();
+        $rows = [];
+        foreach ($nodes as $n) {
+            $rows[] = [
+                'name'      => $n['name'],
+                'factor'    => $n['factor'],
+                'powerId'   => $n['power'],
+                'powerName' => $n['power'] > 0 && IPS_VariableExists($n['power']) ? IPS_GetName($n['power']) : '',
+                'powerVal'  => $n['power'] > 0 && IPS_VariableExists($n['power']) ? (float)GetValue($n['power']) : null,
+                'impId'     => $n['imp'],
+                'impName'   => $n['imp'] > 0 && IPS_VariableExists($n['imp']) ? IPS_GetName($n['imp']) : '',
+                'impVal'    => $n['imp'] > 0 && IPS_VariableExists($n['imp']) ? (float)GetValue($n['imp']) : null,
+                'expId'     => $n['exp'],
+                'expName'   => $n['exp'] > 0 && IPS_VariableExists($n['exp']) ? IPS_GetName($n['exp']) : '',
+                'expVal'    => $n['exp'] > 0 && IPS_VariableExists($n['exp']) ? (float)GetValue($n['exp']) : null,
+            ];
+        }
+        $result = ['power' => null, 'energy_import' => null, 'energy_export' => null];
+        foreach (array_keys($result) as $ident) {
+            $vid = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+            if ($vid) {
+                $result[$ident] = (float)GetValue($vid);
+            }
+        }
+        return [
+            'hookPath'     => '/hook/mhubvtile' . $this->InstanceID,
+            'instanceName' => IPS_GetName($this->InstanceID),
+            'location'     => $this->ReadPropertyString('Location'),
+            'function'     => self::FUNCTIONS[$this->ReadPropertyString('Function')][0] ?? '',
+            'status'       => $this->GetStatus(),
+            'rows'         => $rows,
+            'result'       => $result,
+        ];
     }
 
     // -----------------------------------------------------------------------

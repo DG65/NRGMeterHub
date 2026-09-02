@@ -6,6 +6,9 @@
  */
 
 const VARIABLETYPE_FLOAT = 2;
+const KR_READY = 104;
+const IPS_KERNELMESSAGE = 10603;
+function IPS_GetKernelRunlevel() { return KR_READY; }
 
 $GLOBALS['OBJ'] = [];      // id => ObjectType/ObjectIdent/ObjectName/ParentID
 $GLOBALS['VAR'] = [];      // id => VariableType/Profile/Updated
@@ -161,7 +164,9 @@ class IPSModule
     protected function RegisterTimer($n, $i, $s) {}
     protected function SetTimerInterval($n, $i) {}
     protected function SetStatus($s) { $GLOBALS['STATUS'][$this->InstanceID] = $s; }
+    public function GetStatus() { return $GLOBALS['STATUS'][$this->InstanceID] ?? 0; }
     protected function SetVisualizationType($t) {}
+    protected function RegisterMessage($senderID, $message) {}
     protected function SendDebug($sender, $msg, $format) {}
     public function UpdateFormField($f, $p, $v) { $GLOBALS['FORMFIELDS'][$f][$p] = $v; }
     protected function ReloadForm() {}
@@ -1130,6 +1135,36 @@ check('28c: nach Bestätigen dauerhaft weg (Attribut, nicht pro Version)', $GLOB
 $formPurpose2 = json_decode($purposeInst->GetConfigurationForm(), true);
 $captions2 = array_map(fn($el) => $el['caption'] ?? '', $formPurpose2['elements'] ?? []);
 check('28c: taucht im Formular nicht mehr auf', !in_array('👋  Wozu dieses Modul?', $captions2, true), json_encode($captions2));
+
+echo "\n29) WebFront-Kachel (Experiment 02.09.2026, Dietmars Anregung nach dem Vorbild OCPPHubAbrechnung) — buildTilePayload()/sanitizeNodeRows()\n";
+$tileInst = $GLOBALS['MODOBJ'][$warnIid];
+$tileHtml = $tileInst->GetVisualizationTile();
+check('29a: GetVisualizationTile() liefert HTML samt eingebettetem JSON-Payload', str_contains($tileHtml, '<script>handleMessage(') && str_contains($tileHtml, '"hookPath"'), substr($tileHtml, -400));
+if (preg_match('/handleMessage\((\{.*\})\);<\/script>/s', $tileHtml, $m)) {
+    $payload = json_decode($m[1], true);
+} else {
+    $payload = null;
+}
+check('29b: Payload enthält rows[] mit den Formel-Zeilen der Instanz', is_array($payload['rows'] ?? null) && count($payload['rows']) > 0, json_encode($payload['rows'] ?? null));
+check('29c: Payload enthält result{} mit power/energy_import/energy_export', is_array($payload['result'] ?? null) && array_key_exists('power', $payload['result']), json_encode($payload['result'] ?? null));
+check('29d: hookPath ist instanzspezifisch', ($payload['hookPath'] ?? '') === '/hook/mhubvtile' . $warnIid, $payload['hookPath'] ?? null);
+
+$sanitize = new ReflectionMethod('MeterHubVirtual', 'sanitizeNodeRows');
+$dirty = [
+    ['name' => 'Test A', 'factor' => '75.5', 'powerId' => '123', 'impId' => 0, 'expId' => 0],
+    'kein array — muss übersprungen werden',
+    ['name' => 'Test B', 'factor' => 100],
+];
+$clean = $sanitize->invoke($tileInst, $dirty);
+check('29e: sanitizeNodeRows() erzwingt Typen und überspringt Nicht-Arrays', count($clean) === 2
+    && $clean[0]['Name'] === 'Test A' && $clean[0]['Factor'] === 75.5 && $clean[0]['PowerID'] === 123
+    && $clean[1]['Name'] === 'Test B' && $clean[1]['PowerID'] === 0, json_encode($clean));
+
+// Schreibweg wie ProcessHookData() ihn nutzt: Property setzen + ApplyChanges().
+IPS_SetProperty($warnIid, 'Nodes', json_encode($sanitize->invoke($tileInst, $dirty)));
+IPS_ApplyChanges($warnIid);
+$afterNodes = json_decode(IPS_GetProperty($warnIid, 'Nodes'), true);
+check('29f: Schreibweg (IPS_SetProperty+IPS_ApplyChanges) übernimmt die Kachel-Änderung', count($afterNodes) === 2 && $afterNodes[0]['Name'] === 'Test A', json_encode($afterNodes));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
