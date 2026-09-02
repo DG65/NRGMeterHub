@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.31-beta.1 (2026-09-02)
+
+- **Zwei neue Sammelfunktionen: „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien".**
+  Dietmars Anregung, abgestimmt mit der Dashboard-Sitzung (die Kostenauswertung über Zeit +
+  Vergleich mit dem Deutschen Mittelpreis baut dort auf, MeterHubVirtual bleibt bei reiner
+  Energie-Aggregation): der neue Suchfilter „Nur Funktion X" (0.24.29) konnte bisher nur
+  vorhandene Einzelkategorien wie „Waschmaschine" oder „Beleuchtung" finden — für einen
+  Sammelzähler über beliebige Haushaltsgeräte oder Unterhaltungselektronik (TV, Audio,
+  Spielekonsole) fehlte eine passende Funktion. Wie gewohnt in MeterHub UND MeterHubVirtual
+  gleich, damit das Vokabular synchron bleibt.
+
 ## 0.24.30-beta.1 (2026-09-02)
 
 - **Fix: eine MeterHubVirtual-Instanz als Quelle für eine ANDERE MeterHubVirtual-Instanz

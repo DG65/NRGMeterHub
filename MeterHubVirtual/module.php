@@ -57,10 +57,12 @@ class MeterHubVirtual extends IPSModule
         'stove'      => ['Herd',                     'Flame'],
         'fridge'     => ['Kühl-/Gefriergerät',       'Snowflake'],
         'kitchen'    => ['Küche (gesamt)',           'Gear'],
+        'appliances' => ['Haushaltsgeräte (allgemein)', 'Plug'],
         'pool'       => ['Pool',                     'Waves'],
         'sauna'      => ['Sauna',                    'Flame'],
         'light'      => ['Beleuchtung',              'Bulb'],
         'it'         => ['Server / Netzwerk',        'Gear'],
+        'entertainment' => ['Unterhaltungsmedien',   'TV'],
         'workshop'   => ['Werkstatt',                'Gear'],
         'other'      => ['Sonstiger Verbraucher',    'Electricity'],
     ];
@@ -68,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.30';
+    private const NEWS_VERSION = '0.24.31';
 
     public function Create()
     {
@@ -277,6 +279,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🧪 Experiment: WebFront-Kachel — zeigt die Formel-Zeilen mit Live-Werten und Ergebnis, Name/Anteil lassen sich direkt dort bearbeiten. Ergänzt das Konsolenformular, ersetzt es nicht (neue Zeilen/Variablen weiterhin dort).'],
                 ['type' => 'Label', 'caption' => '• 🆕 Neuer Suchfilter „Nur Funktion X" — findet Datenpunkte, deren Ursprungsinstanz schon eine Funktion wie „Beleuchtung" trägt, auch wenn der Gerätename allein nicht eindeutig ist. Praktisch, um eine Sparte über mehrere Stromkreise hinweg zu einem Sammelzähler (Energie- UND Kostenblock) zusammenzufassen.'],
                 ['type' => 'Label', 'caption' => '• Fix: „Gerät wählen" fand bei einer ANDEREN virtuellen Zähler-Instanz als Quelle die Leistung nicht (Bezug/Einspeisung schon) — betrifft das Verketten mehrerer virtueller Zähler.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Zwei neue Funktionen: „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien" — für einen Sammelzähler, der nicht in die schon vorhandenen Einzelkategorien passt.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];

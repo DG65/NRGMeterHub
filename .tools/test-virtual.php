@@ -1222,5 +1222,30 @@ $rowsChain = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true
 $newRowChain = end($rowsChain);
 check('31b: alle drei IDs korrekt über den eigenen "power"-Ident gefunden (nicht nur "power_total" von MeterHub)', $newRowChain['PowerID'] > 0 && $newRowChain['EnergyImportID'] > 0 && $newRowChain['EnergyExportID'] > 0, json_encode($newRowChain));
 
+echo "\n32) Neue Sammelfunktionen \"Haushaltsgeräte (allgemein)\" und \"Unterhaltungsmedien\" (Dietmars Anregung 02.09.2026, in Absprache mit der Dashboard-Sitzung)\n";
+$funcRefl = new ReflectionClass('MeterHubVirtual');
+$funcVocab = $funcRefl->getConstant('FUNCTIONS');
+check('32a: "appliances" im Vokabular, mit Label und gültigem Icon', ($funcVocab['appliances'][0] ?? null) === 'Haushaltsgeräte (allgemein)' && ($funcVocab['appliances'][1] ?? '') !== '', json_encode($funcVocab['appliances'] ?? null));
+check('32b: "entertainment" im Vokabular, mit Label und gültigem Icon', ($funcVocab['entertainment'][0] ?? null) === 'Unterhaltungsmedien' && ($funcVocab['entertainment'][1] ?? '') !== '', json_encode($funcVocab['entertainment'] ?? null));
+
+$funcVocabHub = (new ReflectionClass('MeterHub'))->getConstant('FUNCTIONS');
+check('32c: Vokabular in MeterHub und MeterHubVirtual synchron (gleiche Schlüssel)', array_keys($funcVocab) === array_keys($funcVocabHub), implode(',', array_diff(array_keys($funcVocab), array_keys($funcVocabHub))) . ' | ' . implode(',', array_diff(array_keys($funcVocabHub), array_keys($funcVocab))));
+
+// Über den neuen Suchfilter erreichbar wie jede andere Funktion auch —
+// keine Sonderbehandlung nötig, da ScanOnlyFunction die Optionen direkt aus
+// self::FUNCTIONS aufbaut (siehe GetConfigurationForm()).
+$GLOBALS['FORMFIELDS'] = [];
+$formFunc = json_decode($fresh3->GetConfigurationForm(), true);
+$scanFuncField = null;
+foreach ($formFunc['elements'] ?? [] as $el) {
+    if (($el['caption'] ?? '') === '🔌  Zähler') {
+        foreach ($el['items'] ?? [] as $it) {
+            if (($it['name'] ?? '') === 'ScanOnlyFunction') { $scanFuncField = $it; }
+        }
+    }
+}
+$scanFuncValues = array_column($scanFuncField['options'] ?? [], 'value');
+check('32d: neue Funktionen stehen im Suchfilter "Nur Funktion X" zur Auswahl', in_array('appliances', $scanFuncValues, true) && in_array('entertainment', $scanFuncValues, true), implode(',', $scanFuncValues));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

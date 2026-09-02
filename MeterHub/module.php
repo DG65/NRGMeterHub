@@ -2130,11 +2130,13 @@ class MeterHub extends IPSModule
         'stove'      => ['Herd',                     'Flame'],
         'fridge'     => ['Kühl-/Gefriergerät',       'Snowflake'],
         'kitchen'    => ['Küche (gesamt)',           'Gear'],
+        'appliances' => ['Haushaltsgeräte (allgemein)', 'Plug'],
         // Sonstige Bereiche
         'pool'       => ['Pool',                     'Waves'],
         'sauna'      => ['Sauna',                    'Flame'],
         'light'      => ['Beleuchtung',              'Bulb'],
         'it'         => ['Server / Netzwerk',        'Gear'],
+        'entertainment' => ['Unterhaltungsmedien',   'TV'],
         'workshop'   => ['Werkstatt',                'Gear'],
         'other'      => ['Sonstiger Verbraucher',    'Electricity'],
     ];
@@ -2272,7 +2274,7 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.24.27';
+    private const NEWS_VERSION = '0.24.31';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
@@ -2319,6 +2321,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" fehlschlagen, wenn eine Verdichtungsstufe auf „aus" stand oder eine Alt-Regel von einer früheren Einstellung im Archiv übrig war — beides räumt die Archiv-Verdichtung jetzt sauber auf.'],
                 ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
                 ['type' => 'Label', 'caption' => '• 👋 Neue Zweck-Einführung „Wozu dieses Modul?" ganz oben im Formular — kurz und knapp, wofür MeterHub gedacht ist, bevor es an die Bedienung geht.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Zwei neue Funktionen: „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien" — für einen Sammelzähler, der nicht in die schon vorhandenen Einzelkategorien passt.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
