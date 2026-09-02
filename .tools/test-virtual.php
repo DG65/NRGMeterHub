@@ -1183,9 +1183,9 @@ $hubFridge = new MeterHub(1500); $hubFridge->Create();
 $GLOBALS['MODOBJ'][1400] = $hubLicht;
 $GLOBALS['MODOBJ'][1500] = $hubFridge;
 
-$fresh3 = new MeterHubVirtual(8100);
-$GLOBALS['INSTMOD'][8100] = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
-obj(8100, 1, 'Sammelzähler Beleuchtung', 10);
+$fresh3 = new MeterHubVirtual(8200);
+$GLOBALS['INSTMOD'][8200] = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
+obj(8200, 1, 'Sammelzähler Beleuchtung', 10);
 $fresh3->Create();
 
 // Die Anzeige gruppiert je Container (hier: die "Summenwerte"/
@@ -1211,6 +1211,16 @@ check('30d: Filter auf eine NICHT vorkommende Funktion findet weder Flur noch K�
 
 $origin = new ReflectionMethod('MeterHubVirtual', 'OriginFunctionFor');
 check('30e: OriginFunctionFor() liest die Funktion direkt von der Ursprungsinstanz', $origin->invoke($fresh3, 1403) === 'light' && $origin->invoke($fresh3, 1503) === 'fridge', $origin->invoke($fresh3, 1403) . '/' . $origin->invoke($fresh3, 1503));
+
+echo "\n31) MeterHubVirtual als Quelle für eine ANDERE MeterHubVirtual-Instanz übernehmen (Sepps Live-Fund 02.09.2026: \"Leistung\" fand sich nicht, Bezug/Einspeisung schon)\n";
+// $new (aus Block 1) hat bereits volle power/energy_import/energy_export-
+// Ausgaben — genau wie Sepps "Zähler Test KNX Zähler LJ" mit sichtbaren
+// Leistung/Bezug/Einspeisung-Kindern.
+$resChain = $fresh3->AddDevice($new);
+check('31a: Ergebnis meldet Erfolg mit allen drei Feldern benannt (nicht mehr "Leistung: nicht gefunden")', str_contains($resChain, '✅') && !str_contains($resChain, 'Leistung: nicht gefunden') && str_contains($resChain, 'Leistung „Leistung"'), $resChain);
+$rowsChain = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+$newRowChain = end($rowsChain);
+check('31b: alle drei IDs korrekt über den eigenen "power"-Ident gefunden (nicht nur "power_total" von MeterHub)', $newRowChain['PowerID'] > 0 && $newRowChain['EnergyImportID'] > 0 && $newRowChain['EnergyExportID'] > 0, json_encode($newRowChain));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

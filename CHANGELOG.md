@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.24.30-beta.1 (2026-09-02)
+
+- **Fix: eine MeterHubVirtual-Instanz als Quelle für eine ANDERE MeterHubVirtual-Instanz
+  übernehmen fand „Leistung" nicht.** Sepps Live-Fund: beim Verketten zweier virtueller
+  Zähler (siehe Doku-Panel „Mehrstufige Verschachtelung … über mehrere Instanzen") meldete
+  „Gerät wählen" Bezug und Einspeisung korrekt, aber „Leistung: nicht gefunden" — obwohl die
+  Quellinstanz sichtbar eine Leistungs-Variable hatte. Ursache: die automatische
+  Ident-Erkennung suchte nur nach dem MeterHub-Ident „power_total", die eigene
+  MeterHubVirtual-Ausgabe heißt aber „power". Bezug/Einspeisung fanden sich nur, weil beide
+  Module dafür denselben Ident verwenden. Betraf ausschließlich das Verketten von virtuellen
+  Zählern untereinander, nicht die Übernahme echter MeterHub-Zähler.
+
 ## 0.24.29-beta.1 (2026-09-02)
 
 - **Neuer Suchfilter „Nur Funktion X" + Beispiel „Sammeln als Kostenblock".** Dietmars
