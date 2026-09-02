@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.24.31--beta.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.24.32--beta.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -17,6 +17,10 @@ zum [InverterHub](https://github.com/DG65/NRGInverterHub).
 Modbus-Protokolldokumenten der Hersteller (Siemens Gerätehandbuch L1V30415167A, Janitza
 Modbus-Adressenliste UMG 604-PRO). Rückmeldungen zu falschen/fehlenden Werten sind
 willkommen — bitte mit Zählertyp und betroffenem Register melden.
+
+## Dank
+
+Ein herzliches Dankeschön an **Sepp Lausch** ([seppm im Symcon-Forum](https://community.symcon.de/u/seppm/summary)) — als aufmerksamer Betatester und mit seinem fundierten Fachwissen rund um KNX-Zählertechnik hat er maßgeblich dazu beigetragen, MeterHubVirtual praxistauglich zu machen: von der automatischen Erkennung ganzer Geräte-Familien über die korrekte Verdrahtung bidirektionaler KNX-Zähler (Lingg&Janke P14/P23/A14/A23) bis zu zahlreichen Praxis-Funden, die das Modul insgesamt robuster und verständlicher gemacht haben.
 
 ## Unterstützte Zähler
 

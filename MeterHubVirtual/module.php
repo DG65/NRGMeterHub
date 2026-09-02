@@ -70,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.31';
+    private const NEWS_VERSION = '0.24.32';
 
     public function Create()
     {
@@ -231,6 +231,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => 'MeterHubVirtual misst selbst nichts — es RECHNET aus bereits vorhandenen Leistungs-/Energiewerten (von MeterHub oder anderen Quellen) genau die eine Zahl, die dir fehlt.'],
                 ['type' => 'Label', 'caption' => 'Typische Fälle: der unbekannte Rest eines Hausanschlusses (Hauptzähler minus alle bekannten Verbraucher), die Summe mehrerer Zähler zu einem Gesamtwert, oder ein Zähler, dessen Wert anteilig auf mehrere Instanzen/Mieter aufgeteilt werden muss.'],
                 ['type' => 'Label', 'caption' => 'Kurz: ein zusätzlicher, virtueller Zähler ganz ohne zusätzliche Hardware. Wie man ihn zusammenbaut, steht im Panel „🔌 Zähler" weiter unten.'],
+                ['type' => 'Label', 'caption' => '🙏 Dank an Sepp Lausch (seppm, community.symcon.de/u/seppm) — Betatester mit KNX-Zählertechnik-Fachwissen, hat dieses Modul entscheidend mitgeprägt.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckPurposeIntro($id);'],
             ],
         ];
@@ -280,6 +281,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 Neuer Suchfilter „Nur Funktion X" — findet Datenpunkte, deren Ursprungsinstanz schon eine Funktion wie „Beleuchtung" trägt, auch wenn der Gerätename allein nicht eindeutig ist. Praktisch, um eine Sparte über mehrere Stromkreise hinweg zu einem Sammelzähler (Energie- UND Kostenblock) zusammenzufassen.'],
                 ['type' => 'Label', 'caption' => '• Fix: „Gerät wählen" fand bei einer ANDEREN virtuellen Zähler-Instanz als Quelle die Leistung nicht (Bezug/Einspeisung schon) — betrifft das Verketten mehrerer virtueller Zähler.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zwei neue Funktionen: „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien" — für einen Sammelzähler, der nicht in die schon vorhandenen Einzelkategorien passt.'],
+                ['type' => 'Label', 'caption' => '• 🙏 Dank an Sepp Lausch (seppm) im Panel „Wozu dieses Modul?" und in der README — Betatester mit KNX-Zählertechnik-Fachwissen, hat dieses Modul entscheidend mitgeprägt.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];

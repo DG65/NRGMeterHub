@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.32-beta.1 (2026-09-02)
+
+- **Dank an Sepp Lausch (seppm).** README bekommt einen neuen Abschnitt „Dank" — als
+  Betatester mit fundiertem KNX-Zählertechnik-Fachwissen hat er maßgeblich dazu beigetragen,
+  MeterHubVirtual praxistauglich zu machen. Ein kurzer Dank dazu auch im „Wozu dieses
+  Modul?"-Panel von MeterHubVirtual.
+
 ## 0.24.31-beta.1 (2026-09-02)
 
 - **Zwei neue Sammelfunktionen: „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien".**
