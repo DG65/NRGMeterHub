@@ -72,12 +72,40 @@ class MeterHubDiscovery extends IPSModule
         // zusammen statt nur diese eine Version.
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean('ForumHintGone', false);
+        // Zweck-Einführung (Dietmars Auftrag 01.09.2026, ausgelöst durch
+        // Sepps Rückmeldung — siehe MeterHubVirtual::PurposeIntro() für die
+        // volle Herleitung). Einmalig dismissible, nicht pro Version.
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.24.22';
+    private const NEWS_VERSION = '0.24.27';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
+
+    /** Siehe MeterHubVirtual::PurposeIntro() für die volle Herleitung — steht ganz vorn, noch vor dem News-Panel. */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Durchsucht dein lokales Netz nach unterstützten Energiezählern und legt auf Klick eine passend vorausgefüllte MeterHub-Instanz an — IP-Adresse, Unit-ID und Zählertyp müssen nicht von Hand eingetragen werden.'],
+                ['type' => 'Label', 'caption' => 'Der Nutzen: bei mehreren Zählern (z. B. je Verbraucher oder je Wohnung) ein paar Klicks statt manueller Konfiguration jeder einzelnen Instanz. Auch der Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie läuft hier mit (siehe unten).'],
+                ['type' => 'Label', 'caption' => 'Das Modul selbst misst nichts — die eigentliche Datenerfassung übernimmt danach die neu angelegte MeterHub-Instanz.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBD_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro()
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+    }
 
     /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHub::NewsBanner(). */
     private function NewsBanner(): ?array
@@ -94,6 +122,7 @@ class MeterHubDiscovery extends IPSModule
                 ['type' => 'Label', 'caption' => '• Erkennt inzwischen neun Zählertypen: Siemens PAC2200, Janitza UMG (klassisch + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375, Eastron SDM72D/SDM630, go-e Controller. Details über das „?" beim Suche-Knopf.'],
                 ['type' => 'Label', 'caption' => '• IPs lassen sich gezielt von der Suche ausschließen (Feld „IPs ignorieren").'],
                 ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
+                ['type' => 'Label', 'caption' => '• 👋 Neue Zweck-Einführung „Wozu dieses Modul?" ganz oben im Formular — kurz und knapp, wofür MeterHubDiscovery gedacht ist, bevor es an die Bedienung geht.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBD_AckNews($id);'],
             ],
         ];
@@ -284,6 +313,7 @@ class MeterHubDiscovery extends IPSModule
 
         $form = [
             'elements' => array_values(array_filter(array_merge([
+                $this->PurposeIntro(),
                 $this->NewsBanner(),
                 [
                     'type'     => 'ExpansionPanel',

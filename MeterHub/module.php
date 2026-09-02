@@ -2266,12 +2266,40 @@ class MeterHub extends IPSModule
         // MeterHubVirtual übernommen (dort seit 31.08.2026 Referenz).
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean('ForumHintGone', false);
+        // Zweck-Einführung (Dietmars Auftrag 01.09.2026, ausgelöst durch
+        // Sepps Rückmeldung — siehe MeterHubVirtual::PurposeIntro() für die
+        // volle Herleitung). Einmalig dismissible, nicht pro Version.
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.24.22';
+    private const NEWS_VERSION = '0.24.27';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
+
+    /** Siehe MeterHubVirtual::PurposeIntro() für die volle Herleitung — steht ganz vorn, noch vor dem News-Panel. */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'MeterHub liest echte Energiezähler verschiedener Hersteller direkt aus — per Modbus TCP oder Cloud-API — und macht Leistung, Bezug und Einspeisung als normale IP-Symcon-Variablen verfügbar.'],
+                ['type' => 'Label', 'caption' => 'Der Nutzen: reale Messwerte statt Schätzung — als Grundlage für Dashboards, Lastmanagement, ein Energiemanagement-System (EMS) oder einfach, um zu sehen, was ein Gerät wirklich verbraucht.'],
+                ['type' => 'Label', 'caption' => 'Fehlt dir noch der richtige Zähler in der Liste, oder möchtest du mehrere auf einmal einrichten? MeterHubDiscovery durchsucht dafür das lokale Netz. Willst du stattdessen aus vorhandenen Werten eine neue Zahl berechnen (z. B. den Rest eines Hausanschlusses), ist MeterHubVirtual das passende Modul.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro()
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+    }
 
     /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHubVirtual::NewsBanner(). */
     private function NewsBanner(): ?array
@@ -2290,6 +2318,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 Zusätzliche „?"-Erklärungen bei „Bezug/Einspeisung vertauscht", „Zusätzliche Sammel-Variablen" und den Archiv-Verdichtungsstufen — bei Bedarf anklicken, ohne den Rest des Formulars zuzutexten.'],
                 ['type' => 'Label', 'caption' => '• Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" fehlschlagen, wenn eine Verdichtungsstufe auf „aus" stand oder eine Alt-Regel von einer früheren Einstellung im Archiv übrig war — beides räumt die Archiv-Verdichtung jetzt sauber auf.'],
                 ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
+                ['type' => 'Label', 'caption' => '• 👋 Neue Zweck-Einführung „Wozu dieses Modul?" ganz oben im Formular — kurz und knapp, wofür MeterHub gedacht ist, bevor es an die Bedienung geht.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
@@ -2771,7 +2800,7 @@ class MeterHub extends IPSModule
         }
 
         $form = [
-            'elements' => array_values(array_filter(array_merge([$this->NewsBanner()], [
+            'elements' => array_values(array_filter(array_merge([$this->PurposeIntro(), $this->NewsBanner()], [
                 [
                     'type'     => 'ExpansionPanel',
                     'caption'  => '📖  Dokumentation & Hilfe',

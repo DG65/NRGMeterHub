@@ -1114,5 +1114,22 @@ check('27a: Kurzorientierung mit allen vier benannten Alternativen VOR den Bedie
 check('27b: jede Alternative hat eine eigene, gleich benannte Zwischenüberschrift', str_contains($zaehlerText, '━━━ 1. Die Sucher-Alternative ━━━') && str_contains($zaehlerText, '━━━ 2. Die Quick-Pick-Alternative ━━━') && str_contains($zaehlerText, '━━━ 3. Die Familien-Alternative ━━━') && str_contains($zaehlerText, '━━━ 4. Die Handarbeit-Alternative ━━━'), $zaehlerText);
 check('27c: Reihenfolge stimmt — Sucher-Überschrift kommt vor Quick-Pick-Überschrift', strpos($zaehlerText, '━━━ 1. Die Sucher-Alternative ━━━') < strpos($zaehlerText, '━━━ 2. Die Quick-Pick-Alternative ━━━'));
 
+echo "\n28) PurposeIntro() — Zweck-Einführung \"Wozu dieses Modul?\" (Dietmars Auftrag 01.09.2026, ausgelöst durch Sepps Rückmeldung)\n";
+$purposeInst = $GLOBALS['MODOBJ'][$warnIid];
+$formPurpose = json_decode($purposeInst->GetConfigurationForm(), true);
+$elementCaptions = array_map(fn($el) => $el['caption'] ?? '', $formPurpose['elements'] ?? []);
+$purposeIdx = array_search('👋  Wozu dieses Modul?', $elementCaptions, true);
+$newsIdx = null;
+foreach ($formPurpose['elements'] ?? [] as $i => $el) {
+    if (($el['name'] ?? '') === 'NewsPanel') { $newsIdx = $i; }
+}
+check('28a: Panel vorhanden, aufgeklappt by default', $purposeIdx !== false && $formPurpose['elements'][$purposeIdx]['expanded'] === true, json_encode($formPurpose['elements'][$purposeIdx] ?? null));
+check('28b: steht VOR dem News-Panel (Zweck vor "was ist neu")', $newsIdx === null || $purposeIdx < $newsIdx, "purposeIdx=$purposeIdx newsIdx=" . json_encode($newsIdx));
+$purposeInst->AckPurposeIntro();
+check('28c: nach Bestätigen dauerhaft weg (Attribut, nicht pro Version)', $GLOBALS['ATTR'][$warnIid]['PurposeIntroGone'] === true, json_encode($GLOBALS['ATTR'][$warnIid] ?? null));
+$formPurpose2 = json_decode($purposeInst->GetConfigurationForm(), true);
+$captions2 = array_map(fn($el) => $el['caption'] ?? '', $formPurpose2['elements'] ?? []);
+check('28c: taucht im Formular nicht mehr auf', !in_array('👋  Wozu dieses Modul?', $captions2, true), json_encode($captions2));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

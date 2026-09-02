@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.24.27-beta.1 (2026-09-02)
+
+- **Zweck-Einführung „Wozu dieses Modul?" (alle drei Module).** Sepps Rückmeldung: er wusste
+  anfangs nicht, wofür MeterHub/MeterHubDiscovery/MeterHubVirtual überhaupt gedacht sind, nur
+  wie man sie bedient. Neues, aufgeklapptes Panel ganz oben im Formular — kurz und knapp WOFÜR
+  das jeweilige Modul da ist, bevor es an die Bedienung geht. Einmalig dismissible wie der
+  Forum-Hinweis (nicht pro Version, der Zweck ändert sich nicht mit jedem Release).
+- **Übersichtsgrafik im Doku-Panel (MeterHubVirtual).** Auf Dietmars Anregung („wie die
+  BDEW-Messkonzepte") zeigt eine eingebettete Skizze die drei Verdrahtungs-Muster
+  (Sammeln/Abziehen/Aufteilen) als Boxen-und-Pfeile-Diagramm, mit denselben Beispielgeräten wie
+  die bestehenden Text-Beispiele direkt darunter.
+
 ## 0.24.26-beta.1 (2026-09-01)
 
 - **Übersichtlicheres Verdrahtungs-Panel (MeterHubVirtual).** Sepps Rückmeldung, per

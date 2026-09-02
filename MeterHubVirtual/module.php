@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.26';
+    private const NEWS_VERSION = '0.24.27';
 
     public function Create()
     {
@@ -124,12 +124,30 @@ class MeterHubVirtual extends IPSModule
         // soll die Zeile schon jetzt sichtbar sein) — vor main/Store-Release
         // durch den echten Thread-Link ersetzen.
         $this->RegisterAttributeBoolean('ForumHintGone', false);
+        // Zweck-Einführung (Dietmars Auftrag 01.09.2026, ausgelöst durch
+        // Sepps Rückmeldung: er wusste anfangs nicht, WOFÜR das Modul
+        // überhaupt gedacht ist, nur wie man es bedient). Einmalig
+        // dismissible wie der Forum-Hinweis, nicht pro Version wie das
+        // News-Panel — der Zweck ändert sich ja nicht mit jedem Release.
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
         $this->RegisterTimer('Recalc', 0, 'MHUBV_Recalc($_IPS[\'TARGET\']);');
     }
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
+
+    // Konzept-Diagramm (Dietmars Auftrag 01.09.2026, Anregung "wie die
+    // BDEW-Messkonzepte" — Sepp hatte Mühe, sich das Verdrahtungs-Prinzip
+    // rein aus Text vorzustellen): eine eingebettete SVG-Grafik, drei
+    // Muster nebeneinander (Sammeln/Abziehen/Aufteilen), dieselben
+    // Beispiele wie die Text-Beispiele direkt darunter im Doku-Panel.
+    // Als Data-URI eingebettet (`'type' => 'Image', 'image' => 'data:...'`)
+    // — gegen die offizielle SDK-Doku geprüft, nicht angenommen: das
+    // Image-Element unterstützt `image` (Data-URI) ODER `mediaID`, beides
+    // nicht kombinierbar. Data-URI gewählt, damit kein zusätzliches
+    // Medienobjekt gepflegt werden muss.
+    private const KONZEPT_DIAGRAMM = 'data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgOTAwIDM0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBmb250LWZhbWlseT0iLWFwcGxlLXN5c3RlbSxTZWdvZSBVSSxIZWx2ZXRpY2EsQXJpYWwsc2Fucy1zZXJpZiI+CiAgPGRlZnM+CiAgICA8bWFya2VyIGlkPSJhcnJvdyIgdmlld0JveD0iMCAwIDEwIDEwIiByZWZYPSI5IiByZWZZPSI1IiBtYXJrZXJXaWR0aD0iNyIgbWFya2VySGVpZ2h0PSI3IiBvcmllbnQ9ImF1dG8tc3RhcnQtcmV2ZXJzZSI+CiAgICAgIDxwYXRoIGQ9Ik0wLDAgTDEwLDUgTDAsMTAgeiIgZmlsbD0iIzU1NSIvPgogICAgPC9tYXJrZXI+CiAgPC9kZWZzPgogIDxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSI5MDAiIGhlaWdodD0iMzQwIiBmaWxsPSIjZmZmZmZmIi8+CgogIDwhLS0gUGFuZWwgMTogU2FtbWVsbiAtLT4KICA8dGV4dCB4PSIxNTAiIHk9IjI2IiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMWMxYzFlIj5TYW1tZWxuPC90ZXh0PgogIDx0ZXh0IHg9IjE1MCIgeT0iNDQiIGZvbnQtc2l6ZT0iMTEiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM2YjZiNmYiPm1laHJlcmUgWsOkaGxlciB6dSBlaW5lbSBXZXJ0PC90ZXh0PgoKICA8cmVjdCB4PSIxMCIgeT0iNzAiIHdpZHRoPSIxNDAiIGhlaWdodD0iMzQiIHJ4PSI2IiBmaWxsPSIjZWVmN2VmIiBzdHJva2U9IiMyZjhmNGUiIHN0cm9rZS13aWR0aD0iMS4zIi8+CiAgPHRleHQgeD0iODAiIHk9IjkxIiBmb250LXNpemU9IjExLjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxYzFjMWUiPkvDvGhsc2NocmFuazwvdGV4dD4KICA8dGV4dCB4PSIxMCIgeT0iNjYiIGZvbnQtc2l6ZT0iMTAuNSIgZmlsbD0iIzJmOGY0ZSIgZm9udC13ZWlnaHQ9IjcwMCI+KzEwMCAlPC90ZXh0PgoKICA8cmVjdCB4PSIxMCIgeT0iMTUwIiB3aWR0aD0iMTQwIiBoZWlnaHQ9IjM0IiByeD0iNiIgZmlsbD0iI2VlZjdlZiIgc3Ryb2tlPSIjMmY4ZjRlIiBzdHJva2Utd2lkdGg9IjEuMyIvPgogIDx0ZXh0IHg9IjgwIiB5PSIxNzEiIGZvbnQtc2l6ZT0iMTEuNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFjMWMxZSI+QnJ1bm5lbnB1bXBlPC90ZXh0PgogIDx0ZXh0IHg9IjEwIiB5PSIxNDYiIGZvbnQtc2l6ZT0iMTAuNSIgZmlsbD0iIzJmOGY0ZSIgZm9udC13ZWlnaHQ9IjcwMCI+KzEwMCAlPC90ZXh0PgoKICA8bGluZSB4MT0iMTUwIiB5MT0iODciIHgyPSIyMDUiIHkyPSIxMjIiIHN0cm9rZT0iIzU1NSIgc3Ryb2tlLXdpZHRoPSIxLjQiIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+CiAgPGxpbmUgeDE9IjE1MCIgeTE9IjE2NyIgeDI9IjIwNSIgeTI9IjEzMiIgc3Ryb2tlPSIjNTU1IiBzdHJva2Utd2lkdGg9IjEuNCIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KCiAgPGNpcmNsZSBjeD0iMjIyIiBjeT0iMTI3IiByPSIyMCIgZmlsbD0iI2Y0ZjRmNiIgc3Ryb2tlPSIjMWMxYzFlIiBzdHJva2Utd2lkdGg9IjEuMyIvPgogIDx0ZXh0IHg9IjIyMiIgeT0iMTMzIiBmb250LXNpemU9IjE3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMWMxYzFlIj7OozwvdGV4dD4KCiAgPGxpbmUgeDE9IjI0MiIgeTE9IjEyNyIgeDI9IjI4MCIgeTI9IjEyNyIgc3Ryb2tlPSIjNTU1IiBzdHJva2Utd2lkdGg9IjEuNCIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KICA8cmVjdCB4PSIyODIiIHk9IjEwOCIgd2lkdGg9IjE1MCIgaGVpZ2h0PSIzOCIgcng9IjYiIGZpbGw9IiNlYWYyZmIiIHN0cm9rZT0iIzJiNmNiMCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8dGV4dCB4PSIzNTciIHk9IjEzMiIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFjMWMxZSI+U3VtbWU8L3RleHQ+CgogIDwhLS0gZGl2aWRlciAtLT4KICA8bGluZSB4MT0iNDYwIiB5MT0iMTIiIHgyPSI0NjAiIHkyPSIzMjgiIHN0cm9rZT0iI2RjZGNlMCIgc3Ryb2tlLXdpZHRoPSIxIi8+CgogIDwhLS0gUGFuZWwgMjogQWJ6aWVoZW4gLS0+CiAgPHRleHQgeD0iNjEwIiB5PSIyNiIgZm9udC1zaXplPSIxNSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFjMWMxZSI+QWJ6aWVoZW48L3RleHQ+CiAgPHRleHQgeD0iNjEwIiB5PSI0NCIgZm9udC1zaXplPSIxMSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzZiNmI2ZiI+dW5iZWthbm50ZW4gUmVzdCBiZXJlY2huZW48L3RleHQ+CgogIDxyZWN0IHg9IjQ4MCIgeT0iNjAiIHdpZHRoPSIxNTAiIGhlaWdodD0iMzQiIHJ4PSI2IiBmaWxsPSIjZWVmN2VmIiBzdHJva2U9IiMyZjhmNGUiIHN0cm9rZS13aWR0aD0iMS4zIi8+CiAgPHRleHQgeD0iNTU1IiB5PSI4MSIgZm9udC1zaXplPSIxMS41IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMWMxYzFlIj5IYXVzYW5zY2hsdXNzPC90ZXh0PgogIDx0ZXh0IHg9IjQ4MCIgeT0iNTYiIGZvbnQtc2l6ZT0iMTAuNSIgZmlsbD0iIzJmOGY0ZSIgZm9udC13ZWlnaHQ9IjcwMCI+KzEwMCAlIChlaWdlbmVyIFrDpGhsZXIpPC90ZXh0PgoKICA8cmVjdCB4PSI0ODAiIHk9IjEzMCIgd2lkdGg9IjE1MCIgaGVpZ2h0PSIzNCIgcng9IjYiIGZpbGw9IiNmZGVjZWMiIHN0cm9rZT0iI2MwMzkyYiIgc3Ryb2tlLXdpZHRoPSIxLjMiLz4KICA8dGV4dCB4PSI1NTUiIHk9IjE1MSIgZm9udC1zaXplPSIxMS41IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMWMxYzFlIj5Xw6RybWVwdW1wZTwvdGV4dD4KICA8dGV4dCB4PSI0ODAiIHk9IjEyNiIgZm9udC1zaXplPSIxMC41IiBmaWxsPSIjYzAzOTJiIiBmb250LXdlaWdodD0iNzAwIj7iiJIxMDAgJTwvdGV4dD4KCiAgPHJlY3QgeD0iNDgwIiB5PSIyMDAiIHdpZHRoPSIxNTAiIGhlaWdodD0iMzQiIHJ4PSI2IiBmaWxsPSIjZmRlY2VjIiBzdHJva2U9IiNjMDM5MmIiIHN0cm9rZS13aWR0aD0iMS4zIi8+CiAgPHRleHQgeD0iNTU1IiB5PSIyMjEiIGZvbnQtc2l6ZT0iMTEuNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFjMWMxZSI+V2FsbGJveDwvdGV4dD4KICA8dGV4dCB4PSI0ODAiIHk9IjE5NiIgZm9udC1zaXplPSIxMC41IiBmaWxsPSIjYzAzOTJiIiBmb250LXdlaWdodD0iNzAwIj7iiJIxMDAgJTwvdGV4dD4KCiAgPGxpbmUgeDE9IjYzMCIgeTE9Ijc3IiB4Mj0iNjg1IiB5Mj0iMTIyIiBzdHJva2U9IiM1NTUiIHN0cm9rZS13aWR0aD0iMS40IiBtYXJrZXItZW5kPSJ1cmwoI2Fycm93KSIvPgogIDxsaW5lIHgxPSI2MzAiIHkxPSIxNDciIHgyPSI2ODUiIHkyPSIxMzIiIHN0cm9rZT0iIzU1NSIgc3Ryb2tlLXdpZHRoPSIxLjQiIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+CiAgPGxpbmUgeDE9IjYzMCIgeTE9IjIxNyIgeDI9IjY4NSIgeTI9IjE0MiIgc3Ryb2tlPSIjNTU1IiBzdHJva2Utd2lkdGg9IjEuNCIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KCiAgPGNpcmNsZSBjeD0iNzAyIiBjeT0iMTI3IiByPSIyMCIgZmlsbD0iI2Y0ZjRmNiIgc3Ryb2tlPSIjMWMxYzFlIiBzdHJva2Utd2lkdGg9IjEuMyIvPgogIDx0ZXh0IHg9IjcwMiIgeT0iMTMzIiBmb250LXNpemU9IjE3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMWMxYzFlIj7OozwvdGV4dD4KCiAgPGxpbmUgeDE9IjcyMiIgeTE9IjEyNyIgeDI9Ijc2MCIgeTI9IjEyNyIgc3Ryb2tlPSIjNTU1IiBzdHJva2Utd2lkdGg9IjEuNCIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KICA8cmVjdCB4PSI3NjIiIHk9IjEwOCIgd2lkdGg9IjEyOCIgaGVpZ2h0PSIzOCIgcng9IjYiIGZpbGw9IiNlYWYyZmIiIHN0cm9rZT0iIzJiNmNiMCIgc3Ryb2tlLXdpZHRoPSIxLjQiLz4KICA8dGV4dCB4PSI4MjYiIHk9IjEzMiIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFjMWMxZSI+UmVzdDwvdGV4dD4KCiAgPCEtLSBQYW5lbCAzOiBBdWZ0ZWlsZW4gKGZ1bGwgd2lkdGgsIGJlbG93KSAtLT4KICA8bGluZSB4MT0iMTAiIHkxPSIyNDgiIHgyPSI4OTAiIHkyPSIyNDgiIHN0cm9rZT0iI2RjZGNlMCIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgPHRleHQgeD0iNDUwIiB5PSIyNzIiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSI3MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxYzFjMWUiPkF1ZnRlaWxlbjwvdGV4dD4KICA8dGV4dCB4PSI0NTAiIHk9IjI4OCIgZm9udC1zaXplPSIxMSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzZiNmI2ZiI+ZWluIFrDpGhsZXIsIGFudGVpbGlnIGF1ZiBtZWhyZXJlIEluc3RhbnplbiAoei4gQi4gTWlldGVyKTwvdGV4dD4KCiAgPHJlY3QgeD0iMzUwIiB5PSIzMDAiIHdpZHRoPSIyMDAiIGhlaWdodD0iMzQiIHJ4PSI2IiBmaWxsPSIjZmZmN2U2IiBzdHJva2U9IiNiODg2MGIiIHN0cm9rZS13aWR0aD0iMS4zIi8+CiAgPHRleHQgeD0iNDUwIiB5PSIzMjEiIGZvbnQtc2l6ZT0iMTEuNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFjMWMxZSI+UFYtRWluc3BlaXN1bmcgKGRpZXNlbGJlIFZhcmlhYmxlKTwvdGV4dD4KCiAgPGxpbmUgeDE9IjM4MCIgeTE9IjMwMCIgeDI9IjIzMCIgeTI9IjIzMCIgc3Ryb2tlPSIjNTU1IiBzdHJva2Utd2lkdGg9IjEuNCIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KICA8dGV4dCB4PSIyOTAiIHk9IjI1NSIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzFjMWMxZSI+NjAgJTwvdGV4dD4KICA8cmVjdCB4PSI5MCIgeT0iMTk2IiB3aWR0aD0iMTQwIiBoZWlnaHQ9IjM0IiByeD0iNiIgZmlsbD0iI2VhZjJmYiIgc3Ryb2tlPSIjMmI2Y2IwIiBzdHJva2Utd2lkdGg9IjEuNCIvPgogIDx0ZXh0IHg9IjE2MCIgeT0iMjE3IiBmb250LXNpemU9IjExLjUiIGZvbnQtd2VpZ2h0PSI3MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxYzFjMWUiPkluc3RhbnogTWlldGVyIEE8L3RleHQ+CgogIDxsaW5lIHgxPSI1MjAiIHkxPSIzMDAiIHgyPSI2NzAiIHkyPSIyMzAiIHN0cm9rZT0iIzU1NSIgc3Ryb2tlLXdpZHRoPSIxLjQiIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+CiAgPHRleHQgeD0iNjEwIiB5PSIyNTUiIGZvbnQtc2l6ZT0iMTEiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxYzFjMWUiPjQwICU8L3RleHQ+CiAgPHJlY3QgeD0iNjcwIiB5PSIxOTYiIHdpZHRoPSIxNDAiIGhlaWdodD0iMzQiIHJ4PSI2IiBmaWxsPSIjZWFmMmZiIiBzdHJva2U9IiMyYjZjYjAiIHN0cm9rZS13aWR0aD0iMS40Ii8+CiAgPHRleHQgeD0iNzQwIiB5PSIyMTciIGZvbnQtc2l6ZT0iMTEuNSIgZm9udC13ZWlnaHQ9IjcwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFjMWMxZSI+SW5zdGFueiBNaWV0ZXIgQjwvdGV4dD4KPC9zdmc+Cg==';
 
     /** Symcon-Forum-Hinweis — einmalig dismissible, kein Versionsbezug (siehe NewsBanner() für das Versions-Pendant). */
     private function ForumHint(): ?array
@@ -181,6 +199,40 @@ class MeterHubVirtual extends IPSModule
     }
 
     /**
+     * Zweck-Einführung — beantwortet "wofür ist das Modul, was bringt's mir"
+     * BEVOR die Bedienung erklärt wird (das übernimmt weiterhin das
+     * Doku-Panel darunter). Dietmars Auftrag 01.09.2026, ausgelöst durch
+     * Sepps Rückmeldung ("wusste am Anfang nicht was er damit machen kann
+     * oder soll, was das Ziel sein könnte, was es ihm bringt"). Einmalig
+     * dismissible (wie ForumHint(), NICHT pro Version wie NewsBanner()) —
+     * der Zweck des Moduls ändert sich nicht mit jedem Release. Steht ganz
+     * vorn im Formular, noch vor dem News-Panel: "wofür" kommt vor "was ist
+     * neu".
+     */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'MeterHubVirtual misst selbst nichts — es RECHNET aus bereits vorhandenen Leistungs-/Energiewerten (von MeterHub oder anderen Quellen) genau die eine Zahl, die dir fehlt.'],
+                ['type' => 'Label', 'caption' => 'Typische Fälle: der unbekannte Rest eines Hausanschlusses (Hauptzähler minus alle bekannten Verbraucher), die Summe mehrerer Zähler zu einem Gesamtwert, oder ein Zähler, dessen Wert anteilig auf mehrere Instanzen/Mieter aufgeteilt werden muss.'],
+                ['type' => 'Label', 'caption' => 'Kurz: ein zusätzlicher, virtueller Zähler ganz ohne zusätzliche Hardware. Wie man ihn zusammenbaut, steht im Panel „🔌 Zähler" weiter unten.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro()
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+    }
+
+    /**
      * Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention.
      * `null`, sobald `NEWS_VERSION` schon bestätigt wurde ODER eine Migration
      * aussteht (dann hat das Migrations-Panel Vorrang, siehe
@@ -212,6 +264,8 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 „Prüfung & Vorschau" warnt jetzt (⚠️, nicht blockierend), wenn eine Zeile Leistung, aber keinen Bezug hat, während andere Zeilen derselben Formel einen haben — sonst würde die Bezug-Summe diese Zeile still mit 0 kWh mitzählen.'],
                 ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
                 ['type' => 'Label', 'caption' => '• Übersichtlicher: die vier Wege, eine Zeile hinzuzufügen, stehen jetzt gleich am Anfang als Kurzübersicht mit eigenen Namen (Sucher-/Quick-Pick-/Familien-/Handarbeit-Alternative), jede mit eigener Zwischenüberschrift bei den passenden Bedienelementen.'],
+                ['type' => 'Label', 'caption' => '• 👋 Neue Zweck-Einführung „Wozu dieses Modul?" ganz oben im Formular — kurz und knapp, wofür MeterHubVirtual gedacht ist, bevor es an die Bedienung geht.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Neue Übersichtsgrafik im Doku-Panel — zeigt die drei Verdrahtungs-Muster (Sammeln/Abziehen/Aufteilen) als Skizze, passend zu den bestehenden Text-Beispielen.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -1807,6 +1861,7 @@ class MeterHubVirtual extends IPSModule
             ];
         }
 
+        $purposeIntro = $migration ? null : $this->PurposeIntro();
         $newsBanner = $migration ? null : $this->NewsBanner();
 
         $meterItems = [];
@@ -1891,6 +1946,7 @@ class MeterHubVirtual extends IPSModule
         $form = [
             'elements' => array_values(array_filter([
                 $migrationPanel,
+                $purposeIntro,
                 $newsBanner,
                 [
                     'type' => 'ExpansionPanel', 'caption' => '📖  Dokumentation & Hilfe', 'expanded' => false,
@@ -1901,6 +1957,7 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'Label', 'caption' => 'Beispiel „Abziehen“: Hausanschluss (100 %, eigener Zähler), Wärmepumpe (−100 %) und Wallbox (−100 %) ergeben Hausanschluss minus Wärmepumpe minus Wallbox — der unbekannte Rest des Hauses.'],
                         ['type' => 'Label', 'caption' => 'Beispiel „Durchreichen“: nur EINE Zeile (100 %) — die Instanz gibt einfach diesen einen Zähler weiter, nützlich um ihm über „Funktion“ eine Dashboard-Zuordnung zu geben, ohne ihn mit etwas anderem zu verrechnen.'],
                         ['type' => 'Label', 'caption' => 'Beispiel „Aufteilen“: eine PV-Anlage mit mehreren Erzeugungsjahren bekommt die Einspeisevergütung anteilig nach Quotierung — dieselbe Einspeisungs-Variable wird in der Instanz für den einen Anteil mit z. B. 60 % eingetragen, in einer zweiten Instanz für den anderen Anteil mit 40 %. Dasselbe funktioniert für eine anteilige Zuordnung an mehrere Mieter.'],
+                        ['type' => 'Image', 'image' => self::KONZEPT_DIAGRAMM, 'center' => true],
                         ['type' => 'Label', 'caption' => 'Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere Instanzen: eine Instanz rechnet den Zwischenwert, dessen Ausgabe wird als ganz normale Zeile in der nächsten Instanz verdrahtet — nicht mehr innerhalb einer einzigen Instanz.'],
                         ['type' => 'Label', 'caption' => '━━━ Schritt für Schritt ━━━'],
                         ['type' => 'Label', 'caption' => '1. Optional zuerst: „Zählerbezeichnung“ oben setzen — das ist zugleich der Name dieser Instanz im Objektbaum, keine zwei getrennten Namen zu pflegen.'],
