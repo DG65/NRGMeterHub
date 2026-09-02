@@ -68,7 +68,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.28';
+    private const NEWS_VERSION = '0.24.29';
 
     public function Create()
     {
@@ -116,6 +116,14 @@ class MeterHubVirtual extends IPSModule
         // Suchlauf NUR solche schon-verwendeten Datenpunkte, zum gezielten
         // Nachschauen, wo ein bestimmter Zähler sonst noch eingeht.
         $this->RegisterPropertyBoolean('ScanOnlyUsedElsewhere', false);
+        // Filter nach bereits vergebener Funktion (Dietmars Anregung
+        // 02.09.2026: eine Sammel-Kategorie wie "Beleuchtung" über mehrere,
+        // unterschiedlich benannte Stromkreise hinweg zusammensuchen, z. B.
+        // um sie in einer eigenen Instanz als Energie- UND Kostenblock
+        // darzustellen — Name allein (ScanFilter) trifft das nicht
+        // zuverlässig, wohl aber die schon an der jeweiligen Ursprungs-
+        // instanz gesetzte Funktions-Zuordnung). '' = keine Einschränkung.
+        $this->RegisterPropertyString('ScanOnlyFunction', '');
         $this->RegisterAttributeString('SeenNews', '');
         // Symcon-Forum-Hinweis (SUITE.md "Einheitliche Formular-Optik", Punkt
         // 4): einmalig dismissible, kein Versionsbezug. URL noch ein
@@ -267,6 +275,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• 👋 Neue Zweck-Einführung „Wozu dieses Modul?" ganz oben im Formular — kurz und knapp, wofür MeterHubVirtual gedacht ist, bevor es an die Bedienung geht.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Neue Übersichtsgrafik im Doku-Panel — zeigt die drei Verdrahtungs-Muster (Sammeln/Abziehen/Aufteilen) als Skizze, passend zu den bestehenden Text-Beispielen.'],
                 ['type' => 'Label', 'caption' => '• 🧪 Experiment: WebFront-Kachel — zeigt die Formel-Zeilen mit Live-Werten und Ergebnis, Name/Anteil lassen sich direkt dort bearbeiten. Ergänzt das Konsolenformular, ersetzt es nicht (neue Zeilen/Variablen weiterhin dort).'],
+                ['type' => 'Label', 'caption' => '• 🆕 Neuer Suchfilter „Nur Funktion X" — findet Datenpunkte, deren Ursprungsinstanz schon eine Funktion wie „Beleuchtung" trägt, auch wenn der Gerätename allein nicht eindeutig ist. Praktisch, um eine Sparte über mehrere Stromkreise hinweg zu einem Sammelzähler (Energie- UND Kostenblock) zusammenzufassen.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -1177,6 +1186,59 @@ class MeterHubVirtual extends IPSModule
         return [0, IPS_GetName($vid)];
     }
 
+    /**
+     * Funktions-Zuordnung ('grid'/'light'/'heatpump'/… oder '') der
+     * Ursprungsinstanz von $vid — für den "ScanOnlyFunction"-Suchfilter
+     * (Dietmars Anregung 02.09.2026). Läuft wie BelongsToExcludedModule()
+     * die Elternkette hoch bis zur nächsten Instanz und fragt DEREN
+     * MHUB_GetFunctions()/MHUBV_GetFunctions() ab, ob genau diese Variable
+     * dort einer Funktion zugeordnet ist. MHUB_/MHUBV_ sind eigene, nicht
+     * fremde Präfixe (siehe .tools/check-standalone.php) — kein
+     * function_exists()-Wächter nötig, beide Module gehören zum selben Repo
+     * und werden gemeinsam ausgeliefert.
+     */
+    private function OriginFunctionFor(int $vid): string
+    {
+        $pid = IPS_GetParent($vid);
+        while ($pid > 0) {
+            $o = IPS_GetObject($pid);
+            if ($o['ObjectType'] === 1) {
+                $mid = @IPS_GetInstance($pid)['ModuleInfo']['ModuleID'] ?? '';
+                if ($mid === self::GUID_METER) {
+                    return $this->FunctionForVarIn($vid, @MHUB_GetFunctions($pid));
+                }
+                if ($mid === self::GUID_VIRTUAL) {
+                    return $this->FunctionForVarIn($vid, @MHUBV_GetFunctions($pid));
+                }
+                return '';
+            }
+            $pid = $o['ParentID'];
+        }
+        return '';
+    }
+
+    private function FunctionForVarIn(int $vid, $json): string
+    {
+        $data = json_decode((string)$json, true);
+        // *_GetFunctions() liefert ein Objekt mit 'assignments' als Liste,
+        // keine nackte Liste — siehe MHUB_GetFunctions()/MHUBV_GetFunctions().
+        $list = is_array($data) ? ($data['assignments'] ?? []) : [];
+        if (!is_array($list)) {
+            return '';
+        }
+        foreach ($list as $a) {
+            if (!is_array($a)) {
+                continue;
+            }
+            foreach (['powerID', 'energyImportID', 'energyExportID'] as $f) {
+                if ((int)($a[$f] ?? 0) === $vid) {
+                    return (string)($a['function'] ?? '');
+                }
+            }
+        }
+        return '';
+    }
+
     /** Erste Variable mit passendem Ident unterhalb von $rootId (auch über Kategorien hinweg, nicht über verschachtelte Instanzen). */
     private function FindByIdent(int $rootId, string $ident): int
     {
@@ -1666,7 +1728,7 @@ class MeterHubVirtual extends IPSModule
      * Die Filter kommen aus der Maske und werden im onClick übergeben, damit
      * eine noch nicht übernommene Änderung sofort greift.
      */
-    public function ScanMeters(?int $root = null, ?string $filter = null, ?bool $needEnergy = null, ?bool $onlyActive = null, ?bool $onlyUsedElsewhere = null)
+    public function ScanMeters(?int $root = null, ?string $filter = null, ?bool $needEnergy = null, ?bool $onlyActive = null, ?bool $onlyUsedElsewhere = null, ?string $onlyFunction = null)
     {
         // Direktaufruf ohne Argumente (Skript, Konsole): gespeicherte Filter.
         $root              = $root              === null ? $this->ReadPropertyInteger('ScanRoot')              : (int)$root;
@@ -1674,7 +1736,9 @@ class MeterHubVirtual extends IPSModule
         $needEnergy        = $needEnergy        === null ? $this->ReadPropertyBoolean('ScanNeedEnergy')        : (bool)$needEnergy;
         $onlyActive        = $onlyActive        === null ? $this->ReadPropertyBoolean('ScanOnlyActive')        : (bool)$onlyActive;
         $onlyUsedElsewhere = $onlyUsedElsewhere === null ? $this->ReadPropertyBoolean('ScanOnlyUsedElsewhere')  : (bool)$onlyUsedElsewhere;
-        $filter     = trim($filter);
+        $onlyFunction      = $onlyFunction      === null ? $this->ReadPropertyString('ScanOnlyFunction')       : (string)$onlyFunction;
+        $filter       = trim($filter);
+        $onlyFunction = trim($onlyFunction);
 
         if ($root > 0 && !IPS_ObjectExists($root)) {
             $this->UpdateFormField('ScanResult', 'caption', "❌ Der gewählte Suchbereich (#$root) existiert nicht mehr.");
@@ -1734,7 +1798,7 @@ class MeterHubVirtual extends IPSModule
         }
 
         $devices = [];
-        $skipped = ['einheit' => 0, 'schonverwendet' => 0, 'virtuell' => 0, 'bereich' => 0, 'name' => 0, 'verbund' => 0, 'andereinstanz' => 0];
+        $skipped = ['einheit' => 0, 'schonverwendet' => 0, 'virtuell' => 0, 'bereich' => 0, 'name' => 0, 'verbund' => 0, 'andereinstanz' => 0, 'funktion' => 0];
 
         foreach (IPS_GetVariableList() as $vid) {
             if (isset($ownOutputs[$vid])) { $skipped['virtuell']++; continue; }
@@ -1748,9 +1812,10 @@ class MeterHubVirtual extends IPSModule
             $kind = $this->Classify($vid);
             if ($kind === '') { $skipped['einheit']++; continue; }
             if (!$this->IsBelow($vid, $root)) { $skipped['bereich']++; continue; }
-            // Teurere Prüfung (läuft die Elternkette hoch) bewusst zuletzt,
+            // Teurere Prüfungen (laufen die Elternkette hoch) bewusst zuletzt,
             // erst nachdem die billigen Filter schon aussortiert haben.
             if ($this->BelongsToExcludedModule($vid)) { $skipped['verbund']++; continue; }
+            if ($onlyFunction !== '' && $this->OriginFunctionFor($vid) !== $onlyFunction) { $skipped['funktion']++; continue; }
 
             [$did, $dname] = $this->DeviceOf($vid);
             if ($filter !== '' && mb_stripos($dname, $filter) === false && mb_stripos(IPS_GetName($vid), $filter) === false) {
@@ -1831,6 +1896,7 @@ class MeterHubVirtual extends IPSModule
         if ($needEnergy)        { $scope[] = 'nur mit Energiezähler'; }
         if ($onlyActive)        { $scope[] = 'nur in den letzten 7 Tagen aktualisiert'; }
         if ($onlyUsedElsewhere) { $scope[] = 'nur Datenpunkte, die schon in einer anderen Instanz stecken'; }
+        if ($onlyFunction !== '') { $scope[] = 'nur Funktion „' . (self::FUNCTIONS[$onlyFunction][0] ?? $onlyFunction) . '“'; }
 
         // Trägt weiterhin NICHT automatisch in die Formel-Tabelle ein (bis
         // 0.24.4: jeder Fund landete automatisch als neue Zeile, musste bei
@@ -1843,10 +1909,10 @@ class MeterHubVirtual extends IPSModule
             ? '🔎 ' . count($found) . ' Gerät(e) gefunden: ' . implode(', ', $found) . '. Unten in „Fund auswählen" wählen und übernehmen — oder in der Tabelle weiter unten „Hinzufügen" für die manuelle Variablen-Auswahl.'
             : '🔎 Keine Geräte gefunden.';
         $msg .= "\nSuchbereich: " . ($scope ? implode(', ', $scope) : 'ganze Installation, ungefiltert');
-        $msg .= sprintf("\nÜbersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler, %d aus anderen NRG-Stack-Modulen, %d schon in einer anderen virtuellen Zähler-Instanz, %d außerhalb des Suchbereichs, %d durch den Namensfilter, %d ohne Energiezähler, %d länger als 7 Tage still.",
+        $msg .= sprintf("\nÜbersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler, %d aus anderen NRG-Stack-Modulen, %d schon in einer anderen virtuellen Zähler-Instanz, %d außerhalb des Suchbereichs, %d durch den Namensfilter, %d durch den Funktionsfilter, %d ohne Energiezähler, %d länger als 7 Tage still.",
             $skipped['einheit'], $skipped['schonverwendet'], $skipped['virtuell'], $skipped['verbund'], $skipped['andereinstanz'],
-            $skipped['bereich'], $skipped['name'], $filteredOut['ohneenergie'], $filteredOut['inaktiv']);
-        if (count($found) === 0 && ($filteredOut['ohneenergie'] + $filteredOut['inaktiv'] + $skipped['bereich'] + $skipped['name']) > 0) {
+            $skipped['bereich'], $skipped['name'], $skipped['funktion'], $filteredOut['ohneenergie'], $filteredOut['inaktiv']);
+        if (count($found) === 0 && ($filteredOut['ohneenergie'] + $filteredOut['inaktiv'] + $skipped['bereich'] + $skipped['name'] + $skipped['funktion']) > 0) {
             $msg .= "\n💡 Es wurde etwas gefunden, aber wegfiltriert — probeweise einen Filter lockern.";
         }
         if ($notes) {
@@ -2052,7 +2118,18 @@ class MeterHubVirtual extends IPSModule
             $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanNeedEnergy', 'caption' => 'Nur Geräte mit Energiezähler (kWh) — blendet Schalter aus, die bloß die Momentanleistung melden'];
             $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyActive', 'caption' => 'Nur Geräte, die in den letzten 7 Tagen Werte geliefert haben — blendet Karteileichen aus'];
             $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyUsedElsewhere', 'caption' => 'Nur Datenpunkte zeigen, die schon in einer ANDEREN virtuellen Zähler-Instanz stecken (zum gezielten Prüfen auf Doppelverwendung/Aufteilung) — sonst werden sie wie gewohnt ausgeblendet'];
-            $meterItems[] = ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive, $ScanOnlyUsedElsewhere);'];
+            // Filter nach bereits vergebener Funktion (Dietmars Anregung
+            // 02.09.2026): eine Sparte wie "Beleuchtung" sammeln, auch wenn
+            // die einzelnen Stromkreise ganz unterschiedlich heißen (Flur,
+            // Wohnzimmer, Außenbeleuchtung …) — Name allein (Feld oben)
+            // trifft das nicht zuverlässig, die schon an der jeweiligen
+            // Ursprungsinstanz gesetzte Funktions-Zuordnung schon.
+            $scanFuncOptions = [['caption' => '— egal (keine Einschränkung) —', 'value' => '']];
+            foreach (self::FUNCTIONS as $key => $def) {
+                $scanFuncOptions[] = ['caption' => $def[0], 'value' => $key];
+            }
+            $meterItems[] = ['type' => 'Select', 'name' => 'ScanOnlyFunction', 'caption' => 'Nur Datenpunkte, deren Ursprungsinstanz bereits diese Funktion trägt (z. B. „Beleuchtung" — praktisch, um eine Sparte über mehrere Stromkreise hinweg zu einem Sammelzähler zusammenzufassen)', 'options' => $scanFuncOptions];
+            $meterItems[] = ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive, $ScanOnlyUsedElsewhere, $ScanOnlyFunction);'];
             $meterItems[] = ['type' => 'Label', 'name' => 'ScanResult', 'caption' => '', 'visible' => false];
             // Funde direkt übernehmbar (Dietmars Anregung 31.08.2026: "wenn
             // ich schon etwas suchen muss, dann möchte ich auch direkt aus
@@ -2116,6 +2193,7 @@ class MeterHubVirtual extends IPSModule
                         ['type' => 'Label', 'caption' => 'MeterHubVirtual ' . self::NEWS_VERSION . ' — Stand dieser Anleitung.'],
                         ['type' => 'Label', 'caption' => 'Bildet einen virtuellen Zähler aus einer FORMEL: Diese Instanz ist die oberste Ebene, jede Zeile unten ein Term mit einem Anteil in Prozent. Ergebnis = Summe aller Anteile (100 % = ganz addiert, −100 % = ganz abgezogen, jeder Wert dazwischen ein Teil-Anteil), getrennt für Leistung, Bezug und Einspeisung.'],
                         ['type' => 'Label', 'caption' => 'Beispiel „Sammeln“: Kühlschrank (100 %) und Brunnenpumpe (100 %) ergeben deren Summe — nützlich, wenn es keinen echten Zähler gibt, der beide zusammen misst.'],
+                        ['type' => 'Label', 'caption' => 'Beispiel „Sammeln“ als Kostenblock: alle Stromkreise einer Sparte wie „Beleuchtung“ (100 %) in einer eigenen Instanz zusammenfassen, auch wenn die einzelnen Kreise ganz unterschiedlich heißen (Flur, Wohnzimmer, Außenbeleuchtung …). Das Ergebnis ist der Energiewert (kWh) dieser Sparte — den passenden Euro-Betrag liefert erst ein Tarif (z. B. Tibber Grid Rewards oder EMS), MeterHubVirtual selbst rechnet keine Preise. Zum Finden aller Stromkreise: unten bei „Zähler suchen“ das Feld „Nur Datenpunkte, deren Ursprungsinstanz bereits diese Funktion trägt“ auf „Beleuchtung“ stellen — trifft auch dann, wenn der Name allein nicht eindeutig ist.'],
                         ['type' => 'Label', 'caption' => 'Beispiel „Abziehen“: Hausanschluss (100 %, eigener Zähler), Wärmepumpe (−100 %) und Wallbox (−100 %) ergeben Hausanschluss minus Wärmepumpe minus Wallbox — der unbekannte Rest des Hauses.'],
                         ['type' => 'Label', 'caption' => 'Beispiel „Durchreichen“: nur EINE Zeile (100 %) — die Instanz gibt einfach diesen einen Zähler weiter, nützlich um ihm über „Funktion“ eine Dashboard-Zuordnung zu geben, ohne ihn mit etwas anderem zu verrechnen.'],
                         ['type' => 'Label', 'caption' => 'Beispiel „Aufteilen“: eine PV-Anlage mit mehreren Erzeugungsjahren bekommt die Einspeisevergütung anteilig nach Quotierung — dieselbe Einspeisungs-Variable wird in der Instanz für den einen Anteil mit z. B. 60 % eingetragen, in einer zweiten Instanz für den anderen Anteil mit 40 %. Dasselbe funktioniert für eine anteilige Zuordnung an mehrere Mieter.'],

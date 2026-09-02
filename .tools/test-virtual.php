@@ -184,6 +184,13 @@ class IPSModule
 require_once dirname(__DIR__) . '/MeterHub/module.php';
 require_once dirname(__DIR__) . '/MeterHubVirtual/module.php';
 
+// Kernel-generierte PREFIX_-Dispatchfunktionen (im echten Symcon von IPS
+// selbst erzeugt, hier von Hand nachgebaut) — dispatcht anhand der Instanz-ID
+// an das jeweils registrierte PHP-Objekt. Nur die hier tatsächlich per
+// PREFIX_ aufgerufenen Methoden nachgebildet (OriginFunctionFor()).
+function MHUB_GetFunctions($iid)  { return $GLOBALS['MODOBJ'][$iid]->GetFunctions(); }
+function MHUBV_GetFunctions($iid) { return $GLOBALS['MODOBJ'][$iid]->GetFunctions(); }
+
 // ---------------------------------------------------------------------------
 // Anlage aufbauen: drei MeterHub-Instanzen mit je eigenen Kategorien
 // ---------------------------------------------------------------------------
@@ -1165,6 +1172,45 @@ IPS_SetProperty($warnIid, 'Nodes', json_encode($sanitize->invoke($tileInst, $dir
 IPS_ApplyChanges($warnIid);
 $afterNodes = json_decode(IPS_GetProperty($warnIid, 'Nodes'), true);
 check('29f: Schreibweg (IPS_SetProperty+IPS_ApplyChanges) übernimmt die Kachel-Änderung', count($afterNodes) === 2 && $afterNodes[0]['Name'] === 'Test A', json_encode($afterNodes));
+
+echo "\n30) Suchfilter \"Nur Datenpunkte mit Funktion X\" (Dietmars Anregung 02.09.2026: Sparte wie \"Beleuchtung\" über mehrere Stromkreise sammeln, auch bei uneinheitlichen Namen)\n";
+meter(1400, 'Flur', 40.0, 12.0);
+meter(1500, 'Kühlschrank Küche', 90.0, 300.0);
+IPS_SetProperty(1400, 'FuncTotal', 'light');
+IPS_SetProperty(1500, 'FuncTotal', 'fridge');
+$hubLicht = new MeterHub(1400); $hubLicht->Create();
+$hubFridge = new MeterHub(1500); $hubFridge->Create();
+$GLOBALS['MODOBJ'][1400] = $hubLicht;
+$GLOBALS['MODOBJ'][1500] = $hubFridge;
+
+$fresh3 = new MeterHubVirtual(8100);
+$GLOBALS['INSTMOD'][8100] = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
+obj(8100, 1, 'Sammelzähler Beleuchtung', 10);
+$fresh3->Create();
+
+// Die Anzeige gruppiert je Container (hier: die "Summenwerte"/
+// "Energiezähler"-Kategorien unterhalb der jeweiligen MeterHub-Instanz) —
+// deren NAME ist bei jeder MeterHub-Instanz identisch, ihre ID aber nicht.
+// Deshalb wird über die IDs in ScanPick geprüft (1401/1402 = Flur-Kategorien,
+// 1501/1502 = Kühlschrank-Kategorien), nicht über den Anzeigetext.
+$runFn = function ($onlyFunction) use ($fresh3) {
+    $GLOBALS['FORMFIELDS'] = [];
+    $fresh3->ScanMeters(0, '', false, false, false, $onlyFunction);
+    $ids = array_column(json_decode($GLOBALS['FORMFIELDS']['ScanPick']['options'] ?? '[]', true), 'value');
+    return ['caption' => $GLOBALS['FORMFIELDS']['ScanResult']['caption'] ?? '', 'ids' => $ids];
+};
+$capAll = $runFn('');
+check('30a: ohne Funktionsfilter (\'\') stecken beide Ursprungsinstanzen im Fund', array_intersect([1401, 1402], $capAll['ids']) && array_intersect([1501, 1502], $capAll['ids']), json_encode($capAll['ids']));
+
+$capLight = $runFn('light');
+check('30b: Filter "light" findet NUR die als Beleuchtung getaggte Ursprungsinstanz (Flur)', array_intersect([1401, 1402], $capLight['ids']) && !array_intersect([1501, 1502], $capLight['ids']), json_encode($capLight['ids']));
+check('30c: Ergebnistext nennt die gewählte Funktion im Suchbereich', str_contains($capLight['caption'], 'nur Funktion „Beleuchtung“'), $capLight['caption']);
+
+$capOther = $runFn('heatpump');
+check('30d: Filter auf eine NICHT vorkommende Funktion findet weder Flur noch Kühlschrank', !array_intersect([1401, 1402], $capOther['ids']) && !array_intersect([1501, 1502], $capOther['ids']), json_encode($capOther['ids']));
+
+$origin = new ReflectionMethod('MeterHubVirtual', 'OriginFunctionFor');
+check('30e: OriginFunctionFor() liest die Funktion direkt von der Ursprungsinstanz', $origin->invoke($fresh3, 1403) === 'light' && $origin->invoke($fresh3, 1503) === 'fridge', $origin->invoke($fresh3, 1403) . '/' . $origin->invoke($fresh3, 1503));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

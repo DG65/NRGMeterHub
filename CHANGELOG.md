@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.29-beta.1 (2026-09-02)
+
+- **Neuer Suchfilter „Nur Funktion X" + Beispiel „Sammeln als Kostenblock".** Dietmars
+  Anregung: eine Sparte wie „Beleuchtung" über mehrere, unterschiedlich benannte
+  Stromkreise hinweg zu einem Sammelzähler zusammenfassen, um sie als Energie- und (über
+  einen Tarif) Kostenblock darzustellen. Der Suchlauf („Zähler suchen") kann jetzt zusätzlich
+  nach der Funktions-Zuordnung filtern, die einzelne Stromkreise schon an ihrer jeweiligen
+  MeterHub-Instanz tragen — trifft auch dann, wenn der Gerätename allein nicht eindeutig ist
+  (z. B. „Flur", „Wohnzimmer", „Außenbeleuchtung" statt durchgängig „Licht …"). Dazu ein
+  neues Beispiel im Doku-Panel, das den Anwendungsfall und den neuen Filter erklärt.
+
 ## 0.24.28-beta.1 (2026-09-02)
 
 - **🧪 Experiment: WebFront-Kachel für MeterHubVirtual.** Dietmars Anregung, nach dem
