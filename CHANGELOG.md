@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.25-beta.1 (2026-09-01)
+
+- **Fix: „Geräte-Familie erkennen" (Lingg&Janke-Muster) erzeugte bei Sepps Zähler eine
+  falsche vierte Zeile** „Zähler Stichtag — Bezug". Ursache: die Instanz „Zähler Stichtag
+  Wirkenergie A14 (kWh)" (ein Stichtags-Schnappschuss, kein laufender Zählerstand) endet
+  zufällig auf denselben Namens-Suffix wie der echte Zähler. Wird jetzt wie „Zwischenzähler"
+  bewusst ausgeschlossen.
+
 ## 0.24.24-beta.1 (2026-09-01)
 
 - **Fix: „Lizenztext ansehen" zeigte die alte MIT-Lizenz statt PolyForm Noncommercial.**

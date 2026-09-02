@@ -953,6 +953,10 @@ knxPoint(60213, 'Zähler Wirkenergie A14 (Wh)', $knxCat, 60313, 8543487.0);
 knxPoint(60214, 'Zähler Spannung U L1 (V)', $knxCat, 60314, 224.0);
 knxPoint(60215, 'Zähler Blindleistung Q12 (VAR)', $knxCat, 60315, 197.0);
 knxPoint(60216, 'Zähler Status', $knxCat, 60317, 1.0);
+// Sepps Live-Fund 01.09.2026: dieser Stichtags-Schnappschuss endet zufällig
+// auf denselben Suffix wie der echte laufende Zähler ("...Wirkenergie A14
+// (kWh)") und erzeugte fälschlich eine vierte Zeile "Zähler Stichtag — Bezug".
+knxPoint(60218, 'Zähler Stichtag Wirkenergie A14 (kWh)', $knxCat, 60318, 0.0);
 
 $msg23g = $fam->AddDeviceFamily($knxCat);
 check('23g: Ergebnis nennt 1 Gerät als 3 neue Zeilen', str_contains($msg23g, '1 Gerät') && str_contains($msg23g, '3 neue Zeile'), $msg23g);
@@ -969,6 +973,7 @@ check('23g: Bezugs-Zeile hat P14 als Leistung, A14 (kWh, nicht Wh!) als Bezug, F
 check('23g: Einspeisung-Leistung-Zeile hat P23 als Leistung, Faktor -100, keine Energie-Spalte', $einspLeistungRow !== null && $einspLeistungRow['PowerID'] === 60302 && (int)$einspLeistungRow['Factor'] === -100 && $einspLeistungRow['EnergyImportID'] === 0 && $einspLeistungRow['EnergyExportID'] === 0, json_encode($einspLeistungRow));
 check('23g: Einspeisung-Energie-Zeile hat A23 als Einspeisung, Faktor 100, keine Leistungs-Spalte', $einspEnergieRow !== null && $einspEnergieRow['EnergyExportID'] === 60304 && (int)$einspEnergieRow['Factor'] === 100 && $einspEnergieRow['PowerID'] === 0, json_encode($einspEnergieRow));
 check('23g: Phasenaufteilung/Wh-Duplikat/sonstige Werte tauchen in KEINER Zeile auf', !in_array(60311, [$bezugRow['PowerID'] ?? 0, $einspLeistungRow['PowerID'] ?? 0]) && !in_array(60313, [$bezugRow['EnergyImportID'] ?? 0]), json_encode([$bezugRow, $einspLeistungRow, $einspEnergieRow]));
+check('23g: "Zähler Stichtag Wirkenergie A14 (kWh)" erzeugt KEINE eigene vierte Zeile (Sepps Live-Fund 01.09.2026)', count(array_filter($rows23g, fn($r) => mb_stripos($r['Name'] ?? '', 'Stichtag') !== false)) === 0, json_encode($rows23g));
 
 echo "\n24) AddCalculatedEnergy()/AdvanceCalculatedEnergy() — Leistung × Intervall hochrechnen, wenn der Bezug fehlt (Dietmars Auftrag 01.09.2026, ausdrücklich \"hochgerechnet\", nicht \"geschätzt\")\n";
 $calcPowerCat = obj(61000, 0, 'Hochrechnungs-Test', 10);

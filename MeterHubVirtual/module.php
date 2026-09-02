@@ -1149,6 +1149,15 @@ class MeterHubVirtual extends IPSModule
                 }
                 $name = $o['ObjectName'];
                 $lower = mb_strtolower(trim($name));
+                // Sepps Live-Fund 01.09.2026: "Zähler Stichtag Wirkenergie A14
+                // (kWh)" endet zufällig auf denselben Suffix wie der echte
+                // laufende Zähler ("...Wirkenergie A14 (kWh)") — ist aber ein
+                // Stichtags-Schnappschuss (Wert zu einem festen Datum), keine
+                // laufende Summe. Genau wie "Zwischenzähler" bewusst NICHT als
+                // Energiequelle erkannt, sonst entsteht eine falsche Extra-Zeile.
+                if (mb_strpos($lower, 'stichtag') !== false) {
+                    continue;
+                }
                 foreach (self::DEVICE_FAMILY_SUFFIXES as $role => $suffixes) {
                     $matched = false;
                     foreach ($suffixes as $suffix) {
