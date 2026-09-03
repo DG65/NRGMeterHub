@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.24.32--beta.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.24.33--beta.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -193,6 +193,17 @@ bewusst **nicht gerechnet** — lieber kein Wert als ein falscher.
 Jeder Knoten kann eine **Funktion** bekommen (Netzanschluss, Hausverbrauch, Wärmepumpe …).
 Über `MHUBV_GetFunctions($id)` — denselben Vertrag wie das Hauptmodul — erscheinen virtuelle
 Zähler damit automatisch in der InverterHub-Stromflusskachel und im Sankey.
+
+**Mitglieder nach außen (`members`, Vertrag 1.3):** Jede Zuordnung — und unabhängig von der
+Funktion auch die Instanz selbst — liefert die Liste ihrer Terme (`name`, `factor` in Prozent,
+`powerID`, `energyImportID`, `energyExportID`). Damit kann ein Konsument wie das NRG-Dashboard
+einen Sammelknoten „aufschachteln": Ist ein Term selbst wieder ein virtueller Zähler, liefert
+dessen `MHUBV_GetFunctions()` die nächste Ebene — MeterHubVirtual liefert bewusst nur die
+eigene Ebene, die Rekursion macht der Konsument. Negative Anteile werden **nicht** weggelassen
+(„Hausverbrauch ohne Wallboxen" besteht aus Hausanschluss +100 % und Wallboxen −100 %); der
+Konsument erkennt „abgezogen" am Vorzeichen von `factor`. Die Instanzebene ist der Grund, warum
+ein reiner Zwischenknoten (z. B. „Licht OG") keine Funktion braucht: `assignments` bleibt dort
+leer, `members` nicht.
 
 **Zähler automatisch finden:** Der Knopf „🔎 Zähler im System suchen" durchsucht die
 Installation nach Datenpunkten mit W-/kW- bzw. kWh-Profil — also nach den Messwerten von

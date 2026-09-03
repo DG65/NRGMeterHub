@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.24.33-beta.1 (2026-09-03)
+
+- **`MHUBV_GetFunctions` 1.3: neues Feld `members` (MeterHubVirtual).** Dashboards Anfrage,
+  von Dietmar so entschieden: Sammelknoten sollen sich in der Energiefluss-Kachel per Klick
+  „aufschachteln" lassen, und die Hierarchie verketteter virtueller Zähler kommt dabei vom
+  Anbieter, nicht aus einer Dashboard-eigenen Gruppierung. Jede Zuordnung — und unabhängig
+  von der Funktion auch die Instanzebene — liefert jetzt ihre Terme (`name`, `factor`,
+  `powerID`, `energyImportID`, `energyExportID`). Nur die eigene Ebene; ob ein Term selbst
+  ein virtueller Zähler ist, löst der Konsument über dessen `GetFunctions()` auf. Negative
+  Anteile werden bewusst mitgeliefert (am Vorzeichen als „abgezogen" erkennbar). Additiv:
+  `sourceCount` und alle bisherigen Felder bleiben unverändert, `archiveWatermarkTs` wird
+  (wie bei jedem `realtime`-Zähler) als `null` mitgeführt.
+
 ## 0.24.32-beta.1 (2026-09-02)
 
 - **Dank an Sepp Lausch (seppm).** README bekommt einen neuen Abschnitt „Dank" — als

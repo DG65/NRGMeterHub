@@ -419,7 +419,7 @@ echo "\n8) Vertragserweiterung MHUBV_GetFunctions — Funktion jetzt Instanz-Pro
 IPS_SetProperty($new, 'Function', 'house');
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
 $gf = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
-check('contractVersion = 1.1', ($gf['contractVersion'] ?? '') === '1.1', json_encode($gf['contractVersion'] ?? null));
+check('contractVersion = 1.3 (1.1 latency/authority/…, 1.2 archiveWatermarkTs, 1.3 members)', ($gf['contractVersion'] ?? '') === '1.3', json_encode($gf['contractVersion'] ?? null));
 check('latency = realtime',   ($gf['latency'] ?? '') === 'realtime', json_encode($gf['latency'] ?? null));
 check('authority = auxiliary', ($gf['authority'] ?? '') === 'auxiliary');
 check('pollInterval gesetzt',  ($gf['pollInterval'] ?? 0) >= 2);
@@ -1246,6 +1246,30 @@ foreach ($formFunc['elements'] ?? [] as $el) {
 }
 $scanFuncValues = array_column($scanFuncField['options'] ?? [], 'value');
 check('32d: neue Funktionen stehen im Suchfilter "Nur Funktion X" zur Auswahl', in_array('appliances', $scanFuncValues, true) && in_array('entertainment', $scanFuncValues, true), implode(',', $scanFuncValues));
+
+echo "\n33) MHUBV_GetFunctions 1.3: \"members\" — Mitglieder einer Formel nach außen (Dashboards Anfrage 03.09.2026, Hierarchie liegt beim Anbieter)\n";
+// $new (Block 1): Hausanschluss (+100), Wärmepumpe (−100), Wallbox (−100), Funktion 'house' seit Block 11.
+$gf33 = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
+check('33a: contractVersion 1.3 (additiver Minor-Sprung)', ($gf33['contractVersion'] ?? '') === '1.3', $gf33['contractVersion'] ?? 'fehlt');
+$m33 = $gf33['assignments'][0]['members'] ?? null;
+check('33b: members je Zuordnung, alle drei Terme, Felder name/factor/powerID/energyImportID/energyExportID', is_array($m33) && count($m33) === 3 && isset($m33[0]['name'], $m33[0]['factor'], $m33[0]['powerID'], $m33[0]['energyImportID'], $m33[0]['energyExportID']), json_encode($m33));
+$factors33 = is_array($m33) ? array_map(fn($x) => (float)$x['factor'], $m33) : [];
+check('33c: negative Anteile werden NICHT weggelassen (Hausanschluss +100, Wärmepumpe/Wallbox −100)', $factors33 === [100.0, -100.0, -100.0], json_encode($factors33));
+check('33d: powerIDs zeigen auf die Quell-Variablen (103/203/303), nicht auf die eigenen Ausgaben', is_array($m33) && array_column($m33, 'powerID') === [103, 203, 303], json_encode(is_array($m33) ? array_column($m33, 'powerID') : null));
+check('33e: sourceCount == count(members)', ($gf33['assignments'][0]['sourceCount'] ?? -1) === 3);
+check('33f: members auch auf Instanzebene (fuer die Rekursion des Konsumenten)', ($gf33['members'] ?? null) === $m33);
+
+// Zwischenknoten OHNE Funktion (z. B. "Licht OG"): assignments bleibt leer,
+// members auf Instanzebene muss trotzdem da sein — sonst bricht die
+// Rekursion des Dashboards genau dort ab (Sepps "Zähler Technik"-Fund).
+$midIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($midIid, 1, 'Licht OG (Zwischenknoten)', 10);
+IPS_SetProperty($midIid, 'Nodes', json_encode([
+    ['Name' => 'Steckdose Keller', 'Factor' => 100, 'PowerID' => 521, 'EnergyImportID' => 522, 'EnergyExportID' => 0],
+]));
+IPS_ApplyChanges($midIid);
+$gfMid = json_decode($GLOBALS['MODOBJ'][$midIid]->GetFunctions(), true);
+check('33g: ohne Funktion: assignments leer (unveraendert), members auf Instanzebene aber vorhanden', ($gfMid['assignments'] ?? null) === [] && count($gfMid['members'] ?? []) === 1 && ($gfMid['members'][0]['powerID'] ?? 0) === 521, json_encode($gfMid));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

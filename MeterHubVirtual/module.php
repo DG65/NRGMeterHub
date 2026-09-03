@@ -70,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.32';
+    private const NEWS_VERSION = '0.24.33';
 
     public function Create()
     {
@@ -282,6 +282,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• Fix: „Gerät wählen" fand bei einer ANDEREN virtuellen Zähler-Instanz als Quelle die Leistung nicht (Bezug/Einspeisung schon) — betrifft das Verketten mehrerer virtueller Zähler.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zwei neue Funktionen: „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien" — für einen Sammelzähler, der nicht in die schon vorhandenen Einzelkategorien passt.'],
                 ['type' => 'Label', 'caption' => '• 🙏 Dank an Sepp Lausch (seppm) im Panel „Wozu dieses Modul?" und in der README — Betatester mit KNX-Zählertechnik-Fachwissen, hat dieses Modul entscheidend mitgeprägt.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Vertrag MHUBV_GetFunctions 1.3: liefert jetzt die Mitglieder („members") der Formel nach außen — damit kann das NRG-Dashboard Sammelzähler per Klick „aufschachteln" (verkettete virtuelle Zähler als Hierarchie). Ein reiner Zwischenknoten braucht dafür keine Funktion.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -1965,10 +1966,39 @@ class MeterHubVirtual extends IPSModule
     // („Funktion" ist jetzt ein Instanz-Property, kein Zeilen-Feld mehr).
     // -----------------------------------------------------------------------
 
+    /**
+     * Mitglieder (Terme) dieser Formel nach außen — Dashboards Anfrage
+     * 03.09.2026, von Dietmar so entschieden: die HIERARCHIE verketteter
+     * virtueller Zähler ("Geschoss OG" → "Licht OG" → Einzelgeräte) kommt
+     * vom Anbieter, nicht aus einer Dashboard-eigenen Gruppierung. Nur die
+     * EIGENE Ebene: ob ein Term selbst wieder eine MeterHubVirtual-Instanz
+     * ist (→ nächste Ebene), löst der Konsument über dessen GetFunctions()
+     * auf. Bewusst ALLE Terme inkl. negativer Anteile — "Hausverbrauch
+     * ohne Wallboxen" BESTEHT aus Hausanschluss (+100) und Wallboxen
+     * (−100); nur die positiven zu liefern, ließe den Knoten nach außen
+     * so aussehen, als enthielte er nur den Hausanschluss. Der Konsument
+     * unterscheidet am Vorzeichen von `factor` ("enthält" vs. "abgezogen").
+     */
+    private function MemberList(): array
+    {
+        $out = [];
+        foreach ($this->Nodes() as $n) {
+            $out[] = [
+                'name'           => $n['name'],
+                'factor'         => $n['factor'],
+                'powerID'        => $n['power'],
+                'energyImportID' => $n['imp'],
+                'energyExportID' => $n['exp'],
+            ];
+        }
+        return $out;
+    }
+
     public function GetFunctions(): string
     {
         $func = $this->ReadPropertyString('Function');
         $pollInterval = max(2, $this->ReadPropertyInteger('Interval'));
+        $members = $this->MemberList();
         $list = [];
         if ($func !== '' && $func !== 'none' && isset(self::FUNCTIONS[$func])) {
             $id = function (string $ident) {
@@ -1983,20 +2013,31 @@ class MeterHubVirtual extends IPSModule
                 'energyExportID' => $id('energy_export'),
                 'measured'       => true, // Rechenergebnis gemessener Zähler
                 'energyKind'     => 'counter',
-                'sourceCount'    => count($this->Nodes()),
+                'sourceCount'    => count($members),
+                'members'        => $members,
                 'latency'        => 'realtime',
                 'authority'      => 'auxiliary',
                 'pollInterval'   => $pollInterval,
             ];
         }
         return json_encode([
-            'contractVersion' => '1.1',
+            // 1.1 = latency/authority/pollInterval/energyKind/sourceCount,
+            // 1.2 = archiveWatermarkTs (bei 'realtime' bewusst null),
+            // 1.3 = members (03.09.2026, additiv, siehe MemberList()).
+            'contractVersion' => '1.3',
             'instanceID'  => $this->InstanceID,
             'meter'       => 'virtual',
             'measureMode' => 'combined',
             'latency'     => 'realtime',
             'authority'   => 'auxiliary',
             'pollInterval'=> $pollInterval,
+            'archiveWatermarkTs' => null,
+            // Auch auf Instanzebene, unabhängig von "Funktion": ein reiner
+            // Zwischenknoten einer Verkettung (z. B. "Licht OG") braucht
+            // keine Dashboard-Funktion — ohne dieses Feld würde die
+            // Rekursion des Konsumenten dort abbrechen (assignments ist
+            // ohne Funktion leer, siehe Sepps "Zähler Technik"-Fund).
+            'members'     => $members,
             'assignments' => $list,
         ]);
     }
