@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.24.34-beta.1 (2026-09-03)
+
+- **Schaltgruppe (MeterHubVirtual, `MHUBV_GetFunctions` 1.4).** Dietmars Entscheidung, über
+  die Dashboard-Sitzung adressiert: Viele Mitglieder eines virtuellen Zählers sind Aktoren,
+  die schalten UND messen (z. B. Z-Wave-Schaltaktoren mit Leistungsmessung) — ein virtueller
+  Zähler wie „Licht OG" ist damit auch eine Schaltgruppe. Neue Spalte „Schalter" in der
+  Zeilentabelle (automatisch vorgeschlagen beim Übernehmen eines Geräts, bei Mehrdeutigkeit
+  bewusst nicht geraten; neuer Knopf „Schalter für vorhandene Zeilen suchen" trägt es für
+  ältere Zeilen nach). Gibt es mindestens ein schaltbares Mitglied mit **positivem** Anteil,
+  entstehen „Gruppe schalten" (Bool) und „Gruppenstatus" (aus/teilweise/an) an der Instanz —
+  ein Klick schaltet alle passenden Mitglieder gemeinsam. **Nur positive Anteile werden
+  mitgeschaltet**, abgezogene Zeilen (z. B. Wallboxen in „Hausverbrauch ohne Wallboxen")
+  bewusst nicht — einzeln bleiben sie über ihr eigenes `switchID` schaltbar. Vertrag additiv
+  auf 1.4 (`switchID` je Mitglied, `switchID`/`switchStateID` der Gruppe, je Zuordnung UND
+  auf Instanzebene für verkettete virtuelle Zähler). `MHUBV_SwitchGroup($id, $on)` auch für
+  Skripte.
+
 ## 0.24.33-beta.1 (2026-09-03)
 
 - **`MHUBV_GetFunctions` 1.3: neues Feld `members` (MeterHubVirtual).** Dashboards Anfrage,

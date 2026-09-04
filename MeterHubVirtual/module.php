@@ -70,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.24.33';
+    private const NEWS_VERSION = '0.24.34';
 
     public function Create()
     {
@@ -283,6 +283,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 Zwei neue Funktionen: „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien" — für einen Sammelzähler, der nicht in die schon vorhandenen Einzelkategorien passt.'],
                 ['type' => 'Label', 'caption' => '• 🙏 Dank an Sepp Lausch (seppm) im Panel „Wozu dieses Modul?" und in der README — Betatester mit KNX-Zählertechnik-Fachwissen, hat dieses Modul entscheidend mitgeprägt.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Vertrag MHUBV_GetFunctions 1.3: liefert jetzt die Mitglieder („members") der Formel nach außen — damit kann das NRG-Dashboard Sammelzähler per Klick „aufschachteln" (verkettete virtuelle Zähler als Hierarchie). Ein reiner Zwischenknoten braucht dafür keine Funktion.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Schaltgruppe: neue Spalte „Schalter" für Mitglieder, die schalten UND messen (z. B. Z-Wave-Aktoren) — automatisch vorgeschlagen beim Übernehmen eines Geräts. Ab dem ersten schaltbaren, positiven Mitglied entstehen „Gruppe schalten" und „Gruppenstatus" an der Instanz. Nur positive Anteile werden mitgeschaltet, abgezogene Zeilen bewusst nicht.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -507,6 +508,9 @@ class MeterHubVirtual extends IPSModule
                 'PowerID'        => (int)($row['powerId'] ?? 0),
                 'EnergyImportID' => (int)($row['impId'] ?? 0),
                 'EnergyExportID' => (int)($row['expId'] ?? 0),
+                // Muss mit durchgereicht werden — sonst würde ein Speichern
+                // aus der Kachel die Schalter-Zuordnung aller Zeilen löschen.
+                'SwitchID'       => (int)($row['switchId'] ?? 0),
             ];
         }
         return $out;
@@ -529,6 +533,7 @@ class MeterHubVirtual extends IPSModule
                 'expId'     => $n['exp'],
                 'expName'   => $n['exp'] > 0 && IPS_VariableExists($n['exp']) ? IPS_GetName($n['exp']) : '',
                 'expVal'    => $n['exp'] > 0 && IPS_VariableExists($n['exp']) ? (float)GetValue($n['exp']) : null,
+                'switchId'  => $n['switch'],
             ];
         }
         $result = ['power' => null, 'energy_import' => null, 'energy_export' => null];
@@ -580,6 +585,11 @@ class MeterHubVirtual extends IPSModule
                 'power'  => (int)($r['PowerID'] ?? 0),
                 'imp'    => (int)($r['EnergyImportID'] ?? 0),
                 'exp'    => (int)($r['EnergyExportID'] ?? 0),
+                // Schaltvariable des Mitglieds (Bool mit Aktion, z. B. der
+                // Z-Wave-Aktor, der die Leuchte schaltet UND misst) — Basis
+                // der Schaltgruppe, siehe SwitchableMembers(). 0 = nicht
+                // schaltbar. Fehlt der Schlüssel (ältere Zeilen), ist es 0.
+                'switch' => (int)($r['SwitchID'] ?? 0),
             ];
         }
         return $out;
@@ -693,6 +703,24 @@ class MeterHubVirtual extends IPSModule
                 $warnings[] = "Zeile $nr ($name): hat eine Leistung, aber keine Einspeisung — andere Zeilen in dieser Formel haben eine. Die Einspeisung-Summe zählt diese Zeile mit 0 kWh mit.";
             }
         }
+        // Schaltgruppe: nicht blockierend, aber sichtbar — ein Schalter, der
+        // keine Bool-Variable ist, würde in SwitchableMembers() still
+        // ignoriert; ein Schalter an einer abgezogenen Zeile gehört bewusst
+        // nicht zur Gruppe (Dietmars Entscheidung 03.09.2026).
+        foreach ($nodes as $i => $n) {
+            if ($n['switch'] <= 0) {
+                continue;
+            }
+            $nr = $i + 1;
+            $name = $n['name'] !== '' ? '„' . $n['name'] . '“' : 'ohne Bezeichnung';
+            if (!IPS_VariableExists($n['switch'])) {
+                $warnings[] = "Zeile $nr ($name): der eingetragene Schalter (Variable #{$n['switch']}) existiert nicht mehr — die Zeile wird von der Gruppe nicht geschaltet.";
+            } elseif ((int)(IPS_GetVariable($n['switch'])['VariableType'] ?? -1) !== VARIABLETYPE_BOOLEAN) {
+                $warnings[] = "Zeile $nr ($name): der eingetragene Schalter ist keine Bool-Variable (An/Aus) — die Zeile wird von der Gruppe nicht geschaltet.";
+            } elseif ($n['factor'] <= 0) {
+                $warnings[] = "Zeile $nr ($name): Schalter gesetzt, aber der Anteil ist abgezogen/0 — abgezogene Zeilen werden vom Gruppenschalter bewusst nicht mitgeschaltet (einzeln bleibt sie schaltbar).";
+            }
+        }
         return $warnings;
     }
 
@@ -787,6 +815,15 @@ class MeterHubVirtual extends IPSModule
         foreach ($defs as $d) {
             $valid[$d[0]] = true;
         }
+        // Schaltgruppe: die beiden Gruppen-Variablen existieren genau dann,
+        // wenn mindestens ein positives Mitglied schaltbar ist — sonst
+        // räumt die Aufräumschleife unten sie wie jede andere veraltete
+        // Ausgabe weg (kein Sonderfall nötig).
+        $switchables = $this->SwitchableMembers($this->Nodes());
+        if ($switchables) {
+            $valid[self::IDENT_GROUP_SWITCH] = true;
+            $valid[self::IDENT_GROUP_STATE]  = true;
+        }
         foreach (IPS_GetChildrenIDs($this->InstanceID) as $cid) {
             $o = IPS_GetObject($cid);
             // "Energie hochgerechnet"-Variablen (siehe CALC_ENERGY_IDENT_PREFIX)
@@ -823,6 +860,8 @@ class MeterHubVirtual extends IPSModule
             $this->SetArchive($vid, $field !== 'power', $this->ReadPropertyInteger('Interval'));
         }
 
+        $this->EnsureGroupVariables($switchables, $pos);
+
         // "Energie hochgerechnet"-Variablen sind kumulative Zählerstände wie
         // ein echter Bezugszähler — bekommen bei jedem "Übernehmen" dieselbe
         // Archiv-Behandlung (Aggregationstyp "Zähler", Verdichtungs-Staffelung).
@@ -834,6 +873,241 @@ class MeterHubVirtual extends IPSModule
                 }
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Schaltgruppe (Dietmars Entscheidung 03.09.2026, per Dashboard-Sitzung
+    // adressiert: „das mit dem Schalten ... die Aufgabe von MeterHub"). Viele
+    // Mitglieder eines virtuellen Zählers sind Aktoren, die schalten UND
+    // messen (Z-Wave-Schaltaktoren mit Leistungsmessung) — "Licht OG" ist
+    // damit nicht nur eine Summe, sondern auch eine Schaltgruppe.
+    //
+    // Drei Entscheidungen Dietmars, hier verankert:
+    // 1. MeterHubVirtual schaltet SELBST: Bool-Variable "Gruppe schalten"
+    //    (EnableAction → RequestAction) + Integer "Gruppenstatus" 0/1/2
+    //    (aus / teilweise / an). Erste bewusste Ausnahme von „MeterHub misst,
+    //    steuert nicht" — beschränkt auf Mitglieder, die der Nutzer selbst
+    //    als Schalter eingetragen hat.
+    // 2. NUR POSITIVE Anteile werden geschaltet: ein „Aus" auf „Hausverbrauch
+    //    ohne Wallboxen" darf keine Wallbox (−100) abwerfen.
+    // 3. Erkennung automatisch + manuell korrigierbar: Bool-Variable mit
+    //    Aktion am selben Gerät wie die Leistungsvariable wird vorgeschlagen;
+    //    mehrdeutige Fälle (mehrere Schaltkanäle) bleiben leer und werden
+    //    gemeldet, Spalte „Schalter" ist immer von Hand änderbar.
+    //
+    // Steuerhoheit (SUITE.md, EMS-Prioritätshierarchie): das hier ist reines
+    // Einzel-/Gruppenschalten von Verbrauchern durch den Nutzer (Situation A
+    // beim Nutzer, nicht beim EMS). Sobald so eine Gruppe lastmanagement-
+    // relevant wird, gehört der Schreibkanal ins EMS — dann MHUBV_SwitchGroup
+    // als Stellglied anbieten, nicht selbst Regeln einbauen.
+    // -----------------------------------------------------------------------
+
+    private const IDENT_GROUP_SWITCH = 'group_switch';
+    private const IDENT_GROUP_STATE  = 'group_state';
+    private const PROFILE_GROUP_STATE = 'MHBV.GroupState';
+
+    /** Schalt-Variablen-IDs aller schaltbaren Mitglieder — nur positive Anteile, nur existierende Bool-Variablen. */
+    private function SwitchableMembers(array $nodes): array
+    {
+        $out = [];
+        foreach ($nodes as $n) {
+            if ($n['factor'] <= 0 || $n['switch'] <= 0 || !IPS_VariableExists($n['switch'])) {
+                continue;
+            }
+            if ((int)(IPS_GetVariable($n['switch'])['VariableType'] ?? -1) !== VARIABLETYPE_BOOLEAN) {
+                continue;
+            }
+            $out[] = (int)$n['switch'];
+        }
+        return array_values(array_unique($out));
+    }
+
+    /** Legt die beiden Gruppen-Variablen an bzw. pflegt sie — nur wenn es schaltbare Mitglieder gibt (sonst räumt RegisterVariables() sie weg). */
+    private function EnsureGroupVariables(array $switchables, int &$pos): void
+    {
+        if (!$switchables) {
+            return;
+        }
+        $vid = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_SWITCH, $this->InstanceID);
+        if (!$vid) {
+            $vid = IPS_CreateVariable(VARIABLETYPE_BOOLEAN);
+            IPS_SetIdent($vid, self::IDENT_GROUP_SWITCH);
+            IPS_SetParent($vid, $this->InstanceID);
+        }
+        IPS_SetName($vid, 'Gruppe schalten');
+        IPS_SetPosition($vid, $pos++);
+        if (@IPS_GetVariable($vid)['VariableCustomProfile'] !== '~Switch') {
+            IPS_SetVariableCustomProfile($vid, '~Switch');
+        }
+        $this->EnableAction(self::IDENT_GROUP_SWITCH);
+
+        $vid = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_STATE, $this->InstanceID);
+        if (!$vid) {
+            $vid = IPS_CreateVariable(VARIABLETYPE_INTEGER);
+            IPS_SetIdent($vid, self::IDENT_GROUP_STATE);
+            IPS_SetParent($vid, $this->InstanceID);
+        }
+        IPS_SetName($vid, 'Gruppenstatus');
+        IPS_SetPosition($vid, $pos++);
+        if (@IPS_GetVariable($vid)['VariableCustomProfile'] !== self::PROFILE_GROUP_STATE) {
+            IPS_SetVariableCustomProfile($vid, self::PROFILE_GROUP_STATE);
+        }
+        $this->RefreshGroupState($this->Nodes());
+    }
+
+    /**
+     * Ist-Zustand der Gruppe aus den Mitgliedern: 0 = alle aus, 2 = alle an,
+     * 1 = teilweise. Die Bool-Variable spiegelt „mindestens eines an" — so
+     * zeigt ein Dashboard-Schalter „an", sobald irgendwo Licht brennt, und
+     * ein Klick darauf schaltet die ganze Gruppe aus (Lichtgruppen-Konvention
+     * wie bei KNX/HA-Gruppenadressen).
+     */
+    private function RefreshGroupState(array $nodes): void
+    {
+        $sw        = $this->SwitchableMembers($nodes);
+        $vidSwitch = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_SWITCH, $this->InstanceID);
+        $vidState  = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_STATE, $this->InstanceID);
+        if (!$sw || !$vidSwitch || !$vidState) {
+            return;
+        }
+        $on = 0;
+        foreach ($sw as $vid) {
+            if ((bool)GetValue($vid)) {
+                $on++;
+            }
+        }
+        $state = $on === 0 ? 0 : ($on === count($sw) ? 2 : 1);
+        if ((int)GetValue($vidState) !== $state) {
+            SetValueInteger($vidState, $state);
+        }
+        if ((bool)GetValue($vidSwitch) !== ($state > 0)) {
+            SetValueBoolean($vidSwitch, $state > 0);
+        }
+    }
+
+    /**
+     * Schaltvariable eines Geräts finden: die EINE Bool-Variable mit
+     * Aktion unterhalb des Geräte-Containers (Kategorien desselben Geräts
+     * mit, nicht in fremde Instanzen hinein). Rückgabe [vid, hinweis]:
+     * genau eine → vid; mehrere (Mehrkanal-Aktor) → 0 + Hinweis, weil Raten
+     * hier den falschen Kanal schalten könnte; keine → 0.
+     */
+    private function SwitchOfDevice(int $deviceId): array
+    {
+        $o = @IPS_GetObject($deviceId);
+        if (!$o || $o['ObjectType'] === 2) {
+            return [0, ''];
+        }
+        $found = [];
+        $stack = [$deviceId];
+        while ($stack) {
+            foreach (IPS_GetChildrenIDs((int)array_pop($stack)) as $cid) {
+                $c = IPS_GetObject($cid);
+                if ($c['ObjectType'] === 2) {
+                    $v = IPS_GetVariable($cid);
+                    $hasAction = (int)($v['VariableAction'] ?? 0) > 0 || (int)($v['VariableCustomAction'] ?? 0) > 0;
+                    if ((int)($v['VariableType'] ?? -1) === VARIABLETYPE_BOOLEAN && $hasAction) {
+                        $found[] = $cid;
+                    }
+                } elseif ($c['ObjectType'] === 0) {
+                    $stack[] = $cid;
+                }
+            }
+        }
+        if (count($found) === 1) {
+            return [$found[0], ''];
+        }
+        if (count($found) > 1) {
+            return [0, 'mehrere schaltbare Variablen (' . implode(', ', array_map('IPS_GetName', $found)) . ') — bitte in der Spalte „Schalter" von Hand wählen'];
+        }
+        return [0, ''];
+    }
+
+    /** Symcon ruft das beim Umschalten der Variable „Gruppe schalten" (WebFront, Dashboard, Skript). */
+    public function RequestAction($Ident, $Value)
+    {
+        if ($Ident === self::IDENT_GROUP_SWITCH) {
+            $this->SwitchGroup((bool)$Value);
+            return;
+        }
+        throw new Exception('Unbekannter Ident: ' . $Ident);
+    }
+
+    /**
+     * Alle schaltbaren (positiven) Mitglieder gemeinsam schalten. Öffentlich
+     * als MHUBV_SwitchGroup($id, $on) — damit auch Skripte und ein späteres
+     * EMS-Stellglied denselben Weg nutzen, nicht nur der Variablen-Schalter.
+     * Rückgabe ist ein lesbarer Ergebnistext (Verbund-Konvention „Sichtbare
+     * Rückmeldung bei jeder Aktion").
+     */
+    public function SwitchGroup(bool $on): string
+    {
+        $nodes = $this->Nodes();
+        $sw    = $this->SwitchableMembers($nodes);
+        if (!$sw) {
+            return 'ℹ️ Diese Gruppe hat keine schaltbaren Mitglieder (Spalte „Schalter" ist leer oder nur bei abgezogenen Zeilen gesetzt).';
+        }
+        $ok = 0;
+        $failed = [];
+        foreach ($sw as $vid) {
+            try {
+                if (@\RequestAction($vid, $on) === false) {
+                    $failed[] = IPS_GetName($vid);
+                } else {
+                    $ok++;
+                }
+            } catch (\Throwable $e) {
+                $failed[] = IPS_GetName($vid) . ' (' . $e->getMessage() . ')';
+            }
+        }
+        $this->RefreshGroupState($nodes);
+        $msg = ($on ? '✅ Eingeschaltet: ' : '✅ Ausgeschaltet: ') . $ok . ' von ' . count($sw) . ' Mitglied(ern).';
+        if ($failed) {
+            $msg .= ' ⚠️ Nicht geschaltet: ' . implode(', ', $failed) . '.';
+        }
+        return $msg;
+    }
+
+    /**
+     * Formular-Knopf: für vorhandene Zeilen ohne Schalter die Schaltvariable
+     * am Gerät der Leistungsvariable suchen. Schreibt wie ScanMeters() nur in
+     * die OFFENE Maske — „Übernehmen" bleibt der bewusste letzte Schritt.
+     */
+    public function FindSwitches(string $nodesJson): string
+    {
+        $rows = json_decode($nodesJson, true);
+        if (!is_array($rows)) {
+            return '❌ Keine Zeilen übergeben.';
+        }
+        $set = 0;
+        $notes = [];
+        foreach ($rows as $i => $r) {
+            if (!is_array($r) || (int)($r['SwitchID'] ?? 0) > 0 || (int)($r['PowerID'] ?? 0) <= 0) {
+                continue;
+            }
+            [$did] = $this->DeviceOf((int)$r['PowerID']);
+            if ($did <= 0) {
+                continue;
+            }
+            [$sw, $note] = $this->SwitchOfDevice($did);
+            $label = trim((string)($r['Name'] ?? '')) !== '' ? $r['Name'] : 'Zeile ' . ($i + 1);
+            if ($sw > 0) {
+                $rows[$i]['SwitchID'] = $sw;
+                $set++;
+            } elseif ($note !== '') {
+                $notes[] = '   ⚠️ ' . $label . ': ' . $note;
+            }
+        }
+        if ($set > 0) {
+            $this->UpdateFormField('Nodes', 'values', json_encode(array_values($rows)));
+        }
+        $msg = $set > 0
+            ? "✅ $set Schalter gefunden und in die Spalte „Schalter\" eingetragen — bitte prüfen und „Übernehmen\" nicht vergessen."
+            : 'ℹ️ Keine weiteren Schalter gefunden (Zeilen ohne Leistung oder ohne Bool-Variable mit Aktion am Gerät).';
+        if ($notes) {
+            $msg .= "\n" . implode("\n", $notes);
+        }
+        return $msg;
     }
 
     // Sekunden je Verdichtungstyp (0..6) — für den "wäre ein Leerlauf"-
@@ -1018,6 +1292,15 @@ class MeterHubVirtual extends IPSModule
             IPS_SetVariableProfileDigits($n, $dig);
             IPS_SetVariableProfileText($n, '', $suf);
         }
+        // Gruppenstatus der Schaltgruppe — modulspezifisch (MHBV.*, kein
+        // NRG.*-Kandidat: keine physikalische Grundgröße), wird wie die
+        // eigenen Profile durchgesetzt, nicht nur bei Fehlen angelegt.
+        if (!IPS_VariableProfileExists(self::PROFILE_GROUP_STATE)) {
+            IPS_CreateVariableProfile(self::PROFILE_GROUP_STATE, VARIABLETYPE_INTEGER);
+        }
+        IPS_SetVariableProfileAssociation(self::PROFILE_GROUP_STATE, 0, 'Aus', 'Power', -1);
+        IPS_SetVariableProfileAssociation(self::PROFILE_GROUP_STATE, 1, 'Teilweise an', 'Power', 0xFFA500);
+        IPS_SetVariableProfileAssociation(self::PROFILE_GROUP_STATE, 2, 'An', 'Power', 0x00FF00);
     }
 
     // -----------------------------------------------------------------------
@@ -1053,6 +1336,11 @@ class MeterHubVirtual extends IPSModule
                 $count++;
             }
         }
+
+        // Gruppenstatus im selben Takt nachführen — ein von Hand oder von
+        // einer anderen Automatik geschaltetes Mitglied ändert „teilweise/an"
+        // sonst erst beim nächsten Gruppenschalten.
+        $this->RefreshGroupState($nodes);
 
         return $count > 0
             ? "✅ Neu berechnet: $count Ausgabe(n) aktualisiert (" . date('H:i:s') . ' Uhr).'
@@ -1360,11 +1648,16 @@ class MeterHubVirtual extends IPSModule
         if ($m['power'] === 0 && $m['imp'] === 0 && $m['exp'] === 0) {
             return '❌ „' . IPS_GetName($deviceId) . '" — keine passenden Leistungs-/Energie-Datenpunkte gefunden (weder bekannte NRG-Stack-Idents noch W-/kWh-Profil darunter). Bitte stattdessen unten „Hinzufügen" nutzen und die Variable von Hand wählen.';
         }
+        // Schaltgruppe: die Schaltvariable des Geräts gleich mit vorschlagen
+        // (Dietmars Entscheidung 03.09.2026: automatisch + manuell
+        // korrigierbar). Mehrdeutig → leer + Hinweis, nie geraten.
+        [$sw, $swNote] = $this->SwitchOfDevice($deviceId);
         $rows = json_decode($this->ReadPropertyString('Nodes'), true);
         $rows = is_array($rows) ? $rows : [];
         $rows[] = [
             'Name' => IPS_GetName($deviceId), 'Factor' => 100,
             'PowerID' => $m['power'], 'EnergyImportID' => $m['imp'], 'EnergyExportID' => $m['exp'],
+            'SwitchID' => $sw,
         ];
         $this->UpdateFormField('Nodes', 'values', json_encode($rows));
         $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($rows)));
@@ -1373,6 +1666,11 @@ class MeterHubVirtual extends IPSModule
         $parts[] = $m['power'] > 0 ? 'Leistung „' . IPS_GetName($m['power']) . '"' : 'Leistung: nicht gefunden';
         $parts[] = $m['imp']   > 0 ? 'Bezug „' . IPS_GetName($m['imp']) . '"' : 'Bezug: nicht gefunden';
         $parts[] = $m['exp']   > 0 ? 'Einspeisung „' . IPS_GetName($m['exp']) . '"' : 'Einspeisung: nicht gefunden';
+        if ($sw > 0) {
+            $parts[] = 'Schalter „' . IPS_GetName($sw) . '"';
+        } elseif ($swNote !== '') {
+            $parts[] = 'Schalter: ' . $swNote;
+        }
         $msg = '✅ „' . IPS_GetName($deviceId) . '" als neue Zeile übernommen — ' . implode(', ', $parts) . '.';
         if (!empty($m['extra'])) {
             $names = array_map('IPS_GetName', $m['extra']);
@@ -1989,6 +2287,11 @@ class MeterHubVirtual extends IPSModule
                 'powerID'        => $n['power'],
                 'energyImportID' => $n['imp'],
                 'energyExportID' => $n['exp'],
+                // 1.4: Schaltvariable des Mitglieds (Bool mit Aktion), 0 =
+                // nicht schaltbar. Bewusst auch bei abgezogenen Termen
+                // geliefert — der Konsument darf ein einzelnes Mitglied
+                // direkt schalten; nur die GRUPPE lässt negative aus.
+                'switchID'       => $n['switch'],
             ];
         }
         return $out;
@@ -1999,6 +2302,11 @@ class MeterHubVirtual extends IPSModule
         $func = $this->ReadPropertyString('Function');
         $pollInterval = max(2, $this->ReadPropertyInteger('Interval'));
         $members = $this->MemberList();
+        // Gruppenschalter (1.4): nur vorhanden, wenn mindestens ein positives
+        // Mitglied schaltbar ist — sonst 0 (RegisterVariables() legt die
+        // Variablen dann gar nicht erst an).
+        $groupSwitch = (int)@IPS_GetObjectIDByIdent(self::IDENT_GROUP_SWITCH, $this->InstanceID);
+        $groupState  = (int)@IPS_GetObjectIDByIdent(self::IDENT_GROUP_STATE, $this->InstanceID);
         $list = [];
         if ($func !== '' && $func !== 'none' && isset(self::FUNCTIONS[$func])) {
             $id = function (string $ident) {
@@ -2015,6 +2323,8 @@ class MeterHubVirtual extends IPSModule
                 'energyKind'     => 'counter',
                 'sourceCount'    => count($members),
                 'members'        => $members,
+                'switchID'       => $groupSwitch,
+                'switchStateID'  => $groupState,
                 'latency'        => 'realtime',
                 'authority'      => 'auxiliary',
                 'pollInterval'   => $pollInterval,
@@ -2023,8 +2333,10 @@ class MeterHubVirtual extends IPSModule
         return json_encode([
             // 1.1 = latency/authority/pollInterval/energyKind/sourceCount,
             // 1.2 = archiveWatermarkTs (bei 'realtime' bewusst null),
-            // 1.3 = members (03.09.2026, additiv, siehe MemberList()).
-            'contractVersion' => '1.3',
+            // 1.3 = members (03.09.2026, additiv, siehe MemberList()),
+            // 1.4 = switchID je Mitglied + switchID/switchStateID der Gruppe
+            //       (03.09.2026, Schaltgruppe — siehe Abschnitt "Schaltgruppe").
+            'contractVersion' => '1.4',
             'instanceID'  => $this->InstanceID,
             'meter'       => 'virtual',
             'measureMode' => 'combined',
@@ -2038,6 +2350,12 @@ class MeterHubVirtual extends IPSModule
             // Rekursion des Konsumenten dort abbrechen (assignments ist
             // ohne Funktion leer, siehe Sepps "Zähler Technik"-Fund).
             'members'     => $members,
+            // Gruppenschalter ebenfalls auf Instanzebene: eine Untergruppe
+            // ("Licht OG" unter "Geschoss OG") ist für die Elterngruppe ein
+            // ganz normales schaltbares Mitglied — ihr switchID ist genau
+            // diese Variable, die Rekursion des Konsumenten trägt das durch.
+            'switchID'      => $groupSwitch,
+            'switchStateID' => $groupState,
             'assignments' => $list,
         ]);
     }
@@ -2134,6 +2452,13 @@ class MeterHubVirtual extends IPSModule
                 ['caption' => 'Leistung (W)', 'name' => 'PowerID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                 ['caption' => 'Bezug (kWh)', 'name' => 'EnergyImportID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                 ['caption' => 'Einspeisung (kWh)', 'name' => 'EnergyExportID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                // Schaltgruppe (Dietmars Entscheidung 03.09.2026, über
+                // Dashboard adressiert): viele Mitglieder sind Aktoren, die
+                // schalten UND messen — die Bool-Variable mit Aktion hier
+                // eintragen (automatisch vorgeschlagen beim Übernehmen eines
+                // Geräts bzw. per Knopf „Schalter suchen", von Hand
+                // korrigierbar). Nur positive Anteile werden mitgeschaltet.
+                ['caption' => 'Schalter (Bool)', 'name' => 'SwitchID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
             ],
         ];
 
@@ -2240,6 +2565,13 @@ class MeterHubVirtual extends IPSModule
             // dort erst einen unbestätigten Alt-Vorschlag.
             $meterItems[] = ['type' => 'Label', 'caption' => '🧮 Zeilen mit Leistung, aber ohne Bezug: aus Leistung × Berechnungs-Intervall hochrechnen (keine Schätzung, aber ungenauer als ein echter Zähler — genauer bei kurzem Intervall, bei sprunghaften Verbrauchern wie einer Waschmaschine ungenauer).'];
             $meterItems[] = ['type' => 'Button', 'caption' => '🧮  Fehlende Energiewerte aus der Leistung hochrechnen', 'onClick' => 'echo MHUBV_AddCalculatedEnergy($id, $Nodes);'];
+            // Schaltgruppe (Dietmars Entscheidung 03.09.2026): Schalter für
+            // bereits vorhandene Zeilen nachtragen — beim Übernehmen eines
+            // Geräts wird er schon automatisch vorgeschlagen, ältere Zeilen
+            // holen ihn hiermit nach. Nur die offene Maske, „Übernehmen"
+            // bleibt der bewusste letzte Schritt.
+            $meterItems[] = ['type' => 'Label', 'caption' => '🔀 Schaltgruppe: Zeilen, deren Gerät schaltet UND misst (z. B. Z-Wave-Aktor je Leuchte), bekommen in der Spalte „Schalter" ihre Bool-Variable — dann entstehen an dieser Instanz „Gruppe schalten" (An/Aus für alle) und „Gruppenstatus" (aus / teilweise / an). Nur Zeilen mit positivem Anteil werden mitgeschaltet; abgezogene Zeilen bewusst nicht.'];
+            $meterItems[] = ['type' => 'Button', 'caption' => '🔀  Schalter für vorhandene Zeilen suchen', 'onClick' => 'echo MHUBV_FindSwitches($id, $Nodes);'];
             $meterItems[] = ['type' => 'Label', 'caption' => '✅ Zuletzt „Übernehmen" klicken (Formular-Ende).'];
         }
         $meterItems[] = $listDef;

@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.24.33--beta.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.24.34--beta.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -204,6 +204,22 @@ eigene Ebene, die Rekursion macht der Konsument. Negative Anteile werden **nicht
 Konsument erkennt „abgezogen" am Vorzeichen von `factor`. Die Instanzebene ist der Grund, warum
 ein reiner Zwischenknoten (z. B. „Licht OG") keine Funktion braucht: `assignments` bleibt dort
 leer, `members` nicht.
+
+**Schaltgruppe (`switchID`/`switchStateID`, Vertrag 1.4):** Viele Mitglieder sind Aktoren, die
+schalten UND messen (z. B. Z-Wave-Schaltaktoren mit Leistungsmessung) — ein virtueller Zähler
+wie „Licht OG" ist damit fachlich nicht nur eine Summe, sondern auch eine Schaltgruppe. In der
+Zeilentabelle trägt die Spalte „Schalter" die Bool-Variable des jeweiligen Mitglieds (`SwitchID`
+in `Nodes`, `switchID` im Vertrag) — wird beim Übernehmen eines Geräts automatisch vorgeschlagen
+(eindeutige Bool-Variable mit Aktion am selben Gerät), bei mehreren Schaltkanälen bewusst NICHT
+geraten, sondern als Hinweis gemeldet; der Knopf „🔀 Schalter für vorhandene Zeilen suchen"
+trägt das für ältere Zeilen nach. Gibt es mindestens ein Mitglied mit **positivem** Anteil und
+Schalter, entstehen an der Instanz zwei weitere Variablen: „Gruppe schalten" (Bool, schaltbar)
+und „Gruppenstatus" (0 aus / 1 teilweise / 2 an). **Nur positive Anteile werden mitgeschaltet**
+— ein „Aus" auf „Hausverbrauch ohne Wallboxen" darf keine Wallbox (−100 %) abwerfen; einzeln
+bleibt so ein abgezogenes Mitglied trotzdem über sein eigenes `switchID` schaltbar. Auch für
+verkettete virtuelle Zähler gedacht: der Gruppenschalter einer Untergruppe ist für die
+Elterngruppe ein ganz normales schaltbares Mitglied. `MHUBV_SwitchGroup($id, $on)` steht auch
+für Skripte offen.
 
 **Zähler automatisch finden:** Der Knopf „🔎 Zähler im System suchen" durchsucht die
 Installation nach Datenpunkten mit W-/kW- bzw. kWh-Profil — also nach den Messwerten von

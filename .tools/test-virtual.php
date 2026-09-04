@@ -5,6 +5,8 @@
  * laufen — ein Syntaxcheck hätte den letzten Laufzeitfehler hier nicht gefunden.
  */
 
+const VARIABLETYPE_BOOLEAN = 0;
+const VARIABLETYPE_INTEGER = 1;
 const VARIABLETYPE_FLOAT = 2;
 const KR_READY = 104;
 const IPS_KERNELMESSAGE = 10603;
@@ -23,10 +25,13 @@ function obj($id, $type, $name, $parent, $ident = '') {
     $GLOBALS['OBJ'][$id] = ['ObjectType' => $type, 'ObjectIdent' => $ident, 'ObjectName' => $name, 'ParentID' => $parent];
     return $id;
 }
-function vari($id, $name, $parent, $ident, $profile, $value, $age = 0) {
+function vari($id, $name, $parent, $ident, $profile, $value, $age = 0, $type = 2, $action = 0) {
     obj($id, 2, $name, $parent, $ident);
-    $GLOBALS['VAR'][$id] = ['VariableType' => 2, 'VariableProfile' => $profile,
-                            'VariableCustomProfile' => '', 'VariableUpdated' => time() - $age];
+    // $type: 0=Bool 1=Int 2=Float; $action > 0 = Variable hat eine Aktion
+    // (Schaltaktor) — beides für die Schaltgruppen-Prüfungen (Block 34).
+    $GLOBALS['VAR'][$id] = ['VariableType' => $type, 'VariableProfile' => $profile,
+                            'VariableCustomProfile' => '', 'VariableUpdated' => time() - $age,
+                            'VariableAction' => $action, 'VariableCustomAction' => 0];
     $GLOBALS['VAL'][$id] = $value;
     return $id;
 }
@@ -46,6 +51,11 @@ function IPS_SetInfo($id, $text)  { $GLOBALS['OBJ'][$id]['ObjectInfo'] = $text; 
 function IPS_GetVariableList()    { return array_keys($GLOBALS['VAR']); }
 function GetValue($id)            { return $GLOBALS['VAL'][$id] ?? 0; }
 function SetValueFloat($id, $v)   { $GLOBALS['VAL'][$id] = $v; }
+function SetValueInteger($id, $v) { $GLOBALS['VAL'][$id] = (int)$v; }
+function SetValueBoolean($id, $v) { $GLOBALS['VAL'][$id] = (bool)$v; }
+// Globale Aktions-Auslösung (Symcon-Kernfunktion): schaltet die Ziel-
+// variable eines Aktors — im Prüfstand schlicht der Wert.
+function RequestAction($id, $v)   { $GLOBALS['VAL'][$id] = $v; $GLOBALS['REQUESTED'][] = [$id, $v]; return true; }
 
 function IPS_GetChildrenIDs($id) {
     $out = [];
@@ -81,6 +91,7 @@ function IPS_CreateVariableProfile($n, $t) { $GLOBALS['PROFILES'][$n] = $GLOBALS
 function IPS_SetVariableProfileDigits($n, $d) { $GLOBALS['PROFILES'][$n]['Digits'] = $d; }
 function IPS_SetVariableProfileText($n, $a, $b) { $GLOBALS['PROFILES'][$n]['Suffix'] = $b; }
 function IPS_SetVariableProfileIcon($n, $i) { $GLOBALS['PROFILES'][$n]['Icon'] = $i; }
+function IPS_SetVariableProfileAssociation($n, $v, $name, $icon, $color) { $GLOBALS['PROFILES'][$n]['Assoc'][$v] = $name; }
 function IPS_GetInstanceListByModuleID($guid) {
     $out = [];
     foreach ($GLOBALS['INSTMOD'] as $iid => $g) { if ($g === $guid) { $out[] = $iid; } }
@@ -167,6 +178,7 @@ class IPSModule
     public function GetStatus() { return $GLOBALS['STATUS'][$this->InstanceID] ?? 0; }
     protected function SetVisualizationType($t) {}
     protected function RegisterMessage($senderID, $message) {}
+    protected function EnableAction($ident) { $GLOBALS['ENABLED_ACTIONS'][$this->InstanceID][$ident] = true; }
     protected function SendDebug($sender, $msg, $format) {}
     public function UpdateFormField($f, $p, $v) { $GLOBALS['FORMFIELDS'][$f][$p] = $v; }
     protected function ReloadForm() {}
@@ -419,7 +431,7 @@ echo "\n8) Vertragserweiterung MHUBV_GetFunctions — Funktion jetzt Instanz-Pro
 IPS_SetProperty($new, 'Function', 'house');
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
 $gf = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
-check('contractVersion = 1.3 (1.1 latency/authority/…, 1.2 archiveWatermarkTs, 1.3 members)', ($gf['contractVersion'] ?? '') === '1.3', json_encode($gf['contractVersion'] ?? null));
+check('contractVersion = 1.4 (1.1 latency/authority/…, 1.2 archiveWatermarkTs, 1.3 members, 1.4 switchID/switchStateID)', ($gf['contractVersion'] ?? '') === '1.4', json_encode($gf['contractVersion'] ?? null));
 check('latency = realtime',   ($gf['latency'] ?? '') === 'realtime', json_encode($gf['latency'] ?? null));
 check('authority = auxiliary', ($gf['authority'] ?? '') === 'auxiliary');
 check('pollInterval gesetzt',  ($gf['pollInterval'] ?? 0) >= 2);
@@ -1250,7 +1262,7 @@ check('32d: neue Funktionen stehen im Suchfilter "Nur Funktion X" zur Auswahl', 
 echo "\n33) MHUBV_GetFunctions 1.3: \"members\" — Mitglieder einer Formel nach außen (Dashboards Anfrage 03.09.2026, Hierarchie liegt beim Anbieter)\n";
 // $new (Block 1): Hausanschluss (+100), Wärmepumpe (−100), Wallbox (−100), Funktion 'house' seit Block 11.
 $gf33 = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
-check('33a: contractVersion 1.3 (additiver Minor-Sprung)', ($gf33['contractVersion'] ?? '') === '1.3', $gf33['contractVersion'] ?? 'fehlt');
+check('33a: contractVersion 1.4 (additive Minor-Sprünge: 1.3 members, 1.4 switchID/switchStateID)', ($gf33['contractVersion'] ?? '') === '1.4', $gf33['contractVersion'] ?? 'fehlt');
 $m33 = $gf33['assignments'][0]['members'] ?? null;
 check('33b: members je Zuordnung, alle drei Terme, Felder name/factor/powerID/energyImportID/energyExportID', is_array($m33) && count($m33) === 3 && isset($m33[0]['name'], $m33[0]['factor'], $m33[0]['powerID'], $m33[0]['energyImportID'], $m33[0]['energyExportID']), json_encode($m33));
 $factors33 = is_array($m33) ? array_map(fn($x) => (float)$x['factor'], $m33) : [];
@@ -1270,6 +1282,124 @@ IPS_SetProperty($midIid, 'Nodes', json_encode([
 IPS_ApplyChanges($midIid);
 $gfMid = json_decode($GLOBALS['MODOBJ'][$midIid]->GetFunctions(), true);
 check('33g: ohne Funktion: assignments leer (unveraendert), members auf Instanzebene aber vorhanden', ($gfMid['assignments'] ?? null) === [] && count($gfMid['members'] ?? []) === 1 && ($gfMid['members'][0]['powerID'] ?? 0) === 521, json_encode($gfMid));
+
+echo "\n34) Schaltgruppe (Dietmars Entscheidung 03.09.2026, über Dashboard adressiert: \"das mit dem Schalten ... die Aufgabe von MeterHub\")\n";
+// Zwei Leuchten mit je EINEM Bool+Aktion-Schalter (eindeutig erkennbar),
+// ein "Heizstab" ebenso schaltbar, aber später als abgezogener Term
+// (Factor -100) verdrahtet, und eine Leuchte mit ZWEI Schaltkanälen
+// (mehrdeutig — darf nicht geraten werden).
+$fluCat = obj(3001, 0, 'Leuchte Flur', 10);
+vari(3002, 'Leistung', $fluCat, '', 'MHB.W', 12.0);
+vari(3003, 'Schalter', $fluCat, '', '~Switch', false, 0, 0, 1);
+$badCat = obj(3011, 0, 'Leuchte Bad', 10);
+vari(3012, 'Leistung', $badCat, '', 'MHB.W', 8.0);
+vari(3013, 'Schalter', $badCat, '', '~Switch', false, 0, 0, 1);
+$ambCat = obj(3021, 0, 'Leuchte Ambig', 10);
+vari(3022, 'Leistung', $ambCat, '', 'MHB.W', 5.0);
+vari(3023, 'Schalter A', $ambCat, '', '~Switch', false, 0, 0, 1);
+vari(3024, 'Schalter B', $ambCat, '', '~Switch', false, 0, 0, 1);
+$heizCat = obj(3031, 0, 'Heizstab', 10);
+vari(3032, 'Leistung', $heizCat, '', 'MHB.W', 2000.0);
+vari(3033, 'Schalter', $heizCat, '', '~Switch', false, 0, 0, 1);
+
+$lichtOG = new MeterHubVirtual(8300);
+$GLOBALS['INSTMOD'][8300] = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
+obj(8300, 1, 'Licht OG', 10);
+$lichtOG->Create();
+IPS_SetProperty(8300, 'Function', 'light');
+
+echo "  34a) AddDevice(): Schalter wird bei eindeutigem Fund automatisch vorgeschlagen, bei Mehrdeutigkeit nicht\n";
+// AddDevice() liest wie ScanMeters() die GESPEICHERTE Property — jede Zeile
+// wird deshalb wie in der echten Bedienung einzeln mit "Übernehmen"
+// gespeichert, bevor das nächste Gerät gewählt wird (kein Sammeln mehrerer
+// Funde in derselben offenen Maske ohne Zwischenspeichern).
+$applyRow = function () use ($lichtOG) {
+    $rows = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+    IPS_SetProperty(8300, 'Nodes', json_encode($rows));
+    IPS_ApplyChanges(8300);
+    return $rows;
+};
+$GLOBALS['FORMFIELDS'] = [];
+$resFlur = $lichtOG->AddDevice(3001);
+check('34a: eindeutiger Schalter automatisch übernommen', str_contains($resFlur, 'Schalter „Schalter"'), $resFlur);
+$applyRow();
+$resBad = $lichtOG->AddDevice(3011);
+$applyRow();
+$resAmb = $lichtOG->AddDevice(3021);
+check('34a: mehrdeutiger Fund NICHT geraten, stattdessen Hinweis', str_contains($resAmb, 'mehrere schaltbare Variablen') && !str_contains($resAmb, 'Schalter „'), $resAmb);
+$applyRow();
+$resHeiz = $lichtOG->AddDevice(3031);
+$rows34 = $applyRow();
+check('34a: vier Zeilen in der offenen Maske', count($rows34) === 4, json_encode($rows34));
+// Heizstab manuell zum abgezogenen Term machen (z. B. "Verbrauch ohne Heizstab").
+foreach ($rows34 as $i => $r) {
+    if ($r['Name'] === 'Heizstab') { $rows34[$i]['Factor'] = -100; }
+}
+IPS_SetProperty(8300, 'Nodes', json_encode($rows34));
+IPS_ApplyChanges(8300);
+check('34a: Status aktiv (Formel gültig)', ($GLOBALS['STATUS'][8300] ?? 0) === 102, 'Status=' . ($GLOBALS['STATUS'][8300] ?? '-'));
+
+echo "  34b) Gruppen-Variablen entstehen nur, wenn es schaltbare (positive) Mitglieder gibt\n";
+$outs34 = [];
+foreach (IPS_GetChildrenIDs(8300) as $c) { $outs34[$GLOBALS['OBJ'][$c]['ObjectIdent']] = $c; }
+check('34b: "Gruppe schalten" und "Gruppenstatus" wurden angelegt', isset($outs34['group_switch'], $outs34['group_state']), implode(',', array_keys($outs34)));
+check('34b: EnableAction() auf "Gruppe schalten" registriert', $GLOBALS['ENABLED_ACTIONS'][8300]['group_switch'] ?? false);
+check('34b: Profil MHBV.GroupState mit drei Ausprägungen (aus/teilweise/an)', count($GLOBALS['PROFILES']['MHBV.GroupState']['Assoc'] ?? []) === 3, json_encode($GLOBALS['PROFILES']['MHBV.GroupState'] ?? null));
+
+echo "  34c) SwitchableMembers(): nur positive Anteile — der abgezogene Heizstab bleibt außen vor\n";
+$swMembers = (new ReflectionMethod('MeterHubVirtual', 'SwitchableMembers'))->invoke($lichtOG, (new ReflectionMethod('MeterHubVirtual', 'Nodes'))->invoke($lichtOG));
+check('34c: genau die zwei eindeutigen Leuchten, nicht der Heizstab', $swMembers === [3003, 3013], json_encode($swMembers));
+
+echo "  34d) SwitchGroup(true/false) schaltet nur die Gruppenmitglieder, Gruppenstatus folgt\n";
+$GLOBALS['REQUESTED'] = [];
+$resOn = $lichtOG->SwitchGroup(true);
+check('34d: Ergebnistext meldet 2 von 2', str_contains($resOn, '2 von 2'), $resOn);
+check('34d: RequestAction traf genau die zwei Leuchten-Schalter, nicht den Heizstab', array_column($GLOBALS['REQUESTED'], 0) === [3003, 3013], json_encode($GLOBALS['REQUESTED']));
+check('34d: Gruppenstatus = 2 (an), Gruppenschalter = true', (int)GetValue($outs34['group_state']) === 2 && GetValue($outs34['group_switch']) === true, (int)GetValue($outs34['group_state']) . '/' . var_export(GetValue($outs34['group_switch']), true));
+SetValueBoolean(3003, false); // eine Leuchte "von Hand" (Skript/App) wieder aus
+$lichtOG->Recalc();
+check('34d: Recalc() führt den Gruppenstatus nach (1 von 2 an -> "teilweise")', (int)GetValue($outs34['group_state']) === 1, (int)GetValue($outs34['group_state']));
+$GLOBALS['REQUESTED'] = [];
+$resOff = $lichtOG->SwitchGroup(false);
+check('34d: Ausschalten trifft wieder beide, Gruppenstatus 0', array_column($GLOBALS['REQUESTED'], 0) === [3003, 3013] && (int)GetValue($outs34['group_state']) === 0, $resOff);
+
+echo "  34e) RequestAction() der Instanz löst SwitchGroup() aus (WebFront-Klick auf \"Gruppe schalten\")\n";
+$GLOBALS['REQUESTED'] = [];
+$lichtOG->RequestAction('group_switch', true);
+check('34e: schaltet wie SwitchGroup(true)', count($GLOBALS['REQUESTED']) === 2 && (int)GetValue($outs34['group_state']) === 2, json_encode($GLOBALS['REQUESTED']));
+$threw = false;
+try { $lichtOG->RequestAction('unbekannt', true); } catch (\Throwable $e) { $threw = true; }
+check('34e: unbekannter Ident wirft (kein stiller Fehlschlag)', $threw);
+
+echo "  34f) MHUBV_GetFunctions 1.4: switchID je Mitglied (auch bei abgezogenen Zeilen) + switchID/switchStateID der Gruppe, je Zuordnung UND auf Instanzebene\n";
+$gf34 = json_decode($lichtOG->GetFunctions(), true);
+check('34f: contractVersion 1.4', ($gf34['contractVersion'] ?? '') === '1.4', $gf34['contractVersion'] ?? 'fehlt');
+$heizMember = null;
+foreach ($gf34['members'] ?? [] as $m) { if ($m['name'] === 'Heizstab') { $heizMember = $m; } }
+check('34f: Heizstab (abgezogen) hat trotzdem sein switchID — einzeln bleibt er schaltbar', ($heizMember['switchID'] ?? 0) === 3033, json_encode($heizMember));
+check('34f: Gruppen-switchID/switchStateID auf Instanzebene', ($gf34['switchID'] ?? 0) === $outs34['group_switch'] && ($gf34['switchStateID'] ?? 0) === $outs34['group_state']);
+check('34f: Gruppen-switchID/switchStateID auch in der Zuordnung (Funktion "light" gesetzt)', ($gf34['assignments'][0]['switchID'] ?? 0) === $outs34['group_switch'] && ($gf34['assignments'][0]['switchStateID'] ?? 0) === $outs34['group_state']);
+
+echo "  34g) Warnings(): kaputter/nicht-Bool-Schalter und Schalter an abgezogener Zeile werden gemeldet, nichts blockiert\n";
+vari(3040, 'Kein Schalter (Float)', $fluCat, '', 'MHB.W', 1.0);
+$nodes34 = (new ReflectionMethod('MeterHubVirtual', 'Nodes'))->invoke($lichtOG);
+$nodes34[] = ['name' => 'Kaputter Schalter', 'factor' => 100.0, 'power' => 0, 'imp' => 0, 'exp' => 0, 'switch' => 999999];
+$nodes34[] = ['name' => 'Falscher Typ', 'factor' => 100.0, 'power' => 0, 'imp' => 0, 'exp' => 0, 'switch' => 3040];
+$warn34 = (new ReflectionMethod('MeterHubVirtual', 'Warnings'))->invoke($lichtOG, $nodes34);
+$warn34Text = implode(' | ', $warn34);
+check('34g: nicht mehr existierender Schalter wird gemeldet', str_contains($warn34Text, 'Kaputter Schalter') && str_contains($warn34Text, 'existiert nicht mehr'), $warn34Text);
+check('34g: Nicht-Bool-Variable als Schalter wird gemeldet', str_contains($warn34Text, 'Falscher Typ') && str_contains($warn34Text, 'keine Bool-Variable'), $warn34Text);
+check('34g: Schalter an abgezogener Zeile (Heizstab) wird gemeldet', str_contains($warn34Text, 'Heizstab') && str_contains($warn34Text, 'abgezogen'), $warn34Text);
+
+echo "  34h) FindSwitches(): trägt Schalter für vorhandene Zeilen ohne SwitchID nach\n";
+$litCat2 = obj(3051, 0, 'Leuchte Küche', 10);
+vari(3052, 'Leistung', $litCat2, '', 'MHB.W', 9.0);
+vari(3053, 'Schalter', $litCat2, '', '~Switch', false, 0, 0, 1);
+$altRows = [['Name' => 'Leuchte Küche', 'Factor' => 100, 'PowerID' => 3052, 'EnergyImportID' => 0, 'EnergyExportID' => 0]]; // altes Format, kein SwitchID
+$resFind = $lichtOG->FindSwitches(json_encode($altRows));
+check('34h: Ergebnistext meldet einen gefundenen Schalter', str_contains($resFind, '1 Schalter gefunden'), $resFind);
+$rowsAfterFind = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+check('34h: SwitchID in der offenen Maske nachgetragen', ($rowsAfterFind[0]['SwitchID'] ?? 0) === 3053, json_encode($rowsAfterFind));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
