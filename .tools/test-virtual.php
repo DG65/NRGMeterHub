@@ -1908,5 +1908,31 @@ $kept38 = array_values(array_filter($ser38, fn($p) => !in_array($p[0], $del38, t
 check('38: vorher 3 Rückschritte und 0,45 kWh doppelt gezählt', $bb38 === 3 && abs($ob38 - 0.45) < 1e-9, json_encode([$ob38, $bb38]));
 check('38: nachher 0 Rückschritte, nichts doppelt gezählt', $ba38 === 0 && abs($oa38) < 1e-9, json_encode([$oa38, $ba38]));
 
+echo "\n39) Doppelte Anbindung desselben Geräts (0.28.0, Dietmars Regel 13.09.2026: ChargerHub und OCPPHub für dieselbe Wallbox)\n";
+$m39 = fn($name, ...$a) => (new ReflectionMethod('MeterHubVirtual', $name))->invoke(null, ...$a);
+check('39: gleiche Seriennummer (WB 1: 050306)', $m39('SameDevice', ['serial' => '050306'], ['serial' => '050306 '], null, null) === 'gleiche Seriennummer 050306');
+check('39: verschiedene Seriennummern schließen aus, auch bei gleichen Zählerständen', $m39('SameDevice', ['serial' => '050306'], ['serial' => '050308'], 27437.7, 27437.7) === null);
+check('39: gleiche IP-Adresse', $m39('SameDevice', ['ip' => '192.168.2.31'], ['ip' => '192.168.2.31'], null, null) === 'gleiche IP-Adresse 192.168.2.31');
+check('39: fast gleiche Zählerstände (WB 2 live: 14 785,1 / 14 743,4 kWh) als Hinweis', str_starts_with((string)$m39('SameDevice', [], [], 14785.1, 14743.40431), 'Zählerstände fast gleich'));
+check('39: Zählerstände ohne Angabe (gleiches Modul) zählen nicht', $m39('SameDevice', [], [], null, null) === null);
+check('39: kleine Zählerstände (< 100) zählen nicht', $m39('SameDevice', [], [], 5.0, 5.01) === null);
+check('39: mehr als 1 % Abstand zählt nicht', $m39('SameDevice', [], [], 1000.0, 1015.0) === null);
+$n39 = [
+    ['name' => 'WB 1', 'factor' => 100.0, 'switch' => 11, 'active' => true],
+    ['name' => 'WB1', 'factor' => 100.0, 'switch' => 12, 'active' => true],
+    ['name' => 'Wärmepumpe', 'factor' => 100.0, 'switch' => 0, 'active' => true],
+];
+$r39 = $m39('ApplyDuplicateRules', $n39, [[0, 1, 'gleiche Seriennummer 050306']]);
+check('39: bis zur Wahl zählt nur die erste Anbindung', $r39[0]['factor'] === 100.0 && $r39[1]['factor'] === 0.0 && $r39[1]['excluded'] === 'undecided' && $r39[1]['switch'] === 0 && empty($r39[2]['excluded']));
+check('39: beide kennen sich als Paar', $r39[0]['dup'][0]['with'] === 1 && $r39[1]['dup'][0]['with'] === 0);
+$n39b = $n39;
+$n39b[0]['active'] = false;   // Nutzer wählt die OCPP-Anbindung (zweite) als aktive
+$r39b = $m39('ApplyDuplicateRules', $n39b, [[0, 1, 'gleiche Seriennummer 050306']]);
+check('39: nach der Wahl zählt die gewählte, die abgewählte fällt heraus', $r39b[0]['factor'] === 0.0 && $r39b[0]['excluded'] === 'inactive' && $r39b[1]['factor'] === 100.0 && empty($r39b[1]['excluded']));
+$n39c = $n39;
+$n39c[2]['active'] = false;
+$r39c = $m39('ApplyDuplicateRules', $n39c, []);
+check('39: „aktiv“ aus wirkt auch ohne Doppel (Mitglied zählt nicht, schaltet nicht)', $r39c[2]['factor'] === 0.0 && $r39c[2]['excluded'] === 'inactive');
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

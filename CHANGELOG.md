@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.28.0-beta.1 (2026-09-13)
+
+- **MeterHubVirtual: doppelte Anbindung desselben Geräts** (Dietmars Regel). Eine Wallbox kann
+  zugleich über ChargerHub und OCPPHub eingebunden sein. In einer Summe zählte sie dann doppelt,
+  und zwei Module steuerten dieselbe Wallbox. Jetzt:
+  - **Erkennen:** Gleiche Seriennummer oder IP-Adresse belegen es, fast gleiche Zählerstände
+    (≤ 1 %, ≥ 100) gelten als Hinweis. Der Zählerstand-Vergleich gilt nur zwischen verschiedenen
+    Modulen, damit viele gleiche Wechselrichter keine Fehlalarme auslösen. Verschiedene
+    Seriennummern schließen ein Paar sicher aus. Die Merkmale kommen aus dem Vertrag des Moduls
+    (`deviceSerial`/`deviceIP`), ersatzweise aus der Variable `dev_serial` bzw. der Eigenschaft
+    `Host`.
+  - **Bis zur Wahl** zählt nur die erste Anbindung, die Summe ist nie doppelt. „Prüfung &
+    Vorschau“ nennt beide und den Grund.
+  - **Neue Spalte „aktiv“** je Mitglied. Abgewählt zählt ein Mitglied nicht mit und schaltet
+    nicht mit. Ist es die Doppel-Anbindung eines Paars, wird ihre Instanz über ihr Modul ganz
+    abgeschaltet (`{Präfix}_SetActive`), angewählt wieder eingeschaltet. Bietet ein Modul das
+    nicht an, weist die Prüfung darauf hin, die Instanz von Hand zu deaktivieren.
+  - Ausgesetzte Mitglieder erscheinen nicht mehr in `members` des Vertrags.
+- Prüfstand `test-virtual.php` Block 39.
+
 ## 0.27.10-beta.1 (2026-09-13)
 
 - **Keine Warnungsflut beim Update (Store-Checkliste 9c).** Während Symcon ein Modul neu lädt,

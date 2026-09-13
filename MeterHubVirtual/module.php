@@ -70,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.26.1';
+    private const NEWS_VERSION = '0.28.0';
 
     public function Create()
     {
@@ -162,6 +162,9 @@ class MeterHubVirtual extends IPSModule
         $this->RegisterAttributeString('ReconciledSettings', '');
         $this->RegisterAttributeString('FormSnapshot', '[]');
         $this->RegisterAttributeString('ReconcileNotes', '');
+        // Doppelte Anbindung (0.28.0): von uns abgeschaltete Instanzen
+        // {Instanz-ID: 'off' | 'manual'}, siehe SyncDuplicateDeactivation().
+        $this->RegisterAttributeString('DupDeactivated', '{}');
         $this->RegisterTimer('Recalc', 0, 'MHUBV_Recalc($_IPS[\'TARGET\']);');
     }
 
@@ -280,6 +283,7 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 👯 Doppelte Anbindung erkannt: Ist dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub UND über OCPPHub), zählt bis zu deiner Wahl nur die erste Anbindung, und „Prüfung & Vorschau" nennt beide samt Grund (gleiche Seriennummer, IP-Adresse oder fast gleiche Zählerstände). In der neuen Spalte „aktiv" wählst du die überzählige ab — sie fällt aus der Summe, und ihre Instanz wird ganz abgeschaltet, sofern ihr Modul das anbietet.'],
                 ['type' => 'Label', 'caption' => '• 🌳 Neu: Mitglieder direkt im Objektbaum — alles, was als Verknüpfung (Link) oder direkt unter dieser Instanz hängt, wird automatisch Mitglied, in der Reihenfolge seiner Position dort. Neue Instanzen starten so; gelöschte Geräte fallen sofort als „Ziel fehlt" auf statt still als Leiche weiterzuleben.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Fix: bei Geräten ohne MeterHub-Kennung (z. B. Wallboxen) konnte statt der Gesamtleistung eine einzelne Phase gewählt werden. Jetzt gelten zuerst die Werte, die das Gerätemodul selbst meldet; sonst Gesamtwert vor Phasenwert, mehrdeutige Fälle werden gemeldet. Bitte die „Erkannt"-Spalte der eigenen Instanzen einmal ansehen.'],
                 ['type' => 'Label', 'caption' => '• ✏️ Mitglieder direkt in der Tabelle bearbeiten: hinzufügen (Spalte „Ziel“), löschen, per Drag & Drop umsortieren, umbenennen, Ziel ändern — mit „Übernehmen“ werden die Links im Objektbaum entsprechend angepasst. Gelöscht werden nur Links, nie Geräte.'],
@@ -549,6 +553,9 @@ class MeterHubVirtual extends IPSModule
             $out[] = [
                 'switchNote' => $switchNote,
                 'meterNote'  => $meterNote,
+                // Mitglied-Einstellung „aktiv" (0.28.0) — abgewählt zählt es
+                // nicht mit, siehe ApplyDuplicateRules().
+                'active' => !array_key_exists('Active', $s) || !empty($s['Active']),
                 'name'   => $m['name'],
                 'factor' => array_key_exists('Factor', $s) ? (float)$s['Factor'] : 100.0,
                 'power'  => $pick('power', 'PowerID'),
@@ -562,6 +569,260 @@ class MeterHubVirtual extends IPSModule
             ];
         }
         return $out;
+    }
+
+    // -----------------------------------------------------------------------
+    // Doppelte Anbindung (0.28.0, Dietmars Regel 13.09.2026). Dasselbe Gerät
+    // kann über zwei Module eingebunden sein — z. B. eine Wallbox per
+    // ChargerHub (Modbus) UND per OCPPHub. In einer Summe zählt es dann
+    // doppelt, und zwei Module steuern dasselbe Gerät. MeterHubVirtual
+    // erkennt das, zählt bis zur Entscheidung nur die erste Anbindung und
+    // fragt, welche aktiv bleiben soll. Die abgewählte Instanz wird über ihr
+    // Modul ganz abgeschaltet ({Präfix}_SetActive), sofern es das anbietet.
+    // -----------------------------------------------------------------------
+
+    /**
+     * Sind zwei Anbindungen dasselbe Gerät? Frei von Symcon-Aufrufen
+     * (Prüfstand). $a/$b: ['serial' => …, 'ip' => …]; $ea/$eb: Bezug-
+     * Zählerstand oder null (nur übergeben, wenn die beiden aus verschiedenen
+     * Modulen stammen — sonst gäbe es in einem Park mit vielen gleichen
+     * Wechselrichtern Fehlalarme). Verschiedene Seriennummern schließen es
+     * sicher aus, gleiche Seriennummer oder IP-Adresse belegen es, fast
+     * gleiche Zählerstände (≤ 1 %, beide ≥ 100) gelten als Hinweis.
+     * Rückgabe: Begründung oder null.
+     */
+    private static function SameDevice(array $a, array $b, ?float $ea, ?float $eb): ?string
+    {
+        $sa = strtolower(trim((string)($a['serial'] ?? '')));
+        $sb = strtolower(trim((string)($b['serial'] ?? '')));
+        if ($sa !== '' && $sb !== '') {
+            return $sa === $sb ? 'gleiche Seriennummer ' . trim((string)$a['serial']) : null;
+        }
+        $ia = trim((string)($a['ip'] ?? ''));
+        $ib = trim((string)($b['ip'] ?? ''));
+        if ($ia !== '' && $ia === $ib) {
+            return 'gleiche IP-Adresse ' . $ia;
+        }
+        if ($ea !== null && $eb !== null && $ea >= 100.0 && $eb >= 100.0 && abs($ea - $eb) <= 0.01 * max($ea, $eb)) {
+            return 'Zählerstände fast gleich (' . number_format($ea, 1, ',', '.') . ' / ' . number_format($eb, 1, ',', '.') . ')';
+        }
+        return null;
+    }
+
+    /**
+     * Doppel-Regel auf die Knoten anwenden (frei von Symcon-Aufrufen): jedes
+     * Paar kennt sich gegenseitig ('dup'); sind beide noch aktiv, zählt bis
+     * zur Wahl nur die erste Anbindung. Abgewählte (Mitglied-Einstellung
+     * „aktiv" aus) und ausgesetzte Knoten gehen mit Anteil 0 und ohne
+     * Schalter in Summe und Schaltgruppe ein.
+     */
+    private static function ApplyDuplicateRules(array $nodes, array $pairs): array
+    {
+        foreach ($pairs as [$i, $j, $why]) {
+            $nodes[$i]['dup'][] = ['with' => $j, 'why' => $why];
+            $nodes[$j]['dup'][] = ['with' => $i, 'why' => $why];
+            if (($nodes[$i]['active'] ?? true) && ($nodes[$j]['active'] ?? true) && empty($nodes[$i]['excluded'])) {
+                $nodes[$j]['excluded'] = 'undecided';
+            }
+        }
+        foreach ($nodes as $k => $n) {
+            if (array_key_exists('active', $n) && !$n['active']) {
+                $nodes[$k]['excluded'] = 'inactive';
+            }
+            if (!empty($nodes[$k]['excluded'])) {
+                $nodes[$k]['factor'] = 0.0;
+                $nodes[$k]['switch'] = 0;
+            }
+        }
+        return $nodes;
+    }
+
+    /** Paare [i, j, Begründung] von Mitgliedern, die dasselbe Gerät anbinden. */
+    private function DuplicatePairs(array $nodes): array
+    {
+        $cand = [];
+        foreach ($nodes as $i => $n) {
+            $t = (int)($n['target'] ?? 0);
+            if (!isset($n['member']) || !empty($n['broken']) || $t <= 0 || (int)(@IPS_GetObject($t)['ObjectType'] ?? -1) !== 1) {
+                continue;
+            }
+            $cand[$i] = $t;
+        }
+        if (count($cand) < 2) {
+            return [];
+        }
+        $ids = [];
+        $mods = [];
+        $en = [];
+        foreach ($cand as $i => $t) {
+            $ids[$i] = $this->DeviceIdentity($t);
+            $mods[$i] = (string)(@IPS_GetInstance($t)['ModuleInfo']['ModuleID'] ?? '');
+            $imp = (int)($nodes[$i]['imp'] ?? 0);
+            $en[$i] = $imp > 0 && IPS_VariableExists($imp) ? (float)GetValue($imp) : null;
+        }
+        $pairs = [];
+        $keys = array_keys($cand);
+        foreach ($keys as $x => $i) {
+            foreach (array_slice($keys, $x + 1) as $j) {
+                if ($cand[$i] === $cand[$j]) {
+                    continue;
+                }
+                $other = $mods[$i] !== $mods[$j];
+                $why = self::SameDevice($ids[$i], $ids[$j], $other ? $en[$i] : null, $other ? $en[$j] : null);
+                if ($why !== null) {
+                    $pairs[] = [$i, $j, $why];
+                }
+            }
+        }
+        return $pairs;
+    }
+
+    /** Geräte-Merkmale einer Instanz: aus ihrem Vertrag, sonst Variable dev_serial bzw. Eigenschaft Host. */
+    private function DeviceIdentity(int $inst): array
+    {
+        $id = ['serial' => '', 'ip' => ''];
+        $e = $this->ContractEntryOf($inst);
+        foreach (['deviceSerial', 'serialNumber', 'serial'] as $k) {
+            if (is_scalar($e[$k] ?? null) && trim((string)$e[$k]) !== '') {
+                $id['serial'] = trim((string)$e[$k]);
+                break;
+            }
+        }
+        foreach (['deviceIP', 'deviceHost', 'ip', 'host'] as $k) {
+            if (is_scalar($e[$k] ?? null) && trim((string)$e[$k]) !== '') {
+                $id['ip'] = trim((string)$e[$k]);
+                break;
+            }
+        }
+        if ($id['serial'] === '') {
+            $v = $this->FindIdentDeep($inst, 'dev_serial', 3);
+            if ($v > 0) {
+                $id['serial'] = trim((string)GetValue($v));
+            }
+        }
+        if ($id['ip'] === '' && function_exists('IPS_GetProperty')) {
+            $h = @IPS_GetProperty($inst, 'Host');
+            if (is_string($h) && trim($h) !== '') {
+                $id['ip'] = trim($h);
+            }
+        }
+        return $id;
+    }
+
+    /** Erster Eintrag des Vertrags {Präfix}_GetFunctions einer fremden Instanz, [] wenn keiner. */
+    private function ContractEntryOf(int $inst): array
+    {
+        $guid = (string)(@IPS_GetInstance($inst)['ModuleInfo']['ModuleID'] ?? '');
+        if ($guid === '' || $guid === self::GUID_VIRTUAL || $guid === self::GUID_METER) {
+            return [];
+        }
+        $prefix = (string)(@IPS_GetModule($guid)['Prefix'] ?? '');
+        $fn = $prefix . '_GetFunctions';
+        if ($prefix === '' || !function_exists($fn)) {
+            return [];
+        }
+        try {
+            $res = $fn($inst);
+        } catch (\Throwable $e) {
+            return [];
+        }
+        if (is_string($res)) {
+            $res = json_decode($res, true);
+        }
+        if (!is_array($res) || $res === []) {
+            return [];
+        }
+        if (isset($res['assignments'][0]) && is_array($res['assignments'][0])) {
+            return $res['assignments'][0] + $res;
+        }
+        if (array_keys($res) === range(0, count($res) - 1)) {
+            return is_array($res[0]) ? $res[0] : [];
+        }
+        return $res;
+    }
+
+    /** Variable mit Ident $ident unterhalb von $parent (bis $depth Ebenen), 0 wenn keine. */
+    private function FindIdentDeep(int $parent, string $ident, int $depth): int
+    {
+        foreach (IPS_GetChildrenIDs($parent) as $c) {
+            $o = IPS_GetObject($c);
+            if ($o['ObjectIdent'] === $ident && $o['ObjectType'] === 2) {
+                return $c;
+            }
+            if ($depth > 1 && in_array($o['ObjectType'], [0, 1], true)) {
+                $r = $this->FindIdentDeep($c, $ident, $depth - 1);
+                if ($r > 0) {
+                    return $r;
+                }
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Abgewählte Doppel-Anbindungen ganz abschalten, wieder angewählte
+     * einschalten — nur über das Modul der Instanz ({Präfix}_SetActive) und
+     * nur, solange die andere Anbindung des Paars aktiv ist. Bietet ein Modul
+     * das nicht an, bleibt es beim Hinweis „von Hand deaktivieren".
+     */
+    private function SyncDuplicateDeactivation(array $nodes): void
+    {
+        $done = json_decode((string)$this->ReadAttributeString('DupDeactivated'), true);
+        $done = is_array($done) ? $done : [];
+        $want = [];
+        foreach ($nodes as $n) {
+            if (($n['active'] ?? true) || empty($n['dup']) || (int)($n['target'] ?? 0) <= 0) {
+                continue;
+            }
+            foreach ($n['dup'] as $d) {
+                if ($nodes[$d['with']]['active'] ?? true) {
+                    $want[(int)$n['target']] = $n['name'];
+                    break;
+                }
+            }
+        }
+        $changed = false;
+        foreach ($want as $t => $name) {
+            if (isset($done[$t])) {
+                continue;
+            }
+            $res = $this->PartnerSetActive($t, false);
+            $done[$t] = $res === null ? 'manual' : 'off';
+            IPS_LogMessage('MeterHubVirtual', IPS_GetName($this->InstanceID) . ': „' . $name . '" (#' . $t . ') ist eine doppelte Anbindung und wurde abgewählt — '
+                . ($res === null ? 'ihr Modul bietet kein Abschalten an, bitte die Instanz von Hand deaktivieren.' : 'Instanz abgeschaltet: ' . $res));
+            $changed = true;
+        }
+        foreach ($done as $t => $state) {
+            if (isset($want[(int)$t])) {
+                continue;
+            }
+            if ($state === 'off' && IPS_InstanceExists((int)$t)) {
+                $res = $this->PartnerSetActive((int)$t, true);
+                IPS_LogMessage('MeterHubVirtual', IPS_GetName($this->InstanceID) . ': #' . $t . ' wieder angewählt — Instanz eingeschaltet: ' . (string)$res);
+            }
+            unset($done[$t]);
+            $changed = true;
+        }
+        if ($changed) {
+            $this->WriteAttributeString('DupDeactivated', (string)json_encode($done));
+        }
+    }
+
+    /** {Präfix}_SetActive($inst, $on) der fremden Instanz; null, wenn ihr Modul das nicht anbietet. */
+    private function PartnerSetActive(int $inst, bool $on): ?string
+    {
+        $guid = (string)(@IPS_GetInstance($inst)['ModuleInfo']['ModuleID'] ?? '');
+        $prefix = $guid !== '' ? (string)(@IPS_GetModule($guid)['Prefix'] ?? '') : '';
+        $fn = $prefix . '_SetActive';
+        if ($prefix === '' || !function_exists($fn)) {
+            return null;
+        }
+        try {
+            $r = $fn($inst, $on);
+        } catch (\Throwable $e) {
+            return '❌ ' . $e->getMessage();
+        }
+        return is_string($r) && $r !== '' ? $r : '✅';
     }
 
     /** Fingerabdruck der aufgelösten Mitglieder — ändert er sich, wird neu angewendet. */
@@ -822,6 +1083,7 @@ class MeterHubVirtual extends IPSModule
                 // Speichern einfrieren.
                 'SwitchID'       => (int)($s['SwitchID'] ?? 0),
                 'NoSwitch'       => !empty($s['NoSwitch']),
+                'Active'         => !array_key_exists('Active', $s) || !empty($s['Active']),
             ];
         }
         return $rows;
@@ -1129,6 +1391,9 @@ class MeterHubVirtual extends IPSModule
         // Auch im Fehlerzustand: gerade dann muss eine Korrektur im
         // Objektbaum (Link entfernen/umhängen) sofort wirken.
         $this->SyncTreeWatch($this->Nodes());
+        // Doppelte Anbindung: abgewählte Instanz über ihr Modul abschalten
+        // bzw. wieder einschalten (0.28.0) — nur hier, nicht bei jeder Berechnung.
+        $this->SyncDuplicateDeactivation($this->Nodes());
 
         if (!$this->ReadPropertyBoolean('Active') || count($errors) > 0) {
             $this->SetTimerInterval('Recalc', 0);
@@ -1345,7 +1610,8 @@ class MeterHubVirtual extends IPSModule
     private function Nodes(): array
     {
         if ($this->IsTreeMode()) {
-            return $this->TreeNodes();
+            $nodes = $this->TreeNodes();
+            return self::ApplyDuplicateRules($nodes, $this->DuplicatePairs($nodes));
         }
         $rows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rows = is_array($rows) ? $rows : [];
@@ -1471,6 +1737,30 @@ class MeterHubVirtual extends IPSModule
     private function Warnings(array $nodes): array
     {
         $warnings = [];
+        // Doppelte Anbindung (0.28.0): jedes Paar einmal.
+        $dupState = json_decode((string)$this->ReadAttributeString('DupDeactivated'), true);
+        $dupState = is_array($dupState) ? $dupState : [];
+        foreach ($nodes as $i => $n) {
+            foreach ($n['dup'] ?? [] as $d) {
+                $j = (int)$d['with'];
+                if ($j < $i || !isset($nodes[$j])) {
+                    continue;
+                }
+                $la = $this->RowLabel($i, $n);
+                $lb = $this->RowLabel($j, $nodes[$j]);
+                $sure = !str_starts_with($d['why'], 'Zählerstände');
+                $ai = $n['active'] ?? true;
+                $aj = $nodes[$j]['active'] ?? true;
+                if ($ai && $aj) {
+                    $warnings[] = "$la und $lb sind " . ($sure ? '' : 'vermutlich ') . 'dasselbe Gerät (' . $d['why'] . ') — in der Summe zählte es doppelt, bis zu deiner Wahl zählt nur ' . $la . '. Bitte in der Mitglieder-Tabelle bei der Anbindung, die nicht aktiv bleiben soll, „aktiv“ abwählen und übernehmen: sie fällt aus der Summe, und ihre Instanz wird ganz abgeschaltet (keine Messung, keine Steuerung).';
+                } elseif ($ai !== $aj) {
+                    $off = $ai ? $j : $i;
+                    $state = $dupState[(int)$nodes[$off]['target']] ?? '';
+                    $warnings[] = $this->RowLabel($off, $nodes[$off]) . ' ist als doppelte Anbindung von ' . $this->RowLabel($ai ? $i : $j, $ai ? $n : $nodes[$j]) . ' abgewählt'
+                        . ($state === 'manual' ? ' — ihr Modul bietet kein Abschalten an, bitte die Instanz dort von Hand deaktivieren.' : ' und ihre Instanz abgeschaltet.');
+                }
+            }
+        }
         // Baum-Modus: tote und leere Mitglieder zuerst — genau diese
         // „Leichen" sichtbar zu machen war der Anlass des Baum-Modus.
         foreach ($nodes as $i => $n) {
@@ -3429,6 +3719,11 @@ class MeterHubVirtual extends IPSModule
     {
         $out = [];
         foreach ($this->Nodes() as $n) {
+            // Abgewählte bzw. als Doppel ausgesetzte Anbindungen zählen nicht
+            // mit — auch nicht als Mitglied für Konsumenten (0.28.0).
+            if (!empty($n['excluded'])) {
+                continue;
+            }
             $out[] = [
                 'name'           => $n['name'],
                 'factor'         => $n['factor'],
@@ -3667,6 +3962,7 @@ class MeterHubVirtual extends IPSModule
                     ['caption' => 'Einspeisung übersteuern', 'name' => 'EnergyExportID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                     ['caption' => 'Schalter übersteuern', 'name' => 'SwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                     ['caption' => 'nicht schalten', 'name' => 'NoSwitch', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                    ['caption' => 'aktiv', 'name' => 'Active', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
                     ['caption' => 'Objekt-ID', 'name' => 'MemberID', 'width' => '90px', 'add' => 0, 'save' => true],
                     // Unsichtbare Ausgangswerte für den Abgleich, siehe TreeFormRows().
                     ['caption' => 'OrigName', 'name' => 'OrigName', 'width' => '0px', 'add' => '', 'save' => true, 'visible' => false],
