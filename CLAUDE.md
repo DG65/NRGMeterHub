@@ -1168,6 +1168,17 @@ entries: [{type:'meter_direction', slot, label, level: normal|auffaellig|kritisc
 threshold, reason, powerID, referencePowerID, referenceLabel, relation: same|opposite|pv,
 correlation (NORMIERT: +1 = passt, bei opposite/pv = umgekehrte Rohkorrelation; alle Schwellen gelten dafür), samples, checkedAt}]}`. InverterHub-Netz ist „+ = Einspeisung" (SUITE.md).
 
+## Store-Checkliste: bewusst so belassen (Dietmar, 13.09.2026)
+
+- **Button „Übernehmen erzwingen“** (alle drei Module, `IPS_ApplyChanges($id)` im `onClick`):
+  bleibt. Keine Selbstpersistenz im Sinne von Punkt 1, es wird nichts gesetzt; hilft, wenn die
+  Modulverwaltung beim Update hängt.
+- **MeterHubVirtual Status 202 „Migration nötig“**: bleibt ein Fehlerstatus (kein 104), obwohl
+  Punkt 9d „geparkte“ Zustände mit Fehlercode meidet. Er verlangt eine Nutzerhandlung und
+  betrifft nur Instanzen aus alten Versionen; neue Nutzer bekommen ihn nie.
+
+Nicht erneut als Befund vorlegen.
+
 ## Zählerschutz und Archiv-Reparatur (0.26.6, 12.09.2026)
 
 Inexogy füllt Übertragungslücken des Smart-Meter-Gateways mit **Zählerstand 0** (live
