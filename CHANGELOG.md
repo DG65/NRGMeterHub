@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.28.5-beta.1 (2026-09-13)
+
+- **Doppelte Anbindung: Haltezeit für die Zählquelle** (EMS-Anmerkung). Ohne sie pendelte die
+  Gruppe bei einer wackligen Verbindung zwischen den beiden Anbindungen, und jeder Wechsel
+  veränderte den Ausgleichswert. Jetzt merkt sich MeterHubVirtual je unmarkiertem Paar die
+  zählende Anbindung (Attribut `DupChoice`, `ChooseCounting`). Sie bleibt, solange sie frisch
+  ist. Gewechselt wird nur, wenn sie 15 min ohne Kontakt ist, die andere frisch ist und der
+  letzte Wechsel mindestens 30 min zurückliegt. Die erste Wahl ist wie in 0.28.4 die frische,
+  sonst die erste Anbindung.
+- Prüfstand `test-virtual.php` Block 41.
+
 ## 0.28.4-beta.1 (2026-09-13)
 
 - **Doppelte Anbindung: Bis zur Markierung zählt die Anbindung mit aktuellen Messwerten**

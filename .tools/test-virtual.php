@@ -1974,5 +1974,26 @@ check('40: neues Mitglied mit hohem Stand → kein Riesensprung nach oben', abs(
 [$o40b] = $m40(['sig' => 'A', 'offset' => 5.0], 'B', 100.0, 0.0);
 check('40: ohne bisherigen Ausgabewert (0) bleibt der Ausgleich unverändert', abs($o40b - 105.0) < 1e-9);
 
+echo "\n41) Doppelte Anbindung: Haltezeit, damit die Zählquelle nicht pendelt (0.28.5, EMS-Anmerkung 13.09.2026)\n";
+$m41 = fn(...$a) => (new ReflectionMethod('MeterHubVirtual', 'ChooseCounting'))->invoke(null, ...$a);
+$t0 = 1789300000;
+[$c41, $s41] = $m41(null, 36981, 30324, false, true, $t0);   // OCPP WB2 veraltet, ChargerHub frisch
+check('41: erste Wahl — die frische Anbindung', $c41 === 30324 && $s41 === ['count' => 30324, 'since' => $t0]);
+[$c41, $s41] = $m41($s41, 36981, 30324, true, true, $t0 + 60);   // OCPP meldet sich wieder
+check('41: die gewählte bleibt, solange sie frisch ist — kein Rücksprung', $c41 === 30324 && $s41['since'] === $t0);
+[$c41, $s41] = $m41($s41, 36981, 30324, true, false, $t0 + 600);   // ChargerHub stockt, Haltezeit noch nicht um
+check('41: innerhalb der Haltezeit kein Wechsel, auch wenn die gewählte veraltet', $c41 === 30324);
+[$c41, $s41] = $m41($s41, 36981, 30324, true, false, $t0 + 1800);
+check('41: nach der Haltezeit Wechsel auf die frische', $c41 === 36981 && $s41['since'] === $t0 + 1800);
+[$c41] = $m41($s41, 36981, 30324, false, false, $t0 + 9000);
+check('41: beide veraltet — es bleibt bei der gewählten', $c41 === 36981);
+[$c41] = $m41(['count' => 4711, 'since' => $t0], 36981, 30324, true, true, $t0);
+check('41: gemerkte Wahl passt nicht mehr zum Paar — neu wählen (die erste)', $c41 === 36981);
+$m39r = fn(...$a) => (new ReflectionMethod('MeterHubVirtual', 'ApplyDuplicateRules'))->invoke(null, ...$a);
+$n41 = [['name' => 'WB2 (OCPP)', 'factor' => 100.0, 'switch' => 0, 'active' => true, 'fresh' => true],
+        ['name' => 'WB 2', 'factor' => 100.0, 'switch' => 0, 'active' => true, 'fresh' => true, 'dupCount' => true]];
+$r41 = $m39r($n41, [[0, 1, 'x']]);
+check('41: die gemerkte Zählquelle hat Vorrang vor Reihenfolge und Frische', $r41[0]['excluded'] === 'undecided' && empty($r41[1]['excluded']));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

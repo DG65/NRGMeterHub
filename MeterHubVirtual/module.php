@@ -165,6 +165,9 @@ class MeterHubVirtual extends IPSModule
         // Zählerstetigkeit der Energie-Summen (0.28.3): je Ausgabe
         // {sig: Zusammensetzung, offset: Ausgleich}, siehe ContinuityStep().
         $this->RegisterAttributeString('EnergyContinuity', '{}');
+        // Gewählte Zählquelle je unmarkiertem Doppel-Paar (0.28.5):
+        // {"<id>-<id>": {count: Ziel-ID, since: Zeitpunkt}}, siehe ChooseCounting().
+        $this->RegisterAttributeString('DupChoice', '{}');
         $this->RegisterTimer('Recalc', 0, 'MHUBV_Recalc($_IPS[\'TARGET\']);');
     }
 
@@ -586,6 +589,55 @@ class MeterHubVirtual extends IPSModule
 
     /** Eine Anbindung gilt als frisch, wenn ihr Gerät in dieser Zeit (s) zuletzt erreicht wurde. */
     private const DUP_FRESH_S = 900;
+    /** Frühestens so lange (s) nach einem Wechsel der Zählquelle wird wieder gewechselt. */
+    private const DUP_HOLD_S = 1800;
+
+    /**
+     * Welche Anbindung eines unmarkierten Paars zählt? Frei von Symcon-
+     * Aufrufen (Prüfstand). Beim ersten Mal die frische, sonst die erste
+     * ($a). Danach bleibt es bei der gewählten, solange sie frisch ist;
+     * gewechselt wird nur, wenn sie veraltet ist (15 min ohne Kontakt,
+     * DUP_FRESH_S), die andere frisch ist und der letzte Wechsel mindestens
+     * DUP_HOLD_S zurückliegt — sonst pendelt die Gruppe bei einer wackligen
+     * Verbindung (EMS-Anmerkung 13.09.2026). Rückgabe [zählende Ziel-ID, Zustand].
+     */
+    private static function ChooseCounting(?array $prev, int $a, int $b, bool $fa, bool $fb, int $now): array
+    {
+        if ($prev === null || !in_array((int)($prev['count'] ?? 0), [$a, $b], true)) {
+            $c = (!$fa && $fb) ? $b : $a;
+            return [$c, ['count' => $c, 'since' => $now]];
+        }
+        $c = (int)$prev['count'];
+        $cFresh = $c === $a ? $fa : $fb;
+        $oFresh = $c === $a ? $fb : $fa;
+        if (!$cFresh && $oFresh && $now - (int)($prev['since'] ?? 0) >= self::DUP_HOLD_S) {
+            $c = $c === $a ? $b : $a;
+            return [$c, ['count' => $c, 'since' => $now]];
+        }
+        return [$c, $prev];
+    }
+
+    /** Gewählte Zählquelle je unmarkiertem Paar anwenden und merken (Haltezeit, siehe ChooseCounting()). */
+    private function ApplyCountingChoice(array &$nodes, array $pairs): void
+    {
+        $choices = json_decode((string)$this->ReadAttributeString('DupChoice'), true);
+        $choices = is_array($choices) ? $choices : [];
+        $new = [];
+        foreach ($pairs as [$i, $j]) {
+            if (!empty($nodes[$i]['markedDup']) || !empty($nodes[$j]['markedDup']) || !($nodes[$i]['active'] ?? true) || !($nodes[$j]['active'] ?? true)) {
+                continue;
+            }
+            $ta = (int)$nodes[$i]['target'];
+            $tb = (int)$nodes[$j]['target'];
+            $key = min($ta, $tb) . '-' . max($ta, $tb);
+            [$count, $st] = self::ChooseCounting($choices[$key] ?? null, $ta, $tb, (bool)($nodes[$i]['fresh'] ?? true), (bool)($nodes[$j]['fresh'] ?? true), time());
+            $new[$key] = $st;
+            $nodes[$count === $ta ? $i : $j]['dupCount'] = true;
+        }
+        if ($new != $choices) {
+            $this->WriteAttributeString('DupChoice', (string)json_encode($new));
+        }
+    }
 
     /**
      * Sind zwei Anbindungen dasselbe Gerät? Frei von Symcon-Aufrufen
@@ -630,11 +682,16 @@ class MeterHubVirtual extends IPSModule
             if (($nodes[$i]['active'] ?? true) && ($nodes[$j]['active'] ?? true)
                 && empty($nodes[$i]['excluded']) && empty($nodes[$j]['excluded'])
                 && empty($nodes[$i]['markedDup']) && empty($nodes[$j]['markedDup'])) {
-                // Bis zur Entscheidung zählt die Anbindung mit aktuellen
-                // Messwerten; sind beide gleich frisch, die erste.
-                $fi = $nodes[$i]['fresh'] ?? true;
-                $fj = $nodes[$j]['fresh'] ?? true;
-                $nodes[(!$fi && $fj) ? $i : $j]['excluded'] = 'undecided';
+                // Bis zur Entscheidung zählt die gewählte Anbindung (Haltezeit,
+                // ApplyCountingChoice()); ohne Wahl die mit aktuellen
+                // Messwerten, sind beide gleich frisch, die erste.
+                if (!empty($nodes[$i]['dupCount']) || !empty($nodes[$j]['dupCount'])) {
+                    $nodes[!empty($nodes[$i]['dupCount']) ? $j : $i]['excluded'] = 'undecided';
+                } else {
+                    $fi = $nodes[$i]['fresh'] ?? true;
+                    $fj = $nodes[$j]['fresh'] ?? true;
+                    $nodes[(!$fi && $fj) ? $i : $j]['excluded'] = 'undecided';
+                }
             }
         }
         foreach ($nodes as $k => $n) {
@@ -1595,6 +1652,7 @@ class MeterHubVirtual extends IPSModule
             foreach ($fresh as $i => $f) {
                 $nodes[$i]['fresh'] = $f;
             }
+            $this->ApplyCountingChoice($nodes, $pairs);
             return self::ApplyDuplicateRules($nodes, $pairs);
         }
         $rows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
