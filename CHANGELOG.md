@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.27.6-beta.1 (2026-09-13)
+
+- Verbund-Regel 9b (SUITE.md): Nutzersichtbare Datumsangaben durchgehend im Format
+  TT.MM.JJJJ bzw. TT.MM.JJJJ HH:MM. Betroffen waren die Meldungen des Inexogy-Nachtrags
+  (bisher JJJJ-MM-TT) und der Archiv-Prüfungen (bisher TT.MM. ohne Jahr). Die Sicherungs-
+  Dateinamen bleiben maschinenlesbar. Ersatzschreibweisen für Umlaute gab es in sichtbaren
+  Texten keine; der Vorlagen-Platzhalter `{zaehler}` bleibt als Kennung ASCII.
+
 ## 0.27.5-beta.1 (2026-09-12)
 
 - Richtungsprüfung, PV-Vergleich: Die Begründung nennt die Quelle nicht mehr doppelt

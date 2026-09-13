@@ -4437,7 +4437,7 @@ class MeterHub extends IPSModule
             $chunkTo  = min($chunkFrom + $chunkDays * 86400, $toOverall);
             $readings = $c->getReadings($meterId, $chunkFrom * 1000, $chunkTo * 1000, 'fifteen_minutes');
             if (count($readings) === 0) {
-                $emptyChunks[] = date('Y-m-d', $chunkFrom) . '–' . date('Y-m-d', $chunkTo) . ' (' . $c->getLastError() . ')';
+                $emptyChunks[] = date('d.m.Y', $chunkFrom) . '–' . date('d.m.Y', $chunkTo) . ' (' . $c->getLastError() . ')';
                 $chunkFrom = $chunkTo;
                 continue;
             }
@@ -4530,8 +4530,8 @@ class MeterHub extends IPSModule
 
         $spanH = round(($toOverall - $fromOverall) / 3600, 1);
         $range = $spanH < 48
-            ? date('Y-m-d H:i', $fromOverall) . ' – ' . date('Y-m-d H:i', $toOverall) . " ({$spanH} h)"
-            : date('Y-m-d', $fromOverall) . ' – ' . date('Y-m-d', $toOverall);
+            ? date('d.m.Y H:i', $fromOverall) . ' – ' . date('d.m.Y H:i', $toOverall) . " ({$spanH} h)"
+            : date('d.m.Y', $fromOverall) . ' – ' . date('d.m.Y', $toOverall);
         $out = ["Zeitraum: $range, in {$chunkDays}-Tage-Blöcken verarbeitet"];
         if ($cleaned > 0) {
             $out[] = '🧹 ' . $cleaned . ' Live-Zwischenwert(e) entfernt, die jetzt von offiziellen Viertelstundenwerten abgedeckt sind.';
@@ -4913,7 +4913,7 @@ class MeterHub extends IPSModule
                 }
             }
         }
-        $fmt = fn($t) => date('d.m. H:i', $t);
+        $fmt = fn($t) => date('d.m.Y H:i', $t);
         $lines = [$apply ? '✅ Energie-Archiv repariert (' . $days . ' Tage):' : '🔎 Probelauf, nichts geändert (' . $days . ' Tage):'];
         $plan = [];
         $repaired = [];
@@ -5224,7 +5224,7 @@ class MeterHub extends IPSModule
         // jedes Nachtragen ab (live gesehen am Solarpark, 12.09.2026).
         $to = intdiv(time() - 600, 900) * 900;
         $from = $to - $days * 86400;
-        $fmt = fn($t) => date('d.m. H:i', $t);
+        $fmt = fn($t) => date('d.m.Y H:i', $t);
         $lines = [$apply ? '✅ Richtung im Archiv korrigiert (' . $days . ' Tage):' : '🔎 Probelauf, nichts geändert (' . $days . ' Tage):'];
         $energyMoved = 0;
         $todo = false;
@@ -5640,7 +5640,7 @@ class MeterHub extends IPSModule
             foreach ($vids as $k2 => $vid2) {
                 $ok = $this->AddRowsRetry($ac, $vid2, $orig[$k2]) && $ok;
             }
-            return 'Das Archiv hat das Nachtragen für den ' . date('d.m.', $t) . ' abgelehnt'
+            return 'Das Archiv hat das Nachtragen für den ' . date('d.m.Y', $t) . ' abgelehnt'
                 . ($ok ? ' — dieser Tag ist unverändert wiederhergestellt, spätere Tage sind nicht bearbeitet.' : ' — auch die Wiederherstellung schlug fehl, bitte die Sicherungsdatei verwenden.');
         }
         return null;
