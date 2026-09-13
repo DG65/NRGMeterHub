@@ -168,8 +168,8 @@ class MeterHubDiscovery extends IPSModule
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
                 ['type' => 'Label', 'caption' => '• 🔧 Kernfix: blue\'Log-Erkennung fragte bisher eine Schnittstelle nach der anderen ab, mit Pause dazwischen — genau das lässt ein blue\'Log offenbar scheitern (live gemessen: 8 rasch AUFEINANDERFOLGENDE Verbindungen scheitern komplett, 8 GLEICHZEITIGE werden dagegen anstandslos beantwortet). Alle Kandidaten — SCADA-Selbstauskunft, zwei Geräte-IDs aus dem konfigurierten Bereich, Power Control, RPC — werden jetzt in einem Rutsch parallel angefragt. Dasselbe gilt für den SCADA-Adressbereich-Suchlauf: bis zu 20 Adressen gleichzeitig statt einzeln mit Pause, dadurch spürbar schneller.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Fix: automatische blue\'Log-Erkennung verwendete für SCADA/Power Control/RPC immer denselben Port wie die klassische Zählersuche (Dietmars Fund: „Standardmäßig wird mit dem Port 502 gescannt, SCADA und Power Control/RPC haben aber andere Register"). Läuft ein blue\'Log auf einem abweichenden Port, probiert „🔎 Netzwerk durchsuchen" jetzt zusätzlich den im Panel „blue\'Log SCADA-Adressbereich" eingetragenen Port — beide Panels erklären das jetzt auch im Formulartext.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Fix: blue\'Log-Erkennung fand in der Praxis KEINEN einzigen blue\'Log (Dietmars Live-Fund: 15 echte Geräte im Netz, null Treffer). Ursache laut Live-Messung: mehrere rasch aufeinanderfolgende Modbus-TCP-Verbindungen zum selben Gerät scheitern reihenweise, besonders bei parallel laufenden eigenen Regel-Skripten — jede Schnittstellen-Prüfung bekommt jetzt bis zu drei Versuche mit wachsender Pause. Reihenfolge zusätzlich an die reale Geräteflotte angepasst: SCADA zuerst (meist vorhanden), Power Control/RPC nur noch als Rückfall für Master-/EZA-Regler.'],
+                ['type' => 'Label', 'caption' => '• 🔧 Fix: automatische blue\'Log-Erkennung verwendete für SCADA/Power Control/RPC immer denselben Port wie die klassische Zählersuche (Fund aus dem Praxistest: Gesucht wurde standardmäßig auf Port 502, SCADA und Power Control/RPC liegen aber oft auf anderen Ports). Läuft ein blue\'Log auf einem abweichenden Port, probiert „🔎 Netzwerk durchsuchen" jetzt zusätzlich den im Panel „blue\'Log SCADA-Adressbereich" eingetragenen Port — beide Panels erklären das jetzt auch im Formulartext.'],
+                ['type' => 'Label', 'caption' => '• 🔧 Fix: blue\'Log-Erkennung fand in der Praxis KEINEN einzigen blue\'Log (Praxistest: 15 echte Geräte im Netz, null Treffer). Ursache laut Live-Messung: mehrere rasch aufeinanderfolgende Modbus-TCP-Verbindungen zum selben Gerät scheitern reihenweise, besonders bei parallel laufenden eigenen Regel-Skripten — jede Schnittstellen-Prüfung bekommt jetzt bis zu drei Versuche mit wachsender Pause. Reihenfolge zusätzlich an die reale Geräteflotte angepasst: SCADA zuerst (meist vorhanden), Power Control/RPC nur noch als Rückfall für Master-/EZA-Regler.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „🔎 Netzwerk durchsuchen" erkennt Meteocontrol-blue\'Log-Datenlogger jetzt von sich aus — keine vorher bekannte IP mehr nötig. Bei einem Treffer wird automatisch der eingestellte SCADA-Adressbereich dahinter mitdurchsucht, dieselbe Fundliste wie bei klassischen Zählern.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Neuer zweiter Suchmodus „blue\'Log SCADA-Adressbereich": statt eines IP-Bereichs EIN fest bekannter Meteocontrol-blue\'Log-Solarpark-Datenlogger, aber viele dahinter angeschlossene Geräte (Wechselrichter, Zähler …) über ihre eigene, am blue\'Log selbst frei vergebene SCADA-Adresse. Findet und schlägt jedes unterstützte Gerät als eigene MeterHub-Instanz vor — dieselbe Fundliste/„Erstellen"-Mechanik wie beim normalen Netzwerk-Suchlauf. Bleibt der schnellere, gezielte Weg, wenn die IP schon bekannt ist.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Neuer Platzhalter `{busaddr}` (RS485-Busadresse) für die „Namens-Vorlage" — nützlich, um viele gleichartige blue\'Log-Funde (z. B. 100 Wechselrichter) nach einem eigenen Muster statt einer reinen laufenden Nummer zu benennen.'],
@@ -255,7 +255,7 @@ class MeterHubDiscovery extends IPSModule
         if ($ts === 0) {
             return 'ℹ️ Noch nicht gesucht — Button oben drücken.';
         }
-        $count = count(json_decode($this->ReadAttributeString('ResultsJSON'), true) ?: []);
+        $count = count(json_decode((string)$this->ReadAttributeString('ResultsJSON'), true) ?: []);
         $icon  = $count > 0 ? '✅' : '⚠️';
         return sprintf('%s %d Zähler gefunden (zuletzt %s Uhr).', $icon, $count, date('H:i:s', $ts));
     }
@@ -396,7 +396,7 @@ class MeterHubDiscovery extends IPSModule
 
     public function GetConfigurationForm()
     {
-        $results = json_decode($this->ReadAttributeString('ResultsJSON'), true);
+        $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         if (!is_array($results)) {
             $results = [];
         }
@@ -1143,7 +1143,7 @@ class MeterHubDiscovery extends IPSModule
             return;
         }
 
-        $results = json_decode($this->ReadAttributeString('ResultsJSON'), true);
+        $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         $results = is_array($results) ? $results : [];
         $existing = $this->findExistingInstances();
 

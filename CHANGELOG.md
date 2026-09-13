@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.27.8-beta.1 (2026-09-13)
+
+Durchgang Store-Review-Checkliste (SUITE.md), MeterHub, MeterHubVirtual und MeterHubDiscovery:
+
+- **Punkt 5, Profile:** Variablenprofile werden nicht mehr bei jedem „Übernehmen“ erzwungen.
+  Gesetzt wird nur, wenn noch keins gesetzt ist oder das vorhandene eines der eigenen Profile ist
+  (NRG.*, MHB.*, MHBV.*). Der Wechsel kWh ↔ Wh wirkt weiter, ein vom Nutzer gewähltes fremdes
+  Profil bleibt unangetastet. Betrifft die Zählervariablen von MeterHub sowie die Ausgaben,
+  „Gruppe schalten“ und „Gruppenstatus“ von MeterHubVirtual.
+- **Punkt 9c:** `ReadPropertyString`/`ReadAttributeString` werden vor `json_decode()` in einen
+  String umgewandelt. Der Neustart-Zweig in `MessageSink` von MeterHubVirtual prüft zuerst, ob
+  die Instanz noch existiert.
+- **Punkt 12:** Autor- und Anlagenbezüge aus sichtbaren Hinweistexten entfernt („Dietmars
+  Fund“ → „Praxistest“, „an Dietmars Solarpark“ → „an einer realen Solarpark-Anlage“).
+- Geprüft und in Ordnung: `vendor` leer (Mehrhersteller), library.json-Felder, keine
+  `$_IPS['TARGET']` in `onClick`, keine ungültigen Darstellungs-Optionen, Datumsformat und
+  Umlaute (9b, 0.27.6), Statuscodes (9d: MeterHub 104 inaktiv/201 nur echter
+  Verbindungsfehler, Discovery 102/104).
+
 ## 0.27.7-beta.1 (2026-09-13)
 
 - **Verdichtung neu bilden ohne Fehler.** Symcon erlaubt nur eine Neuberechnung der

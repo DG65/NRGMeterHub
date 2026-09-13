@@ -3281,7 +3281,7 @@ class MeterHub extends IPSModule
      */
     private function AdvanceCalculatedEnergy(array $map): void
     {
-        $state = json_decode($this->ReadAttributeString('CalcEnergyState'), true);
+        $state = json_decode((string)$this->ReadAttributeString('CalcEnergyState'), true);
         $state = is_array($state) ? $state : [];
         // Längere Lücken (Gerät nicht erreichbar, Symcon-Neustart, Instanz
         // deaktiviert) werden NICHT mit einem veralteten Wert überbrückt —
@@ -3730,7 +3730,7 @@ class MeterHub extends IPSModule
                         ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP muss am Gerät erst aktiviert werden (Einstellungen → Modbus, Port 502). Gelesen über FC 0x04, Float wortgetauscht (CDAB); Wire-Adressen = Doku − 30000 (Messwerte ab 1011, Energie 1162/1164). An echtem Gerät verifiziert.'],
                         ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP muss am Gerät erst aktiviert werden (go-e-App: Internet → Erweiterte Einstellungen → Modbus, oder HTTP-API men=true) — sonst bleibt Port 502 geschlossen; nach dem Aktivieren die Einstellung ggf. einmal aus-/einschalten. Kernwerte kommen aus der Kategorie Grid; Sensoren 1-6 und die Kategorien Home/Car/Relais/Solar/Akku sind zuschaltbar. An echtem Gerät verifiziert. (Die go-e-Wallboxen selbst bedient das Modul ChargerHub.)'],
                         ['type' => 'Label', 'caption' => '⚠️ go-e Controller + Überschussladen: Der Controller kann die go-e-Wallboxen SELBST regeln (PV-Überschussladen, Lastbegrenzung — geräteinterne Regelschleife). Soll stattdessen ein EMS die Wallboxen steuern, muss diese interne Regelung an den Wallboxen deaktiviert sein — sonst arbeiten zwei Regler gegeneinander. Dieses Modul liest nur und ist davon nicht betroffen; der Regelzustand ist per Modbus nicht sichtbar, sondern nur an den Wallboxen selbst (go-e-API: usePvSurplus, Lastmanagement, modelStatus).'],
-                        ['type' => 'Label', 'caption' => '🆕 Meteocontrol blue\'Log SCADA: Ein blue\'Log kann JEDES angeschlossene Gerät (Wechselrichter, Zähler …) unter einer eigenen „SCADA-Adresse" anbieten — diese Adresse ist die Unit-ID unten, NICHT 1. Die Zuordnung steht auf dem blue\'Log selbst (Geräteliste → Spalte „SCADA Adresse"); Adresse 97 ist das blue\'Log selbst (Summenwerte). FC 0x03, Float wortgetauscht (CDAB) — an Dietmars Solarpark verifiziert.'],
+                        ['type' => 'Label', 'caption' => '🆕 Meteocontrol blue\'Log SCADA: Ein blue\'Log kann JEDES angeschlossene Gerät (Wechselrichter, Zähler …) unter einer eigenen „SCADA-Adresse" anbieten — diese Adresse ist die Unit-ID unten, NICHT 1. Die Zuordnung steht auf dem blue\'Log selbst (Geräteliste → Spalte „SCADA Adresse"); Adresse 97 ist das blue\'Log selbst (Summenwerte). FC 0x03, Float wortgetauscht (CDAB) — an einer realen Solarpark-Anlage verifiziert.'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
                         ['type' => 'Label', 'caption' => '🔧 Anschluss: Die Zähler nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (der PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
                         ['type' => 'Label', 'caption' => '⚠️ UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],
@@ -4724,7 +4724,7 @@ class MeterHub extends IPSModule
     /** Zählerschutz für einen Live-Wert; true = schreiben. */
     private function AcceptCounter(int $vid, float $new): bool
     {
-        $state = json_decode($this->ReadAttributeString('CounterGuard'), true);
+        $state = json_decode((string)$this->ReadAttributeString('CounterGuard'), true);
         $state = is_array($state) ? $state : [];
         $before = (int)($state[$vid] ?? 0);
         $current = (float)GetValue($vid);
@@ -5722,7 +5722,7 @@ class MeterHub extends IPSModule
         if ($this->TryReAggregate($ac, $vid)) {
             return;
         }
-        $q = json_decode($this->ReadAttributeString('ReAggQueue'), true);
+        $q = json_decode((string)$this->ReadAttributeString('ReAggQueue'), true);
         $q = is_array($q) ? $q : [];
         if (!in_array($vid, $q, true)) {
             $q[] = $vid;
@@ -5740,7 +5740,7 @@ class MeterHub extends IPSModule
     /** Wartende Neuberechnungen: je Lesezyklus höchstens eine — gleichzeitig läuft ohnehin nur eine. */
     private function ProcessReAggQueue(): void
     {
-        $q = json_decode($this->ReadAttributeString('ReAggQueue'), true);
+        $q = json_decode((string)$this->ReadAttributeString('ReAggQueue'), true);
         if (!is_array($q) || !$q) {
             return;
         }
@@ -5856,7 +5856,7 @@ class MeterHub extends IPSModule
      */
     public function GetDiagnostics(): array
     {
-        $cache = json_decode($this->ReadAttributeString('DirectionDiag'), true);
+        $cache = json_decode((string)$this->ReadAttributeString('DirectionDiag'), true);
         if (is_array($cache) && ($cache['contractVersion'] ?? '') === self::DIAG_CONTRACT && ($cache['checkedAt'] ?? 0) > time() - 1800) {
             return $cache;
         }
@@ -6563,7 +6563,7 @@ class MeterHub extends IPSModule
         if ($profile === 'NRG.kWh' && $this->ReadPropertyBoolean('EnergyUnitWh')) {
             $profile = 'MHB.Wh';
         }
-        if ($profile !== '' && @IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
+        if ($profile !== '' && self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), $profile)) {
             IPS_SetVariableCustomProfile($vid, $profile);
         }
         if ($reg !== '') {
@@ -6584,6 +6584,20 @@ class MeterHub extends IPSModule
             $interval = $group === 'energy' ? $this->ReadPropertyInteger('IntervalSlow') : $this->ReadPropertyInteger('IntervalFast');
             $this->SetArchive($vid, $group === 'energy', $interval);
         }
+    }
+
+    /**
+     * Store-Checkliste Punkt 5: Profile nicht bei jedem ApplyChanges erzwingen.
+     * Gesetzt wird nur, wenn noch keins da ist oder das vorhandene eines der
+     * eigenen ist (NRG.*, MHB.*) — so wirkt der Wechsel kWh ↔ Wh weiter, ein
+     * vom Nutzer gewähltes fremdes Profil bleibt unangetastet.
+     */
+    private static function ShouldSetProfile(string $current, string $wanted): bool
+    {
+        if ($current === $wanted) {
+            return false;
+        }
+        return $current === '' || preg_match('/^(NRG|MHB|MHBV)\./', $current) === 1;
     }
 
     private const CATEGORY_LABELS = [

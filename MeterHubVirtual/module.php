@@ -410,7 +410,7 @@ class MeterHubVirtual extends IPSModule
         if ($src === 'list') {
             return false;
         }
-        $rows = json_decode($this->ReadPropertyString('Nodes'), true);
+        $rows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         return !is_array($rows) || count($rows) === 0;
     }
 
@@ -467,7 +467,7 @@ class MeterHubVirtual extends IPSModule
      */
     private function MemberSettingsMap(): array
     {
-        $rows = json_decode($this->ReadPropertyString('MemberSettings'), true);
+        $rows = json_decode((string)$this->ReadPropertyString('MemberSettings'), true);
         $rows = is_array($rows) ? array_values($rows) : [];
         $members = null;
         $map = [];
@@ -583,7 +583,7 @@ class MeterHubVirtual extends IPSModule
      */
     private function SyncTreeWatch(array $nodes): void
     {
-        $old = json_decode($this->ReadAttributeString('TreeMessages'), true);
+        $old = json_decode((string)$this->ReadAttributeString('TreeMessages'), true);
         foreach (is_array($old) ? $old : [] as $pair) {
             try {
                 @$this->UnregisterMessage((int)$pair[0], (int)$pair[1]);
@@ -916,7 +916,7 @@ class MeterHubVirtual extends IPSModule
         if ($this->IsTreeMode()) {
             return 'ℹ️ Diese Instanz nutzt bereits den Objektbaum.';
         }
-        $raw = json_decode($this->ReadPropertyString('Nodes'), true);
+        $raw = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         if (is_array($raw) && $this->NeedsMigration($raw)) {
             return '❌ Bitte zuerst die ausstehende Migration oben abschließen.';
         }
@@ -1004,7 +1004,7 @@ class MeterHubVirtual extends IPSModule
         foreach ($rows as $r) {
             $kept[(int)($r['MemberID'] ?? 0)] = true;
         }
-        $snapshot = json_decode($this->ReadAttributeString('FormSnapshot'), true);
+        $snapshot = json_decode((string)$this->ReadAttributeString('FormSnapshot'), true);
         foreach (is_array($snapshot) ? $snapshot : [] as $mid) {
             $mid = (int)$mid;
             if (isset($kept[$mid]) || !isset($members[$mid])) {
@@ -1107,7 +1107,7 @@ class MeterHubVirtual extends IPSModule
             $this->RegisterMessage(0, IPS_KERNELMESSAGE);
         }
 
-        $rawRows = json_decode($this->ReadPropertyString('Nodes'), true);
+        $rawRows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rawRows = is_array($rawRows) ? $rawRows : [];
 
         if ($this->NeedsMigration($rawRows)) {
@@ -1153,7 +1153,10 @@ class MeterHubVirtual extends IPSModule
     public function MessageSink($timestamp, $senderID, $message, $data)
     {
         if ($message === IPS_KERNELMESSAGE && isset($data[0]) && $data[0] === KR_READY) {
-            $this->ApplyChanges();
+            // Store-Checkliste 9c: während eines Modul-Neuladens kann die Instanz kurz fehlen.
+            if (IPS_InstanceExists($this->InstanceID)) {
+                $this->ApplyChanges();
+            }
             return;
         }
         // Baum-Modus: nur neu anwenden, wenn sich an den aufgelösten
@@ -1344,7 +1347,7 @@ class MeterHubVirtual extends IPSModule
         if ($this->IsTreeMode()) {
             return $this->TreeNodes();
         }
-        $rows = json_decode($this->ReadPropertyString('Nodes'), true);
+        $rows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rows = is_array($rows) ? $rows : [];
         $out = [];
         foreach ($rows as $r) {
@@ -1664,7 +1667,7 @@ class MeterHubVirtual extends IPSModule
             }
             IPS_SetName($vid, $caption);
             IPS_SetPosition($vid, $pos++);
-            if (@IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
+            if (self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), $profile)) {
                 IPS_SetVariableCustomProfile($vid, $profile);
             }
             // Bezug/Einspeisung sind kumulative Zählerstände (Archiv-
@@ -1720,6 +1723,20 @@ class MeterHubVirtual extends IPSModule
     // als Stellglied anbieten, nicht selbst Regeln einbauen.
     // -----------------------------------------------------------------------
 
+    /**
+     * Store-Checkliste Punkt 5: Profile nicht bei jedem ApplyChanges erzwingen.
+     * Gesetzt wird nur, wenn noch keins da ist oder das vorhandene eines der
+     * eigenen ist (NRG.*, MHB.*, MHBV.*) — ein vom Nutzer gewähltes fremdes
+     * Profil bleibt unangetastet.
+     */
+    private static function ShouldSetProfile(string $current, string $wanted): bool
+    {
+        if ($current === $wanted) {
+            return false;
+        }
+        return $current === '' || preg_match('/^(NRG|MHB|MHBV)\./', $current) === 1;
+    }
+
     private const IDENT_GROUP_SWITCH = 'group_switch';
     private const IDENT_GROUP_STATE  = 'group_state';
     private const PROFILE_GROUP_STATE = 'MHBV.GroupState';
@@ -1754,7 +1771,7 @@ class MeterHubVirtual extends IPSModule
         }
         IPS_SetName($vid, 'Gruppe schalten');
         IPS_SetPosition($vid, $pos++);
-        if (@IPS_GetVariable($vid)['VariableCustomProfile'] !== '~Switch') {
+        if (self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), '~Switch')) {
             IPS_SetVariableCustomProfile($vid, '~Switch');
         }
         $this->EnableAction(self::IDENT_GROUP_SWITCH);
@@ -1767,7 +1784,7 @@ class MeterHubVirtual extends IPSModule
         }
         IPS_SetName($vid, 'Gruppenstatus');
         IPS_SetPosition($vid, $pos++);
-        if (@IPS_GetVariable($vid)['VariableCustomProfile'] !== self::PROFILE_GROUP_STATE) {
+        if (self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), self::PROFILE_GROUP_STATE)) {
             IPS_SetVariableCustomProfile($vid, self::PROFILE_GROUP_STATE);
         }
         $this->RefreshGroupState($this->Nodes());
@@ -2644,7 +2661,7 @@ class MeterHubVirtual extends IPSModule
         // (Dietmars Entscheidung 03.09.2026: automatisch + manuell
         // korrigierbar). Mehrdeutig → leer + Hinweis, nie geraten.
         [$sw, $swNote] = $this->SwitchOfDevice($deviceId);
-        $rows = json_decode($this->ReadPropertyString('Nodes'), true);
+        $rows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rows = is_array($rows) ? $rows : [];
         $rows[] = [
             'Name' => IPS_GetName($deviceId), 'Factor' => 100,
@@ -2872,7 +2889,7 @@ class MeterHubVirtual extends IPSModule
         }
 
         $tree = $this->IsTreeMode();
-        $existing = $tree ? [] : json_decode($this->ReadPropertyString('Nodes'), true);
+        $existing = $tree ? [] : json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $existing = is_array($existing) ? $existing : [];
         $used = [];
         foreach ($existing as $r) {
@@ -3158,7 +3175,7 @@ class MeterHubVirtual extends IPSModule
             $this->UpdateFormField('ScanResult', 'visible', true);
             return;
         }
-        $existing = json_decode($this->ReadPropertyString('Nodes'), true);
+        $existing = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $existing = is_array($existing) ? $existing : [];
 
         $used = [];
@@ -3462,7 +3479,7 @@ class MeterHubVirtual extends IPSModule
 
     public function GetConfigurationForm()
     {
-        $rawRows   = json_decode($this->ReadPropertyString('Nodes'), true);
+        $rawRows   = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rawRows   = is_array($rawRows) ? $rawRows : [];
         $migration = $this->NeedsMigration($rawRows);
 
@@ -3498,7 +3515,7 @@ class MeterHubVirtual extends IPSModule
         $check = [];
         // Hinweise des letzten Formular-Abgleichs (z. B. nicht übernommene
         // Zeilen) — zehn Minuten sichtbar, danach veraltet.
-        $rn = json_decode($this->ReadAttributeString('ReconcileNotes'), true);
+        $rn = json_decode((string)$this->ReadAttributeString('ReconcileNotes'), true);
         if (is_array($rn) && time() - (int)($rn['ts'] ?? 0) < 600) {
             foreach ((array)($rn['notes'] ?? []) as $note) {
                 $check[] = ['type' => 'Label', 'caption' => '⚠️ Beim letzten „Übernehmen“: ' . $note];
