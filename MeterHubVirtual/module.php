@@ -763,6 +763,23 @@ class MeterHubVirtual extends IPSModule
                 }
             }
             $fresh[$i] = $ls > 0 && time() - $ls <= self::DUP_FRESH_S;
+            // Instanz oder ihre übergeordnete (Gateway über die Verbindung,
+            // bei OCPPHub-Ladepunkten der Splitter aus SplitterID) nicht aktiv
+            // → nicht frisch, auch wenn der Vertrag noch Werte liefert
+            // (EMS-Hinweis 13.09.2026: OCPPHub-Splitter ausgeschaltet).
+            $inst = @IPS_GetInstance($t);
+            $ups = [(int)($inst['ConnectionID'] ?? 0)];
+            if (function_exists('IPS_GetProperty')) {
+                $ups[] = (int)@IPS_GetProperty($t, 'SplitterID');
+            }
+            if ((int)($inst['InstanceStatus'] ?? 102) !== 102) {
+                $fresh[$i] = false;
+            }
+            foreach ($ups as $up) {
+                if ($up > 0 && IPS_InstanceExists($up) && (int)(IPS_GetInstance($up)['InstanceStatus'] ?? 102) !== 102) {
+                    $fresh[$i] = false;
+                }
+            }
         }
         return [$pairs, $marked, $fresh];
     }

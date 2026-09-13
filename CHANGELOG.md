@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.28.6-beta.1 (2026-09-13)
+
+- **Doppelte Anbindung: Eine inaktive Instanz gilt nicht als frisch** (Hinweis EMS). Hat die
+  Anbindung selbst oder ihre übergeordnete Instanz einen Status ≠ 102, zählt sie für die Wahl
+  der Zählquelle als veraltet, auch wenn ihr Vertrag noch Werte liefert. Übergeordnet heißt das
+  Gateway über die Symcon-Verbindung, bei OCPPHub-Ladepunkten der Splitter aus `SplitterID`.
+  Anlass: Dietmar hat den OCPPHub-Splitter ausgeschaltet, die Ladepunkte liefern seither keine
+  Werte mehr.
+
 ## 0.28.5-beta.1 (2026-09-13)
 
 - **Doppelte Anbindung: Haltezeit für die Zählquelle** (EMS-Anmerkung). Ohne sie pendelte die
