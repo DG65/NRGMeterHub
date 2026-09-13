@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.28.3-beta.1 (2026-09-13)
+
+- **MeterHubVirtual: Energie-Summen laufen nahtlos weiter** (Dietmars Wunsch). Ändert sich die
+  Zusammensetzung (Mitglied hinzu oder weg, Dublette umgestellt, „aktiv“ geändert), springt die
+  Rohsumme von Bezug bzw. Einspeisung um den Unterschied der Zählerstände. Anlass: Die
+  „Ladestation“ fiel beim Wechsel von ChargerHub auf OCPPHub um 41,7 kWh zurück. Archiv und
+  Tagesbalken werten so einen Sprung als Riesenverbrauch bzw. Reset. Jetzt merkt sich
+  MeterHubVirtual je Energie-Ausgabe die Zusammensetzung. Ändert sie sich, wird der Unterschied
+  zum letzten Ausgabewert als Ausgleich festgehalten (`ContinuityStep`, Attribut
+  `EnergyContinuity`). Die Reihenfolge der Mitglieder zählt nicht, die Leistung bleibt
+  unberührt. Beim ersten Start nach dem Update wird nur gemerkt, rückwirkend ändert sich nichts.
+  „Prüfung & Vorschau“ nennt einen bestehenden Ausgleich, damit klar ist, warum der Zählerstand
+  von der Summe der Mitglieder abweicht.
+- Prüfstand Block 35h auf die neue Bedeutung umgestellt: Die Einspeisung läuft bei einer neuen
+  Rolle erst nahtlos weiter, mit leerem Ausgleich ergibt sich die reine Summe.
+- Prüfstand `test-virtual.php` Block 40.
+
 ## 0.28.2-beta.1 (2026-09-13)
 
 - **Doppelte Anbindung: Entschieden wird am Quellmodul** (Dietmars Entscheidung, nur ein Ort).

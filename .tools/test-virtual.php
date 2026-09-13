@@ -1567,6 +1567,13 @@ $lVarX = t35_link($aIid, 4801, 'Rohwert', 510);
 IPS_SetProperty($aIid, 'MemberSettings', json_encode([['MemberID' => $lVarX, 'Role' => 'exp']]));
 $a = t35_apply($aIid);
 check('35h: W-Variable automatisch als Leistung (+250)', abs((float)t35_out($aIid, 'power') - 8250.0) < 0.01, (string)t35_out($aIid, 'power'));
+// Seit 0.28.3 läuft ein Summen-Zählerstand bei geänderter Zusammensetzung
+// nahtlos weiter (Block 40) — das neue Mitglied ändert die Einspeisung also
+// erst einmal nicht. Wie eine frische Instanz (Ausgleich leer) ergibt sich
+// dann die reine Summe mit dem neuen Mitglied.
+check('35h: neue Rolle ändert die Zusammensetzung — Einspeisung läuft nahtlos weiter (8000)', abs((float)t35_out($aIid, 'energy_export') - 8000.0) < 0.01, (string)t35_out($aIid, 'energy_export'));
+$GLOBALS['ATTR'][$aIid]['EnergyContinuity'] = '{}';
+$a->Recalc();
 check('35h: Variable ohne Einheit per Rolle als Einspeisung (8000 + 7)', abs((float)t35_out($aIid, 'energy_export') - 8007.0) < 0.01, (string)t35_out($aIid, 'energy_export'));
 $warn35h = implode(' | ', t35_call($a, 'Warnings', t35_call($a, 'Nodes')));
 check('35h: keine „Leistung ohne Bezug"-Warnung für einen Einzel-Variablen-Link', !str_contains($warn35h, 'Zwischenstecker'), $warn35h);
@@ -1941,6 +1948,21 @@ $n39e = $n39;
 $n39e[0]['markedDup'] = true;   // die ERSTE Anbindung ist die Dublette
 $r39e = $m39('ApplyDuplicateRules', $n39e, [[0, 1, 'gleiche Seriennummer 050306']]);
 check('39: ist die erste markiert, zählt die zweite — keine Vorab-Aussetzung', $r39e[0]['excluded'] === 'marked' && empty($r39e[1]['excluded']) && $r39e[1]['factor'] === 100.0);
+
+echo "\n40) Energie-Summe läuft bei geänderter Zusammensetzung nahtlos weiter (0.28.3, „Ladestation“ 13.09.2026: −41,7 kWh beim Wechsel ChargerHub → OCPPHub)\n";
+$m40 = fn(...$a) => (new ReflectionMethod('MeterHubVirtual', 'ContinuityStep'))->invoke(null, ...$a);
+[$o40, $s40] = $m40(null, 'A', 42222.8, 42222.8);
+check('40: erster Lauf merkt sich nur die Zusammensetzung, kein Ausgleich', abs($o40 - 42222.8) < 1e-9 && $s40 === ['sig' => 'A', 'offset' => 0.0]);
+[$o40, $s40] = $m40($s40, 'A', 42223.0, 42222.8);
+check('40: gleiche Zusammensetzung → Rohsumme unverändert durchgereicht', abs($o40 - 42223.0) < 1e-9);
+[$o40, $s40] = $m40($s40, 'B', 42181.33, 42223.0);   // Wechsel auf OCPPHub: Rohsumme 41,67 kWh tiefer
+check('40: Wechsel der Zusammensetzung → kein Rückschritt, nahtlos weiter', abs($o40 - 42223.0) < 1e-9 && abs($s40['offset'] - 41.67) < 1e-6, json_encode([$o40, $s40]));
+[$o40, $s40] = $m40($s40, 'B', 42182.33, $o40);
+check('40: danach zählt jede echte kWh normal weiter', abs($o40 - 42224.0) < 1e-9);
+[$o40, $s40] = $m40($s40, 'C', 42182.33 + 27437.7, $o40);  // Mitglied mit 27 437,7 kWh kommt dazu
+check('40: neues Mitglied mit hohem Stand → kein Riesensprung nach oben', abs($o40 - 42224.0) < 1e-9);
+[$o40b] = $m40(['sig' => 'A', 'offset' => 5.0], 'B', 100.0, 0.0);
+check('40: ohne bisherigen Ausgabewert (0) bleibt der Ausgleich unverändert', abs($o40b - 105.0) < 1e-9);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

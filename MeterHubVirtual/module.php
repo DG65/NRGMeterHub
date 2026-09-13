@@ -70,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.28.0';
+    private const NEWS_VERSION = '0.28.3';
 
     public function Create()
     {
@@ -162,6 +162,9 @@ class MeterHubVirtual extends IPSModule
         $this->RegisterAttributeString('ReconciledSettings', '');
         $this->RegisterAttributeString('FormSnapshot', '[]');
         $this->RegisterAttributeString('ReconcileNotes', '');
+        // Zählerstetigkeit der Energie-Summen (0.28.3): je Ausgabe
+        // {sig: Zusammensetzung, offset: Ausgleich}, siehe ContinuityStep().
+        $this->RegisterAttributeString('EnergyContinuity', '{}');
         $this->RegisterTimer('Recalc', 0, 'MHUBV_Recalc($_IPS[\'TARGET\']);');
     }
 
@@ -280,6 +283,7 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 📈 Bezug und Einspeisung laufen jetzt nahtlos weiter, wenn sich die Zusammensetzung ändert (Mitglied hinzu oder weg, Dublette umgestellt, „aktiv" geändert). Vorher sprang der Summen-Zählerstand um den Unterschied der Mitglieder — im Archiv und in Tagesbalken wirkte das wie ein Riesenverbrauch oder ein Zähler-Reset.'],
                 ['type' => 'Label', 'caption' => '• 👯 Doppelte Anbindung erkannt: Ist dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub UND über OCPPHub), zählt bis zu deiner Wahl nur die erste Anbindung, und „Prüfung & Vorschau" nennt beide samt Grund (gleiche Seriennummer, IP-Adresse oder fast gleiche Zählerstände). Festgelegt wird die überzählige im Modul der Anbindung selbst (z. B. ChargerHub, OCPPHub) — dann zählt sie überall nicht mehr mit. Die neue Spalte „aktiv" nimmt ein Mitglied nur aus dieser Summe.'],
                 ['type' => 'Label', 'caption' => '• 🌳 Neu: Mitglieder direkt im Objektbaum — alles, was als Verknüpfung (Link) oder direkt unter dieser Instanz hängt, wird automatisch Mitglied, in der Reihenfolge seiner Position dort. Neue Instanzen starten so; gelöschte Geräte fallen sofort als „Ziel fehlt" auf statt still als Leiche weiterzuleben.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Fix: bei Geräten ohne MeterHub-Kennung (z. B. Wallboxen) konnte statt der Gesamtleistung eine einzelne Phase gewählt werden. Jetzt gelten zuerst die Werte, die das Gerätemodul selbst meldet; sonst Gesamtwert vor Phasenwert, mehrdeutige Fälle werden gemeldet. Bitte die „Erkannt"-Spalte der eigenen Instanzen einmal ansehen.'],
@@ -2457,19 +2461,39 @@ class MeterHubVirtual extends IPSModule
         $this->AdvanceCalculatedEnergy($nodes);
 
         $count = 0;
+        $cont = json_decode((string)$this->ReadAttributeString('EnergyContinuity'), true);
+        $cont = is_array($cont) ? $cont : [];
+        $contChanged = false;
         foreach ($this->OutputDefs() as [$ident, , , $field]) {
             $sum = 0.0;
+            $parts = [];
             foreach ($nodes as $n) {
                 $vid = $n[$field];
                 if ($vid > 0 && IPS_VariableExists($vid)) {
                     $sum += ($n['factor'] / 100.0) * (float)GetValue($vid);
+                    if ((float)$n['factor'] !== 0.0) {
+                        $parts[] = $vid . '*' . $n['factor'];
+                    }
                 }
             }
             $vid = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
             if ($vid && is_finite($sum)) {
+                // Zählerstände (Bezug/Einspeisung) laufen nahtlos weiter, auch
+                // wenn sich die Zusammensetzung ändert; die Leistung nicht.
+                if ($field !== 'power') {
+                    sort($parts);
+                    [$sum, $st] = self::ContinuityStep($cont[$ident] ?? null, implode(',', $parts), $sum, (float)GetValue($vid));
+                    if (($cont[$ident] ?? null) !== $st) {
+                        $cont[$ident] = $st;
+                        $contChanged = true;
+                    }
+                }
                 SetValueFloat($vid, $sum);
                 $count++;
             }
+        }
+        if ($contChanged) {
+            $this->WriteAttributeString('EnergyContinuity', (string)json_encode($cont));
         }
 
         // Gruppenstatus im selben Takt nachführen — ein von Hand oder von
@@ -2480,6 +2504,47 @@ class MeterHubVirtual extends IPSModule
         return $count > 0
             ? "✅ Neu berechnet: $count Ausgabe(n) aktualisiert (" . date('H:i:s') . ' Uhr).'
             : 'ℹ️ Keine Ausgabe zum Berechnen vorhanden — erst oben Zähler eintragen und übernehmen.';
+    }
+
+    /**
+     * Zählerstetigkeit einer Energie-Summe (0.28.3, Dietmars Wunsch
+     * 13.09.2026, Anlass: Umstellung der „Ladestation" von ChargerHub auf
+     * OCPPHub ließ die Summe um 41,7 kWh zurückspringen). Ändert sich die
+     * Zusammensetzung ($sig: welche Zählervariablen mit welchem Anteil —
+     * Mitglied hinzu/weg, Dublette umgestellt, „aktiv" geändert), springt die
+     * Rohsumme. Ein Summen-Zählerstand darf das nicht: Archiv und Tagesbalken
+     * werten einen Sprung als Riesenverbrauch bzw. einen Rückschritt als
+     * Reset. Dann wird der Unterschied zum letzten Ausgabewert als Ausgleich
+     * festgehalten, die Ausgabe läuft nahtlos weiter. Beim ersten Mal (kein
+     * Zustand) nur merken, nichts rückwirkend ändern. Frei von Symcon-
+     * Aufrufen (Prüfstand). Rückgabe [Ausgabe, neuer Zustand].
+     */
+    private static function ContinuityStep(?array $state, string $sig, float $raw, float $prev): array
+    {
+        if ($state === null || !isset($state['sig'])) {
+            return [$raw, ['sig' => $sig, 'offset' => 0.0]];
+        }
+        $offset = (float)($state['offset'] ?? 0.0);
+        if ($state['sig'] !== $sig && $prev > 0) {
+            $offset = $prev - $raw;
+        }
+        return [$raw + $offset, ['sig' => $sig, 'offset' => $offset]];
+    }
+
+    /** Hinweise für „Prüfung & Vorschau": wie weit ein Zählerstand wegen des Ausgleichs von der Summe der Mitglieder abweicht. */
+    private function ContinuityNotes(): array
+    {
+        $cont = json_decode((string)$this->ReadAttributeString('EnergyContinuity'), true);
+        $out = [];
+        foreach ((is_array($cont) ? $cont : []) as $ident => $st) {
+            $off = (float)($st['offset'] ?? 0.0);
+            if (abs($off) < 0.0005) {
+                continue;
+            }
+            $label = $ident === 'energy_export' ? 'Einspeisung' : 'Bezug';
+            $out[] = $label . ': Ausgleich ' . ($off > 0 ? '+' : '−') . number_format(abs($off), 3, ',', '.') . ' kWh wegen geänderter Zusammensetzung — der Zählerstand läuft nahtlos weiter und weicht deshalb um diesen Wert von der Summe der Mitglieder ab.';
+        }
+        return $out;
     }
 
     /**
@@ -3819,6 +3884,9 @@ class MeterHubVirtual extends IPSModule
             $check[] = ['type' => 'Label', 'caption' => '✅ Formel schlüssig:'];
             foreach ($this->FormulaPreview($nodes) as $line) {
                 $check[] = ['type' => 'Label', 'caption' => $line];
+            }
+            foreach ($this->ContinuityNotes() as $line) {
+                $check[] = ['type' => 'Label', 'caption' => 'ℹ️ ' . $line];
             }
             foreach ($this->Warnings($nodes) as $w) {
                 $check[] = ['type' => 'Label', 'caption' => '⚠️ ' . $w];
