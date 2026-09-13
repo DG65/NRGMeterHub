@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.28.7-beta.1 (2026-09-13)
+
+- **`MHUBV_ScanMeters` hat wieder Parametertypen** (`?int`, `?string`, `?bool`, `?bool`). In
+  0.27.9 waren sie beim Aufteilen in `ScanMeters`/`ScanMetersEx` versehentlich weggefallen.
+  Seitdem meldete das Systemprotokoll bei jedem Laden des Moduls viermal „Parameter … hat
+  keinen Datentyp“. Die vier Parameter bleiben unverändert (feste Arität).
+
 ## 0.28.6-beta.1 (2026-09-13)
 
 - **Doppelte Anbindung: Eine inaktive Instanz gilt nicht als frisch** (Hinweis EMS). Hat die

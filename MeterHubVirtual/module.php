@@ -3586,18 +3586,15 @@ class MeterHubVirtual extends IPSModule
      * Die Filter kommen aus der Maske und werden im onClick übergeben, damit
      * eine noch nicht übernommene Änderung sofort greift.
      */
-    public function ScanMeters($root = null, $filter = null, $needEnergy = null, $onlyActive = null)
+    public function ScanMeters(?int $root = null, ?string $filter = null, ?bool $needEnergy = null, ?bool $onlyActive = null)
     {
         // Feste Arität (SUITE.md 9e, Migrationsvergleich 13.09.2026): Symcon
         // erzeugt MHUBV_ScanMeters mit genau diesen 4 Parametern — Skripte,
         // die so aufrufen, dürfen nach einem Update nicht brechen. Die
         // Erweiterung um zwei Filter liegt deshalb in ScanMetersEx().
-        return $this->ScanMetersEx(
-            $root === null ? null : (int)$root,
-            $filter === null ? null : (string)$filter,
-            $needEnergy === null ? null : (bool)$needEnergy,
-            $onlyActive === null ? null : (bool)$onlyActive
-        );
+        // Typen Pflicht (0.23.4): ohne sie meldet PHPLibrary bei jedem Laden
+        // „Parameter … hat keinen Datentyp“.
+        return $this->ScanMetersEx($root, $filter, $needEnergy, $onlyActive);
     }
 
     /** Wie ScanMeters(), zusätzlich „Nur schon anderswo genutzte“ und „Nur Datenpunkte mit Funktion X“. */
