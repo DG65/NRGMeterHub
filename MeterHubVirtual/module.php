@@ -584,6 +584,9 @@ class MeterHubVirtual extends IPSModule
     // Mitglied nur aus dieser einen Summe.
     // -----------------------------------------------------------------------
 
+    /** Eine Anbindung gilt als frisch, wenn ihr Gerät in dieser Zeit (s) zuletzt erreicht wurde. */
+    private const DUP_FRESH_S = 900;
+
     /**
      * Sind zwei Anbindungen dasselbe Gerät? Frei von Symcon-Aufrufen
      * (Prüfstand). $a/$b: ['serial' => …, 'ip' => …]; $ea/$eb: Bezug-
@@ -624,9 +627,14 @@ class MeterHubVirtual extends IPSModule
         foreach ($pairs as [$i, $j, $why]) {
             $nodes[$i]['dup'][] = ['with' => $j, 'why' => $why];
             $nodes[$j]['dup'][] = ['with' => $i, 'why' => $why];
-            if (($nodes[$i]['active'] ?? true) && ($nodes[$j]['active'] ?? true) && empty($nodes[$i]['excluded'])
+            if (($nodes[$i]['active'] ?? true) && ($nodes[$j]['active'] ?? true)
+                && empty($nodes[$i]['excluded']) && empty($nodes[$j]['excluded'])
                 && empty($nodes[$i]['markedDup']) && empty($nodes[$j]['markedDup'])) {
-                $nodes[$j]['excluded'] = 'undecided';
+                // Bis zur Entscheidung zählt die Anbindung mit aktuellen
+                // Messwerten; sind beide gleich frisch, die erste.
+                $fi = $nodes[$i]['fresh'] ?? true;
+                $fj = $nodes[$j]['fresh'] ?? true;
+                $nodes[(!$fi && $fj) ? $i : $j]['excluded'] = 'undecided';
             }
         }
         foreach ($nodes as $k => $n) {
@@ -683,7 +691,23 @@ class MeterHubVirtual extends IPSModule
             }
         }
         $marked = array_keys(array_filter($ids, fn($x) => !empty($x['markedDup'])));
-        return [$pairs, $marked];
+        // Frische je Anbindung (0.28.4, EMS-Hinweis 13.09.2026: OCPPHub WB2 seit
+        // 10.09. ohne Verbindung, nur ChargerHub misst): lastSeenAt aus dem
+        // Vertrag, sonst die jüngste Aktualisierung ihrer Leistungs-/Zählervariablen.
+        $fresh = [];
+        foreach ($cand as $i => $t) {
+            $ls = (int)($ids[$i]['lastSeen'] ?? 0);
+            if ($ls <= 0) {
+                foreach (['power', 'imp', 'exp'] as $f) {
+                    $v = (int)($nodes[$i][$f] ?? 0);
+                    if ($v > 0 && IPS_VariableExists($v)) {
+                        $ls = max($ls, (int)(IPS_GetVariable($v)['VariableUpdated'] ?? 0));
+                    }
+                }
+            }
+            $fresh[$i] = $ls > 0 && time() - $ls <= self::DUP_FRESH_S;
+        }
+        return [$pairs, $marked, $fresh];
     }
 
     /** Geräte-Merkmale einer Instanz: aus ihrem Vertrag, sonst Variable dev_serial bzw. Eigenschaft Host. */
@@ -693,6 +717,8 @@ class MeterHubVirtual extends IPSModule
         $e = $this->ContractEntryOf($inst);
         // Vom Nutzer am Quellmodul als Dublette markiert (Vertragsfeld duplicateOf).
         $id['markedDup'] = !empty($e['duplicateOf']);
+        // Wann das Quellmodul das Gerät zuletzt erreicht hat (Vertragsfeld lastSeenAt), 0 = unbekannt.
+        $id['lastSeen'] = (int)($e['lastSeenAt'] ?? 0);
         foreach (['deviceSerial', 'serialNumber', 'serial'] as $k) {
             if (is_scalar($e[$k] ?? null) && trim((string)$e[$k]) !== '') {
                 $id['serial'] = trim((string)$e[$k]);
@@ -1562,9 +1588,12 @@ class MeterHubVirtual extends IPSModule
     {
         if ($this->IsTreeMode()) {
             $nodes = $this->TreeNodes();
-            [$pairs, $marked] = $this->DuplicateInfo($nodes);
+            [$pairs, $marked, $fresh] = $this->DuplicateInfo($nodes);
             foreach ($marked as $i) {
                 $nodes[$i]['markedDup'] = true;
+            }
+            foreach ($fresh as $i => $f) {
+                $nodes[$i]['fresh'] = $f;
             }
             return self::ApplyDuplicateRules($nodes, $pairs);
         }
@@ -1708,7 +1737,7 @@ class MeterHubVirtual extends IPSModule
                 $la = $this->RowLabel($i, $n);
                 $lb = $this->RowLabel($j, $nodes[$j]);
                 $sure = !str_starts_with($d['why'], 'Zählerstände');
-                $warnings[] = "$la und $lb sind " . ($sure ? '' : 'vermutlich ') . 'dasselbe Gerät (' . $d['why'] . ') — in der Summe zählte es doppelt, bis zur Entscheidung zählt nur ' . $la . '. Bitte im Modul der überzähligen Anbindung (z. B. ChargerHub oder OCPPHub) festlegen, dass sie eine Dublette ist: dann zählt sie überall nicht mehr mit, auch im Dashboard.';
+                $warnings[] = "$la und $lb sind " . ($sure ? '' : 'vermutlich ') . 'dasselbe Gerät (' . $d['why'] . ') — in der Summe zählte es doppelt, bis zur Entscheidung zählt nur ' . ((($n['excluded'] ?? '') === 'undecided') ? $lb : $la) . ' (die Anbindung mit aktuellen Messwerten, sonst die erste). Bitte im Modul der überzähligen Anbindung (z. B. ChargerHub oder OCPPHub) festlegen, dass sie eine Dublette ist: dann zählt sie überall nicht mehr mit, auch im Dashboard.';
             }
         }
         // Baum-Modus: tote und leere Mitglieder zuerst — genau diese

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.28.4-beta.1 (2026-09-13)
+
+- **Doppelte Anbindung: Bis zur Markierung zählt die Anbindung mit aktuellen Messwerten**
+  (Hinweis EMS). Bisher zählte immer die erste eines erkannten Paars. Bei Dietmars WB2 war das
+  der OCPPHub-Ladepunkt, der seit dem 10.09. keine Verbindung hat, während nur ChargerHub
+  misst. Eine Ladung hätte in Summe und Energie gefehlt. „Aktuell“ heißt: Das Quellmodul hat
+  das Gerät in den letzten 15 min erreicht (Vertragsfeld `lastSeenAt`, ersatzweise die jüngste
+  Aktualisierung der Leistungs-/Zählervariablen). Sind beide gleich aktuell, zählt wie bisher die
+  erste. Wechselt die zählende Anbindung, läuft die Energie-Summe dank 0.28.3 nahtlos weiter,
+  ohne Doppelzählung. Der Hinweis in „Prüfung & Vorschau“ nennt die tatsächlich zählende
+  Anbindung.
+- Prüfstand Block 39 um Frische-Fälle ergänzt.
+
 ## 0.28.3-beta.1 (2026-09-13)
 
 - **MeterHubVirtual: Energie-Summen laufen nahtlos weiter** (Dietmars Wunsch). Ändert sich die

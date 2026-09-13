@@ -1948,6 +1948,16 @@ $n39e = $n39;
 $n39e[0]['markedDup'] = true;   // die ERSTE Anbindung ist die Dublette
 $r39e = $m39('ApplyDuplicateRules', $n39e, [[0, 1, 'gleiche Seriennummer 050306']]);
 check('39: ist die erste markiert, zählt die zweite — keine Vorab-Aussetzung', $r39e[0]['excluded'] === 'marked' && empty($r39e[1]['excluded']) && $r39e[1]['factor'] === 100.0);
+$n39f = $n39;
+$n39f[0]['fresh'] = false;   // erste Anbindung ohne aktuelle Messwerte (OCPPHub WB2 seit 10.09. getrennt)
+$n39f[1]['fresh'] = true;
+$r39f = $m39('ApplyDuplicateRules', $n39f, [[0, 1, 'Zählerstände fast gleich (14.785,1 / 14.743,4)']]);
+check('39: bis zur Entscheidung zählt die frische Anbindung, auch wenn sie an zweiter Stelle steht', $r39f[0]['excluded'] === 'undecided' && empty($r39f[1]['excluded']) && $r39f[1]['factor'] === 100.0);
+$n39g = $n39;
+$n39g[0]['fresh'] = false;
+$n39g[1]['fresh'] = false;
+$r39g = $m39('ApplyDuplicateRules', $n39g, [[0, 1, 'x']]);
+check('39: beide veraltet → wie bisher die erste', empty($r39g[0]['excluded']) && $r39g[1]['excluded'] === 'undecided');
 
 echo "\n40) Energie-Summe läuft bei geänderter Zusammensetzung nahtlos weiter (0.28.3, „Ladestation“ 13.09.2026: −41,7 kWh beim Wechsel ChargerHub → OCPPHub)\n";
 $m40 = fn(...$a) => (new ReflectionMethod('MeterHubVirtual', 'ContinuityStep'))->invoke(null, ...$a);
