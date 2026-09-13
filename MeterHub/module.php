@@ -2976,6 +2976,8 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeString('InvertLayout', '');
         $this->RegisterPropertyInteger('DirectionRepairDays', 60);
         $this->RegisterAttributeString('DirectionDiag', '');
+        // Wartende Neuberechnungen der Verdichtung (0.27.7), siehe ReAggregate().
+        $this->RegisterAttributeString('ReAggQueue', '[]');
         $this->RegisterPropertyInteger('IntervalFast', 5);
         $this->RegisterPropertyInteger('IntervalSlow', 60);
         // Archiv-Verdichtung, konfigurierbar statt fest im Code (Dietmars
@@ -3260,6 +3262,11 @@ class MeterHub extends IPSModule
             $this->GetDiagnostics();
         } catch (\Throwable $e) {
             $this->SendDebug('Richtungsprüfung', $e->getMessage(), 0);
+        }
+        try {
+            $this->ProcessReAggQueue();
+        } catch (\Throwable $e) {
+            $this->SendDebug('Verdichtung', $e->getMessage(), 0);
         }
     }
 
@@ -4524,7 +4531,7 @@ class MeterHub extends IPSModule
         // Variable, wiederholtes Aufrufen je Block wäre nur unnötige Last.
         foreach ($vids as $field => $vid) {
             if ($totals[$field]['new'] > 0) {
-                AC_ReAggregateVariable($archiveID, $vid);
+                $this->ReAggregate($archiveID, $vid);
             }
         }
 
@@ -5062,14 +5069,14 @@ class MeterHub extends IPSModule
             if ($add) {
                 AC_AddLoggedValues($ac, $vid, array_map(fn($p) => ['TimeStamp' => $p[0], 'Value' => $p[1]], $add));
             }
-            AC_ReAggregateVariable($ac, $vid);
+            $this->ReAggregate($ac, $vid);
         }
         if ($powerPlan) {
             foreach ($powerPlan as [$ta, $tb, $points]) {
                 AC_DeleteVariableData($ac, $pvid, $ta + 1, $tb);
                 AC_AddLoggedValues($ac, $pvid, array_map(fn($p) => ['TimeStamp' => $p[0], 'Value' => $p[1]], $points));
             }
-            AC_ReAggregateVariable($ac, $pvid);
+            $this->ReAggregate($ac, $pvid);
         }
         IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': Energie-Archiv repariert — ' . str_replace("\n", ' | ', implode("\n", $lines)));
         return implode("\n", $lines);
@@ -5284,8 +5291,8 @@ class MeterHub extends IPSModule
                 $lines[] = '   ❌ ' . $res['error'] . ' Sicherung: ' . implode(', ', $files);
                 continue;
             }
-            AC_ReAggregateVariable($ac, $a);
-            AC_ReAggregateVariable($ac, $b);
+            $this->ReAggregate($ac, $a);
+            $this->ReAggregate($ac, $b);
             $changed = true;
             $lines[] = '   • ' . number_format($res['moved'], 0, ',', '.') . ' Werte zwischen den beiden Variablen getauscht' . ($swapEnd ? ', Rolle (Name/Ident) getauscht' : '') . '.';
             $lines[] = '   • Sicherung im Symcon-Verzeichnis: ' . implode(', ', $files);
@@ -5329,7 +5336,7 @@ class MeterHub extends IPSModule
                     $changed = $changed || $err === null;
                 }
                 if ($apply) {
-                    AC_ReAggregateVariable($ac, $pvid);
+                    $this->ReAggregate($ac, $pvid);
                 }
             }
         }
@@ -5700,6 +5707,52 @@ class MeterHub extends IPSModule
             $out[] = [(int)$r['TimeStamp'], (float)$r['Value']];
         }
         return $out;
+    }
+
+    /**
+     * Verdichtung einer Variable neu bilden. Symcon erlaubt nur EINE
+     * Neuberechnung zur selben Zeit — der zweite Aufruf direkt danach
+     * scheitert mit „Eine andere Aggregation wird aktuell durchgeführt"
+     * (live 13.09.2026 bei jedem Inexogy-Nachtrag mit mehr als einer neuen
+     * Reihe; die Verdichtung der übrigen Variablen blieb veraltet). Dann kommt
+     * die Variable in eine Warteschlange, die ReadSlow() nach und nach abarbeitet.
+     */
+    private function ReAggregate(int $ac, int $vid): void
+    {
+        if ($this->TryReAggregate($ac, $vid)) {
+            return;
+        }
+        $q = json_decode($this->ReadAttributeString('ReAggQueue'), true);
+        $q = is_array($q) ? $q : [];
+        if (!in_array($vid, $q, true)) {
+            $q[] = $vid;
+            $this->WriteAttributeString('ReAggQueue', (string)json_encode($q));
+        }
+    }
+
+    private function TryReAggregate(int $ac, int $vid): bool
+    {
+        error_clear_last();
+        $ok = @AC_ReAggregateVariable($ac, $vid);
+        return $ok !== false && error_get_last() === null;
+    }
+
+    /** Wartende Neuberechnungen: je Lesezyklus höchstens eine — gleichzeitig läuft ohnehin nur eine. */
+    private function ProcessReAggQueue(): void
+    {
+        $q = json_decode($this->ReadAttributeString('ReAggQueue'), true);
+        if (!is_array($q) || !$q) {
+            return;
+        }
+        $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        if (count($acs) === 0) {
+            return;
+        }
+        $vid = (int)$q[0];
+        if (!IPS_VariableExists($vid) || $this->TryReAggregate($acs[0], $vid)) {
+            array_shift($q);
+            $this->WriteAttributeString('ReAggQueue', (string)json_encode($q));
+        }
     }
 
     private function CountRows(int $ac, int $vid, int $from, int $to): int
@@ -6178,7 +6231,7 @@ class MeterHub extends IPSModule
             foreach ($del as $ts) {
                 AC_DeleteVariableData($ac, $vid, $ts, $ts);
             }
-            AC_ReAggregateVariable($ac, $vid);
+            $this->ReAggregate($ac, $vid);
         }
         return [count($del), $ob, $oa, $bb, $ba];
     }

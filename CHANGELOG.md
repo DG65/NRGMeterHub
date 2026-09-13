@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.27.7-beta.1 (2026-09-13)
+
+- **Verdichtung neu bilden ohne Fehler.** Symcon erlaubt nur eine Neuberechnung der
+  Archiv-Verdichtung zur selben Zeit. MeterHub rief sie nach dem Inexogy-Nachtrag für jede
+  ergänzte Reihe direkt hintereinander auf. Ab der zweiten scheiterte es mit „Eine andere
+  Aggregation wird aktuell durchgeführt“ (Fehler im Meldungsprotokoll, live 13.09.2026), und die
+  Tages- und Monatswerte dieser Reihen blieben veraltet. Jetzt kommt eine abgelehnte
+  Neuberechnung in eine Warteschlange, die der Lesezyklus abarbeitet, eine je Durchlauf. Das gilt
+  für alle Stellen: Inexogy-Nachtrag und -Bereinigung, Energie-Archiv-Reparatur und
+  Richtungskorrektur.
+- Prüfstand `test-powerinvert.php` Block 9.
+
 ## 0.27.6-beta.1 (2026-09-13)
 
 - Verbund-Regel 9b (SUITE.md): Nutzersichtbare Datumsangaben durchgehend im Format

@@ -48,7 +48,13 @@ function IPS_LogMessage($s, $m) { $GLOBALS['LOG'][] = $m; }
 function ident($id)             { return $GLOBALS['OBJ'][$id]['ObjectIdent']; }
 function GetValue($id)          { return $GLOBALS['VAL'][$id] ?? 0; }
 function SetValueFloat($id, $v) { $GLOBALS['VAL'][$id] = $v; }
-function IPS_GetInstanceListByModuleID($guid) { return []; } // kein Archiv im Test
+function IPS_GetInstanceListByModuleID($guid) { return $GLOBALS['ACS'] ?? []; } // Standard: kein Archiv im Test
+function IPS_VariableExists($id) { return isset($GLOBALS['OBJ'][$id]); }
+function AC_ReAggregateVariable($ac, $vid) {
+    if (!empty($GLOBALS['AGG_BUSY'])) { trigger_error('Eine andere Aggregation wird aktuell durchgeführt', E_USER_WARNING); return false; }
+    $GLOBALS['AGG'][] = $vid;
+    return true;
+}
 
 class IPSModule
 {
@@ -250,6 +256,31 @@ check('8: Bewertung PV — schwach gegenläufig nur auffällig, stark gegenläuf
 [$pa8, $pan8] = $m8('PearsonPairs', [0 => -9000.0, 1 => -4000.0, 2 => -500.0], [0 => 9100.0, 1 => 4050.0, 2 => 600.0], 300.0);
 check('8: Solarpark richtig herum: Netz = −PV → Korrelation −1, also „passt"', $pa8 < -0.99 && $m8('DirectionLevel', -$pa8, 'pv')[0] === 'normal');
 check('8: Gegen-Idents', $m8('CounterpartIdent', 'energy_import_t2') === 'energy_export_t2' && $m8('CounterpartIdent', 'fn_wallbox1_export') === 'fn_wallbox1_import' && $m8('CounterpartIdent', 'power_total') === null);
+
+// ---------------------------------------------------------------------------
+echo "\n9) Verdichtung neu bilden: nur eine gleichzeitig (live 13.09.2026 „Eine andere Aggregation wird aktuell durchgeführt\")\n";
+$ra = new ReflectionMethod('MeterHub', 'ReAggregate');
+$pq = new ReflectionMethod('MeterHub', 'ProcessReAggQueue');
+$GLOBALS['AGG'] = [];
+$GLOBALS['AGG_BUSY'] = false;
+$ra->invoke($hub5, 1, 502);                 // erste läuft an
+$GLOBALS['AGG_BUSY'] = true;                // jetzt ist eine in Arbeit
+$ra->invoke($hub5, 1, 503);
+$ra->invoke($hub5, 1, 505);
+$ra->invoke($hub5, 1, 503);                 // doppelt → nur einmal in der Schlange
+check('9: erste sofort, zwei weitere warten, keine doppelt', $GLOBALS['AGG'] === [502] && $GLOBALS['ATTR'][500]['ReAggQueue'] === '[503,505]', $GLOBALS['ATTR'][500]['ReAggQueue'] ?? '');
+$GLOBALS['ACS'] = [1];
+$pq->invoke($hub5);
+check('9: solange noch eine läuft, bleibt die Schlange stehen', $GLOBALS['ATTR'][500]['ReAggQueue'] === '[503,505]');
+$GLOBALS['AGG_BUSY'] = false;
+$pq->invoke($hub5);
+check('9: je Lesezyklus eine weiter', $GLOBALS['AGG'] === [502, 503] && $GLOBALS['ATTR'][500]['ReAggQueue'] === '[505]');
+$pq->invoke($hub5);
+check('9: Schlange leer, alle neu verdichtet', $GLOBALS['AGG'] === [502, 503, 505] && $GLOBALS['ATTR'][500]['ReAggQueue'] === '[]');
+$GLOBALS['ATTR'][500]['ReAggQueue'] = '[999999]';
+$pq->invoke($hub5);
+check('9: gelöschte Variable fällt aus der Schlange', $GLOBALS['ATTR'][500]['ReAggQueue'] === '[]');
+unset($GLOBALS['ACS']);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
