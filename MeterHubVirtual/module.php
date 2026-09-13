@@ -717,8 +717,16 @@ class MeterHubVirtual extends IPSModule
             return [];
         }
         $prefix = (string)(@IPS_GetModule($guid)['Prefix'] ?? '');
-        $fn = $prefix . '_GetFunctions';
-        if ($prefix === '' || !function_exists($fn)) {
+        // {Präfix}_GetFunctions (z. B. ChargerHub 1.4) oder
+        // {Präfix}_GetContractEntry (OCPPHub-Ladepunkt, angekündigt 13.09.2026).
+        $fn = '';
+        foreach (['_GetFunctions', '_GetContractEntry'] as $suffix) {
+            if ($prefix !== '' && function_exists($prefix . $suffix)) {
+                $fn = $prefix . $suffix;
+                break;
+            }
+        }
+        if ($fn === '') {
             return [];
         }
         try {

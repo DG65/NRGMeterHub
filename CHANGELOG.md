@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.28.1-beta.1 (2026-09-13)
+
+- Doppelte Anbindung: Gerätemerkmale auch über `{Präfix}_GetContractEntry` (so kündigt OCPPHub sie
+  für seine Ladepunkte an, Vertrag 1.4). ChargerHub 0.9.62 liefert sie bereits in
+  `CHUB_GetFunctions` 1.4 (`deviceSerial`, `deviceHost`) und bietet `CHUB_SetActive` an. Beides
+  passt ohne Anpassung zu MeterHubVirtual 0.28.0.
+
 ## 0.28.0-beta.1 (2026-09-13)
 
 - **MeterHubVirtual: doppelte Anbindung desselben Geräts** (Dietmars Regel). Eine Wallbox kann
