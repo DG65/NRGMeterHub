@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.9-beta.1 (2026-09-13)
+
+- **Keine Migration für Skripte:** `MHUBV_ScanMeters` hat wieder genau die 4 Parameter von beta
+  (root, filter, needEnergy, onlyActive). Symcon erzeugt die Modulfunktionen mit fester
+  Parameterzahl, ein Skript mit 4 Argumenten wäre nach der Übernahme gescheitert (Fund
+  Migrationsvergleich, SUITE.md 9e). Die beiden neueren Suchfilter („schon anderswo genutzt“,
+  „Funktion X“) stecken jetzt in der neuen Funktion `MHUBV_ScanMetersEx` mit 6 Parametern; der
+  Formular-Button nutzt sie.
+
 ## 0.27.8-beta.1 (2026-09-13)
 
 Durchgang Store-Review-Checkliste (SUITE.md), MeterHub, MeterHubVirtual und MeterHubDiscovery:

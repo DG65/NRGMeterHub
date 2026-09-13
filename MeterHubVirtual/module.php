@@ -3158,7 +3158,22 @@ class MeterHubVirtual extends IPSModule
      * Die Filter kommen aus der Maske und werden im onClick übergeben, damit
      * eine noch nicht übernommene Änderung sofort greift.
      */
-    public function ScanMeters(?int $root = null, ?string $filter = null, ?bool $needEnergy = null, ?bool $onlyActive = null, ?bool $onlyUsedElsewhere = null, ?string $onlyFunction = null)
+    public function ScanMeters($root = null, $filter = null, $needEnergy = null, $onlyActive = null)
+    {
+        // Feste Arität (SUITE.md 9e, Migrationsvergleich 13.09.2026): Symcon
+        // erzeugt MHUBV_ScanMeters mit genau diesen 4 Parametern — Skripte,
+        // die so aufrufen, dürfen nach einem Update nicht brechen. Die
+        // Erweiterung um zwei Filter liegt deshalb in ScanMetersEx().
+        return $this->ScanMetersEx(
+            $root === null ? null : (int)$root,
+            $filter === null ? null : (string)$filter,
+            $needEnergy === null ? null : (bool)$needEnergy,
+            $onlyActive === null ? null : (bool)$onlyActive
+        );
+    }
+
+    /** Wie ScanMeters(), zusätzlich „Nur schon anderswo genutzte“ und „Nur Datenpunkte mit Funktion X“. */
+    public function ScanMetersEx(?int $root = null, ?string $filter = null, ?bool $needEnergy = null, ?bool $onlyActive = null, ?bool $onlyUsedElsewhere = null, ?string $onlyFunction = null)
     {
         // Direktaufruf ohne Argumente (Skript, Konsole): gespeicherte Filter.
         $root              = $root              === null ? $this->ReadPropertyInteger('ScanRoot')              : (int)$root;
@@ -3705,7 +3720,7 @@ class MeterHubVirtual extends IPSModule
                 $scanFuncOptions[] = ['caption' => $def[0], 'value' => $key];
             }
             $meterItems[] = ['type' => 'Select', 'name' => 'ScanOnlyFunction', 'caption' => 'Nur Datenpunkte, deren Ursprungsinstanz bereits diese Funktion trägt (z. B. „Beleuchtung" — praktisch, um eine Sparte über mehrere Stromkreise hinweg zu einem Sammelzähler zusammenzufassen)', 'options' => $scanFuncOptions];
-            $meterItems[] = ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMeters($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive, $ScanOnlyUsedElsewhere, $ScanOnlyFunction);'];
+            $meterItems[] = ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMetersEx($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive, $ScanOnlyUsedElsewhere, $ScanOnlyFunction);'];
             $meterItems[] = ['type' => 'Label', 'name' => 'ScanResult', 'caption' => '', 'visible' => false];
             // Funde direkt übernehmbar (Dietmars Anregung 31.08.2026: "wenn
             // ich schon etwas suchen muss, dann möchte ich auch direkt aus

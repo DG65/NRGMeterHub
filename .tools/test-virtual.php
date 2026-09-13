@@ -360,7 +360,7 @@ $fresh->Create();
 // der Liste.
 $run = function ($root, $filter, $needEnergy, $onlyActive, $onlyUsedElsewhere = false) use ($fresh) {
     $GLOBALS['FORMFIELDS'] = [];
-    $fresh->ScanMeters($root, $filter, $needEnergy, $onlyActive, $onlyUsedElsewhere);
+    $fresh->ScanMetersEx($root, $filter, $needEnergy, $onlyActive, $onlyUsedElsewhere);
     return $GLOBALS['FORMFIELDS']['ScanResult']['caption'] ?? '';
 };
 $foundNames = function (string $caption): array {
@@ -1244,7 +1244,7 @@ $fresh3->Create();
 // 1501/1502 = Kühlschrank-Kategorien), nicht über den Anzeigetext.
 $runFn = function ($onlyFunction) use ($fresh3) {
     $GLOBALS['FORMFIELDS'] = [];
-    $fresh3->ScanMeters(0, '', false, false, false, $onlyFunction);
+    $fresh3->ScanMetersEx(0, '', false, false, false, $onlyFunction);
     $ids = array_column(json_decode($GLOBALS['FORMFIELDS']['ScanPick']['options'] ?? '[]', true), 'value');
     return ['caption' => $GLOBALS['FORMFIELDS']['ScanResult']['caption'] ?? '', 'ids' => $ids];
 };
