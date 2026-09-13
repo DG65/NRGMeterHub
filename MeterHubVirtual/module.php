@@ -162,9 +162,6 @@ class MeterHubVirtual extends IPSModule
         $this->RegisterAttributeString('ReconciledSettings', '');
         $this->RegisterAttributeString('FormSnapshot', '[]');
         $this->RegisterAttributeString('ReconcileNotes', '');
-        // Doppelte Anbindung (0.28.0): von uns abgeschaltete Instanzen
-        // {Instanz-ID: 'off' | 'manual'}, siehe SyncDuplicateDeactivation().
-        $this->RegisterAttributeString('DupDeactivated', '{}');
         $this->RegisterTimer('Recalc', 0, 'MHUBV_Recalc($_IPS[\'TARGET\']);');
     }
 
@@ -283,7 +280,7 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
-                ['type' => 'Label', 'caption' => '• 👯 Doppelte Anbindung erkannt: Ist dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub UND über OCPPHub), zählt bis zu deiner Wahl nur die erste Anbindung, und „Prüfung & Vorschau" nennt beide samt Grund (gleiche Seriennummer, IP-Adresse oder fast gleiche Zählerstände). In der neuen Spalte „aktiv" wählst du die überzählige ab — sie fällt aus der Summe, und ihre Instanz wird ganz abgeschaltet, sofern ihr Modul das anbietet.'],
+                ['type' => 'Label', 'caption' => '• 👯 Doppelte Anbindung erkannt: Ist dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub UND über OCPPHub), zählt bis zu deiner Wahl nur die erste Anbindung, und „Prüfung & Vorschau" nennt beide samt Grund (gleiche Seriennummer, IP-Adresse oder fast gleiche Zählerstände). Festgelegt wird die überzählige im Modul der Anbindung selbst (z. B. ChargerHub, OCPPHub) — dann zählt sie überall nicht mehr mit. Die neue Spalte „aktiv" nimmt ein Mitglied nur aus dieser Summe.'],
                 ['type' => 'Label', 'caption' => '• 🌳 Neu: Mitglieder direkt im Objektbaum — alles, was als Verknüpfung (Link) oder direkt unter dieser Instanz hängt, wird automatisch Mitglied, in der Reihenfolge seiner Position dort. Neue Instanzen starten so; gelöschte Geräte fallen sofort als „Ziel fehlt" auf statt still als Leiche weiterzuleben.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Fix: bei Geräten ohne MeterHub-Kennung (z. B. Wallboxen) konnte statt der Gesamtleistung eine einzelne Phase gewählt werden. Jetzt gelten zuerst die Werte, die das Gerätemodul selbst meldet; sonst Gesamtwert vor Phasenwert, mehrdeutige Fälle werden gemeldet. Bitte die „Erkannt"-Spalte der eigenen Instanzen einmal ansehen.'],
                 ['type' => 'Label', 'caption' => '• ✏️ Mitglieder direkt in der Tabelle bearbeiten: hinzufügen (Spalte „Ziel“), löschen, per Drag & Drop umsortieren, umbenennen, Ziel ändern — mit „Übernehmen“ werden die Links im Objektbaum entsprechend angepasst. Gelöscht werden nur Links, nie Geräte.'],
@@ -577,8 +574,10 @@ class MeterHubVirtual extends IPSModule
     // ChargerHub (Modbus) UND per OCPPHub. In einer Summe zählt es dann
     // doppelt, und zwei Module steuern dasselbe Gerät. MeterHubVirtual
     // erkennt das, zählt bis zur Entscheidung nur die erste Anbindung und
-    // fragt, welche aktiv bleiben soll. Die abgewählte Instanz wird über ihr
-    // Modul ganz abgeschaltet ({Präfix}_SetActive), sofern es das anbietet.
+    // weist darauf hin. Entschieden wird am Quellmodul (Vertragsfeld
+    // duplicateOf, Dietmars Entscheidung 13.09.2026): dort als Dublette
+    // markiert zählt die Anbindung nicht mit. Die Spalte „aktiv" nimmt ein
+    // Mitglied nur aus dieser einen Summe.
     // -----------------------------------------------------------------------
 
     /**
@@ -621,11 +620,15 @@ class MeterHubVirtual extends IPSModule
         foreach ($pairs as [$i, $j, $why]) {
             $nodes[$i]['dup'][] = ['with' => $j, 'why' => $why];
             $nodes[$j]['dup'][] = ['with' => $i, 'why' => $why];
-            if (($nodes[$i]['active'] ?? true) && ($nodes[$j]['active'] ?? true) && empty($nodes[$i]['excluded'])) {
+            if (($nodes[$i]['active'] ?? true) && ($nodes[$j]['active'] ?? true) && empty($nodes[$i]['excluded'])
+                && empty($nodes[$i]['markedDup']) && empty($nodes[$j]['markedDup'])) {
                 $nodes[$j]['excluded'] = 'undecided';
             }
         }
         foreach ($nodes as $k => $n) {
+            if (!empty($n['markedDup'])) {
+                $nodes[$k]['excluded'] = 'marked';
+            }
             if (array_key_exists('active', $n) && !$n['active']) {
                 $nodes[$k]['excluded'] = 'inactive';
             }
@@ -637,8 +640,12 @@ class MeterHubVirtual extends IPSModule
         return $nodes;
     }
 
-    /** Paare [i, j, Begründung] von Mitgliedern, die dasselbe Gerät anbinden. */
-    private function DuplicatePairs(array $nodes): array
+    /**
+     * [Paare [i, j, Begründung] von Mitgliedern, die dasselbe Gerät anbinden,
+     *  Indizes der Mitglieder, die ihr Quellmodul selbst als Dublette
+     *  markiert (Vertragsfeld duplicateOf)].
+     */
+    private function DuplicateInfo(array $nodes): array
     {
         $cand = [];
         foreach ($nodes as $i => $n) {
@@ -647,9 +654,6 @@ class MeterHubVirtual extends IPSModule
                 continue;
             }
             $cand[$i] = $t;
-        }
-        if (count($cand) < 2) {
-            return [];
         }
         $ids = [];
         $mods = [];
@@ -674,7 +678,8 @@ class MeterHubVirtual extends IPSModule
                 }
             }
         }
-        return $pairs;
+        $marked = array_keys(array_filter($ids, fn($x) => !empty($x['markedDup'])));
+        return [$pairs, $marked];
     }
 
     /** Geräte-Merkmale einer Instanz: aus ihrem Vertrag, sonst Variable dev_serial bzw. Eigenschaft Host. */
@@ -682,6 +687,8 @@ class MeterHubVirtual extends IPSModule
     {
         $id = ['serial' => '', 'ip' => ''];
         $e = $this->ContractEntryOf($inst);
+        // Vom Nutzer am Quellmodul als Dublette markiert (Vertragsfeld duplicateOf).
+        $id['markedDup'] = !empty($e['duplicateOf']);
         foreach (['deviceSerial', 'serialNumber', 'serial'] as $k) {
             if (is_scalar($e[$k] ?? null) && trim((string)$e[$k]) !== '') {
                 $id['serial'] = trim((string)$e[$k]);
@@ -767,71 +774,6 @@ class MeterHubVirtual extends IPSModule
         return 0;
     }
 
-    /**
-     * Abgewählte Doppel-Anbindungen ganz abschalten, wieder angewählte
-     * einschalten — nur über das Modul der Instanz ({Präfix}_SetActive) und
-     * nur, solange die andere Anbindung des Paars aktiv ist. Bietet ein Modul
-     * das nicht an, bleibt es beim Hinweis „von Hand deaktivieren".
-     */
-    private function SyncDuplicateDeactivation(array $nodes): void
-    {
-        $done = json_decode((string)$this->ReadAttributeString('DupDeactivated'), true);
-        $done = is_array($done) ? $done : [];
-        $want = [];
-        foreach ($nodes as $n) {
-            if (($n['active'] ?? true) || empty($n['dup']) || (int)($n['target'] ?? 0) <= 0) {
-                continue;
-            }
-            foreach ($n['dup'] as $d) {
-                if ($nodes[$d['with']]['active'] ?? true) {
-                    $want[(int)$n['target']] = $n['name'];
-                    break;
-                }
-            }
-        }
-        $changed = false;
-        foreach ($want as $t => $name) {
-            if (isset($done[$t])) {
-                continue;
-            }
-            $res = $this->PartnerSetActive($t, false);
-            $done[$t] = $res === null ? 'manual' : 'off';
-            IPS_LogMessage('MeterHubVirtual', IPS_GetName($this->InstanceID) . ': „' . $name . '" (#' . $t . ') ist eine doppelte Anbindung und wurde abgewählt — '
-                . ($res === null ? 'ihr Modul bietet kein Abschalten an, bitte die Instanz von Hand deaktivieren.' : 'Instanz abgeschaltet: ' . $res));
-            $changed = true;
-        }
-        foreach ($done as $t => $state) {
-            if (isset($want[(int)$t])) {
-                continue;
-            }
-            if ($state === 'off' && IPS_InstanceExists((int)$t)) {
-                $res = $this->PartnerSetActive((int)$t, true);
-                IPS_LogMessage('MeterHubVirtual', IPS_GetName($this->InstanceID) . ': #' . $t . ' wieder angewählt — Instanz eingeschaltet: ' . (string)$res);
-            }
-            unset($done[$t]);
-            $changed = true;
-        }
-        if ($changed) {
-            $this->WriteAttributeString('DupDeactivated', (string)json_encode($done));
-        }
-    }
-
-    /** {Präfix}_SetActive($inst, $on) der fremden Instanz; null, wenn ihr Modul das nicht anbietet. */
-    private function PartnerSetActive(int $inst, bool $on): ?string
-    {
-        $guid = (string)(@IPS_GetInstance($inst)['ModuleInfo']['ModuleID'] ?? '');
-        $prefix = $guid !== '' ? (string)(@IPS_GetModule($guid)['Prefix'] ?? '') : '';
-        $fn = $prefix . '_SetActive';
-        if ($prefix === '' || !function_exists($fn)) {
-            return null;
-        }
-        try {
-            $r = $fn($inst, $on);
-        } catch (\Throwable $e) {
-            return '❌ ' . $e->getMessage();
-        }
-        return is_string($r) && $r !== '' ? $r : '✅';
-    }
 
     /** Fingerabdruck der aufgelösten Mitglieder — ändert er sich, wird neu angewendet. */
     private function TreeSignature(array $nodes): string
@@ -1399,9 +1341,6 @@ class MeterHubVirtual extends IPSModule
         // Auch im Fehlerzustand: gerade dann muss eine Korrektur im
         // Objektbaum (Link entfernen/umhängen) sofort wirken.
         $this->SyncTreeWatch($this->Nodes());
-        // Doppelte Anbindung: abgewählte Instanz über ihr Modul abschalten
-        // bzw. wieder einschalten (0.28.0) — nur hier, nicht bei jeder Berechnung.
-        $this->SyncDuplicateDeactivation($this->Nodes());
 
         if (!$this->ReadPropertyBoolean('Active') || count($errors) > 0) {
             $this->SetTimerInterval('Recalc', 0);
@@ -1619,7 +1558,11 @@ class MeterHubVirtual extends IPSModule
     {
         if ($this->IsTreeMode()) {
             $nodes = $this->TreeNodes();
-            return self::ApplyDuplicateRules($nodes, $this->DuplicatePairs($nodes));
+            [$pairs, $marked] = $this->DuplicateInfo($nodes);
+            foreach ($marked as $i) {
+                $nodes[$i]['markedDup'] = true;
+            }
+            return self::ApplyDuplicateRules($nodes, $pairs);
         }
         $rows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rows = is_array($rows) ? $rows : [];
@@ -1745,28 +1688,23 @@ class MeterHubVirtual extends IPSModule
     private function Warnings(array $nodes): array
     {
         $warnings = [];
-        // Doppelte Anbindung (0.28.0): jedes Paar einmal.
-        $dupState = json_decode((string)$this->ReadAttributeString('DupDeactivated'), true);
-        $dupState = is_array($dupState) ? $dupState : [];
+        // Doppelte Anbindung: jedes Paar einmal. Entschieden wird am
+        // Quellmodul (Vertragsfeld duplicateOf, Dietmars Entscheidung
+        // 13.09.2026) — ist eine Seite dort markiert oder hier in der Spalte
+        // „aktiv" abgewählt, ist das Paar erledigt.
         foreach ($nodes as $i => $n) {
             foreach ($n['dup'] ?? [] as $d) {
                 $j = (int)$d['with'];
                 if ($j < $i || !isset($nodes[$j])) {
                     continue;
                 }
+                if (!empty($n['markedDup']) || !empty($nodes[$j]['markedDup']) || !($n['active'] ?? true) || !($nodes[$j]['active'] ?? true)) {
+                    continue;
+                }
                 $la = $this->RowLabel($i, $n);
                 $lb = $this->RowLabel($j, $nodes[$j]);
                 $sure = !str_starts_with($d['why'], 'Zählerstände');
-                $ai = $n['active'] ?? true;
-                $aj = $nodes[$j]['active'] ?? true;
-                if ($ai && $aj) {
-                    $warnings[] = "$la und $lb sind " . ($sure ? '' : 'vermutlich ') . 'dasselbe Gerät (' . $d['why'] . ') — in der Summe zählte es doppelt, bis zu deiner Wahl zählt nur ' . $la . '. Bitte in der Mitglieder-Tabelle bei der Anbindung, die nicht aktiv bleiben soll, „aktiv“ abwählen und übernehmen: sie fällt aus der Summe, und ihre Instanz wird ganz abgeschaltet (keine Messung, keine Steuerung).';
-                } elseif ($ai !== $aj) {
-                    $off = $ai ? $j : $i;
-                    $state = $dupState[(int)$nodes[$off]['target']] ?? '';
-                    $warnings[] = $this->RowLabel($off, $nodes[$off]) . ' ist als doppelte Anbindung von ' . $this->RowLabel($ai ? $i : $j, $ai ? $n : $nodes[$j]) . ' abgewählt'
-                        . ($state === 'manual' ? ' — ihr Modul bietet kein Abschalten an, bitte die Instanz dort von Hand deaktivieren.' : ' und ihre Instanz abgeschaltet.');
-                }
+                $warnings[] = "$la und $lb sind " . ($sure ? '' : 'vermutlich ') . 'dasselbe Gerät (' . $d['why'] . ') — in der Summe zählte es doppelt, bis zur Entscheidung zählt nur ' . $la . '. Bitte im Modul der überzähligen Anbindung (z. B. ChargerHub oder OCPPHub) festlegen, dass sie eine Dublette ist: dann zählt sie überall nicht mehr mit, auch im Dashboard.';
             }
         }
         // Baum-Modus: tote und leere Mitglieder zuerst — genau diese

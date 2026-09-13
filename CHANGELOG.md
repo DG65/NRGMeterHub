@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.28.2-beta.1 (2026-09-13)
+
+- **Doppelte Anbindung: Entschieden wird am Quellmodul** (Dietmars Entscheidung, nur ein Ort).
+  Markiert der Nutzer in ChargerHub oder OCPPHub eine Anbindung als Dublette (Vertragsfeld
+  `duplicateOf`), zählt sie in MeterHubVirtual nicht mit. Das gilt überall, also auch für Dashboard
+  und EMS. Bei noch nicht markierten Paaren weist „Prüfung & Vorschau“ darauf hin, und bis dahin
+  zählt nur die erste Anbindung. MeterHubVirtual schaltet selbst keine Instanz mehr ab, der
+  Aufruf von `{Präfix}_SetActive` aus 0.28.0 ist entfernt. Die Spalte „aktiv“ nimmt ein
+  Mitglied nur aus dieser Summe.
+- Prüfstand Block 39 um markierte Dubletten ergänzt.
+
 ## 0.28.1-beta.1 (2026-09-13)
 
 - Doppelte Anbindung: Gerätemerkmale auch über `{Präfix}_GetContractEntry` (so kündigt OCPPHub sie

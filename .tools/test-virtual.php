@@ -1933,6 +1933,14 @@ $n39c = $n39;
 $n39c[2]['active'] = false;
 $r39c = $m39('ApplyDuplicateRules', $n39c, []);
 check('39: „aktiv“ aus wirkt auch ohne Doppel (Mitglied zählt nicht, schaltet nicht)', $r39c[2]['factor'] === 0.0 && $r39c[2]['excluded'] === 'inactive');
+$n39d = $n39;
+$n39d[1]['markedDup'] = true;   // am Quellmodul als Dublette markiert (duplicateOf)
+$r39d = $m39('ApplyDuplicateRules', $n39d, [[0, 1, 'gleiche Seriennummer 050306']]);
+check('39: am Quellmodul markierte Dublette zählt nicht, die andere zählt', $r39d[1]['excluded'] === 'marked' && $r39d[1]['factor'] === 0.0 && $r39d[0]['factor'] === 100.0 && empty($r39d[0]['excluded']));
+$n39e = $n39;
+$n39e[0]['markedDup'] = true;   // die ERSTE Anbindung ist die Dublette
+$r39e = $m39('ApplyDuplicateRules', $n39e, [[0, 1, 'gleiche Seriennummer 050306']]);
+check('39: ist die erste markiert, zählt die zweite — keine Vorab-Aussetzung', $r39e[0]['excluded'] === 'marked' && empty($r39e[1]['excluded']) && $r39e[1]['factor'] === 100.0);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
