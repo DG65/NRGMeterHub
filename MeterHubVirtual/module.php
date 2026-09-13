@@ -772,9 +772,7 @@ class MeterHubVirtual extends IPSModule
             if (function_exists('IPS_GetProperty')) {
                 $ups[] = (int)@IPS_GetProperty($t, 'SplitterID');
             }
-            // Ebenso ein am Quellmodul abgeschalteter Ladepunkt (Vertrag active: false),
-            // dessen Instanzstatus trotzdem 102 zeigt (EMS-Hinweis 13.09.2026, OCPP WB1).
-            if ((int)($inst['InstanceStatus'] ?? 102) !== 102 || !($ids[$i]['active'] ?? true)) {
+            if ((int)($inst['InstanceStatus'] ?? 102) !== 102) {
                 $fresh[$i] = false;
             }
             foreach ($ups as $up) {
@@ -795,8 +793,6 @@ class MeterHubVirtual extends IPSModule
         $id['markedDup'] = !empty($e['duplicateOf']);
         // Wann das Quellmodul das Gerät zuletzt erreicht hat (Vertragsfeld lastSeenAt), 0 = unbekannt.
         $id['lastSeen'] = (int)($e['lastSeenAt'] ?? 0);
-        // Am Quellmodul abgeschaltet (Vertragsfeld active, z. B. OHUBL_SetActive), fehlt es, gilt aktiv.
-        $id['active'] = !array_key_exists('active', $e) || !empty($e['active']);
         foreach (['deviceSerial', 'serialNumber', 'serial'] as $k) {
             if (is_scalar($e[$k] ?? null) && trim((string)$e[$k]) !== '') {
                 $id['serial'] = trim((string)$e[$k]);

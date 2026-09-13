@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.28.9-beta.1 (2026-09-13)
+
+- **0.28.8 zurückgenommen** (EMS-Korrektur, kurz nach dem Push): `active: false` im
+  `*_GetFunctions`-Vertrag heißt bei OCPPHub „extern geregelt" (managedBy other) — der
+  Ladepunkt misst dabei weiter. 0.28.8 hätte eine fremdgesteuerte, aber messende Wallbox
+  fälschlich als nicht frisch behandelt und so nie mehr zählen lassen. Abgeschaltet ist ein
+  OCPPHub-Ladepunkt allein bei Instanzstatus 104. Die Status-Prüfung aus 0.28.6 (Instanz bzw.
+  Splitter/Gateway ≠ 102 → nicht frisch) bleibt unverändert bestehen, nur das zusätzliche
+  `active`-Kriterium ist wieder entfernt. Verbindlich in `EMS/SUITE.md` festgehalten.
+- Prüfstand `test-virtual.php` Block 42 dokumentiert jetzt die Gegenprobe (aktueller
+  `lastSeenAt` macht die Anbindung frisch, auch bei `active: false`).
+
 ## 0.28.8-beta.1 (2026-09-13)
 
 - **Doppelte Anbindung: Ein am Quellmodul abgeschalteter Ladepunkt gilt nicht als frisch**
