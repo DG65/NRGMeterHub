@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.28.8-beta.1 (2026-09-13)
+
+- **Doppelte Anbindung: Ein am Quellmodul abgeschalteter Ladepunkt gilt nicht als frisch**
+  (Hinweis EMS). Meldet der Vertrag `active: false` (z. B. nach `OHUBL_SetActive(false)`),
+  zählt die Anbindung für die Wahl der Zählquelle als veraltet. Das gilt auch dann, wenn ihr
+  Instanzstatus weiter 102 zeigt und `lastSeenAt` aktuell ist. Fehlt das Feld, gilt die
+  Anbindung wie bisher als aktiv.
+- Prüfstand `test-virtual.php` Block 42.
+
 ## 0.28.7-beta.1 (2026-09-13)
 
 - **`MHUBV_ScanMeters` hat wieder Parametertypen** (`?int`, `?string`, `?bool`, `?bool`). In

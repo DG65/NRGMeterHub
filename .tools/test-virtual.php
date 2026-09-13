@@ -1995,5 +1995,20 @@ $n41 = [['name' => 'WB2 (OCPP)', 'factor' => 100.0, 'switch' => 0, 'active' => t
 $r41 = $m39r($n41, [[0, 1, 'x']]);
 check('41: die gemerkte Zählquelle hat Vorrang vor Reihenfolge und Frische', $r41[0]['excluded'] === 'undecided' && empty($r41[1]['excluded']));
 
+echo "\n42) Doppelte Anbindung: am Quellmodul abgeschaltet (Vertrag active: false) gilt nicht als frisch (0.28.8, EMS-Hinweis 13.09.2026: OCPP WB1 deaktiviert, Status blieb 102)\n";
+$GLOBALS['CONTRACT'][5000] = [['function' => 'charger', 'powerID' => 5002, 'energyImportID' => 5003, 'lastSeenAt' => time(), 'active' => false]];
+check('42: Vertrag active: false wird gelesen', t35_call($a, 'DeviceIdentity', 5000)['active'] === false);
+$n42 = [
+    ['member' => 1, 'target' => 5000, 'power' => 5002, 'imp' => 5003],
+    ['member' => 2, 'target' => 5100, 'power' => 5102, 'imp' => 5103],
+];
+[, , $f42] = t35_call($a, 'DuplicateInfo', $n42);
+check('42: abgeschaltete Anbindung ist trotz aktuellem lastSeenAt nicht frisch', ($f42[0] ?? null) === false, json_encode($f42));
+$GLOBALS['CONTRACT'][5000][0]['active'] = true;
+[, , $f42b] = t35_call($a, 'DuplicateInfo', $n42);
+check('42: eingeschaltet und aktuell → frisch', ($f42b[0] ?? null) === true, json_encode($f42b));
+unset($GLOBALS['CONTRACT'][5000][0]['active']);
+check('42: ohne Feld active gilt die Anbindung als aktiv', t35_call($a, 'DeviceIdentity', 5000)['active'] === true);
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
