@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.27.10-beta.1 (2026-09-13)
+
+- **Keine Warnungsflut beim Update (Store-Checkliste 9c).** Während Symcon ein Modul neu lädt,
+  liefen Lesezyklen und Aufrufe anderer Module (z. B. das Dashboard über `GetFunctions`) noch in
+  die Instanz. Jeder Zugriff meldete „InstanceInterface is not available“, Dutzende Einträge im
+  Meldungsprotokoll je Update (live 13.09.2026). Die Einstiegspunkte prüfen jetzt zuerst still,
+  ob die Instanz bereit ist:
+  - MeterHub: `ReadFast`, `ReadSlow`, `GetFunctions`, `GetDiagnostics`
+  - MeterHubVirtual: Neuberechnung, `GetFunctions`, Objektbaum-Meldungen
+
+  Solange nicht, liefern `GetFunctions`/`GetDiagnostics` eine leere Antwort mit dem neuen, rein
+  additiven Feld `ready: false`.
+
 ## 0.27.9-beta.1 (2026-09-13)
 
 - **Keine Migration für Skripte:** `MHUBV_ScanMeters` hat wieder genau die 4 Parameter von beta

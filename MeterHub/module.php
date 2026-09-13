@@ -3216,8 +3216,33 @@ class MeterHub extends IPSModule
         $this->SetStatus(102);
     }
 
+    /**
+     * Store-Checkliste 9c: Während Symcon ein Modul neu lädt (Update,
+     * Neustart), feuern Timer und Aufrufe anderer Module noch in die Instanz —
+     * jeder SDK-Aufruf meldet dann „InstanceInterface is not available“ (live
+     * 13.09.2026: Dutzende Warnungen je Update aus ReadFast/GetFunctions).
+     * Einstiegspunkte fragen das zuerst still ab. function_exists nur für die
+     * Prüfstände, in Symcon gibt es beide Funktionen immer.
+     */
+    private function InstanceReady(): bool
+    {
+        if (function_exists('IPS_GetKernelRunlevel') && IPS_GetKernelRunlevel() !== KR_READY) {
+            return false;
+        }
+        if (function_exists('IPS_InstanceExists') && !IPS_InstanceExists($this->InstanceID)) {
+            return false;
+        }
+        error_clear_last();
+        @$this->ReadPropertyBoolean('Active');
+        $e = error_get_last();
+        return $e === null || !str_contains((string)($e['message'] ?? ''), 'InstanceInterface');
+    }
+
     public function ReadFast()
     {
+        if (!$this->InstanceReady()) {
+            return;
+        }
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
@@ -3246,6 +3271,9 @@ class MeterHub extends IPSModule
 
     public function ReadSlow()
     {
+        if (!$this->InstanceReady()) {
+            return;
+        }
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
@@ -5856,6 +5884,9 @@ class MeterHub extends IPSModule
      */
     public function GetDiagnostics(): array
     {
+        if (!$this->InstanceReady()) {
+            return ['contractVersion' => self::DIAG_CONTRACT, 'instanceID' => $this->InstanceID, 'ready' => false, 'entries' => []];
+        }
         $cache = json_decode((string)$this->ReadAttributeString('DirectionDiag'), true);
         if (is_array($cache) && ($cache['contractVersion'] ?? '') === self::DIAG_CONTRACT && ($cache['checkedAt'] ?? 0) > time() - 1800) {
             return $cache;
@@ -6284,6 +6315,11 @@ class MeterHub extends IPSModule
 
     public function GetFunctions(): string
     {
+        // Während des Neuladens: leer statt Warnungen (9c). 'ready' ist rein
+        // additiv; Konsumenten behalten bei leerer Antwort ihren letzten Stand.
+        if (!$this->InstanceReady()) {
+            return (string)json_encode(['instanceID' => $this->InstanceID, 'ready' => false, 'assignments' => []]);
+        }
         // Zähler-Eigenschaften einmal bestimmen — sie gelten für die ganze
         // Instanz (ein Zähler ist als Ganzes echtzeitnah/träge bzw. abrechnungs-
         // verbindlich, auch im Drei-Phasen-Modus mit drei Zuordnungen).

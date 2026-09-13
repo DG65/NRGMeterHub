@@ -1164,7 +1164,7 @@ class MeterHubVirtual extends IPSModule
         // ein fremdes, hier irrelevantes Kind betreffen, z. B. eine eigene
         // Ausgabevariable).
         if (in_array($message, [OM_CHILDADDED, OM_CHILDREMOVED, OM_CHANGEPOSITION, OM_CHANGENAME, OM_UNREGISTER, LM_CHANGETARGET], true)) {
-            if (!IPS_InstanceExists($this->InstanceID) || IPS_GetKernelRunlevel() !== KR_READY) {
+            if (!$this->InstanceReady()) {
                 return;
             }
             $nodes = $this->IsTreeMode() ? $this->Nodes() : [];
@@ -2179,8 +2179,31 @@ class MeterHubVirtual extends IPSModule
      * Aufruf über Timer/`$this->Recalc()` verwirft ihn einfach, das ist ohne
      * Nebenwirkung.
      */
+    /**
+     * Store-Checkliste 9c: Während Symcon ein Modul neu lädt, meldet jeder
+     * SDK-Aufruf „InstanceInterface is not available“ (live 13.09.2026 aus
+     * IsTreeMode/MemberSettingsMap/GetFunctions). Einstiegspunkte fragen das
+     * zuerst still ab. function_exists nur für die Prüfstände.
+     */
+    private function InstanceReady(): bool
+    {
+        if (function_exists('IPS_GetKernelRunlevel') && IPS_GetKernelRunlevel() !== KR_READY) {
+            return false;
+        }
+        if (function_exists('IPS_InstanceExists') && !IPS_InstanceExists($this->InstanceID)) {
+            return false;
+        }
+        error_clear_last();
+        @$this->ReadPropertyBoolean('Active');
+        $e = error_get_last();
+        return $e === null || !str_contains((string)($e['message'] ?? ''), 'InstanceInterface');
+    }
+
     public function Recalc(): string
     {
+        if (!$this->InstanceReady()) {
+            return 'ℹ️ Instanz wird gerade neu geladen, es wurde nichts berechnet.';
+        }
         if (!$this->ReadPropertyBoolean('Active')) {
             return 'ℹ️ Instanz ist deaktiviert, es wurde nichts berechnet.';
         }
@@ -3424,6 +3447,10 @@ class MeterHubVirtual extends IPSModule
 
     public function GetFunctions(): string
     {
+        // Während des Neuladens: leer statt Warnungen (9c), 'ready' rein additiv.
+        if (!$this->InstanceReady()) {
+            return (string)json_encode(['instanceID' => $this->InstanceID, 'ready' => false, 'assignments' => []]);
+        }
         $func = $this->ReadPropertyString('Function');
         $pollInterval = max(2, $this->ReadPropertyInteger('Interval'));
         $members = $this->MemberList();
