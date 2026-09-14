@@ -2043,5 +2043,26 @@ $sibD = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
 IPS_ApplyChanges($sibD);
 check('43e: neu hinzugekommene Instanz übernimmt den vollständigen Stand automatisch', $GLOBALS['ATTR'][$sibD]['PurposeIntroGone'] === true && $GLOBALS['ATTR'][$sibD]['ForumHintGone'] === true && $GLOBALS['ATTR'][$sibD]['SeenNews'] === $newsVersion43);
 
+echo "\n44) Duplikat-Erkennung: Host-IP allein reicht nicht mehr, Unit-ID muss mit übereinstimmen (0.29.2, Dashboard-Fund Solarpark 14.09.2026: 24 blue'Log-SCADA-WR hinter einer Gateway-IP, 23 davon fälschlich als Dublette der 24. ausgeschlossen)\n";
+obj(70000, 1, 'WR SCADA 151', 10);
+$GLOBALS['INSTMOD'][70000] = G_METER;
+$GLOBALS['PROP'][70000]['Host'] = '192.168.200.204';
+$GLOBALS['PROP'][70000]['UnitId'] = 151;
+obj(70001, 1, 'WR SCADA 154', 10);
+$GLOBALS['INSTMOD'][70001] = G_METER;
+$GLOBALS['PROP'][70001]['Host'] = '192.168.200.204';
+$GLOBALS['PROP'][70001]['UnitId'] = 154;
+obj(70002, 1, 'WR SCADA 151 Zweitinstanz (echte Dublette)', 10);
+$GLOBALS['INSTMOD'][70002] = G_METER;
+$GLOBALS['PROP'][70002]['Host'] = '192.168.200.204';
+$GLOBALS['PROP'][70002]['UnitId'] = 151;
+$id70000 = t35_call($a, 'DeviceIdentity', 70000);
+$id70001 = t35_call($a, 'DeviceIdentity', 70001);
+$id70002 = t35_call($a, 'DeviceIdentity', 70002);
+check('44a: gleiche Host-IP, unterschiedliche Unit-ID → unterschiedliche Kennung', $id70000['ip'] !== $id70001['ip'], json_encode([$id70000, $id70001]));
+check('44b: gleiche Host-IP UND gleiche Unit-ID → weiterhin dieselbe Kennung (echte Dublette bleibt erkennbar)', $id70000['ip'] === $id70002['ip'], json_encode([$id70000, $id70002]));
+check('44c: SameDevice() erkennt 151/154 dadurch nicht mehr als dasselbe Gerät', $m39('SameDevice', $id70000, $id70001, null, null) === null);
+check('44d: SameDevice() erkennt die echte Dublette (gleiche Host-IP + Unit-ID) weiterhin', $m39('SameDevice', $id70000, $id70002, null, null) === 'gleiche IP-Adresse 192.168.200.204:151');
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

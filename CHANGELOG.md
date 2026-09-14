@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.29.2-beta.1 (2026-09-14)
+
+- **Fix: Duplikat-Erkennung erkannte Geräte hinter demselben Modbus-TCP-Gateway
+  fälschlich als dasselbe Gerät** (Dashboard-Fund Solarpark 14.09.2026). Die Kennung eines
+  Geräts fiel für gewöhnliche MeterHub-Instanzen ohne eigenen Vertrag auf die reine
+  Host-IP-Property zurück — bei vielen Geräten hinter EINEM Gateway (z. B. 24
+  blue'Log-SCADA-Wechselrichter, alle über dieselbe Host-IP, unterschieden nur über die
+  Unit-ID) hielt das jedes Paar für dasselbe Gerät. Folge an Dietmars Solarpark: von 24
+  Wechselrichtern unter einer virtuellen Summen-Instanz überlebte nur einer, `members` im
+  Vertrag blieb bei 1 statt 24 hängen. Die Host-Kennung enthält jetzt zusätzlich die
+  Unit-ID (`IP:UnitId`), sofern die Instanz eine setzt — betrifft ausschließlich den
+  Host-Property-Rückfall für eigene Instanzen; ein Fremdvertrag (ChargerHub/OCPPHub) mit
+  eigenem `deviceIP`/`deviceHost` ist davon unberührt, dort bleibt „gleiche IP" wie bisher
+  der Erkennungsweg.
+- Prüfstand `test-virtual.php` Block 44.
+
 ## 0.29.1-beta.1 (2026-09-14)
 
 - **Ausblenden von „Wozu dieses Modul?"/„Was ist Neu?"/Forum-Hinweis jetzt über alle

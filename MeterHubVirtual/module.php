@@ -70,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.29.1';
+    private const NEWS_VERSION = '0.29.2';
 
     public function Create()
     {
@@ -416,6 +416,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 Vertrag MHUBV_GetFunctions 1.3: liefert jetzt die Mitglieder („members") der Formel nach außen — damit kann das NRG-Dashboard Sammelzähler per Klick „aufschachteln" (verkettete virtuelle Zähler als Hierarchie). Ein reiner Zwischenknoten braucht dafür keine Funktion.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Schaltgruppe: neue Spalte „Schalter" für Mitglieder, die schalten UND messen (z. B. Z-Wave-Aktoren) — automatisch vorgeschlagen beim Übernehmen eines Geräts. Ab dem ersten schaltbaren, positiven Mitglied entstehen „Gruppe schalten" und „Gruppenstatus" an der Instanz. Nur positive Anteile werden mitgeschaltet, abgezogene Zeilen bewusst nicht.'],
                 ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen: „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
+                ['type' => 'Label', 'caption' => '• 🔧 Fix: Geräte hinter demselben Modbus-TCP-Gateway (z. B. viele Wechselrichter hinter einem blue\'Log SCADA-Datenlogger, alle über dieselbe Host-IP, nur über die Unit-ID unterschieden) wurden von der Duplikat-Erkennung fälschlich als dasselbe Gerät behandelt — von 24 solchen Mitgliedern überlebte nur eines. Die Kennung berücksichtigt jetzt zusätzlich die Unit-ID.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -912,6 +913,21 @@ class MeterHubVirtual extends IPSModule
             $h = @IPS_GetProperty($inst, 'Host');
             if (is_string($h) && trim($h) !== '') {
                 $id['ip'] = trim($h);
+                // Viele Geräte hinter EINEM Modbus-TCP-Gateway (blue'Log SCADA,
+                // jedes RTU-over-TCP-Gateway) teilen sich dieselbe Host-IP und
+                // unterscheiden sich nur über die Unit-ID — ohne sie hätte
+                // SameDevice() sie fälschlich als dasselbe Gerät erkannt
+                // (Dashboard-Fund Solarpark 14.09.2026: 24 WR-Instanzen hinter
+                // einem blue'Log mit identischer Host-IP, 23 davon fälschlich
+                // als Dublette der 24. ausgeschlossen — MHUBV_GetFunctions()
+                // lieferte nur 1 von 24 members). Nur der Fallback über die
+                // eigene Host-Property betroffen; deviceIP/deviceHost aus
+                // einem Fremdvertrag (ChargerHub/OCPPHub) bleibt unverändert,
+                // dort ist "gleiche IP" absichtlich der Erkennungsweg.
+                $u = @IPS_GetProperty($inst, 'UnitId');
+                if (is_int($u) && $u > 0) {
+                    $id['ip'] .= ':' . $u;
+                }
             }
         }
         return $id;
