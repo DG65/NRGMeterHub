@@ -3030,7 +3030,7 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.27.2';
+    private const NEWS_VERSION = '0.29.1';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
@@ -3060,6 +3060,7 @@ class MeterHub extends IPSModule
     {
         $this->WriteAttributeBoolean('PurposeIntroGone', true);
         $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+        $this->PropagateDismiss('PurposeIntro');
     }
 
     /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHubVirtual::NewsBanner(). */
@@ -3088,6 +3089,8 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 Zwei neue, rein lesende Zählertypen: „Meteocontrol blue\'Log SCADA – Wechselrichter/Zähler". Ein blue\'Log-Solarpark-Datenlogger kann jedes angeschlossene Gerät unter einer eigenen „SCADA-Adresse" anbieten (steht am blue\'Log selbst: Geräteliste → Spalte „SCADA Adresse") — diese Adresse ist die Unit-ID der Instanz, NICHT 1.'],
                 ['type' => 'Label', 'caption' => '• Der Wechselrichter-Lesetreiber ist live an einer echten Solarpark-Anlage gegen die dortige, unabhängig konfigurierte Symcon-Verdrahtung verifiziert (Registeradressen, Byte-Reihenfolge, Momentanwert).'],
                 ['type' => 'Label', 'caption' => '• Damit lässt sich eine „Kette" aus vielen einzelnen, per SCADA-Adresse adressierten Geräten hinter einem blue\'Log über mehrere MeterHub-Instanzen abbilden und in MeterHubVirtual zu einer Feld-/NAP-Summe verketten.'],
+                ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen (z. B. viele Zähler am selben Solarpark): „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Zähler ohne eigenes Anzeige-Label heißen jetzt wie ihre Instanz statt pauschal nach der Funktion (z. B. „WR 4.1.01.02" statt für alle Wechselrichter gleich „PV-Erzeugung") — sofern die Instanz umbenannt wurde, sonst bleibt der Funktionsname der Rückfall.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
@@ -3097,6 +3100,7 @@ class MeterHub extends IPSModule
     {
         $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
         $this->UpdateFormField('NewsPanel', 'visible', false);
+        $this->PropagateDismiss('News', self::NEWS_VERSION);
     }
 
     /** Symcon-Forum-Hinweis — einmalig dismissible, kein Versionsbezug, siehe MeterHubVirtual::ForumHint(). */
@@ -3121,6 +3125,104 @@ class MeterHub extends IPSModule
     {
         $this->WriteAttributeBoolean('ForumHintGone', true);
         $this->UpdateFormField('ForumHintPanel', 'visible', false);
+        $this->PropagateDismiss('ForumHint');
+    }
+
+    /**
+     * Ausblenden von "Wozu dieses Modul?"/"Was ist Neu?"/Forum-Hinweis über
+     * alle Geschwister-Instanzen dieses Moduls teilen (Dietmar 14.09.2026,
+     * SUITE.md "Ausblenden über mehrere Instanzen desselben Moduls teilen").
+     * Anlass: 54 MeterHub-Instanzen am Solarpark — ohne das hier müsste
+     * derselbe Hinweis 54-mal einzeln weggeklickt werden. Ruft bei jeder
+     * Geschwister-Instanz NUR den reinen Übernahme-Schritt auf
+     * (AdoptDismissState), nicht erneut die volle Ack-Methode — dadurch
+     * kein Ping-Pong möglich, ganz ohne Prozessmerker: AdoptDismissState()
+     * propagiert selbst nie weiter.
+     */
+    private function PropagateDismiss(string $what, string $value = ''): void
+    {
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_METER) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                MHUB_AdoptDismissState($sib, $what, $value);
+            } catch (\Throwable $e) {
+                // Eine Geschwister-Instanz mitten im Reload/Löschen darf das
+                // Ausblenden der aufrufenden Instanz nicht mitreißen — @ hält
+                // Fatals bekanntlich nicht auf (siehe CLAUDE.md, MigrationsHub-
+                // Brücke).
+            }
+        }
+    }
+
+    /** Reiner Übernahme-Schritt für eine Geschwister-Instanz — siehe PropagateDismiss(). Kein $id-Parameter nötig, da nur intern von MHUB_ selbst aufgerufen (fixe Arität ab hier). */
+    public function AdoptDismissState(string $what, string $value)
+    {
+        switch ($what) {
+            case 'PurposeIntro':
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+                $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+                break;
+            case 'ForumHint':
+                $this->WriteAttributeBoolean('ForumHintGone', true);
+                $this->UpdateFormField('ForumHintPanel', 'visible', false);
+                break;
+            case 'News':
+                $this->WriteAttributeString('SeenNews', $value);
+                $this->UpdateFormField('NewsPanel', 'visible', false);
+                break;
+        }
+    }
+
+    /** Für Geschwister-Instanzen, die beim erstmaligen Kontakt den Ausblenden-Stand übernehmen wollen — siehe AdoptDismissFromSibling(). */
+    public function GetDismissState(): array
+    {
+        return [
+            'purposeIntroGone' => $this->ReadAttributeBoolean('PurposeIntroGone'),
+            'forumHintGone'    => $this->ReadAttributeBoolean('ForumHintGone'),
+            'seenNews'         => $this->ReadAttributeString('SeenNews'),
+        ];
+    }
+
+    /**
+     * Gegenrichtung zu PropagateDismiss(): eine neu angelegte Instanz sieht
+     * beim ersten ApplyChanges() bei einer beliebigen Geschwister-Instanz
+     * nach und übernimmt deren Stand, statt "Wozu dieses Modul?"/"Was ist
+     * Neu?"/Forum-Hinweis erneut zu zeigen, obwohl der Nutzer sie an anderer
+     * Stelle schon bestätigt hat. Zieht nur vor (false→true, ältere→neuere
+     * News-Version), überschreibt nie einen schon weiter fortgeschrittenen
+     * eigenen Stand.
+     */
+    private function AdoptDismissFromSibling(): void
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone') && $this->ReadAttributeBoolean('ForumHintGone')
+            && $this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return;
+        }
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_METER) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                $state = MHUB_GetDismissState($sib);
+            } catch (\Throwable $e) {
+                continue;
+            }
+            if (!is_array($state)) {
+                continue;
+            }
+            if (!$this->ReadAttributeBoolean('PurposeIntroGone') && !empty($state['purposeIntroGone'])) {
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+            }
+            if (!$this->ReadAttributeBoolean('ForumHintGone') && !empty($state['forumHintGone'])) {
+                $this->WriteAttributeBoolean('ForumHintGone', true);
+            }
+            if ($this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION && ($state['seenNews'] ?? '') === self::NEWS_VERSION) {
+                $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+            }
+            break;
+        }
     }
 
     /**
@@ -3190,6 +3292,9 @@ class MeterHub extends IPSModule
         // 0.27.3 lieferten beide Anlagen noch das Ergebnis des alten Codes).
         $this->WriteAttributeString('DirectionDiag', '');
         $this->RegisterVariables();
+        // Vor der Bereitschaftsprüfung (die bei inaktiven/unkonfigurierten
+        // Instanzen früh zurückkehrt) — das Ausblenden gilt unabhängig davon.
+        $this->AdoptDismissFromSibling();
 
         // Bereitschaft: Modbus-Zähler brauchen eine IP, Cloud-Zähler ein
         // gültiges Zugriffs-Token samt gewählter Zähler-UID.

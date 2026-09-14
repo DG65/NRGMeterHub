@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.29.1-beta.1 (2026-09-14)
+
+- **Ausblenden von „Wozu dieses Modul?"/„Was ist Neu?"/Forum-Hinweis jetzt über alle
+  Instanzen desselben Moduls geteilt** (Dietmar 14.09.2026, Verbund-Konvention, zuerst bei
+  ChargerHub/InverterHubTile umgesetzt). Bisher lag das Ausblenden je Instanz — bei vielen
+  Instanzen eines Moduls (z. B. 54 MeterHub-Zähler am Solarpark) musste derselbe Hinweis
+  genauso oft einzeln weggeklickt werden. Ein Klick an einer Instanz bestätigt jetzt für
+  alle Instanzen desselben Moduls, auch für später neu angelegte. In allen drei Modulen
+  (`MeterHub`, `MeterHubVirtual`, `MeterHubDiscovery`) umgesetzt: neue Funktionen
+  `MHUB(V|D)_AdoptDismissState`/`MHUB(V|D)_GetDismissState`, kein Ping-Pong möglich (der
+  reine Übernahme-Schritt propagiert selbst nie weiter), Cross-Instanz-Aufrufe in
+  `try`/`catch (\Throwable)` — eine Geschwister-Instanz mitten im Reload darf die
+  aufrufende Instanz nicht mitreißen.
+- Prüfstand `test-virtual.php` Block 43.
+
 ## 0.29.0-beta.1 (2026-09-14)
 
 - **Funktionszuordnung ohne eigenes Label nimmt jetzt den Instanznamen** statt des

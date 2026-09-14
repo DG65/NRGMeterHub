@@ -128,10 +128,13 @@ class MeterHubDiscovery extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.24.47';
+    private const NEWS_VERSION = '0.29.1';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
+    // Eigene Modul-GUID (= module.json 'id') für das geteilte Ausblenden über
+    // Geschwister-Instanzen, siehe PropagateDismiss().
+    private const GUID_DISCOVERY = '{196DA9E9-7C40-4128-99DE-85186BF64A8D}';
 
     /** Siehe MeterHubVirtual::PurposeIntro() für die volle Herleitung — steht ganz vorn, noch vor dem News-Panel. */
     private function PurposeIntro(): ?array
@@ -155,6 +158,7 @@ class MeterHubDiscovery extends IPSModule
     {
         $this->WriteAttributeBoolean('PurposeIntroGone', true);
         $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+        $this->PropagateDismiss('PurposeIntro');
     }
 
     /** Aufgeklappt und pro Version einmalig bestätigbar — Formular-Konvention, siehe MeterHub::NewsBanner(). */
@@ -183,6 +187,7 @@ class MeterHubDiscovery extends IPSModule
                 ['type' => 'Label', 'caption' => '• IPs lassen sich gezielt von der Suche ausschließen (Feld „IPs ignorieren").'],
                 ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
                 ['type' => 'Label', 'caption' => '• 👋 Neue Zweck-Einführung „Wozu dieses Modul?" ganz oben im Formular — kurz und knapp, wofür MeterHubDiscovery gedacht ist, bevor es an die Bedienung geht.'],
+                ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen: „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBD_AckNews($id);'],
             ],
         ];
@@ -192,6 +197,7 @@ class MeterHubDiscovery extends IPSModule
     {
         $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
         $this->UpdateFormField('NewsPanel', 'visible', false);
+        $this->PropagateDismiss('News', self::NEWS_VERSION);
     }
 
     /** Symcon-Forum-Hinweis — einmalig dismissible, kein Versionsbezug, siehe MeterHubVirtual::ForumHint(). */
@@ -216,6 +222,100 @@ class MeterHubDiscovery extends IPSModule
     {
         $this->WriteAttributeBoolean('ForumHintGone', true);
         $this->UpdateFormField('ForumHintPanel', 'visible', false);
+        $this->PropagateDismiss('ForumHint');
+    }
+
+    /**
+     * Ausblenden von "Wozu dieses Modul?"/"Was ist Neu?"/Forum-Hinweis über
+     * alle Geschwister-Instanzen dieses Moduls teilen (Dietmar 14.09.2026,
+     * SUITE.md "Ausblenden über mehrere Instanzen desselben Moduls teilen").
+     * Ruft bei jeder Geschwister-Instanz NUR den reinen Übernahme-Schritt
+     * auf (AdoptDismissState), nicht erneut die volle Ack-Methode — dadurch
+     * kein Ping-Pong möglich, ganz ohne Prozessmerker: AdoptDismissState()
+     * propagiert selbst nie weiter.
+     */
+    private function PropagateDismiss(string $what, string $value = ''): void
+    {
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_DISCOVERY) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                MHUBD_AdoptDismissState($sib, $what, $value);
+            } catch (\Throwable $e) {
+                // Eine Geschwister-Instanz mitten im Reload/Löschen darf das
+                // Ausblenden der aufrufenden Instanz nicht mitreißen — @ hält
+                // Fatals bekanntlich nicht auf (siehe CLAUDE.md, MigrationsHub-
+                // Brücke).
+            }
+        }
+    }
+
+    /** Reiner Übernahme-Schritt für eine Geschwister-Instanz — siehe PropagateDismiss(). */
+    public function AdoptDismissState(string $what, string $value)
+    {
+        switch ($what) {
+            case 'PurposeIntro':
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+                $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+                break;
+            case 'ForumHint':
+                $this->WriteAttributeBoolean('ForumHintGone', true);
+                $this->UpdateFormField('ForumHintPanel', 'visible', false);
+                break;
+            case 'News':
+                $this->WriteAttributeString('SeenNews', $value);
+                $this->UpdateFormField('NewsPanel', 'visible', false);
+                break;
+        }
+    }
+
+    /** Für Geschwister-Instanzen, die beim erstmaligen Kontakt den Ausblenden-Stand übernehmen wollen — siehe AdoptDismissFromSibling(). */
+    public function GetDismissState(): array
+    {
+        return [
+            'purposeIntroGone' => $this->ReadAttributeBoolean('PurposeIntroGone'),
+            'forumHintGone'    => $this->ReadAttributeBoolean('ForumHintGone'),
+            'seenNews'         => $this->ReadAttributeString('SeenNews'),
+        ];
+    }
+
+    /**
+     * Gegenrichtung zu PropagateDismiss(): eine neu angelegte Instanz sieht
+     * beim ersten ApplyChanges() bei einer beliebigen Geschwister-Instanz
+     * nach und übernimmt deren Stand, statt die Hinweise erneut zu zeigen.
+     * Zieht nur vor (false→true, ältere→neuere News-Version), überschreibt
+     * nie einen schon weiter fortgeschrittenen eigenen Stand.
+     */
+    private function AdoptDismissFromSibling(): void
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone') && $this->ReadAttributeBoolean('ForumHintGone')
+            && $this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return;
+        }
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_DISCOVERY) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                $state = MHUBD_GetDismissState($sib);
+            } catch (\Throwable $e) {
+                continue;
+            }
+            if (!is_array($state)) {
+                continue;
+            }
+            if (!$this->ReadAttributeBoolean('PurposeIntroGone') && !empty($state['purposeIntroGone'])) {
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+            }
+            if (!$this->ReadAttributeBoolean('ForumHintGone') && !empty($state['forumHintGone'])) {
+                $this->WriteAttributeBoolean('ForumHintGone', true);
+            }
+            if ($this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION && ($state['seenNews'] ?? '') === self::NEWS_VERSION) {
+                $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+            }
+            break;
+        }
     }
 
     /**
@@ -298,6 +398,7 @@ class MeterHubDiscovery extends IPSModule
             $this->RegisterVariableBoolean('ScanAbort', 'Scan-Abbruch', '', 100);
             IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
         }
+        $this->AdoptDismissFromSibling();
     }
 
     // true, wenn während eines laufenden Scans „Abbrechen" geklickt wurde.

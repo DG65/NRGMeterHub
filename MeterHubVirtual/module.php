@@ -70,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.28.3';
+    private const NEWS_VERSION = '0.29.1';
 
     public function Create()
     {
@@ -209,6 +209,100 @@ class MeterHubVirtual extends IPSModule
     {
         $this->WriteAttributeBoolean('ForumHintGone', true);
         $this->UpdateFormField('ForumHintPanel', 'visible', false);
+        $this->PropagateDismiss('ForumHint');
+    }
+
+    /**
+     * Ausblenden von "Wozu dieses Modul?"/"Was ist Neu?"/Forum-Hinweis über
+     * alle Geschwister-Instanzen dieses Moduls teilen (Dietmar 14.09.2026,
+     * SUITE.md "Ausblenden über mehrere Instanzen desselben Moduls teilen").
+     * Ruft bei jeder Geschwister-Instanz NUR den reinen Übernahme-Schritt
+     * auf (AdoptDismissState), nicht erneut die volle Ack-Methode — dadurch
+     * kein Ping-Pong möglich, ganz ohne Prozessmerker: AdoptDismissState()
+     * propagiert selbst nie weiter.
+     */
+    private function PropagateDismiss(string $what, string $value = ''): void
+    {
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_VIRTUAL) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                MHUBV_AdoptDismissState($sib, $what, $value);
+            } catch (\Throwable $e) {
+                // Eine Geschwister-Instanz mitten im Reload/Löschen darf das
+                // Ausblenden der aufrufenden Instanz nicht mitreißen — @ hält
+                // Fatals bekanntlich nicht auf (siehe CLAUDE.md, MigrationsHub-
+                // Brücke).
+            }
+        }
+    }
+
+    /** Reiner Übernahme-Schritt für eine Geschwister-Instanz — siehe PropagateDismiss(). */
+    public function AdoptDismissState(string $what, string $value)
+    {
+        switch ($what) {
+            case 'PurposeIntro':
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+                $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+                break;
+            case 'ForumHint':
+                $this->WriteAttributeBoolean('ForumHintGone', true);
+                $this->UpdateFormField('ForumHintPanel', 'visible', false);
+                break;
+            case 'News':
+                $this->WriteAttributeString('SeenNews', $value);
+                $this->UpdateFormField('NewsPanel', 'visible', false);
+                break;
+        }
+    }
+
+    /** Für Geschwister-Instanzen, die beim erstmaligen Kontakt den Ausblenden-Stand übernehmen wollen — siehe AdoptDismissFromSibling(). */
+    public function GetDismissState(): array
+    {
+        return [
+            'purposeIntroGone' => $this->ReadAttributeBoolean('PurposeIntroGone'),
+            'forumHintGone'    => $this->ReadAttributeBoolean('ForumHintGone'),
+            'seenNews'         => $this->ReadAttributeString('SeenNews'),
+        ];
+    }
+
+    /**
+     * Gegenrichtung zu PropagateDismiss(): eine neu angelegte Instanz sieht
+     * beim ersten ApplyChanges() bei einer beliebigen Geschwister-Instanz
+     * nach und übernimmt deren Stand, statt die Hinweise erneut zu zeigen.
+     * Zieht nur vor (false→true, ältere→neuere News-Version), überschreibt
+     * nie einen schon weiter fortgeschrittenen eigenen Stand.
+     */
+    private function AdoptDismissFromSibling(): void
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone') && $this->ReadAttributeBoolean('ForumHintGone')
+            && $this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return;
+        }
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_VIRTUAL) as $sib) {
+            if ($sib === $this->InstanceID) {
+                continue;
+            }
+            try {
+                $state = MHUBV_GetDismissState($sib);
+            } catch (\Throwable $e) {
+                continue;
+            }
+            if (!is_array($state)) {
+                continue;
+            }
+            if (!$this->ReadAttributeBoolean('PurposeIntroGone') && !empty($state['purposeIntroGone'])) {
+                $this->WriteAttributeBoolean('PurposeIntroGone', true);
+            }
+            if (!$this->ReadAttributeBoolean('ForumHintGone') && !empty($state['forumHintGone'])) {
+                $this->WriteAttributeBoolean('ForumHintGone', true);
+            }
+            if ($this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION && ($state['seenNews'] ?? '') === self::NEWS_VERSION) {
+                $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+            }
+            break;
+        }
     }
 
     /**
@@ -269,6 +363,7 @@ class MeterHubVirtual extends IPSModule
     {
         $this->WriteAttributeBoolean('PurposeIntroGone', true);
         $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
+        $this->PropagateDismiss('PurposeIntro');
     }
 
     /**
@@ -320,6 +415,7 @@ class MeterHubVirtual extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🙏 Dank an Sepp Lausch (seppm) im Panel „Wozu dieses Modul?" und in der README — Betatester mit KNX-Zählertechnik-Fachwissen, hat dieses Modul entscheidend mitgeprägt.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Vertrag MHUBV_GetFunctions 1.3: liefert jetzt die Mitglieder („members") der Formel nach außen — damit kann das NRG-Dashboard Sammelzähler per Klick „aufschachteln" (verkettete virtuelle Zähler als Hierarchie). Ein reiner Zwischenknoten braucht dafür keine Funktion.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Schaltgruppe: neue Spalte „Schalter" für Mitglieder, die schalten UND messen (z. B. Z-Wave-Aktoren) — automatisch vorgeschlagen beim Übernehmen eines Geräts. Ab dem ersten schaltbaren, positiven Mitglied entstehen „Gruppe schalten" und „Gruppenstatus" an der Instanz. Nur positive Anteile werden mitgeschaltet, abgezogene Zeilen bewusst nicht.'],
+                ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen: „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
@@ -329,6 +425,7 @@ class MeterHubVirtual extends IPSModule
     {
         $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
         $this->UpdateFormField('NewsPanel', 'visible', false);
+        $this->PropagateDismiss('News', self::NEWS_VERSION);
     }
 
     /**
@@ -1422,6 +1519,9 @@ class MeterHubVirtual extends IPSModule
         } else {
             $this->RegisterMessage(0, IPS_KERNELMESSAGE);
         }
+        // Vor der Migrationsprüfung (die bei ausstehender Migration früh
+        // zurückkehrt) — das Ausblenden gilt unabhängig davon.
+        $this->AdoptDismissFromSibling();
 
         $rawRows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rawRows = is_array($rawRows) ? $rawRows : [];

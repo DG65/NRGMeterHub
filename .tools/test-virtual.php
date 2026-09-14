@@ -239,6 +239,11 @@ require_once dirname(__DIR__) . '/MeterHubVirtual/module.php';
 // PREFIX_ aufgerufenen Methoden nachgebildet (OriginFunctionFor()).
 function MHUB_GetFunctions($iid)  { return $GLOBALS['MODOBJ'][$iid]->GetFunctions(); }
 function MHUBV_GetFunctions($iid) { return $GLOBALS['MODOBJ'][$iid]->GetFunctions(); }
+// Geteiltes Ausblenden über Geschwister-Instanzen (0.29.1, Dietmar
+// 14.09.2026) — die echten Kernel-Wrapper, die MHUBV_AdoptDismissState()/
+// MHUBV_GetDismissState() auf die passende Instanz dispatchen.
+function MHUBV_AdoptDismissState($iid, $what, $value) { return ($GLOBALS['MODOBJ'][$iid] ?? null)->AdoptDismissState($what, $value); }
+function MHUBV_GetDismissState($iid) { return ($GLOBALS['MODOBJ'][$iid] ?? null)->GetDismissState(); }
 
 // ---------------------------------------------------------------------------
 // Anlage aufbauen: drei MeterHub-Instanzen mit je eigenen Kategorien
@@ -2004,6 +2009,39 @@ $n42 = [
 [, , $f42] = t35_call($a, 'DuplicateInfo', $n42);
 check('42: aktueller lastSeenAt macht die Anbindung frisch, auch bei active:false', ($f42[0] ?? null) === true, json_encode($f42));
 unset($GLOBALS['CONTRACT'][5000][0]['active']);
+
+echo "\n43) Geteiltes Ausblenden über Geschwister-Instanzen (0.29.1, Dietmar 14.09.2026 — Anlass: 54 MeterHub-Instanzen am Solarpark, jeder Hinweis sonst 54× einzeln wegzuklicken)\n";
+$newsVersion43 = (new ReflectionClass('MeterHubVirtual'))->getConstant('NEWS_VERSION');
+$sibA = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+IPS_ApplyChanges($sibA);
+$sibB = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+IPS_ApplyChanges($sibB);
+$sibC = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+IPS_ApplyChanges($sibC);
+// PurposeIntro (Block 28c) und News (Zeile ~604) wurden an früher im
+// Prüfstand angelegten Instanzen schon bestätigt — jede der drei neuen
+// Instanzen muss das beim eigenen ersten ApplyChanges() automatisch
+// übernehmen (AdoptDismissFromSibling()), ohne dass hier irgendwer
+// "Verstanden" geklickt hätte. Trotz der vielen anderswo im Prüfstand
+// angelegten GUID_VIRTUAL-Leichen ohne MODOBJ kein Absturz — genau der Fall,
+// den try/catch(\Throwable) statt @ abfängt.
+check('43a: neue Instanzen übernehmen bereits andernorts bestätigtes PurposeIntro/News automatisch', $GLOBALS['ATTR'][$sibA]['PurposeIntroGone'] === true && $GLOBALS['ATTR'][$sibB]['PurposeIntroGone'] === true && $GLOBALS['ATTR'][$sibA]['SeenNews'] === $newsVersion43 && $GLOBALS['ATTR'][$sibC]['SeenNews'] === $newsVersion43, json_encode([$GLOBALS['ATTR'][$sibA] ?? null, $GLOBALS['ATTR'][$sibC] ?? null]));
+check('43b: Forum-Hinweis ist dagegen noch nirgends bestätigt — echter, sauberer Ausgangspunkt', empty($GLOBALS['ATTR'][$sibA]['ForumHintGone']) && empty($GLOBALS['ATTR'][$sibB]['ForumHintGone']) && empty($GLOBALS['ATTR'][$sibC]['ForumHintGone']));
+
+$GLOBALS['MODOBJ'][$sibA]->AckForumHint();
+check('43c: A selbst bestätigt', $GLOBALS['ATTR'][$sibA]['ForumHintGone'] === true);
+check('43d: propagiert auf B und C', $GLOBALS['ATTR'][$sibB]['ForumHintGone'] === true && $GLOBALS['ATTR'][$sibC]['ForumHintGone'] === true);
+// Kein Ping-Pong nötig: AdoptDismissState() (das B und C hier ausführen) ruft
+// PropagateDismiss() selbst nirgends auf — strukturell garantiert, nicht nur
+// zur Laufzeit beobachtet. Der Lauf oben ist bereits der Beweis: B und C
+// haben die Bestätigung übernommen, ohne selbst erneut A/das jeweils andere
+// anzustoßen (sonst wäre PurposeIntro/News auf A/B/C hier durcheinandergeraten).
+
+// Neue Instanz NACH allen drei Bestätigungen: übernimmt beim ersten
+// ApplyChanges() automatisch den vollständigen Stand.
+$sibD = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+IPS_ApplyChanges($sibD);
+check('43e: neu hinzugekommene Instanz übernimmt den vollständigen Stand automatisch', $GLOBALS['ATTR'][$sibD]['PurposeIntroGone'] === true && $GLOBALS['ATTR'][$sibD]['ForumHintGone'] === true && $GLOBALS['ATTR'][$sibD]['SeenNews'] === $newsVersion43);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
