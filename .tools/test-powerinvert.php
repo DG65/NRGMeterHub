@@ -282,5 +282,25 @@ $pq->invoke($hub5);
 check('9: gelöschte Variable fällt aus der Schlange', $GLOBALS['ATTR'][500]['ReAggQueue'] === '[]');
 unset($GLOBALS['ACS']);
 
+echo "\n10) Funktionszuordnung ohne eigenes Label: Instanzname statt pauschalem Funktionsnamen (Dashboard-Fund Solarpark 14.09.2026 — 24 WR mit Funktion 'pv' hießen alle gleich \"PV-Erzeugung\")\n";
+$fa = new ReflectionMethod('MeterHub', 'FunctionAssignments');
+obj(600, 1, 'WR 4.1.01.02', 0);
+$hub6 = new MeterHub(600);
+$hub6->Create();
+$GLOBALS['PROP'][600]['FuncTotal'] = 'pv';
+$GLOBALS['PROP'][600]['FuncTotalLabel'] = '';
+check('10a: Instanz umbenannt → Label = Instanzname, nicht "PV-Erzeugung"', $fa->invoke($hub6)[0]['label'] === 'WR 4.1.01.02', json_encode($fa->invoke($hub6)));
+
+obj(601, 1, 'MeterHub', 0);   // nie umbenannt, Symcon-Standardname
+$hub7 = new MeterHub(601);
+$hub7->Create();
+$GLOBALS['PROP'][601]['FuncTotal'] = 'pv';
+$GLOBALS['PROP'][601]['FuncTotalLabel'] = '';
+check('10b: Instanz nie umbenannt (Standardname) → Rückfall auf Funktionsnamen', $fa->invoke($hub7)[0]['label'] === 'PV-Erzeugung', json_encode($fa->invoke($hub7)));
+
+$GLOBALS['PROP'][600]['FuncTotalLabel'] = 'Eigener Name';
+check('10c: eigenes Label hat weiterhin Vorrang vor dem Instanznamen', $fa->invoke($hub6)[0]['label'] === 'Eigener Name');
+$GLOBALS['PROP'][600]['FuncTotalLabel'] = '';
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

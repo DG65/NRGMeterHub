@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.29.0-beta.1 (2026-09-14)
+
+- **Funktionszuordnung ohne eigenes Label nimmt jetzt den Instanznamen** statt des
+  pauschalen Funktionsnamens (Dashboard-Fund am Solarpark: 24 einzelne WR-Instanzen mit
+  Funktion „PV-Erzeugung“ hießen auf der Kachel alle identisch, nicht zu unterscheiden).
+  Hat der Nutzer die Instanz umbenannt, wird dieser Name jetzt das Label — trägt sie noch
+  ihren unveränderten Symcon-Standardnamen, bleibt es beim bisherigen Funktionsnamen. Ein
+  gesetztes eigenes Label hat weiterhin Vorrang vor beidem. Betrifft alle Funktionen, nicht
+  nur `pv` — gilt für jeden Nutzer mit mehreren gleichfunktionalen Zählern.
+- Prüfstand `test-powerinvert.php` Block 10.
+
 ## 0.28.9-beta.1 (2026-09-13)
 
 - **0.28.8 zurückgenommen** (EMS-Korrektur, kurz nach dem Push): `active: false` im

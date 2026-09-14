@@ -3034,6 +3034,9 @@ class MeterHub extends IPSModule
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
+    // Unveränderter Symcon-Standardname (= module.json 'name') einer nie umbenannten
+    // Instanz — Marker für FunctionAssignments(), ob der Instanzname aussagekräftig ist.
+    private const DEFAULT_INSTANCE_NAME = 'MeterHub';
 
     /** Siehe MeterHubVirtual::PurposeIntro() für die volle Herleitung — steht ganz vorn, noch vor dem News-Panel. */
     private function PurposeIntro(): ?array
@@ -4618,10 +4621,23 @@ class MeterHub extends IPSModule
             }
             [$name, $icon] = self::FUNCTIONS[$key];
             $custom = trim($custom);
+            if ($custom !== '') {
+                $label = $custom;
+            } else {
+                // Ohne eigenes Label greift der Instanzname, wenn der Nutzer ihn
+                // gesetzt hat — sonst bleiben mehrere gleichfunktionale Zähler (z. B.
+                // 24 einzelne WR mit Funktion 'pv') alle gleich „PV-Erzeugung“
+                // beschriftet und sind auf einer Kachel nicht zu unterscheiden
+                // (Dashboard-Fund am Solarpark, 14.09.2026). Rückfall auf den
+                // pauschalen Funktionsnamen bleibt, solange die Instanz ihren
+                // Symcon-Standardnamen trägt — der ist kein aussagekräftiger Name.
+                $instName = trim(IPS_GetName($this->InstanceID));
+                $label = ($instName !== '' && $instName !== self::DEFAULT_INSTANCE_NAME) ? $instName : $name;
+            }
             $out[] = [
                 'slot'   => $slot,
                 'key'    => $key,
-                'label'  => $custom !== '' ? $custom : $name,
+                'label'  => $label,
                 'icon'   => $icon,
                 'power'  => $p,
                 'import' => $i,
