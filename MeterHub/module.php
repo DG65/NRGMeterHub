@@ -3030,7 +3030,7 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.29.1';
+    private const NEWS_VERSION = '0.29.3';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
@@ -3091,6 +3091,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• Damit lässt sich eine „Kette" aus vielen einzelnen, per SCADA-Adresse adressierten Geräten hinter einem blue\'Log über mehrere MeterHub-Instanzen abbilden und in MeterHubVirtual zu einer Feld-/NAP-Summe verketten.'],
                 ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen (z. B. viele Zähler am selben Solarpark): „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zähler ohne eigenes Anzeige-Label heißen jetzt wie ihre Instanz statt pauschal nach der Funktion (z. B. „WR 4.1.01.02" statt für alle Wechselrichter gleich „PV-Erzeugung") — sofern die Instanz umbenannt wurde, sonst bleibt der Funktionsname der Rückfall.'],
+                ['type' => 'Label', 'caption' => '• 🆕 „Rolle des Zählers" hat jetzt eine dritte Option „Unterzähler / Erzeuger" und wirkt sich erstmals wirklich aus: Für Unterzähler (Verbraucher oder Erzeuger, nicht „Netz-/NAP-Zähler") prüft eine neue Plausibilitätsprüfung, ob der Zähler über die Zeit überwiegend nur in eine Richtung misst — zeigt er dauerhaft beide Richtungen deutlich, passt vermutlich eher „Netz-/NAP-Zähler", oder die Verkabelung ist falsch gepolt. Ergebnis direkt unter der Rollen-Auswahl im Formular.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
@@ -3931,9 +3932,11 @@ class MeterHub extends IPSModule
                     'caption' => 'Rolle des Zählers',
                     'options' => [
                         ['caption' => 'Netz-/NAP-Zähler (+ Bezug / − Einspeisung)', 'value' => 'grid'],
-                        ['caption' => 'Unterzähler / Verbraucher (immer positiv)', 'value' => 'consumption'],
+                        ['caption' => 'Unterzähler / Verbraucher (misst in eine Richtung)', 'value' => 'consumption'],
+                        ['caption' => 'Unterzähler / Erzeuger (misst in eine Richtung)', 'value' => 'production'],
                     ],
                 ],
+                ['type' => 'Label', 'caption' => $this->RolePlausibilityFormText()],
                 [
                     'type'    => 'CheckBox',
                     'name'    => 'BillingGrade',
@@ -5248,8 +5251,17 @@ class MeterHub extends IPSModule
 
     /** Unter dieser Leistung (W) ist eine Richtung nicht sicher bestimmbar. */
     private const DIR_MIN_W = 100.0;
-    /** Diagnose-Vertrag (1.1 = independent/referenceIDs). Ein Zwischenspeicher mit anderer Version gilt als veraltet. */
-    private const DIAG_CONTRACT = '1.1';
+    /** Diagnose-Vertrag (1.1 = independent/referenceIDs, 1.2 = role_plausibility). Ein Zwischenspeicher mit anderer Version gilt als veraltet. */
+    private const DIAG_CONTRACT = '1.2';
+    /**
+     * Rollen-Plausibilität (Dietmars Auftrag 14.09.2026): Anteil der Zeit mit
+     * deutlich positiver/negativer Leistung, ab dem ein Unterzähler
+     * (Rolle „Verbraucher"/„Erzeuger") auffällig bzw. kritisch wird — beide
+     * Anteile müssen gleichzeitig erreicht sein, ein reiner Verbraucher/
+     * Erzeuger darf durchaus die eine oder andere Richtung dominant zeigen.
+     */
+    private const ROLE_SHARE_AUFFAELLIG = 0.05;
+    private const ROLE_SHARE_KRITISCH = 0.2;
 
     /**
      * Bezug/Abgabe-Paare dieser Instanz, [Bezug-Ident => [Bezug-ID, Abgabe-ID]]:
@@ -6114,6 +6126,17 @@ class MeterHub extends IPSModule
             }
             $out['entries'][] = $entry;
         }
+        // Rollen-Plausibilität (1.2): nur für Unterzähler (Verbraucher/Erzeuger),
+        // nicht für "Netz-/NAP-Zähler" — der darf naturgemäß in beide Richtungen
+        // messen. Instanzweit, nicht je Funktionszuordnung (Role ist keine
+        // Zuordnung, sondern eine Eigenschaft der Instanz selbst).
+        $role = $this->ReadPropertyString('Role');
+        if ($role === 'consumption' || $role === 'production') {
+            $pid = (int)$this->FindVarByIdent('power_total');
+            if ($pid > 0) {
+                $out['entries'][] = $this->RolePlausibility($pid, $role);
+            }
+        }
         return $out;
     }
 
@@ -6269,10 +6292,113 @@ class MeterHub extends IPSModule
         }
         $parts = [];
         foreach ($d['entries'] ?? [] as $e) {
+            if (($e['type'] ?? '') !== 'meter_direction') {
+                continue;
+            }
             $icon = ['normal' => '✅', 'auffaellig' => '⚠️', 'kritisch' => '❌'][$e['level'] ?? ''] ?? 'ℹ️';
             $parts[] = '🧭 ' . $e['label'] . ': ' . $icon . ' ' . $e['reason'];
         }
         return $parts ? implode("\n", $parts) : '🧭 Richtungsprüfung: nur bei Zählern mit der Funktion „Netzanschluss".';
+    }
+
+    /** Zeile unter der Rollen-Auswahl (Feld „Role"). */
+    private function RolePlausibilityFormText(): string
+    {
+        try {
+            $d = $this->GetDiagnostics();
+        } catch (\Throwable $e) {
+            return '';
+        }
+        foreach ($d['entries'] ?? [] as $e) {
+            if (($e['type'] ?? '') !== 'role_plausibility') {
+                continue;
+            }
+            $icon = ['normal' => '✅', 'auffaellig' => '⚠️', 'kritisch' => '❌'][$e['level'] ?? ''] ?? 'ℹ️';
+            return $icon . ' ' . $e['reason'];
+        }
+        return ''; // Rolle "Netz-/NAP-Zähler" oder gerade keine Aussage möglich — dann keine Zeile.
+    }
+
+    /**
+     * Plausibilitätsprüfung für Unterzähler (Rolle „Verbraucher"/„Erzeuger",
+     * nicht „Netz-/NAP-Zähler"): Ein reiner Verbraucher oder Erzeuger sollte
+     * über die Zeit überwiegend nur in EINE Richtung messen. Zeigt der Zähler
+     * über einen nennenswerten Anteil der Zeit SOWOHL deutlich positive ALS
+     * AUCH deutlich negative Leistung, passt die gewählte Rolle vermutlich
+     * nicht (eher ein Netzanschluss/bidirektionaler Zähler) oder die
+     * Verkabelung ist falsch gepolt. Bewusst konventionsunabhängig: ob ein
+     * Erzeuger seine Rohwerte positiv oder negativ liefert, ist
+     * herstellerabhängig (siehe CLAUDE.md „Registerkarten: erst messen, dann
+     * glauben") — geprüft wird nur, ob EINE Richtung überwiegt, nicht welche.
+     * Dietmars Auftrag 14.09.2026 (Nachfrage zur dritten Rollen-Option, zuvor
+     * war „Role" ein wirkungsloses Formularfeld).
+     */
+    private function RolePlausibility(int $pid, string $role): array
+    {
+        $now = time();
+        $entry = [
+            'type' => 'role_plausibility', 'slot' => 'total',
+            'label' => 'Rolle ' . IPS_GetName($this->InstanceID),
+            'level' => null, 'threshold' => self::ROLE_SHARE_AUFFAELLIG, 'reason' => '',
+            'role' => $role, 'powerID' => $pid,
+            'positiveShare' => null, 'negativeShare' => null, 'samples' => 0, 'checkedAt' => $now,
+        ];
+        $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        if (count($acs) === 0) {
+            $entry['reason'] = 'Kein Archiv-Modul gefunden — keine Prüfung möglich.';
+            return $entry;
+        }
+        $ac = $acs[0];
+        if (!AC_GetLoggingStatus($ac, $pid)) {
+            $entry['reason'] = 'Die Leistung wird nicht archiviert — keine Prüfung möglich.';
+            return $entry;
+        }
+        $from = intdiv($now - 172800, 300) * 300;
+        $means = self::SegmentMeans($this->LoadArchivePoints($ac, $pid, $from, $now), $this->LastValueBefore($ac, $pid, $from), $from, $now, 300);
+        $n = count($means);
+        if ($n < 24) {
+            $entry['reason'] = 'Noch zu wenig Messwerte für eine Aussage (mindestens 2 h nötig).';
+            return $entry;
+        }
+        $pos = 0;
+        $neg = 0;
+        foreach ($means as $w) {
+            if ($w > self::DIR_MIN_W) {
+                $pos++;
+            } elseif ($w < -self::DIR_MIN_W) {
+                $neg++;
+            }
+        }
+        $posShare = $pos / $n;
+        $negShare = $neg / $n;
+        $entry['positiveShare'] = round($posShare, 2);
+        $entry['negativeShare'] = round($negShare, 2);
+        $entry['samples'] = $n;
+        $roleLabel = $role === 'production' ? 'Erzeuger' : 'Verbraucher';
+        $entry['level'] = self::RoleShareLevel($posShare, $negShare);
+        if ($entry['level'] !== 'normal') {
+            $entry['reason'] = 'Als „Unterzähler / ' . $roleLabel . '" markiert, misst aber über die letzten 48 h sowohl deutlich positive ('
+                . round($posShare * 100) . ' % der Zeit) als auch deutlich negative Leistung (' . round($negShare * 100)
+                . ' % der Zeit) — für einen reinen ' . $roleLabel . ' untypisch. Passt eher „Netz-/NAP-Zähler", oder der Zähler misst falsch gepolt.';
+        } else {
+            $entry['reason'] = 'Misst über die letzten 48 h überwiegend in eine Richtung, passt zu „Unterzähler / ' . $roleLabel . '".';
+        }
+        return $entry;
+    }
+
+    /**
+     * Bewertung reiner Anteilswerte (frei von Symcon-Aufrufen, siehe
+     * RolePlausibility()): 'kritisch'/'auffaellig' nur wenn BEIDE Anteile die
+     * jeweilige Schwelle erreichen — eine reine Verbrauchs- oder
+     * Erzeugungsrichtung mit gelegentlichem Rauschen in der anderen Richtung
+     * bleibt 'normal'.
+     */
+    private static function RoleShareLevel(float $posShare, float $negShare): string
+    {
+        if ($posShare < self::ROLE_SHARE_AUFFAELLIG || $negShare < self::ROLE_SHARE_AUFFAELLIG) {
+            return 'normal';
+        }
+        return ($posShare >= self::ROLE_SHARE_KRITISCH && $negShare >= self::ROLE_SHARE_KRITISCH) ? 'kritisch' : 'auffaellig';
     }
 
     // -----------------------------------------------------------------------

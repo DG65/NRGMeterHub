@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.29.3-beta.1 (2026-09-14)
+
+- **„Rolle des Zählers" wirkt sich jetzt wirklich aus** (Dietmars Nachfrage 14.09.2026,
+  ausgelöst durch die fehlende dritte Option für PV-Erzeugung — das Feld war zuvor
+  registriert, im Formular sichtbar, aber im ganzen Modul nie ausgelesen). Neue dritte
+  Option **„Unterzähler / Erzeuger"** neben „Netz-/NAP-Zähler" und „Unterzähler /
+  Verbraucher". Für beide Unterzähler-Rollen läuft jetzt eine **Plausibilitätsprüfung**:
+  Ein reiner Verbraucher oder Erzeuger sollte über die Zeit überwiegend in eine Richtung
+  messen. Zeigt der Zähler über die letzten 48 h sowohl deutlich positive als auch
+  deutlich negative Leistung, ist das für einen Unterzähler untypisch — die Meldung
+  schlägt „Netz-/NAP-Zähler" als passendere Rolle vor, oder eine falsch gepolte
+  Verkabelung. Bewusst konventionsunabhängig: ob ein Erzeuger seine Rohwerte positiv
+  oder negativ liefert, ist herstellerabhängig — geprüft wird nur, ob EINE Richtung
+  überwiegt, nicht welche. Ergebnis direkt als Text unter der Rollen-Auswahl, zusätzlich
+  neuer Eintragstyp `role_plausibility` im Diagnose-Vertrag (`MHUB_GetDiagnostics` jetzt
+  1.2 — additiv, keine bestehenden Felder geändert).
+- Prüfstand `test-powerinvert.php` Block 11.
+
 ## 0.29.2-beta.1 (2026-09-14)
 
 - **Fix: Duplikat-Erkennung erkannte Geräte hinter demselben Modbus-TCP-Gateway

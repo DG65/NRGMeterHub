@@ -302,5 +302,15 @@ $GLOBALS['PROP'][600]['FuncTotalLabel'] = 'Eigener Name';
 check('10c: eigenes Label hat weiterhin Vorrang vor dem Instanznamen', $fa->invoke($hub6)[0]['label'] === 'Eigener Name');
 $GLOBALS['PROP'][600]['FuncTotalLabel'] = '';
 
+echo "\n11) Rollen-Plausibilität: reine Anteils-Bewertung (0.29.3, Dietmars Auftrag 14.09.2026 — dritte Rollen-Option \"Erzeuger\", zuvor war \"Role\" ein wirkungsloses Formularfeld)\n";
+$m11 = fn(...$a) => (new ReflectionMethod('MeterHub', 'RoleShareLevel'))->invoke(null, ...$a);
+check('11a: rein positiv (Verbraucher) → normal', $m11(0.9, 0.0) === 'normal');
+check('11b: rein negativ (Erzeuger, umgekehrte Rohkonvention) → normal', $m11(0.0, 0.9) === 'normal');
+check('11c: wenig Rauschen in der Gegenrichtung bleibt normal', $m11(0.9, 0.03) === 'normal');
+check('11d: beide Richtungen über der Auffällig-Schwelle, aber unter Kritisch → auffaellig', $m11(0.5, 0.1) === 'auffaellig');
+check('11e: beide Richtungen deutlich vertreten → kritisch (sieht nach Netzanschluss aus)', $m11(0.5, 0.5) === 'kritisch');
+check('11f: genau an der Auffällig-Schwelle zählt schon mit', $m11(0.05, 0.05) === 'auffaellig');
+check('11g: genau an der Kritisch-Schwelle zählt schon als kritisch', $m11(0.2, 0.2) === 'kritisch');
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
