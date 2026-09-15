@@ -3556,6 +3556,65 @@ class MeterHubVirtual extends IPSModule
      */
     private const CALC_ENERGY_IDENT_PREFIX = 'calc_energy_';
 
+    /**
+     * Plausibilitätssperre für AdvanceCalculatedEnergy() (15.09.2026,
+     * Solarpark-Fund): bisher schützte dort nur is_finite() gegen NaN/
+     * Unendlich — ein einzelner riesiger-aber-endlicher Fehl-Lesewert (z. B.
+     * eine verunglückte Modbus-Dekodierung bei einem der bekannten
+     * Verbindungsaussetzer) lief ungebremst durch und blieb dauerhaft in
+     * der kumulativen kWh-Variable stehen. Live beobachtet: eine 24er-
+     * WR-Gruppe sprang in 591 s um 998.698 kWh (≈ 6 GW).
+     *
+     * Referenzwert ist bewusst NICHT ein fester Watt-Grenzwert (verstieße
+     * gegen "keine eigene Anlage als Norm" — eine Balkonanlage und ein
+     * Solarpark haben völlig andere Maßstäbe), sondern der ROBUSTE MEDIAN
+     * der anderen Mitglieder DESSELBEN Durchlaufs (PlausiblePowerMedian()):
+     * Geräte derselben Gruppe unterscheiden sich unter normalen Bedingungen
+     * (auch bei Teilverschattung) nicht um Größenordnungen, ein Fehl-
+     * Lesewert schon. Braucht kein Verlaufsgedächtnis und passt sich damit
+     * automatisch an Tag/Nacht bzw. jede Anlagengröße an. Erst ab drei
+     * Mitgliedern mit gültiger Leistung sinnvoll auswertbar; darunter (und
+     * bei nahe Null liegendem Median, z. B. nachts) greift nur der
+     * generische Absolut-Deckel — kein realer Einzel-Messpunkt dieser Art
+     * erreicht 1 GW.
+     */
+    private const IMPLAUSIBLE_POWER_CEILING_W = 1_000_000_000.0;
+    private const IMPLAUSIBLE_POWER_FACTOR = 200.0;
+
+    /** Robuster Median der |Leistung| aller Mitglieder mit gültigem powerID im selben Durchlauf. */
+    private function PlausiblePowerMedian(array $nodes): array
+    {
+        $powers = [];
+        foreach ($nodes as $n) {
+            $pid = (int)($n['power'] ?? 0);
+            if ($pid > 0 && IPS_VariableExists($pid)) {
+                $v = (float)GetValue($pid);
+                if (is_finite($v)) {
+                    $powers[] = abs($v);
+                }
+            }
+        }
+        sort($powers);
+        $c = count($powers);
+        if ($c === 0) {
+            return [0.0, 0];
+        }
+        $median = $c % 2 ? $powers[intdiv($c, 2)] : ($powers[$c / 2 - 1] + $powers[$c / 2]) / 2;
+        return [$median, $c];
+    }
+
+    /** true = $abs (W) gilt als plausibel und darf in AdvanceCalculatedEnergy() einfließen. */
+    private function PlausiblePower(float $abs, float $median, int $peerCount): bool
+    {
+        if ($abs > self::IMPLAUSIBLE_POWER_CEILING_W) {
+            return false;
+        }
+        if ($peerCount >= 3 && $median > 1.0 && $abs > $median * self::IMPLAUSIBLE_POWER_FACTOR) {
+            return false;
+        }
+        return true;
+    }
+
     /** Ist $vid eine von dieser Instanz selbst angelegte "Energie hochgerechnet"-Variable? */
     private function IsOwnCalculatedEnergyVar(int $vid): bool
     {
@@ -3655,13 +3714,19 @@ class MeterHubVirtual extends IPSModule
     private function AdvanceCalculatedEnergy(array $nodes): void
     {
         $intervalHours = max(2, $this->ReadPropertyInteger('Interval')) / 3600.0;
+        [$median, $peerCount] = $this->PlausiblePowerMedian($nodes);
         foreach ($nodes as $n) {
             $powerId = (int)$n['power'];
             if ($powerId <= 0 || !IPS_VariableExists($powerId)) {
                 continue;
             }
-            $deltaKWh = (float)GetValue($powerId) * $intervalHours / 1000.0;
+            $power = (float)GetValue($powerId);
+            $deltaKWh = $power * $intervalHours / 1000.0;
             if (!is_finite($deltaKWh)) {
+                continue;
+            }
+            if (!$this->PlausiblePower(abs($power), $median, $peerCount)) {
+                $this->SendDebug('Energie hochrechnen', IPS_GetName($powerId) . ": Leistung $power W wirkt unplausibel (Median der Gruppe " . round($median) . " W, $peerCount Mitglieder) — dieser Durchlauf nicht verrechnet.", 0);
                 continue;
             }
             foreach (['imp', 'exp'] as $ef) {

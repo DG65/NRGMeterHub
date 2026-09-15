@@ -1206,6 +1206,38 @@ Viertelstunden-Raster (`ts % 900 === 0`), entfernt werden nur Live-Punkte, die o
 eng umschließen (≤ 30 min je Seite) oder die am Ende unter dem letzten offiziellen Stand
 liegen. Maß für den Schaden: `CounterOvercount()` (Summe positiver Schritte − Nettozunahme).
 
+## MeterHubVirtual: Plausibilitätssperre gegen Fehl-Lesewerte bei hochgerechneter Energie (0.29.5, 15.09.2026)
+
+**Auslöser:** Dietmar prüfte live die „errechneten Energiewerte" der Solarpark-Trafo-Gruppen und
+fand sie offensichtlich falsch (eine 24-WR-Gruppe mit ~350 kW Momentanleistung zeigte 1,66 Mio.
+kWh kumulierte Einspeisung). Untersuchung ergab: `AdvanceCalculatedEnergy()` prüfte bis dahin nur
+`is_finite($deltaKWh)` — das fängt NaN/Unendlich ab, aber keinen einzelnen riesigen-aber-
+endlichen Fehl-Lesewert. Live gefunden: eine Gruppe sprang in 591 s um 998.698 kWh (≈ 6 GW,
+vermutlich eine verunglückte Modbus-Dekodierung bei einem der bekannten „Socket ist nicht
+verbunden"-Aussetzer). Betroffen waren ausschließlich die vier großen 24-WR-Gruppen — die acht
+kleinen Gruppen (1–2 Mitglieder) waren sauber, was zur Ursache passt: mehr Mitglieder = mehr
+Gelegenheiten für einen einzelnen Fehl-Lesewert während eines Verdrahtungs-/Reload-Vorgangs.
+
+**Fix:** `PlausiblePower()`/`PlausiblePowerMedian()` — jeder Leistungswert wird vor dem
+Verrechnen gegen den **robusten Median der anderen Mitglieder DESSELBEN Durchlaufs** geprüft
+(200-facher Deckel), erst ab drei Mitgliedern mit gültiger Leistung sinnvoll auswertbar. Bewusst
+KEIN fester Watt-Grenzwert (verstieße gegen „keine eigene Anlage als Norm" — Balkonanlage und
+Solarpark haben andere Maßstäbe) und kein Verlaufsgedächtnis nötig (der Median berechnet sich
+aus den aktuellen Werten desselben Aufrufs, passt sich also automatisch an Tag/Nacht an). Darunter
+und bei nahe Null liegendem Median (nachts) greift nur ein genereller Absolut-Deckel (1 GW) — kein
+realer Einzel-Messpunkt dieser Art erreicht das. Anders als `CounterGuardStep()` bei echten
+Zählern gibt es hier keine „Bestätigung nach N Malen"-Logik: ein abgelehnter Wert wird beim
+nächsten Durchlauf einfach erneut geprüft, ohne Strafe.
+
+Verifiziert in `.tools/test-virtual.php` Block 45: normale Werte laufen unverändert durch, ein
+einzelner Fehl-Lesewert wird bei ≥3 Mitgliedern verworfen (die anderen rechnen unbeeinflusst
+weiter), keine Dauersperre sobald der Wert wieder plausibel ist, unter drei Mitgliedern greift
+nur der Absolut-Deckel.
+
+**Noch offen:** die bereits im Solarpark-Archiv stehenden Fehl-Sprünge selbst — das ist eine
+separate, mit Dietmar abzustimmende Bereinigung der Live-Daten (kommerzielle Anlage, kein
+automatischer Zugriff ohne seine Bestätigung), nicht Teil dieses Fixes.
+
 ## Modbus: eine Verbindung je Zyklus (0.26.5, 12.09.2026)
 
 `MHUB_ModbusTcpClient` öffnet die TCP-Verbindung bei der ersten Anfrage und hält sie,

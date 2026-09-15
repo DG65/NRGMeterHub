@@ -2064,5 +2064,72 @@ check('44b: gleiche Host-IP UND gleiche Unit-ID → weiterhin dieselbe Kennung (
 check('44c: SameDevice() erkennt 151/154 dadurch nicht mehr als dasselbe Gerät', $m39('SameDevice', $id70000, $id70001, null, null) === null);
 check('44d: SameDevice() erkennt die echte Dublette (gleiche Host-IP + Unit-ID) weiterhin', $m39('SameDevice', $id70000, $id70002, null, null) === 'gleiche IP-Adresse 192.168.200.204:151');
 
+echo "\n45) Plausibilitätssperre gegen Fehl-Lesewerte in AdvanceCalculatedEnergy() (15.09.2026, Solarpark-Fund: eine 24er-WR-Gruppe sprang in 591 s um 998.698 kWh, weil nur is_finite() prüfte)\n";
+$plausCat = obj(63000, 0, 'Plausibilitäts-Test', 10);
+vari(63001, 'WR A', $plausCat, '', 'MHB.W', 300.0);
+vari(63002, 'WR B', $plausCat, '', 'MHB.W', 310.0);
+vari(63003, 'WR C', $plausCat, '', 'MHB.W', 290.0);
+
+$plausIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($plausIid, 1, 'Plausibilitäts-Instanz', 10);
+IPS_SetProperty($plausIid, 'Interval', 3600); // 1 Stunde -- macht die Rechnung leicht nachvollziehbar
+IPS_SetProperty($plausIid, 'Nodes', json_encode([
+    ['Name' => 'WR A', 'Factor' => 100, 'PowerID' => 63001, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+    ['Name' => 'WR B', 'Factor' => 100, 'PowerID' => 63002, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+    ['Name' => 'WR C', 'Factor' => 100, 'PowerID' => 63003, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+]));
+IPS_ApplyChanges($plausIid);
+$plaus = $GLOBALS['MODOBJ'][$plausIid];
+$plaus->AddCalculatedEnergy(IPS_GetProperty($plausIid, 'Nodes'));
+$rows45 = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+IPS_SetProperty($plausIid, 'Nodes', json_encode($rows45));
+IPS_ApplyChanges($plausIid); // ruft am Ende selbst schon einen Durchlauf, siehe Block 24d
+
+$calcA = $calcB = $calcC = null;
+foreach ($rows45 as $r) {
+    if ($r['Name'] === 'WR A') { $calcA = (int)$r['EnergyImportID']; }
+    if ($r['Name'] === 'WR B') { $calcB = (int)$r['EnergyImportID']; }
+    if ($r['Name'] === 'WR C') { $calcC = (int)$r['EnergyImportID']; }
+}
+check('45a: alle drei Mitglieder bekommen eine hochgerechnete Variable', $calcA > 0 && $calcB > 0 && $calcC > 0);
+check('45a: erster Durchlauf (aus ApplyChanges) rechnet normal: 300 W × 1 h = 0,3 kWh', abs(GetValue($calcA) - 0.3) < 0.0001, 'ist ' . GetValue($calcA));
+
+echo "\n  45b) Ein einzelner Fehl-Lesewert (weit über dem robusten Median der anderen Mitglieder) wird NICHT verrechnet\n";
+SetValueFloat(63002, 100000.0); // WR B: 100 kW statt 310 W -- Median der drei bleibt bei 300 W, 200-facher Deckel = 60 kW
+[$beforeA, $beforeB, $beforeC] = [GetValue($calcA), GetValue($calcB), GetValue($calcC)];
+$plaus->Recalc();
+check('45b: WR B (Fehl-Lesewert) bleibt unverändert -- kein Zuwachs verrechnet', GetValue($calcB) === $beforeB, 'vorher ' . $beforeB . ', nachher ' . GetValue($calcB));
+check('45b: WR A rechnet trotzdem normal weiter (0,3 + 0,3 = 0,6 kWh)', abs(GetValue($calcA) - ($beforeA + 0.3)) < 0.0001, 'ist ' . GetValue($calcA));
+check('45b: WR C rechnet trotzdem normal weiter (0,29 + 0,29 = 0,58 kWh)', abs(GetValue($calcC) - ($beforeC + 0.29)) < 0.0001, 'ist ' . GetValue($calcC));
+
+echo "\n  45c) Kein Verlaufsgedächtnis: sobald WR B wieder plausible Werte liefert, rechnet es normal weiter -- keine Dauersperre\n";
+SetValueFloat(63002, 305.0);
+$beforeB2 = GetValue($calcB);
+$plaus->Recalc();
+check('45c: WR B rechnet sofort wieder normal (305 W × 1 h = 0,305 kWh dazu)', abs(GetValue($calcB) - ($beforeB2 + 0.305)) < 0.0001, 'ist ' . GetValue($calcB));
+
+echo "\n  45d) Unter drei Mitgliedern greift kein Median-Vergleich -- nur der generische Absolut-Deckel (1 GW)\n";
+$smallCat = obj(63100, 0, 'Kleingruppen-Test', 10);
+vari(63101, 'Einzelzähler', $smallCat, '', 'MHB.W', 5000000.0); // 5 MW -- gross, aber plausibel für einen einzelnen Großverbraucher
+$smallIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($smallIid, 1, 'Kleingruppen-Instanz', 10);
+IPS_SetProperty($smallIid, 'Interval', 3600);
+IPS_SetProperty($smallIid, 'Nodes', json_encode([
+    ['Name' => 'Einzelzähler', 'Factor' => 100, 'PowerID' => 63101, 'EnergyImportID' => 0, 'EnergyExportID' => 0],
+]));
+IPS_ApplyChanges($smallIid);
+$small = $GLOBALS['MODOBJ'][$smallIid];
+$small->AddCalculatedEnergy(IPS_GetProperty($smallIid, 'Nodes'));
+$rows45d = json_decode($GLOBALS['FORMFIELDS']['Nodes']['values'] ?? '[]', true);
+IPS_SetProperty($smallIid, 'Nodes', json_encode($rows45d));
+IPS_ApplyChanges($smallIid);
+$calcSmall = (int)($rows45d[0]['EnergyImportID'] ?? 0);
+check('45d: 5 MW an einem einzelnen Mitglied wird normal verrechnet (kein Peer zum Vergleich, unter dem Deckel)', abs(GetValue($calcSmall) - 5000.0) < 0.001, 'ist ' . GetValue($calcSmall));
+
+SetValueFloat(63101, 2000000000.0); // 2 GW -- kein realer Einzel-Messpunkt dieser Art, muss am Absolut-Deckel scheitern
+$beforeSmall = GetValue($calcSmall);
+$small->Recalc();
+check('45d: 2 GW überschreitet den Absolut-Deckel (1 GW) und wird verworfen, auch ohne Peers', GetValue($calcSmall) === $beforeSmall, 'vorher ' . $beforeSmall . ', nachher ' . GetValue($calcSmall));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

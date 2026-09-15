@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.29.5-beta.1 (2026-09-15)
+
+- **Fix: Plausibilitätssperre gegen Fehl-Lesewerte bei hochgerechneter Energie.**
+  Live am Solarpark gefunden: `AdvanceCalculatedEnergy()` (MeterHubVirtual) prüfte bisher nur
+  `is_finite()` gegen NaN/Unendlich — ein einzelner riesiger-aber-endlicher Fehl-Lesewert (z. B.
+  eine verunglückte Modbus-Dekodierung bei einem Verbindungsaussetzer) lief ungebremst durch und
+  blieb dauerhaft in der kumulativen kWh-Variable stehen. Beobachtet: eine 24er-WR-Gruppe sprang
+  in 591 s um 998.698 kWh (≈ 6 GW). Neu: jeder Leistungswert wird vor dem Verrechnen gegen den
+  robusten Median der anderen Mitglieder DESSELBEN Durchlaufs geprüft (kein fester Watt-
+  Grenzwert — passt sich jeder Anlagengröße automatisch an), plus ein genereller Absolut-Deckel
+  (1 GW) für Gruppen mit weniger als drei Mitgliedern. Kein Verlaufsgedächtnis nötig: sobald ein
+  Mitglied wieder plausible Werte liefert, rechnet es im nächsten Durchlauf normal weiter.
+- Prüfstand `test-virtual.php` Block 45.
+
 ## 0.29.4-beta.1 (2026-09-15)
 
 - Forum-Hinweis (alle drei Module): Platzhalter-Link durch den echten Community-Thread ersetzt
