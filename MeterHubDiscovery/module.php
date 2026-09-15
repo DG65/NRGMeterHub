@@ -129,7 +129,7 @@ class MeterHubDiscovery extends IPSModule
     }
 
     private const NEWS_VERSION = '0.29.1';
-    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/PLATZHALTER-meterhub-thread-folgt/00000';
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
     // Eigene Modul-GUID (= module.json 'id') für das geteilte Ausblenden über
@@ -211,7 +211,6 @@ class MeterHubDiscovery extends IPSModule
             'caption' => '💬  Feedback im Symcon-Forum',
             'items' => [
                 ['type' => 'Label', 'caption' => 'MeterHubDiscovery ist Beta — Rückmeldungen, gerade zu neu erkannten Zählertypen, sind ausdrücklich willkommen im Community-Thread.'],
-                ['type' => 'Label', 'caption' => '⚠️ Platzhalter-Link, Thread noch nicht veröffentlicht.'],
                 ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBD_AckForumHint($id);'],
             ],

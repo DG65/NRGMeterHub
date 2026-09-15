@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.29.4-beta.1 (2026-09-15)
+
+- Forum-Hinweis (alle drei Module): Platzhalter-Link durch den echten Community-Thread ersetzt
+  (Dietmar hat den Einführungs-Thread veröffentlicht). Warnhinweis „Platzhalter-Link, Thread
+  noch nicht veröffentlicht" entfernt.
+
 ## 0.29.3-beta.1 (2026-09-14)
 
 - **„Rolle des Zählers" wirkt sich jetzt wirklich aus** (Dietmars Nachfrage 14.09.2026,
