@@ -594,6 +594,13 @@ drinnstehen würde") — `FORUM_THREAD_URL` trägt in allen drei Modulen denselb
 Warnhinweis im Panel-Text. **Vor dem tatsächlichen Store-Release durch den echten Thread-Link
 ersetzen** — in allen drei Modulen gleichzeitig, sonst laufen sie auseinander.
 
+**Erledigt (0.29.4-beta.1, 15.09.2026):** Dietmar hat den Thread veröffentlicht
+(community.symcon.de, „[Beta-Tester gesucht] NRG-Stack MeterHub / Energiezähler …"), Platzhalter
+in allen drei Modulen durch den echten Link ersetzt, Warnhinweis entfernt. `ems-integration`
+wurde bei dieser Gelegenheit außerdem komplett per Fast-Forward nach `beta` gemerged (135
+Commits Rückstand, 0 Commits auf `beta` unabhängig davon — reiner Fast-Forward, kein Konflikt),
+`beta` ist damit auf demselben Stand wie `ems-integration`.
+
 ## Formularfelder live umschalten: `onChange` + `UpdateFormField`, nicht `PropertyCondition`
 
 **Auslöser:** Dietmar legte eine Inexogy-Instanz an und sah weiterhin das Host-Feld
