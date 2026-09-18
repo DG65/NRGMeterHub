@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.29.6-beta.1 (2026-09-18)
+
+- **Neu: zweiter Verbindungsweg „Symbox-Gateway" (Vorbereitung, noch nicht funktionsfähig).**
+  SUITE.md 9j, Dietmars Auftrag 18.09.2026: Symcons eingebaute Symbox-Hardware bietet ihren
+  RS485-Port nicht als eigenen ansprechbaren Socket an, sondern ausschließlich über Symcons
+  native Modbus-Gateway-I/O-Instanz (Parent-Instanz + Kind-Instanzen, Datenaustausch über
+  `SendDataToParent`/`ForwardData`) — ein strukturell anderer Weg als der bisherige direkte
+  (`fsockopen`). Neues Formularfeld „Verbindungsweg" (Direkt/Symbox-Gateway) und neue Klasse
+  `MHUB_ModbusGatewayClient` (gemeinsame Schnittstelle `MHUB_ModbusClientInterface` mit der
+  bestehenden `MHUB_ModbusTcpClient`, mit InverterHub/ChargerHub für eine spätere gemeinsame
+  Klasse abgestimmt) legen die Fassade an. Das eigentliche Nutzlastformat von
+  `SendDataToParent`/`ForwardData` ist öffentlich nicht dokumentiert und ohne echte
+  Symbox-Testhardware nicht seriös zu klären — bis dahin liefert der neue Verbindungsweg
+  kontrolliert `null`/`false` (nie einen Fatal Error) plus einen einmaligen Protokollhinweis,
+  im Formular deutlich als „noch nicht funktionsfähig" gekennzeichnet. Der bisherige direkte
+  Weg bleibt unverändert und ist weiterhin die einzige produktive Option.
+- Prüfstand `test-modbus-client.php` Block 6.
+
 ## 0.29.5-beta.1 (2026-09-15)
 
 - **Fix: Plausibilitätssperre gegen Fehl-Lesewerte bei hochgerechneter Energie.**

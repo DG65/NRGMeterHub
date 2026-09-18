@@ -1,6 +1,7 @@
 <?php
 /**
  * Prüfstand MHUB_ModbusTcpClient: eine Verbindung je Lesezyklus (0.26.5).
+ * Block 6 prüft zusätzlich MHUB_ModbusGatewayClient (0.29.6, SUITE.md 9j).
  *
  *   php .tools/test-modbus-client.php    # 0 = alle Prüfungen bestanden
  *
@@ -22,6 +23,9 @@ if (!class_exists('IPSModule')) {
 }
 foreach (['VARIABLETYPE_BOOLEAN' => 0, 'VARIABLETYPE_INTEGER' => 1, 'VARIABLETYPE_FLOAT' => 2, 'VARIABLETYPE_STRING' => 3, 'KR_READY' => 10103] as $c => $v) {
     if (!defined($c)) { define($c, $v); }
+}
+if (!function_exists('IPS_LogMessage')) {
+    function IPS_LogMessage($s, $m) { $GLOBALS['LOG'][] = $m; }
 }
 require_once dirname(__DIR__) . '/MeterHub/module.php';
 
@@ -164,6 +168,17 @@ stopServer($s);
 echo "5) Kein Server erreichbar: sauber null, kein Hängen\n";
 $mb = new MHUB_ModbusTcpClient('127.0.0.1', 1, 1);
 check('null und Grund connect', $mb->readHolding(1, 1) === null && $mb->lastError === 'connect', $mb->lastError);
+
+echo "6) MHUB_ModbusGatewayClient (SUITE.md 9j, Stub bis Nutzlastformat geklärt)\n";
+$GLOBALS['LOG'] = [];
+$gw = new MHUB_ModbusGatewayClient('127.0.0.1', 502, 1);
+check('implementiert MHUB_ModbusClientInterface', $gw instanceof MHUB_ModbusClientInterface);
+check('readHolding liefert kontrolliert null statt Fatal Error', $gw->readHolding(1, 1) === null);
+check('readInput liefert kontrolliert null', $gw->readInput(1, 1) === null);
+check('writeHolding liefert kontrolliert false', $gw->writeHolding(1, [42]) === false);
+check('close() ist gefahrlos aufrufbar (No-Op)', ($gw->close() ?? true) === true);
+check('genau EIN Protokollhinweis trotz mehrerer Aufrufe', count($GLOBALS['LOG']) === 1, (string)count($GLOBALS['LOG']));
+check('Register-Dekodierung identisch zu MHUB_ModbusTcpClient (Float32)', $gw->readFloat32([16968, 0], 0) === (new MHUB_ModbusTcpClient('x', 1, 1))->readFloat32([16968, 0], 0));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

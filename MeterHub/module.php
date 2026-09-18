@@ -19,7 +19,20 @@
 // MHUB_WritableMeterDriverInterface, das rein lesende Treiber nicht berührt.
 // ===========================================================================
 
-class MHUB_ModbusTcpClient
+// Gemeinsame Schnittstelle der beiden Verbindungswege (direkt/Gateway, siehe
+// MHUB_ModbusGatewayClient weiter unten) — GetModbusClient() liefert je nach
+// Property 'ConnectionMode' die eine oder die andere Klasse, Treibercode
+// bleibt unverändert.
+interface MHUB_ModbusClientInterface
+{
+    public function readHolding($startReg, $count);
+    public function readInput($startReg, $count);
+    public function writeHolding($startReg, array $regs): bool;
+    public function close(): void;
+    public function setWordSwap(bool $s);
+}
+
+class MHUB_ModbusTcpClient implements MHUB_ModbusClientInterface
 {
     public $host;
     public $port;
@@ -295,6 +308,148 @@ class MHUB_ModbusTcpClient
         }
         $rfc = ord($pdu[0]);
         return !($rfc & 0x80) && $rfc === 0x10;
+    }
+}
+
+// ===========================================================================
+// MHUB_ModbusGatewayClient — zweiter Verbindungsweg über Symcons natives
+// Modbus-Gateway (eingebauter RS485-Port einer Symbox), zusätzlich zum
+// bisherigen direkten fsockopen-Weg (MHUB_ModbusTcpClient), NICHT als Ersatz.
+// Abgestimmte gemeinsame Fassade mit InverterHub/ChargerHub (SUITE.md 9j,
+// Dietmars Auftrag 18.09.2026) — dieselbe öffentliche Schnittstelle wie
+// MHUB_ModbusTcpClient (MHUB_ModbusClientInterface), damit GetModbusClient()
+// zwischen beiden Wegen umschalten kann, ohne dass Treiber-Code sich
+// unterscheiden muss.
+//
+// STUB (18.09.2026): Das genaue Nutzlastformat von SendDataToParent()/
+// ForwardData() gegen Symcons natives ModBus-Gateway ({A5F663AB-C400-4FE5-
+// B207-4D67CC030564}, DataID {E310B701-4AE7-458E-B618-EC13A1A6F6A8} laut
+// community.symcon.de Thread 131854) ist öffentlich nicht dokumentiert —
+// weder SDK-Doku noch Modulreferenz noch Community zeigen das vollständige
+// Feldschema (Function Code/Adresse/Quantity/Unit-ID-Kodierung), und ohne
+// echte Symbox-Testhardware im Verbund nicht seriös zu erraten. Bis das
+// geklärt ist, liefert jede Anfrage kontrolliert null/false (nie einen
+// Fatal Error) plus einen einmaligen Protokollhinweis.
+// ===========================================================================
+class MHUB_ModbusGatewayClient implements MHUB_ModbusClientInterface
+{
+    public $host;
+    public $port;
+    public $unitId;
+    public $wordSwap = false;
+
+    private static $warned = false;
+
+    public function __construct($host, $port, $unitId)
+    {
+        $this->host   = $host;
+        $this->port   = $port;
+        $this->unitId = $unitId;
+    }
+
+    private function stub(): void
+    {
+        if (!self::$warned) {
+            self::$warned = true;
+            IPS_LogMessage('MeterHub', 'Verbindungsweg "Symbox-Gateway" ist noch nicht implementiert (Nutzlastformat ungeklärt, SUITE.md 9j) — Instanz liefert bis dahin keine Werte.');
+        }
+    }
+
+    public function readHolding($startReg, $count)
+    {
+        $this->stub();
+        return null;
+    }
+
+    public function readInput($startReg, $count)
+    {
+        $this->stub();
+        return null;
+    }
+
+    public function writeHolding($startReg, array $regs): bool
+    {
+        $this->stub();
+        return false;
+    }
+
+    public function close(): void
+    {
+    }
+
+    public function setWordSwap(bool $s)
+    {
+        $this->wordSwap = $s;
+    }
+
+    // Register-Dekodierung — inhaltlich identisch zu MHUB_ModbusTcpClient,
+    // bewusst dupliziert statt geteilt (reine, zustandslose Funktionen ohne
+    // Bezug zum Verbindungsweg; dieselbe Konvention wie CompactionPlan()
+    // zwischen MeterHub/MeterHubVirtual — kein Code-Sharing zwischen
+    // IPS-Modulen möglich, hier zwischen zwei Klassen bewusst genauso
+    // gehandhabt statt eines Traits, um MHUB_ModbusTcpClient unangetastet
+    // zu lassen).
+    public function u16($regs, $offset)
+    {
+        return isset($regs[$offset]) ? ($regs[$offset] & 0xFFFF) : 0;
+    }
+
+    public function u32($regs, $offset)
+    {
+        return (($this->u16($regs, $offset) << 16) | $this->u16($regs, $offset + 1));
+    }
+
+    public function s32($regs, $offset)
+    {
+        $v = $this->u32($regs, $offset);
+        return $v > 2147483647 ? $v - 4294967296 : $v;
+    }
+
+    public function u32sw($regs, $offset)
+    {
+        return (($this->u16($regs, $offset + 1) << 16) | $this->u16($regs, $offset));
+    }
+
+    public function s32sw($regs, $offset)
+    {
+        $v = $this->u32sw($regs, $offset);
+        return $v > 2147483647 ? $v - 4294967296 : $v;
+    }
+
+    public function readFloat32($regs, $offset)
+    {
+        $w0 = $this->u16($regs, $offset);
+        $w1 = $this->u16($regs, $offset + 1);
+        if ($this->wordSwap) {
+            $tmp = $w0; $w0 = $w1; $w1 = $tmp;
+        }
+        $raw = pack('nn', $w0, $w1);
+        $val = unpack('G', $raw);
+        return (float)($val[1] ?? 0.0);
+    }
+
+    public function readDouble64($regs, $offset)
+    {
+        $w = [
+            $this->u16($regs, $offset),
+            $this->u16($regs, $offset + 1),
+            $this->u16($regs, $offset + 2),
+            $this->u16($regs, $offset + 3),
+        ];
+        if ($this->wordSwap) {
+            $w = array_reverse($w);
+        }
+        $raw = pack('nnnn', $w[0], $w[1], $w[2], $w[3]);
+        $val = unpack('E', $raw);
+        return (float)($val[1] ?? 0.0);
+    }
+
+    public function packFloat32(float $value): array
+    {
+        $u = unpack('n2', pack('G', $value));
+        $w0 = $u[1];
+        $w1 = $u[2];
+        return $this->wordSwap ? [$w1, $w0] : [$w0, $w1];
     }
 }
 
@@ -2908,6 +3063,12 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
         $this->RegisterPropertyInteger('UnitId', 1);
+        // Verbindungsweg (SUITE.md 9j, Dietmars Auftrag 18.09.2026): zusätzlich
+        // zum bisherigen direkten Weg (fsockopen, s. o.) optional über Symcons
+        // natives Modbus-Gateway (eingebauter RS485-Port einer Symbox). Stub,
+        // bis das SendDataToParent/ForwardData-Nutzlastformat geklärt ist —
+        // siehe MHUB_ModbusGatewayClient.
+        $this->RegisterPropertyString('ConnectionMode', 'direct');
 
         // Sollwert-Schreibzugriff (blue'Log RPC/Power Control, Dietmars
         // Auftrag 07.09.2026 — Ersatz für die bisher in PHP-Skripten
@@ -3030,7 +3191,7 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.29.3';
+    private const NEWS_VERSION = '0.29.6';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
@@ -3092,6 +3253,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen (z. B. viele Zähler am selben Solarpark): „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zähler ohne eigenes Anzeige-Label heißen jetzt wie ihre Instanz statt pauschal nach der Funktion (z. B. „WR 4.1.01.02" statt für alle Wechselrichter gleich „PV-Erzeugung") — sofern die Instanz umbenannt wurde, sonst bleibt der Funktionsname der Rückfall.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „Rolle des Zählers" hat jetzt eine dritte Option „Unterzähler / Erzeuger" und wirkt sich erstmals wirklich aus: Für Unterzähler (Verbraucher oder Erzeuger, nicht „Netz-/NAP-Zähler") prüft eine neue Plausibilitätsprüfung, ob der Zähler über die Zeit überwiegend nur in eine Richtung misst — zeigt er dauerhaft beide Richtungen deutlich, passt vermutlich eher „Netz-/NAP-Zähler", oder die Verkabelung ist falsch gepolt. Ergebnis direkt unter der Rollen-Auswahl im Formular.'],
+                ['type' => 'Label', 'caption' => '• 🚧 Neues Feld „Verbindungsweg" (Direkt/Symbox-Gateway) — Vorarbeit für Symcons eingebaute Symbox-Hardware. Noch nicht funktionsfähig, deutlich gekennzeichnet: „Symbox-Gateway" liefert bis auf Weiteres keine Werte, für den Betrieb bei „Direkt" bleiben.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
@@ -3682,6 +3844,7 @@ class MeterHub extends IPSModule
     {
         $driver = $this->GetDriver();
         $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
+        $connectionMode = $this->ReadPropertyString('ConnectionMode');
 
         // Vorschlagsliste für "Standort": geteilter Pool über MeterHub UND
         // MeterHubVirtual (Dietmars Auftrag 01.09.2026) — siehe
@@ -3756,6 +3919,18 @@ class MeterHub extends IPSModule
             ['type' => 'NumberSpinner', 'name' => 'InexogyCleanupDays', 'visible' => $isCloud, 'caption' => 'Zeitraum der Bereinigung (höchstens 45 Tage)', 'minimum' => 1, 'maximum' => 45, 'suffix' => ' Tage'],
             ['type' => 'Button', 'name' => 'InexogyCleanupCheck', 'visible' => $isCloud, 'caption' => '🔎  Live-Zwischenwerte prüfen (Probelauf, ändert nichts)', 'onClick' => 'echo MHUB_CheckInexogyArchiveCleanup($id, $InexogyCleanupDays);'],
             ['type' => 'Button', 'name' => 'InexogyCleanupRun', 'visible' => $isCloud, 'caption' => '🧹  Live-Zwischenwerte bereinigen', 'confirm' => 'Überholte Live-Zwischenwerte aus dem Archiv löschen? Vorher den Probelauf ansehen — das Löschen lässt sich nicht rückgängig machen.', 'onClick' => 'echo MHUB_CleanInexogyArchive($id, $InexogyCleanupDays);'],
+            [
+                'type'     => 'Select',
+                'name'     => 'ConnectionMode',
+                'visible'  => !$isCloud,
+                'caption'  => 'Verbindungsweg',
+                'options'  => [
+                    ['caption' => 'Direkt (eigene Verbindung)', 'value' => 'direct'],
+                    ['caption' => 'Symbox-Gateway (eingebauter RS485-Port)', 'value' => 'gateway'],
+                ],
+                'onChange' => 'MHUB_OnChangeConnectionMode($id, $ConnectionMode);',
+            ],
+            ['type' => 'Label', 'name' => 'ConnectionModeGatewayWarning', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '⚠️ Dieser Verbindungsweg ist vorbereitet, aber noch nicht funktionsfähig — Symcons Nutzlastformat für die native Gateway-Anbindung ist noch ungeklärt (SUITE.md 9j). Die Instanz liefert in diesem Modus keine Werte. Für den produktiven Betrieb „Direkt" wählen.'],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud, 'caption' => 'IP-Adresse', 'validate' => $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud, 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud, 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -4140,6 +4315,8 @@ class MeterHub extends IPSModule
         $this->UpdateFormField('Host', 'validate', $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
         $this->UpdateFormField('Port', 'visible', !$isCloud);
         $this->UpdateFormField('UnitId', 'visible', !$isCloud);
+        $this->UpdateFormField('ConnectionMode', 'visible', !$isCloud);
+        $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', !$isCloud && $this->ReadPropertyString('ConnectionMode') === 'gateway');
 
         // Sollwert-Panel (blue'Log RPC/Power Control) — nur bei den beiden
         // schreibenden Zählertypen sichtbar.
@@ -4151,6 +4328,14 @@ class MeterHub extends IPSModule
         }
         $this->UpdateFormField('RpcValidTimeMin', 'visible', in_array($meter, self::RPC_VALID_TIME_METERS, true));
         $this->OnChangeSetpointMode($this->ReadPropertyString('SetpointMode'));
+    }
+
+    // Verbindungsweg-Warnung live umschalten (SUITE.md 9j) — dasselbe
+    // onChange+UpdateFormField-Muster wie OnChangeMeter(), da PropertyCondition
+    // laut Doku nur einen einzelnen Wert kennt, kein Negations-/Array-Fall.
+    public function OnChangeConnectionMode(string $connectionMode)
+    {
+        $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', $connectionMode === 'gateway');
     }
 
     /** Feldbeschriftung/Einheit des Zielwert-Felds passend zum Sollwert-Modus. */
@@ -4176,9 +4361,12 @@ class MeterHub extends IPSModule
         return $this->driver;
     }
 
-    private function GetModbusClient(): MHUB_ModbusTcpClient
+    private function GetModbusClient(): MHUB_ModbusClientInterface
     {
-        $mb = new MHUB_ModbusTcpClient(
+        $class = $this->ReadPropertyString('ConnectionMode') === 'gateway'
+            ? MHUB_ModbusGatewayClient::class
+            : MHUB_ModbusTcpClient::class;
+        $mb = new $class(
             $this->ReadPropertyString('Host'),
             $this->ReadPropertyInteger('Port'),
             $this->ReadPropertyInteger('UnitId')
