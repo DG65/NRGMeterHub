@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.29.10-beta.1 (2026-09-18)
+
+- **Fix: Symbox-Gateway-Verbindungsmodus war praktisch unbenutzbar** — kein Nutzer konnte eine
+  Instanz überhaupt mit einer nativen Modbus-Gateway-Instanz verbinden, unabhängig von Symbox
+  oder Konfiguration. Gefunden über einen echten Beta-Tester-Bericht im Forum
+  ("Allerdings will er keine Verbindung aufbauen") am Beispiel einer Symbox mit drei Zählern
+  und einem Wechselrichter am selben RS485-Bus. Ursache live gegen den Solarpark verifiziert
+  (`IPS_GetModule()` auf Symcons natives „ModBus Gateway"): dessen `Implemented`-Liste
+  enthält die Splitter-Schnittstelle `{E310B701-4AE7-458E-B618-EC13A1A6F6A8}` — dieselbe
+  GUID, die unser eigener `SendDataToParent()`-Aufruf schon als `DataID` verwendet (0.29.7).
+  `MeterHub/module.json` führte diese GUID aber nicht in `parentRequirements` — Symcons
+  Konsole bietet einer Instanz deshalb gar keine Verbindungsmöglichkeit zu einem passenden
+  Gateway an, unabhängig davon, ob eines existiert. Jetzt ergänzt; rein deklarativ, keine
+  Laufzeitänderung, keine Auswirkung auf bestehende `direct`-Instanzen (macht eine bisher
+  unmögliche Verbindung nur möglich, verbindet nichts automatisch — siehe die bewusste
+  Entscheidung gegen `ConnectParent()` in 0.29.7).
+- Denselben leeren `parentRequirements`-Eintrag haben InverterHub und ChargerHub für ihre
+  eigenen Symbox-Gateway-Implementierungen — beide Sitzungen informiert.
+- Hinweistext im Formular („Host/Port/Unit-ID entfallen …") erklärt jetzt den tatsächlichen
+  Verbindungsweg: pro Gerät am Bus eine eigene native „ModBus Gateway"-Instanz mit passender
+  `DeviceID` anlegen, dann diese Instanz über das 🔌-Symbol am Kopf der Instanzkonfiguration
+  damit verbinden — vorher stand dort nur „ist noch offen (wird nachgereicht)".
+
 ## 0.29.9-beta.1 (2026-09-18)
 
 - **Fix: Symbox-Gateway-Schreibzugriff (Function 16) war strukturell kaputt** (Fund ausgelöst
