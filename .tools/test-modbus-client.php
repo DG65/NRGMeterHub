@@ -194,8 +194,12 @@ check('readHolding: Antwort korrekt dekodiert (2-Byte-Header uebersprungen, 0-in
 $r2 = $gw->readInput(200, 2);
 check('readInput: Function 4 gesendet', $calls[1]['Function'] === 4);
 check('readInput: Werte korrekt', $r2 === [200, 201], json_encode($r2));
-$w = $gw->writeHolding(300, [0x1234, 0x5678]);
+// 0xFFFF/0x8001 bewusst gewaehlt: der rohe gepackte Binaerstring dieser Werte
+// ist KEIN gueltiges UTF-8 -- json_encode() auf den rohen Bytes (statt
+// base64) schlaegt fehl und liefert false (Fund ChargerHub 18.09.2026).
+$w = $gw->writeHolding(300, [0xFFFF, 0x8001]);
 check('writeHolding: Function 16 gesendet', $calls[2]['Function'] === 16 && $calls[2]['Address'] === 300 && $calls[2]['Quantity'] === 2);
+check('writeHolding: "Data" ist gueltiges JSON trotz nicht-UTF8-Registerwerten (base64)', $calls[2]['Data'] === base64_encode(pack('n', 0xFFFF) . pack('n', 0x8001)), $calls[2]['Data']);
 check('writeHolding: liefert true bei Erfolg', $w === true);
 check('writeHolding: genau EIN Warnhinweis (ungetestete Ableitung) trotz mehrerer Aufrufe', count($GLOBALS['LOG']) === 1, (string)count($GLOBALS['LOG']));
 $fakeFail = function (string $json) { return false; };

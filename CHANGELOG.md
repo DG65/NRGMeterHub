@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.29.9-beta.1 (2026-09-18)
+
+- **Fix: Symbox-Gateway-Schreibzugriff (Function 16) war strukturell kaputt** (Fund ausgelöst
+  durch ChargerHubs Nachfrage 18.09.2026). `writeHolding()` übergab die rohen gepackten
+  Registerbytes direkt als `"Data"`-Feld an `json_encode()` — die meisten Registerwerte
+  (z. B. 0xFFFF) sind kein gültiges UTF-8, `json_encode()` scheitert dabei lautlos (liefert
+  `false`), was zuvor als leerer, aber syntaktisch gültiger JSON-String verschickt worden
+  wäre. Jetzt: `"Data"` wird base64-kodiert (selbst nur eine plausible, ungetestete Annahme —
+  kein verifiziertes Schreib-Beispiel im Referenzmodul vorhanden, siehe 0.29.7), zusätzlich
+  bricht `request()` jetzt sauber mit `null` ab, falls `json_encode()` aus einem anderen
+  Grund scheitert, statt einen kaputten String an `SendDataToParent()` zu reichen.
+- Prüfstand `test-modbus-client.php` Block 6 mit bewusst nicht-UTF8-tauglichen Registerwerten
+  (0xFFFF/0x8001) ergänzt — die vorherige Testauswahl (0x1234/0x5678) hatte den Fehler nicht
+  gefangen, weil sie zufällig gültiges UTF-8 ergab.
+
 ## 0.29.8-beta.1 (2026-09-18)
 
 - **Symbox-Gateway: Host/Port/Unit-ID im Formular ausgeblendet, wenn dieser Verbindungsweg

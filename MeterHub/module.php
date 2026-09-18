@@ -371,6 +371,16 @@ class MHUB_ModbusGatewayClient implements MHUB_ModbusClientInterface
             'Quantity' => $quantity,
             'Data'     => $data,
         ]);
+        // $data ist bei Schreibzugriffen roh gepackte Registerbyte (siehe
+        // writeHolding()) — json_encode() scheitert (liefert false) an
+        // vielen davon, da rohe Binärbytes selten gueltiges UTF-8 sind
+        // (z. B. Registerwert 0xFFFF). Ohne diese Absicherung wuerde ein
+        // false-Rueckgabewert als String "" an sendFn gehen: eine leere,
+        // aber SYNTAKTISCH gueltige Anfrage statt eines erkennbaren
+        // Fehlschlags — still falsch statt sauber abgelehnt.
+        if ($json === false) {
+            return null;
+        }
         $resp = ($this->sendFn)($json);
         if ($resp === false || $resp === '' || strlen($resp) < 2) {
             return null;
@@ -407,7 +417,12 @@ class MHUB_ModbusGatewayClient implements MHUB_ModbusClientInterface
         foreach ($regs as $r) {
             $payload .= pack('n', $r & 0xFFFF);
         }
-        $resp = $this->request(16, $startReg, count($regs), $payload);
+        // Base64, nicht der rohe Binaerstring direkt (der scheitert an
+        // json_encode() fuer die meisten Registerwerte, siehe request()) —
+        // selbst diese Kodierung ist Teil der ungetesteten Ableitung, aber
+        // WENIGSTENS JSON-sicher; kein verifiziertes Beispiel dafuer
+        // vorhanden (Referenzmodul schreibt nicht, siehe Klassenkopf).
+        $resp = $this->request(16, $startReg, count($regs), base64_encode($payload));
         return $resp !== null;
     }
 
