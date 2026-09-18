@@ -3714,8 +3714,11 @@ class MeterHub extends IPSModule
             $mb->close();
         }
         $this->UpdateMirrors();
-        return $ok
-            ? '✅ Verbindung erfolgreich, Werte aktualisiert (' . date('H:i:s') . ' Uhr).'
+        if ($ok) {
+            return '✅ Verbindung erfolgreich, Werte aktualisiert (' . date('H:i:s') . ' Uhr).';
+        }
+        return $this->ReadPropertyString('ConnectionMode') === 'gateway'
+            ? '❌ Verbindung fehlgeschlagen — ist diese Instanz über das 🔌-Symbol am Kopf der Instanzkonfiguration mit einer passenden Modbus-Gateway-Instanz verbunden (richtige Unit-ID als deren Property „DeviceID")?'
             : '❌ Verbindung fehlgeschlagen — Host/Port/Unit-ID/Zählertyp prüfen.';
     }
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.29.11-beta.1 (2026-09-18)
+
+- **Fix: Fehlermeldung des Verbindungstests war im Symbox-Gateway-Modus irreführend.**
+  „❌ Verbindung fehlgeschlagen — Host/Port/Unit-ID/Zählertyp prüfen" nannte Felder, die es in
+  diesem Modus gar nicht mehr gibt (Host/Port/Unit-ID sind ausgeblendet, siehe 0.29.8) — Fund
+  am selben Forum-Beta-Test wie die 0.29.10-Reparatur, derselbe Nutzer sah die Meldung nach
+  einem Verbindungsversuch ohne verbundene Gateway-Instanz. Zeigt im Gateway-Modus jetzt
+  stattdessen den Hinweis auf das 🔌-Symbol und die passende Modbus-Gateway-Instanz.
+
 ## 0.29.10-beta.1 (2026-09-18)
 
 - **Fix: Symbox-Gateway-Verbindungsmodus war praktisch unbenutzbar** — kein Nutzer konnte eine
