@@ -3980,9 +3980,10 @@ class MeterHub extends IPSModule
                 'onChange' => 'MHUB_OnChangeConnectionMode($id, $ConnectionMode);',
             ],
             ['type' => 'Label', 'name' => 'ConnectionModeGatewayWarning', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '⚠️ Dieser Verbindungsweg ist neu und ungetestet (SUITE.md 9j) — lesend am Rohcode von Symcons eigenem Referenzmodul verifiziert, aber noch ohne echte Symbox-Hardware geprüft. Schreibende Zählertypen (blue\'Log RPC/Power Control) NICHT über diesen Weg produktiv einsetzen — deren Sollwert-Schreibzugriff ist hier nur eine ungetestete Ableitung. Wie diese Instanz mit einer nativen Modbus-Gateway-Instanz verbunden wird, ist noch offen (wird nachgereicht) — ohne Verbindung liefert dieser Modus keine Werte.'],
-            ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud, 'caption' => 'IP-Adresse', 'validate' => $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-            ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud, 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
-            ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud, 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
+            ['type' => 'Label', 'name' => 'ConnectionModeGatewayUnitIdHint', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ℹ️ Host/Port/Unit-ID entfallen in diesem Modus — die Unit-ID (Modbus-Slave-Adresse) wird stattdessen an der übergeordneten Modbus-Gateway-Instanz eingestellt (deren Property „DeviceID"), an die diese Instanz im Objektbaum gehängt wird.'],
+            ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP-Adresse', 'validate' => ($isCloud || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+            ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+            ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
         ];
 
         $groupItems = [];
@@ -4358,14 +4359,16 @@ class MeterHub extends IPSModule
             $this->UpdateFormField('InexogyBackfillResult', 'visible', false);
             $this->UpdateFormField('InexogyArchiveStatus', 'visible', false);
         }
-        $this->UpdateFormField('Host', 'visible', !$isCloud);
+        $isGateway = $this->ReadPropertyString('ConnectionMode') === 'gateway';
+        $this->UpdateFormField('Host', 'visible', !$isCloud && !$isGateway);
         // Nicht nur ausblenden, auch die Pflicht-Regex entschärfen — falls
         // sie an einem unsichtbaren Feld trotzdem noch griffe.
-        $this->UpdateFormField('Host', 'validate', $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
-        $this->UpdateFormField('Port', 'visible', !$isCloud);
-        $this->UpdateFormField('UnitId', 'visible', !$isCloud);
+        $this->UpdateFormField('Host', 'validate', ($isCloud || $isGateway) ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
+        $this->UpdateFormField('Port', 'visible', !$isCloud && !$isGateway);
+        $this->UpdateFormField('UnitId', 'visible', !$isCloud && !$isGateway);
         $this->UpdateFormField('ConnectionMode', 'visible', !$isCloud);
-        $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', !$isCloud && $this->ReadPropertyString('ConnectionMode') === 'gateway');
+        $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', !$isCloud && $isGateway);
+        $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', !$isCloud && $isGateway);
 
         // Sollwert-Panel (blue'Log RPC/Power Control) — nur bei den beiden
         // schreibenden Zählertypen sichtbar.
@@ -4384,7 +4387,16 @@ class MeterHub extends IPSModule
     // laut Doku nur einen einzelnen Wert kennt, kein Negations-/Array-Fall.
     public function OnChangeConnectionMode(string $connectionMode)
     {
-        $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', $connectionMode === 'gateway');
+        $isGateway = $connectionMode === 'gateway';
+        $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', $isGateway);
+        $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', $isGateway);
+        // Host/Port/Unit-ID entfallen im Gateway-Modus (ChargerHub-Fund 18.09.2026,
+        // SUITE.md 9j): die Unit-ID sitzt dort am DeviceID-Property der
+        // übergeordneten Modbus-Gateway-Instanz, nicht an dieser Instanz.
+        $this->UpdateFormField('Host', 'visible', !$isGateway);
+        $this->UpdateFormField('Host', 'validate', $isGateway ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
+        $this->UpdateFormField('Port', 'visible', !$isGateway);
+        $this->UpdateFormField('UnitId', 'visible', !$isGateway);
     }
 
     /** Feldbeschriftung/Einheit des Zielwert-Felds passend zum Sollwert-Modus. */

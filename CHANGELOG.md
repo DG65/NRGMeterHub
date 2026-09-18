@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.29.8-beta.1 (2026-09-18)
+
+- **Symbox-Gateway: Host/Port/Unit-ID im Formular ausgeblendet, wenn dieser Verbindungsweg
+  gewählt ist** (Fund ChargerHub 18.09.2026, SUITE.md 9j). Grund: die Unit-ID (Modbus-Slave-
+  Adresse) sitzt bei diesem Weg nicht an dieser Instanz, sondern am `DeviceID`-Property der
+  übergeordneten nativen Modbus-Gateway-Instanz, an die diese Instanz im Objektbaum gehängt
+  wird — live an einer Solarpark-Installation verifiziert (`ModBus Gateway`-Splitter,
+  {A5F663AB-C400-4FE5-B207-4D67CC030564}). Die drei bisherigen Felder wären in diesem Modus
+  irreführend gewesen. Neuer Hinweistext erklärt, wo die Unit-ID stattdessen eingestellt wird.
+
 ## 0.29.7-beta.1 (2026-09-18)
 
 - **Symbox-Gateway: lesender Zugriff jetzt echt implementiert (SUITE.md 9j), nicht mehr Stub.**
