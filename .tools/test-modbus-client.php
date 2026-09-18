@@ -169,15 +169,39 @@ echo "5) Kein Server erreichbar: sauber null, kein Hängen\n";
 $mb = new MHUB_ModbusTcpClient('127.0.0.1', 1, 1);
 check('null und Grund connect', $mb->readHolding(1, 1) === null && $mb->lastError === 'connect', $mb->lastError);
 
-echo "6) MHUB_ModbusGatewayClient (SUITE.md 9j, Stub bis Nutzlastformat geklärt)\n";
+echo "6) MHUB_ModbusGatewayClient (SUITE.md 9j, Nutzlastformat am Rohcode von SymconBC/EM24-DIN verifiziert)\n";
 $GLOBALS['LOG'] = [];
-$gw = new MHUB_ModbusGatewayClient('127.0.0.1', 502, 1);
+$calls = [];
+$fakeSend = function (string $json) use (&$calls) {
+    $calls[] = json_decode($json, true);
+    $req = end($calls);
+    if ($req['Function'] === 16) {
+        return "\x10\x02"; // FC-Echo + ByteCount, wie im Vorbild kein Nutzdaten-Body noetig
+    }
+    // FC3/FC4: 2 Byte Header ueberspringen, dann Quantity Register a 2 Byte,
+    // Wert = Register-Adresse (leicht pruefbar, wie im TCP-Server oben).
+    $data = '';
+    for ($i = 0; $i < $req['Quantity']; $i++) {
+        $data .= pack('n', ($req['Address'] + $i) & 0xFFFF);
+    }
+    return "\xFF\xFF" . $data; // erste 2 Byte sind laut Vorbild irrelevant/uebersprungen
+};
+$gw = new MHUB_ModbusGatewayClient(1, $fakeSend);
 check('implementiert MHUB_ModbusClientInterface', $gw instanceof MHUB_ModbusClientInterface);
-check('readHolding liefert kontrolliert null statt Fatal Error', $gw->readHolding(1, 1) === null);
-check('readInput liefert kontrolliert null', $gw->readInput(1, 1) === null);
-check('writeHolding liefert kontrolliert false', $gw->writeHolding(1, [42]) === false);
+$r = $gw->readHolding(100, 3);
+check('readHolding: DataID/Function/Address/Quantity korrekt gesendet', $calls[0] === ['DataID' => '{E310B701-4AE7-458E-B618-EC13A1A6F6A8}', 'Function' => 3, 'Address' => 100, 'Quantity' => 3, 'Data' => ''], json_encode($calls[0]));
+check('readHolding: Antwort korrekt dekodiert (2-Byte-Header uebersprungen, 0-indiziert)', $r === [100, 101, 102], json_encode($r));
+$r2 = $gw->readInput(200, 2);
+check('readInput: Function 4 gesendet', $calls[1]['Function'] === 4);
+check('readInput: Werte korrekt', $r2 === [200, 201], json_encode($r2));
+$w = $gw->writeHolding(300, [0x1234, 0x5678]);
+check('writeHolding: Function 16 gesendet', $calls[2]['Function'] === 16 && $calls[2]['Address'] === 300 && $calls[2]['Quantity'] === 2);
+check('writeHolding: liefert true bei Erfolg', $w === true);
+check('writeHolding: genau EIN Warnhinweis (ungetestete Ableitung) trotz mehrerer Aufrufe', count($GLOBALS['LOG']) === 1, (string)count($GLOBALS['LOG']));
+$fakeFail = function (string $json) { return false; };
+$gwFail = new MHUB_ModbusGatewayClient(1, $fakeFail);
+check('Verbindungsfehler (false von SendDataToParent) liefert null, kein Fatal Error', $gwFail->readHolding(1, 1) === null);
 check('close() ist gefahrlos aufrufbar (No-Op)', ($gw->close() ?? true) === true);
-check('genau EIN Protokollhinweis trotz mehrerer Aufrufe', count($GLOBALS['LOG']) === 1, (string)count($GLOBALS['LOG']));
 check('Register-Dekodierung identisch zu MHUB_ModbusTcpClient (Float32)', $gw->readFloat32([16968, 0], 0) === (new MHUB_ModbusTcpClient('x', 1, 1))->readFloat32([16968, 0], 0));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");

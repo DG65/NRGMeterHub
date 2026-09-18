@@ -321,56 +321,94 @@ class MHUB_ModbusTcpClient implements MHUB_ModbusClientInterface
 // zwischen beiden Wegen umschalten kann, ohne dass Treiber-Code sich
 // unterscheiden muss.
 //
-// STUB (18.09.2026): Das genaue Nutzlastformat von SendDataToParent()/
-// ForwardData() gegen Symcons natives ModBus-Gateway ({A5F663AB-C400-4FE5-
-// B207-4D67CC030564}, DataID {E310B701-4AE7-458E-B618-EC13A1A6F6A8} laut
-// community.symcon.de Thread 131854) ist öffentlich nicht dokumentiert —
-// weder SDK-Doku noch Modulreferenz noch Community zeigen das vollständige
-// Feldschema (Function Code/Adresse/Quantity/Unit-ID-Kodierung), und ohne
-// echte Symbox-Testhardware im Verbund nicht seriös zu erraten. Bis das
-// geklärt ist, liefert jede Anfrage kontrolliert null/false (nie einen
-// Fatal Error) plus einen einmaligen Protokollhinweis.
+// Nutzlastformat 18.09.2026 gegen den ROHEN Quellcode von Symcons eigenem
+// Referenzmodul verifiziert (curl auf raw.githubusercontent.com/symcon/
+// SymconBC/master/EM24-DIN/module.php — nicht nur eine KI-Zusammenfassung,
+// EMS' Fund direkt gegengelesen): Parent-GUID {A5F663AB-C400-4FE5-B207-
+// 4D67CC030564}, DataID {E310B701-4AE7-458E-B618-EC13A1A6F6A8}. Anfrage
+// ["DataID"=>DataID, "Function"=>FC, "Address"=>Register, "Quantity"=>Anzahl,
+// "Data"=>""], Antwort roh (kein JSON) — erste 2 Byte (Function+ByteCount)
+// überspringen, Rest unpack('n*', ...) als big-endian 16-Bit-Register.
+// Offen: wie eine Instanz ohne automatischen ConnectParent()-Aufruf (siehe
+// Create()) trotzdem mit dem nativen Gateway verbunden wird, ist noch nicht
+// geklärt — ConnectParent() legt laut SDK-Doku bei Bedarf selbst einen
+// passenden Parent an, was ungefragt jede bestehende Direktverbindungs-
+// Instanz beträfe (InverterHubs Fund 18.09.2026).
+//
+// LESEND (Function 3/4) exakt nach diesem Vorbild — SCHREIBEND (Function 16)
+// ist dagegen KEINE verifizierte Fundstelle: das Referenzmodul liest nur.
+// "Data" folgt hier der naheliegenden Ableitung (gepackte Registerwerte statt
+// der beim Lesen leeren ""), ist aber ungetestet, bis echte Symbox-Hardware
+// das bestätigt — deutlich gekennzeichnet, kein Fatal Error, nur ein
+// einmaliger Protokollhinweis zusätzlich zum normalen false-Rückgabewert.
 // ===========================================================================
 class MHUB_ModbusGatewayClient implements MHUB_ModbusClientInterface
 {
-    public $host;
-    public $port;
+    public const GATEWAY_GUID = '{A5F663AB-C400-4FE5-B207-4D67CC030564}';
+    private const DATA_ID = '{E310B701-4AE7-458E-B618-EC13A1A6F6A8}';
+
     public $unitId;
     public $wordSwap = false;
 
-    private static $warned = false;
+    /** @var callable string(string $json) — i. d. R. $meterHubInstanz->SendDataToParent(...) */
+    private $sendFn;
 
-    public function __construct($host, $port, $unitId)
+    private static $writeWarned = false;
+
+    public function __construct($unitId, callable $sendFn)
     {
-        $this->host   = $host;
-        $this->port   = $port;
         $this->unitId = $unitId;
+        $this->sendFn = $sendFn;
     }
 
-    private function stub(): void
+    /** Rohe Registerantwort (0x03/0x04) -> 0-indiziertes Array, wie modbusRead() es liefert. */
+    private function request(int $function, int $address, int $quantity, string $data = ''): ?array
     {
-        if (!self::$warned) {
-            self::$warned = true;
-            IPS_LogMessage('MeterHub', 'Verbindungsweg "Symbox-Gateway" ist noch nicht implementiert (Nutzlastformat ungeklärt, SUITE.md 9j) — Instanz liefert bis dahin keine Werte.');
+        $json = json_encode([
+            'DataID'   => self::DATA_ID,
+            'Function' => $function,
+            'Address'  => $address,
+            'Quantity' => $quantity,
+            'Data'     => $data,
+        ]);
+        $resp = ($this->sendFn)($json);
+        if ($resp === false || $resp === '' || strlen($resp) < 2) {
+            return null;
         }
+        // Erste 2 Byte (Function Code + Byte Count) überspringen, wie im
+        // verifizierten Referenzmodul — unpack('n*', ...) liefert 1-indiziert.
+        $raw = unpack('n*', substr($resp, 2));
+        $regs = [];
+        $i = 0;
+        foreach ($raw as $v) {
+            $regs[$i++] = $v;
+        }
+        return $regs;
     }
 
     public function readHolding($startReg, $count)
     {
-        $this->stub();
-        return null;
+        return $this->request(3, $startReg, $count);
     }
 
     public function readInput($startReg, $count)
     {
-        $this->stub();
-        return null;
+        return $this->request(4, $startReg, $count);
     }
 
+    // Function 16 (Write Multiple) — ungetestete Ableitung, siehe Klassenkopf.
     public function writeHolding($startReg, array $regs): bool
     {
-        $this->stub();
-        return false;
+        if (!self::$writeWarned) {
+            self::$writeWarned = true;
+            IPS_LogMessage('MeterHub', 'Symbox-Gateway: Schreibzugriff (Function 16) ist eine ungetestete Ableitung aus dem verifizierten Lese-Schema, SUITE.md 9j — unbedingt an echter Hardware prüfen, bevor ein Sollwert-Zählertyp produktiv über diesen Verbindungsweg läuft.');
+        }
+        $payload = '';
+        foreach ($regs as $r) {
+            $payload .= pack('n', $r & 0xFFFF);
+        }
+        $resp = $this->request(16, $startReg, count($regs), $payload);
+        return $resp !== null;
     }
 
     public function close(): void
@@ -3019,6 +3057,17 @@ class MeterHub extends IPSModule
     {
         parent::Create();
 
+        // ConnectParent(MHUB_ModbusGatewayClient::GATEWAY_GUID) hier NICHT
+        // unbedingt aufrufen (SUITE.md 9j) — laut SDK-Doku erstellt/verbindet
+        // die Funktion bei Bedarf selbst eine passende Parent-Instanz, was
+        // JEDE bestehende Direktverbindungs-Instanz beim nächsten Modul-Update
+        // ungefragt mit einem Modbus-Gateway verknüpfen könnte (InverterHubs
+        // Fund 18.09.2026, dort aus demselben Grund bewusst weggelassen).
+        // Wie eine Instanz ohne diesen Aufruf trotzdem manuell mit dem
+        // nativen Gateway verbunden werden kann (module.json-Deklaration?
+        // Konsole?), ist noch offen — ungeklärt lassen ist hier die
+        // sicherere Wahl als eine ungetestete Vermutung auszurollen.
+
         $this->RegisterPropertyBoolean('Active', true);
         // Rein informativer Standort (Raum/Geschoss) — Dietmars Auftrag
         // 01.09.2026, aus MeterHubVirtual übernommen: geteilter Vorschlags-
@@ -3191,7 +3240,7 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.29.6';
+    private const NEWS_VERSION = '0.29.7';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
@@ -3253,7 +3302,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen (z. B. viele Zähler am selben Solarpark): „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zähler ohne eigenes Anzeige-Label heißen jetzt wie ihre Instanz statt pauschal nach der Funktion (z. B. „WR 4.1.01.02" statt für alle Wechselrichter gleich „PV-Erzeugung") — sofern die Instanz umbenannt wurde, sonst bleibt der Funktionsname der Rückfall.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „Rolle des Zählers" hat jetzt eine dritte Option „Unterzähler / Erzeuger" und wirkt sich erstmals wirklich aus: Für Unterzähler (Verbraucher oder Erzeuger, nicht „Netz-/NAP-Zähler") prüft eine neue Plausibilitätsprüfung, ob der Zähler über die Zeit überwiegend nur in eine Richtung misst — zeigt er dauerhaft beide Richtungen deutlich, passt vermutlich eher „Netz-/NAP-Zähler", oder die Verkabelung ist falsch gepolt. Ergebnis direkt unter der Rollen-Auswahl im Formular.'],
-                ['type' => 'Label', 'caption' => '• 🚧 Neues Feld „Verbindungsweg" (Direkt/Symbox-Gateway) — Vorarbeit für Symcons eingebaute Symbox-Hardware. Noch nicht funktionsfähig, deutlich gekennzeichnet: „Symbox-Gateway" liefert bis auf Weiteres keine Werte, für den Betrieb bei „Direkt" bleiben.'],
+                ['type' => 'Label', 'caption' => '• 🚧 Neues Feld „Verbindungsweg" (Direkt/Symbox-Gateway) für Symcons eingebaute Symbox-Hardware — lesend jetzt echt umgesetzt (am Rohcode von Symcons eigenem Referenzmodul verifiziert), aber noch ohne echte Symbox-Hardware getestet. Schreibende Zählertypen dort nicht produktiv einsetzen. Für den normalen Betrieb bleibt „Direkt" die richtige Wahl.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
@@ -3930,7 +3979,7 @@ class MeterHub extends IPSModule
                 ],
                 'onChange' => 'MHUB_OnChangeConnectionMode($id, $ConnectionMode);',
             ],
-            ['type' => 'Label', 'name' => 'ConnectionModeGatewayWarning', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '⚠️ Dieser Verbindungsweg ist vorbereitet, aber noch nicht funktionsfähig — Symcons Nutzlastformat für die native Gateway-Anbindung ist noch ungeklärt (SUITE.md 9j). Die Instanz liefert in diesem Modus keine Werte. Für den produktiven Betrieb „Direkt" wählen.'],
+            ['type' => 'Label', 'name' => 'ConnectionModeGatewayWarning', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '⚠️ Dieser Verbindungsweg ist neu und ungetestet (SUITE.md 9j) — lesend am Rohcode von Symcons eigenem Referenzmodul verifiziert, aber noch ohne echte Symbox-Hardware geprüft. Schreibende Zählertypen (blue\'Log RPC/Power Control) NICHT über diesen Weg produktiv einsetzen — deren Sollwert-Schreibzugriff ist hier nur eine ungetestete Ableitung. Wie diese Instanz mit einer nativen Modbus-Gateway-Instanz verbunden wird, ist noch offen (wird nachgereicht) — ohne Verbindung liefert dieser Modus keine Werte.'],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud, 'caption' => 'IP-Adresse', 'validate' => $isCloud ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud, 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud, 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -4363,14 +4412,18 @@ class MeterHub extends IPSModule
 
     private function GetModbusClient(): MHUB_ModbusClientInterface
     {
-        $class = $this->ReadPropertyString('ConnectionMode') === 'gateway'
-            ? MHUB_ModbusGatewayClient::class
-            : MHUB_ModbusTcpClient::class;
-        $mb = new $class(
-            $this->ReadPropertyString('Host'),
-            $this->ReadPropertyInteger('Port'),
-            $this->ReadPropertyInteger('UnitId')
-        );
+        if ($this->ReadPropertyString('ConnectionMode') === 'gateway') {
+            $mb = new MHUB_ModbusGatewayClient(
+                $this->ReadPropertyInteger('UnitId'),
+                function (string $json): string { return $this->SendDataToParent($json); }
+            );
+        } else {
+            $mb = new MHUB_ModbusTcpClient(
+                $this->ReadPropertyString('Host'),
+                $this->ReadPropertyInteger('Port'),
+                $this->ReadPropertyInteger('UnitId')
+            );
+        }
         $mb->setWordSwap($this->ReadPropertyBoolean('WordSwap'));
         return $mb;
     }

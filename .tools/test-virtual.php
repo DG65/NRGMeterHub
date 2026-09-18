@@ -200,6 +200,7 @@ class IPSModule
     }
     public function Create() {}
     public function ApplyChanges() {}
+    protected function ConnectParent($guid) {}
     protected function RegisterPropertyString($n, $v)  { $this->defs[$n] = $v; }
     protected function RegisterPropertyInteger($n, $v) { $this->defs[$n] = $v; }
     protected function RegisterPropertyBoolean($n, $v) { $this->defs[$n] = $v; }

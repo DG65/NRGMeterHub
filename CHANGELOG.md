@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.29.7-beta.1 (2026-09-18)
+
+- **Symbox-Gateway: lesender Zugriff jetzt echt implementiert (SUITE.md 9j), nicht mehr Stub.**
+  Nutzlastformat von `SendDataToParent`/`ForwardData` gegen Symcons natives Modbus-Gateway am
+  Rohcode von Symcons eigenem Referenzmodul verifiziert (`raw.githubusercontent.com/symcon/
+  SymconBC/master/EM24-DIN/module.php`, per `curl` gegengelesen, nicht nur eine KI-Zusammen-
+  fassung): `{"DataID": "{E310B701-…}", "Function": FC, "Address": Register, "Quantity": Anzahl,
+  "Data": ""}`, Antwort roh mit 2 Byte Kopf (Function+ByteCount) davor, Rest big-endian
+  16-Bit-Register. `readHolding()`/`readInput()` (Function 3/4) folgen diesem Vorbild 1:1.
+  **Noch offen:** wie eine Instanz tatsächlich mit dem nativen Gateway verbunden wird —
+  `ConnectParent()` in `Create()` wurde bewusst NICHT ergänzt (InverterHubs Fund 18.09.2026:
+  legt laut SDK-Doku bei Bedarf selbst einen Parent an, hätte also jede bestehende
+  Direktverbindungs-Instanz ungefragt betroffen).
+- **Schreibender Zugriff (Function 16) ist dagegen eine ungetestete Ableitung**, kein
+  verifizierter Fund — Symcons Referenzmodul liest nur. Deutlich gekennzeichnet (Kommentar im
+  Code + einmaliger Protokollhinweis), bis echte Symbox-Hardware das bestätigt.
+- Prüfstand `test-modbus-client.php` Block 6 komplett erweitert: echte Anfrage-Nutzlast und
+  Antwort-Dekodierung für Lese- und Schreibzugriff geprüft, nicht nur der frühere Stub.
+
 ## 0.29.6-beta.1 (2026-09-18)
 
 - **Neu: zweiter Verbindungsweg „Symbox-Gateway" (Vorbereitung, noch nicht funktionsfähig).**
