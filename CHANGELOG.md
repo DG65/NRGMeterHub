@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.29.12-beta.1 (2026-09-19)
+
+- **Fix: Symbox-Gateway-Verbindung — die Reparatur aus 0.29.10 war nur die halbe
+  Kompatibilitätsangabe.** Der Beta-Tester sah nach dem Update auf 0.29.11 im Fenster
+  „Gateway ändern" weiterhin keine Auswahl, es blitzte nur kurz auf. Das native ModBus
+  Gateway hat selbst `ChildRequirements {77B31ABB-…}` (live per `IPS_GetModule()` gelesen) und
+  akzeptiert nur Kinder, die diese Schnittstelle in `implemented` führen. `module.json`
+  ergänzt: `implemented ["{77B31ABB-18FA-4B91-BB63-E5B2AB5588F4}"]`. Gegengelesen an Symcons
+  Referenzmodul (symcon/SymconBC, EM24-DIN) und am Gateway-Modul von WPModbusHub, das an
+  echter Hardware läuft — beide führen `parentRequirements` UND `implemented`.
+- Noch offen und bewusst unverifiziert: ob die Angaben am Hauptmodul den Anlege-Ablauf oder
+  bestehende Direkt-Instanzen in der Konsole beeinflussen. WPModbusHub hat den Gateway-Weg
+  deshalb als eigenes Schwestermodul gebaut; die Entscheidung dazu steht noch aus.
+
 ## 0.29.11-beta.1 (2026-09-18)
 
 - **Fix: Fehlermeldung des Verbindungstests war im Symbox-Gateway-Modus irreführend.**
