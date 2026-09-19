@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.30.1--beta.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.31.0--beta.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -70,6 +70,7 @@ Formular dient nur der richtigen Beschriftung.
 |---|---|
 | **Socomec Countis** (E23/E24/E27/E28/E34/E44) | FC 0x03; U/I/f als UInt32, P/Q als Int32, Energie UInt32. Skalen aus OpenEMS abgeleitet — **v. a. die Leistungs-Skala am Gerät prüfen**. |
 | **MBS Professional 3-75** | M-Bus→Modbus-Gateway, FC 0x03. Bezug/Abgabe (kWh), Wirkleistung, Spannung, Frequenz. Integer-Typgrößen aus den Symcon-Vorlagen abgeleitet. |
+| **Eastron SDM120 / SDM220 / SDM230** (einphasig) | Wirkleistung, Spannung, Strom, Frequenz, Energie Bezug/Abgabe, optional Blind-/Scheinleistung und Leistungsfaktor. **FC 0x04**, Float32 Big-Endian, Modbus-Adresse ab Werk 1; die drei Geräte teilen dieselbe Registerkarte (Spannung 0, Strom 6, Wirkleistung 12, Scheinleistung 18, Blindleistung 24, Leistungsfaktor 30, Frequenz 70, Bezug 72, Abgabe 74). Reine RS485-Geräte — über die **Symbox-Brücke** oder ein RTU/TCP-Gateway. Anders als beim SDM630 gibt es keine Summenregister; jede Größe wird einzeln gelesen. Registerkarte gegen nmakel/sdm_modbus, evcc und volkszaehler/mbmd gegengelesen, **nicht an echter Hardware bestätigt**. |
 
 Bei experimentellen Zählern die Messwerte gegen die Geräteanzeige abgleichen; bei
 unplausiblen Werten helfen der **WordSwap**- bzw. **Invers**-Schalter.

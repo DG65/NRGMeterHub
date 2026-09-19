@@ -2230,5 +2230,17 @@ check('47d: Symbox-Gateway — Status 201 nennt Brücke und Gateway', str_contai
 check('47e: Direktweg — Status 104 bleibt bei der IP-Adresse', str_contains($statusCaption('direct', 'siemens_pac2200', 104), 'IP-Adresse') && !str_contains($statusCaption('direct', 'siemens_pac2200', 104), 'Brücke'));
 check('47e: Cloud-Zähler — Status 104 nennt keine Brücke, auch bei gespeichertem „gateway"', !str_contains($statusCaption('gateway', 'inexogy', 104), 'Brücke'));
 
+echo "\n48) Eastron SDM120/SDM220/SDM230 im Zählertyp-Dropdown, als experimentell gekennzeichnet\n";
+IPS_SetProperty(9200, 'Meter', 'eastron_sdm120');
+IPS_SetProperty(9200, 'ConnectionMode', 'direct');
+$f48 = json_decode($hub47->GetConfigurationForm(), true);
+$meterSel = $findEl($f48['elements'], 'Meter');
+$opts48 = [];
+foreach ($meterSel['options'] ?? [] as $o) { $opts48[$o['value']] = $o['caption']; }
+foreach (['eastron_sdm120' => 'SDM120', 'eastron_sdm220' => 'SDM220', 'eastron_sdm230' => 'SDM230'] as $k => $n) {
+    check("48: $n steht im Dropdown, einphasig und experimentell", isset($opts48[$k]) && str_contains($opts48[$k], $n) && str_contains($opts48[$k], 'einphasig') && str_contains($opts48[$k], 'experimentell'), $opts48[$k] ?? 'fehlt');
+}
+check('48: der Formularaufbau mit dem neuen Treiber liefert gültiges JSON mit Verbindungspanel', is_array($f48) && $findEl($f48['elements'], 'Host') !== null);
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

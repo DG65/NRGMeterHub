@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.31.0-beta.1 (2026-09-19)
+
+- **Neu: drei einphasige Eastron-Zähler — SDM120, SDM220, SDM230** (Wunsch des Forum-Testers,
+  der sie an seiner Symbox betreibt). Neuer Treiber `MHUB_EastronSdmSinglePhaseDriver`:
+  Wirkleistung (Register 12), Spannung (0), Strom (6), Frequenz (70), Energie Bezug (72) und
+  Abgabe (74) in kWh, optional Scheinleistung (18), Blindleistung (24) und Leistungsfaktor (30).
+  FC 0x04, Float32 Big-Endian, Modbus-Adresse ab Werk 1. Die drei Geräte teilen dieselbe
+  Registerkarte.
+- **Registerkarte gegen drei unabhängige Quellen gegengelesen:** nmakel/sdm_modbus (SDM120,
+  SDM230), evcc (SDM120, SDM220/230) und volkszaehler/mbmd (SDM120, SDM220, SDM230) stimmen in
+  Funktionscode, Adressen, Datentyp und Wortreihenfolge überein und decken sich mit dem
+  vorhandenen SDM630-Treiber. **Nicht an echter Hardware bestätigt** — im Dropdown
+  „experimentell", der Tester prüft an seinen Geräten.
+- **Bewusst ein eigener Treiber statt des dreiphasigen:** der SDM630-Treiber liest zwei große
+  Blöcke (0–40, 42–63) und nimmt die Summenleistung aus Register 52 — die einphasigen Geräte
+  haben keine Summenregister, die Leistung steht auf 12, und die Register dazwischen sind nicht
+  belegt (ein Blocklesen riskiert „Illegal Data Address" für die ganze Anfrage, dieselbe Lehre
+  wie beim PAC2200). Jede Größe wird deshalb einzeln gelesen (je 2 Register), wie in allen drei
+  Quellen.
+- Reine RS485-Geräte: die Netzwerksuche (MeterHubDiscovery) scannt sie bewusst nicht; Anlage von
+  Hand, für den Anschluss an die Symbox über den Verbindungsweg „Symbox-Gateway".
+- Prüfstand `test-eastron-single-phase.php` (neu): der Treiber läuft über den echten
+  Gateway-Client gegen eine nachgebaute Registertabelle — Anfragen (FC 4, je 2 Register, keine
+  Blocklesung), Dekodierung, negative Leistung bei Einspeisung, Ausfall einzelner Register.
+  Doku: README-Tabelle, Doku-Panel, News-Eintrag (`NEWS_VERSION` 0.31.0).
+
 ## 0.30.1-beta.1 (2026-09-19)
 
 - **Verständlichere Texte im Symbox-Gateway-Weg (Rückmeldung des Forum-Testers zum Handling,

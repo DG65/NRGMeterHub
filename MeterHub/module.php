@@ -1213,6 +1213,99 @@ class MHUB_EastronSdmDriver implements MHUB_MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// MHUB_EastronSdmSinglePhaseDriver — Eastron SDM120 / SDM220 / SDM230 (einphasig)
+// FC 0x04 (Input Register), Float32 Big-Endian, Energie in kWh. Reine
+// RS485-Geräte (Modbus RTU) — im Verbund über die Symbox-Brücke oder ein
+// RTU/TCP-Gateway. Ab Werk Modbus-Adresse 1.
+//
+// Registerkarte (Wire-Adresse = Doku − 30001): Spannung 0, Strom 6, Wirkleistung
+// 12, Scheinleistung 18, Blindleistung 24, Leistungsfaktor 30, Frequenz 70,
+// Bezug 72, Abgabe 74. Gegen drei unabhängige Quellen gegengelesen: nmakel/
+// sdm_modbus (SDM120, SDM230), evcc (SDM120, SDM220/230) und volkszaehler/mbmd
+// (SDM120, SDM220, SDM230) — alle drei Geräte teilen dieselbe Karte. Anders als
+// beim dreiphasigen SDM630 gibt es KEINE Summenregister (52 …): die Wirkleistung
+// steht auf 12. Jede Größe wird einzeln gelesen (je 2 Register), wie in allen
+// drei Quellen — die Register dazwischen sind nicht belegt, ein Blocklesen darüber
+// riskiert „Illegal Data Address" für die ganze Anfrage.
+// Noch nicht an echter Hardware bestätigt → im Dropdown „experimentell".
+// ---------------------------------------------------------------------------
+
+class MHUB_EastronSdmSinglePhaseDriver implements MHUB_MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Wirkleistung',        'F', 'NRG.Watt',   true,  'total',  'FC4 12'],
+            ['voltage_avg',   'Spannung (L-N)',      'F', 'NRG.Volt',   false, 'total',  'FC4 0'],
+            ['current_avg',   'Strom',               'F', 'NRG.Ampere', false, 'total',  'FC4 6'],
+            ['frequency',     'Frequenz',            'F', 'MHB.Hz',     false, 'total',  'FC4 70'],
+            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh',    true,  'energy', 'FC4 72 (kWh)'],
+            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh',    true,  'energy', 'FC4 74 (kWh)'],
+            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung', 'vars' => [
+                ['s_total', 'Scheinleistung', 'F', 'MHB.VA',  false, 'power', 'FC4 18'],
+                ['q_total', 'Blindleistung',  'F', 'MHB.var', false, 'power', 'FC4 24'],
+            ]],
+            'GroupPowerFactor' => ['caption' => 'Leistungsfaktor', 'vars' => [
+                ['pf_total', 'Leistungsfaktor', 'F', 'MHB.PF', false, 'total', 'FC4 30'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    public function readFast($mb, $hub)
+    {
+        $p = $mb->readInput(12, 2);
+        if ($p === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+        $hub->SetVarFloat('power_total', $mb->readFloat32($p, 0));
+
+        foreach ([['voltage_avg', 0], ['current_avg', 6], ['frequency', 70]] as [$ident, $reg]) {
+            $r = $mb->readInput($reg, 2);
+            if ($r !== null) {
+                $hub->SetVarFloat($ident, $mb->readFloat32($r, 0));
+            }
+        }
+        if ($hub->GroupActive('GroupReactiveApparent')) {
+            foreach ([['s_total', 18], ['q_total', 24]] as [$ident, $reg]) {
+                $r = $mb->readInput($reg, 2);
+                if ($r !== null) {
+                    $hub->SetVarFloat($ident, $mb->readFloat32($r, 0));
+                }
+            }
+        }
+        if ($hub->GroupActive('GroupPowerFactor')) {
+            $r = $mb->readInput(30, 2);
+            if ($r !== null) {
+                $hub->SetVarFloat('pf_total', $mb->readFloat32($r, 0));
+            }
+        }
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        foreach ([['energy_import', 72], ['energy_export', 74]] as [$ident, $reg]) {
+            $r = $mb->readInput($reg, 2);
+            if ($r !== null) {
+                $hub->SetVarEnergykWh($ident, $mb->readFloat32($r, 0));
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MHUB_WhatWattDriver — WhatWatt Smart Meter
 // FC 0x04, Float32 (Momentanwerte, Energie-Summen) + Double (Tarif-Energie),
 // Big-Endian. Wirkleistung getrennt als Bezug (501) und Abgabe (505) →
@@ -2980,6 +3073,9 @@ class MeterHub extends IPSModule
         'janitza_umg800'  => 'MHUB_Umg800Driver',
         'eastron_sdm72d'  => 'MHUB_EastronSdmDriver',
         'eastron_sdm630'  => 'MHUB_EastronSdmDriver',
+        'eastron_sdm120'  => 'MHUB_EastronSdmSinglePhaseDriver',
+        'eastron_sdm220'  => 'MHUB_EastronSdmSinglePhaseDriver',
+        'eastron_sdm230'  => 'MHUB_EastronSdmSinglePhaseDriver',
         'whatwatt'        => 'MHUB_WhatWattDriver',
         'phoenix_eem375'  => 'MHUB_PhoenixEem375Driver',
         'phoenix_eemxm'   => 'MHUB_PhoenixEemXmDriver',
@@ -3008,6 +3104,9 @@ class MeterHub extends IPSModule
         'janitza_umg800'  => 'Janitza UMG 800',
         'eastron_sdm72d'  => 'Eastron SDM72D-M v2',
         'eastron_sdm630'  => 'Eastron SDM630 v2',
+        'eastron_sdm120'  => 'Eastron SDM120',
+        'eastron_sdm220'  => 'Eastron SDM220',
+        'eastron_sdm230'  => 'Eastron SDM230',
         'whatwatt'        => 'WhatWatt',
         'phoenix_eem375'  => 'Phoenix Contact EEM-EM375',
         'phoenix_eemxm'   => 'Phoenix Contact EEM-XM',
@@ -3260,7 +3359,7 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.30.0';
+    private const NEWS_VERSION = '0.31.0';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3324,6 +3423,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen (z. B. viele Zähler am selben Solarpark): „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zähler ohne eigenes Anzeige-Label heißen jetzt wie ihre Instanz statt pauschal nach der Funktion (z. B. „WR 4.1.01.02" statt für alle Wechselrichter gleich „PV-Erzeugung") — sofern die Instanz umbenannt wurde, sonst bleibt der Funktionsname der Rückfall.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „Rolle des Zählers" hat jetzt eine dritte Option „Unterzähler / Erzeuger" und wirkt sich erstmals wirklich aus: Für Unterzähler (Verbraucher oder Erzeuger, nicht „Netz-/NAP-Zähler") prüft eine neue Plausibilitätsprüfung, ob der Zähler über die Zeit überwiegend nur in eine Richtung misst — zeigt er dauerhaft beide Richtungen deutlich, passt vermutlich eher „Netz-/NAP-Zähler", oder die Verkabelung ist falsch gepolt. Ergebnis direkt unter der Rollen-Auswahl im Formular.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Drei neue, einphasige Zählertypen: Eastron SDM120, SDM220 und SDM230 (Wirkleistung, Spannung, Strom, Frequenz, Energie Bezug/Abgabe, optional Blind-/Scheinleistung und Leistungsfaktor). Reine RS485-Geräte — passend zum Verbindungsweg „Symbox-Gateway". Die Registerkarte ist gegen drei unabhängige Quellen gegengelesen, aber noch nicht an echter Hardware bestätigt: bitte die Messwerte gegen die Geräteanzeige abgleichen.'],
                 ['type' => 'Label', 'caption' => '• 🚧 Neues Feld „Verbindungsweg" (Direkt/Symbox-Gateway) für Symcons eingebaute Symbox-Hardware: Der Weg läuft über das neue Modul „MeterHub Brücke" — pro Gerät ein natives „ModBus Gateway" (mit der Unit-ID als DeviceID), daran eine Brücke, und hier die Brücke wählen. Lesend am Rohcode von Symcons Referenzmodul verifiziert, aber noch nicht an echter Symbox-Hardware bestätigt. Schreibende Zählertypen dort nicht produktiv einsetzen. Für den normalen Betrieb bleibt „Direkt" die richtige Wahl und ändert sich nicht.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Frühere Beta-Stände (0.29.10–0.29.14) hängten das Gateway direkt an MeterHub — das ist zurückgenommen, weil es bei jeder Direkt-Instanz einen Balken „benötigt eine übergeordnete Instanz" zeigte. Wer den Gateway-Weg schon eingerichtet hatte: Brücke anlegen, mit dem Gateway verbinden und in dieser Instanz die Brücke wählen; die Instanz und ihre Messhistorie bleiben.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
@@ -4168,6 +4268,7 @@ class MeterHub extends IPSModule
                         ['type' => 'Label', 'caption' => '🔀 Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie geplant? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und konfigurieren, dann mit MigrationsHub die alte Historie übernehmen, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene, sich mit der Alt-Historie überlappende Werte.'],
                         ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (FC 0x03); Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 klassische Karte, UMG 800 Werkskarte, FC 0x03); Eastron SDM72D-M v2, WhatWatt und Phoenix Contact EEM-EM375/EEM-XM (FC 0x04, Input-Register).'],
                         ['type' => 'Label', 'caption' => 'Hinweis Eastron/Phoenix: Diese sprechen meist Modbus RTU und hängen über einen RTU/TCP-Gateway (dessen IP eintragen). Eastron-Geräteadresse ab Werk 1; Phoenix EEM-EM375 nutzt oft Unit-ID 255, EEM-XM meist 1. WhatWatt spricht Modbus TCP direkt.'],
+                        ['type' => 'Label', 'caption' => '🧪 Eastron SDM120/SDM220/SDM230 (einphasig): experimentell, noch nicht an echter Hardware bestätigt. Reine RS485-Geräte (Modbus-Adresse ab Werk 1) — über den Verbindungsweg „Symbox-Gateway" oder ein RTU/TCP-Gateway. Keine Summenregister wie beim SDM630: die Wirkleistung steht auf Register 12.'],
                         ['type' => 'Label', 'caption' => '🧪 Experimentell: Socomec Countis und MBS Professional 3-75 sind aus Vorlagen abgeleitet und noch nicht an echter Hardware geprüft — bitte die Messwerte gegen die Geräteanzeige abgleichen. Bei unplausiblen Werten helfen der WordSwap- bzw. Invers-Schalter.'],
                         ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP muss am Gerät erst aktiviert werden (Einstellungen → Modbus, Port 502). Gelesen über FC 0x04, Float wortgetauscht (CDAB); Wire-Adressen = Doku − 30000 (Messwerte ab 1011, Energie 1162/1164). An echtem Gerät verifiziert.'],
                         ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP muss am Gerät erst aktiviert werden (go-e-App: Internet → Erweiterte Einstellungen → Modbus, oder HTTP-API men=true) — sonst bleibt Port 502 geschlossen; nach dem Aktivieren die Einstellung ggf. einmal aus-/einschalten. Kernwerte kommen aus der Kategorie Grid; Sensoren 1-6 und die Kategorien Home/Car/Relais/Solar/Akku sind zuschaltbar. An echtem Gerät verifiziert. (Die go-e-Wallboxen selbst bedient das Modul ChargerHub.)'],
@@ -4218,6 +4319,9 @@ class MeterHub extends IPSModule
                         ['caption' => 'Janitza UMG 800 (konfigurierbare Map — Werksvorgabe)', 'value' => 'janitza_umg800'],
                         ['caption' => 'Eastron SDM72D-M v2',     'value' => 'eastron_sdm72d'],
                         ['caption' => 'Eastron SDM630 v2',       'value' => 'eastron_sdm630'],
+                        ['caption' => 'Eastron SDM120 (einphasig, experimentell)', 'value' => 'eastron_sdm120'],
+                        ['caption' => 'Eastron SDM220 (einphasig, experimentell)', 'value' => 'eastron_sdm220'],
+                        ['caption' => 'Eastron SDM230 (einphasig, experimentell)', 'value' => 'eastron_sdm230'],
                         ['caption' => 'WhatWatt',                'value' => 'whatwatt'],
                         ['caption' => 'Phoenix Contact EEM-EM375', 'value' => 'phoenix_eem375'],
                         ['caption' => 'Phoenix Contact EEM-XM',  'value' => 'phoenix_eemxm'],
