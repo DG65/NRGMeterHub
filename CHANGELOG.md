@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.30.1-beta.1 (2026-09-19)
+
+- **Verständlichere Texte im Symbox-Gateway-Weg (Rückmeldung des Forum-Testers zum Handling,
+  „Getestet, läuft"):** Die Statuszeile ganz oben nannte im Gateway-Modus „IP-Adresse bzw.
+  Inexogy-Anmeldung" und „Zähler nicht erreichbar" — sie hängt jetzt vom Verbindungsweg ab. Im
+  Gateway-Modus: Status 104 „Bitte die Brücke zum ModBus Gateway eintragen …", Status 201
+  „keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit-ID = DeviceID)"; bei
+  „Direkt" und Cloud-Zählern unverändert. Die Felder heißen jetzt „ModBus Gateway zum Gerät" und
+  „NRG-Stack Brücke zum ModBus Gateway" (vorher „Einfachster Weg: natives ModBus Gateway dieses
+  Geräts wählen …" und „Brücke (MeterHub Brücke zum ModBus-Gateway)", das erste wurde in der
+  Anzeige abgeschnitten); der Knopf heißt „Brücke anlegen und verbinden" ohne das „…" davor.
+- Prüfstand `test-virtual.php` Block 47 um die Statustexte je Verbindungsweg erweitert.
+
 ## 0.30.0-beta.1 (2026-09-19)
 
 - **Neu: Modul „MeterHub Brücke" (`MeterHubBridge`, Prefix `MHUBB`) — der Symbox-Gateway-Weg

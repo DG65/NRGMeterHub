@@ -4059,9 +4059,9 @@ class MeterHub extends IPSModule
             ],
             ['type' => 'Label', 'name' => 'ConnectionModeGatewayWarning', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '⚠️ Dieser Verbindungsweg ist neu und noch nicht an vielen Geräten erprobt (SUITE.md 9j) — lesend am Rohcode von Symcons eigenem Referenzmodul verifiziert. Schreibende Zählertypen (blue\'Log RPC/Power Control) NICHT über diesen Weg produktiv einsetzen — deren Sollwert-Schreibzugriff ist hier nur eine ungetestete Ableitung. Ohne gewählte und verbundene Brücke liefert dieser Modus keine Werte.'],
             ['type' => 'Label', 'name' => 'ConnectionModeGatewayUnitIdHint', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ℹ️ Host/Port/Unit-ID entfallen in diesem Modus. Ablauf: Für das Gerät ein natives „ModBus Gateway" anlegen und dessen „DeviceID" (= Unit-ID) auf die Modbus-Adresse des Geräts stellen — dieses Gateway unten wählen und „Brücke anlegen und verbinden" klicken, dann „Änderungen übernehmen". Von Hand geht es auch: eine „NRG-Stack MeterHub Brücke" anlegen, über „Gateway ändern" mit dem Gateway verbinden und unten wählen. Eine Brücke bedient genau eine Unit-ID.'],
-            ['type' => 'SelectInstance', 'name' => 'GatewayPick', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Einfachster Weg: natives ModBus Gateway dieses Geräts wählen …', 'moduleID' => MHUB_ModbusGatewayClient::GATEWAY_GUID],
-            ['type' => 'Button', 'name' => 'BtnCreateBridge', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '… und Brücke anlegen und verbinden', 'onClick' => 'echo MHUB_CreateBridge($id, $GatewayPick);'],
-            ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Brücke (MeterHub Brücke zum ModBus-Gateway)', 'moduleID' => self::BRIDGE_GUID],
+            ['type' => 'SelectInstance', 'name' => 'GatewayPick', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ModBus Gateway zum Gerät', 'moduleID' => MHUB_ModbusGatewayClient::GATEWAY_GUID],
+            ['type' => 'Button', 'name' => 'BtnCreateBridge', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Brücke anlegen und verbinden', 'onClick' => 'echo MHUB_CreateBridge($id, $GatewayPick);'],
+            ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'NRG-Stack Brücke zum ModBus Gateway', 'moduleID' => self::BRIDGE_GUID],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP-Adresse', 'validate' => ($isCloud || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -4412,11 +4412,17 @@ class MeterHub extends IPSModule
                 ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo MHUB_TestConnection($id);'],
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
             ],
-            'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung vervollständigen (IP-Adresse, Inexogy-Anmeldung bzw. Brücke wählen).'],
-                ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
-                ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – Zähler nicht erreichbar (bei Symbox-Gateway: Brücke und Gateway prüfen).'],
-            ],
+            'status' => ($connectionMode === 'gateway' && !$isCloud)
+                ? [
+                    ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte die Brücke zum ModBus Gateway eintragen (Gateway wählen, „Brücke anlegen und verbinden", übernehmen).'],
+                    ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
+                    ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit-ID = DeviceID am Gateway).'],
+                ]
+                : [
+                    ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung vervollständigen (IP-Adresse bzw. Inexogy-Anmeldung).'],
+                    ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
+                    ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – Zähler nicht erreichbar.'],
+                ],
         ];
 
         return json_encode($form);

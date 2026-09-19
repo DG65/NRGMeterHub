@@ -2218,5 +2218,17 @@ check('47b: Symbox-Gateway — alle drei Gateway-Felder sichtbar, Host ausgeblen
 $cloud47 = $visOf('gateway', 'inexogy');
 check('47c: Cloud-Zähler (Inexogy) — auch bei gespeichertem „gateway" keine Gateway-Felder', $cloud47['GatewayPick'] === false && $cloud47['BtnCreateBridge'] === false && $cloud47['BridgeInstanceID'] === false, json_encode($cloud47));
 
+$statusCaption = function (string $mode, string $meter, int $code) use ($hub47) {
+    IPS_SetProperty(9200, 'Meter', $meter);
+    IPS_SetProperty(9200, 'ConnectionMode', $mode);
+    $f = json_decode($hub47->GetConfigurationForm(), true);
+    foreach ($f['status'] as $st) { if ($st['code'] === $code) { return $st['caption']; } }
+    return '';
+};
+check('47d: Symbox-Gateway — Status 104 sagt „Brücke zum ModBus Gateway eintragen", nicht IP-Adresse (Forum-Feedback Mstaudi)', str_contains($statusCaption('gateway', 'siemens_pac2200', 104), 'Brücke zum ModBus Gateway eintragen') && !str_contains($statusCaption('gateway', 'siemens_pac2200', 104), 'IP-Adresse'), $statusCaption('gateway', 'siemens_pac2200', 104));
+check('47d: Symbox-Gateway — Status 201 nennt Brücke und Gateway', str_contains($statusCaption('gateway', 'siemens_pac2200', 201), 'Brücke und ModBus Gateway'), $statusCaption('gateway', 'siemens_pac2200', 201));
+check('47e: Direktweg — Status 104 bleibt bei der IP-Adresse', str_contains($statusCaption('direct', 'siemens_pac2200', 104), 'IP-Adresse') && !str_contains($statusCaption('direct', 'siemens_pac2200', 104), 'Brücke'));
+check('47e: Cloud-Zähler — Status 104 nennt keine Brücke, auch bei gespeichertem „gateway"', !str_contains($statusCaption('gateway', 'inexogy', 104), 'Brücke'));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
