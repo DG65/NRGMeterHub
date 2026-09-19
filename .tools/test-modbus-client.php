@@ -208,5 +208,19 @@ check('Verbindungsfehler (false von SendDataToParent) liefert null, kein Fatal E
 check('close() ist gefahrlos aufrufbar (No-Op)', ($gw->close() ?? true) === true);
 check('Register-Dekodierung identisch zu MHUB_ModbusTcpClient (Float32)', $gw->readFloat32([16968, 0], 0) === (new MHUB_ModbusTcpClient('x', 1, 1))->readFloat32([16968, 0], 0));
 
+// Vollstaendigkeit: jede oeffentliche Methode des TCP-Clients, die irgendwo im
+// Modul aufgerufen wird, muss die Gateway-Klasse ebenfalls haben. Ein Test nur
+// ueber readHolding/readInput faengt fehlende Dekodierhilfen nicht — im
+// Schwestermodul InverterHub endete der erste Lesezugriff im Gateway-Modus
+// deshalb in einem Fatal Error, obwohl das Formular "Verbindung aktiv" zeigte.
+$moduleSrc = file_get_contents(__DIR__ . '/../MeterHub/module.php');
+$missing = [];
+foreach ((new ReflectionClass('MHUB_ModbusTcpClient'))->getMethods(ReflectionMethod::IS_PUBLIC) as $m) {
+    if ($m->getName() === '__destruct' || $m->getName() === '__construct') { continue; }
+    $used = preg_match('/->' . preg_quote($m->getName(), '/') . '\(/', $moduleSrc) === 1;
+    if ($used && !method_exists($gw, $m->getName())) { $missing[] = $m->getName(); }
+}
+check('Gateway-Klasse hat jede vom Modul am Client aufgerufene Methode', $missing === [], implode(', ', $missing));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
