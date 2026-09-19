@@ -329,11 +329,14 @@ class MHUB_ModbusTcpClient implements MHUB_ModbusClientInterface
 // ["DataID"=>DataID, "Function"=>FC, "Address"=>Register, "Quantity"=>Anzahl,
 // "Data"=>""], Antwort roh (kein JSON) — erste 2 Byte (Function+ByteCount)
 // überspringen, Rest unpack('n*', ...) als big-endian 16-Bit-Register.
-// Offen: wie eine Instanz ohne automatischen ConnectParent()-Aufruf (siehe
-// Create()) trotzdem mit dem nativen Gateway verbunden wird, ist noch nicht
-// geklärt — ConnectParent() legt laut SDK-Doku bei Bedarf selbst einen
-// passenden Parent an, was ungefragt jede bestehende Direktverbindungs-
-// Instanz beträfe (InverterHubs Fund 18.09.2026).
+// Verbindung zum Gateway (seit 0.30.0): MeterHub selbst hat KEIN Elternteil —
+// parentRequirements/implemented in dessen module.json hätten jede bestehende
+// Direkt-Instanz mit dem Balken „benötigt eine übergeordnete Instanz" versehen
+// (live bei InverterHub gesehen, 19.09.2026). Stattdessen hängt die Instanz
+// MeterHubBridge unter dem Gateway (die trägt die Anforderung allein); MeterHub
+// wählt sie im Feld BridgeInstanceID und ruft MHUBB_Forward() (siehe
+// MeterHub::BridgeCall()). ConnectParent() bleibt ungenutzt: es würde laut
+// SDK-Doku ungefragt einen Parent anlegen (InverterHubs Fund 18.09.2026).
 //
 // LESEND (Function 3/4) exakt nach diesem Vorbild — SCHREIBEND (Function 16)
 // ist dagegen KEINE verifizierte Fundstelle: das Referenzmodul liest nur.
@@ -3129,10 +3132,12 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyInteger('UnitId', 1);
         // Verbindungsweg (SUITE.md 9j, Dietmars Auftrag 18.09.2026): zusätzlich
         // zum bisherigen direkten Weg (fsockopen, s. o.) optional über Symcons
-        // natives Modbus-Gateway (eingebauter RS485-Port einer Symbox). Stub,
-        // bis das SendDataToParent/ForwardData-Nutzlastformat geklärt ist —
+        // natives Modbus-Gateway (eingebauter RS485-Port einer Symbox), und
+        // zwar über die Brücken-Instanz MeterHubBridge (BridgeInstanceID) —
         // siehe MHUB_ModbusGatewayClient.
         $this->RegisterPropertyString('ConnectionMode', 'direct');
+        $this->RegisterPropertyInteger('BridgeInstanceID', 0);
+        $this->RegisterPropertyInteger('GatewayPick', 0); // nur Formular-Eingabe für CreateBridge()
 
         // Sollwert-Schreibzugriff (blue'Log RPC/Power Control, Dietmars
         // Auftrag 07.09.2026 — Ersatz für die bisher in PHP-Skripten
@@ -3255,7 +3260,9 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.29.7';
+    private const NEWS_VERSION = '0.30.0';
+    // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
+    private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
@@ -3317,7 +3324,8 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen (z. B. viele Zähler am selben Solarpark): „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zähler ohne eigenes Anzeige-Label heißen jetzt wie ihre Instanz statt pauschal nach der Funktion (z. B. „WR 4.1.01.02" statt für alle Wechselrichter gleich „PV-Erzeugung") — sofern die Instanz umbenannt wurde, sonst bleibt der Funktionsname der Rückfall.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „Rolle des Zählers" hat jetzt eine dritte Option „Unterzähler / Erzeuger" und wirkt sich erstmals wirklich aus: Für Unterzähler (Verbraucher oder Erzeuger, nicht „Netz-/NAP-Zähler") prüft eine neue Plausibilitätsprüfung, ob der Zähler über die Zeit überwiegend nur in eine Richtung misst — zeigt er dauerhaft beide Richtungen deutlich, passt vermutlich eher „Netz-/NAP-Zähler", oder die Verkabelung ist falsch gepolt. Ergebnis direkt unter der Rollen-Auswahl im Formular.'],
-                ['type' => 'Label', 'caption' => '• 🚧 Neues Feld „Verbindungsweg" (Direkt/Symbox-Gateway) für Symcons eingebaute Symbox-Hardware — lesend jetzt echt umgesetzt (am Rohcode von Symcons eigenem Referenzmodul verifiziert), aber noch ohne echte Symbox-Hardware getestet. Schreibende Zählertypen dort nicht produktiv einsetzen. Für den normalen Betrieb bleibt „Direkt" die richtige Wahl.'],
+                ['type' => 'Label', 'caption' => '• 🚧 Neues Feld „Verbindungsweg" (Direkt/Symbox-Gateway) für Symcons eingebaute Symbox-Hardware: Der Weg läuft über das neue Modul „MeterHub Brücke" — pro Gerät ein natives „ModBus Gateway" (mit der Unit-ID als DeviceID), daran eine Brücke, und hier die Brücke wählen. Lesend am Rohcode von Symcons Referenzmodul verifiziert, aber noch nicht an echter Symbox-Hardware bestätigt. Schreibende Zählertypen dort nicht produktiv einsetzen. Für den normalen Betrieb bleibt „Direkt" die richtige Wahl und ändert sich nicht.'],
+                ['type' => 'Label', 'caption' => '• 🔧 Frühere Beta-Stände (0.29.10–0.29.14) hängten das Gateway direkt an MeterHub — das ist zurückgenommen, weil es bei jeder Direkt-Instanz einen Balken „benötigt eine übergeordnete Instanz" zeigte. Wer den Gateway-Weg schon eingerichtet hatte: Brücke anlegen, mit dem Gateway verbinden und in dieser Instanz die Brücke wählen; die Instanz und ihre Messhistorie bleiben.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
@@ -3525,13 +3533,15 @@ class MeterHub extends IPSModule
         // Bereitschaft: Modbus-Zähler brauchen eine IP, Cloud-Zähler ein
         // gültiges Zugriffs-Token samt gewählter Zähler-UID.
         $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
-        // Symbox-Gateway: Host/Port entfallen, die Adresse steckt im verbundenen
-        // Gateway. Ohne verbundenes Gateway scheitert der Lesezyklus still mit
-        // Status 201 — die Timer laufen trotzdem, weil ApplyChanges() nicht
-        // sicher aufgerufen wird, wenn der Nutzer das Gateway erst danach verbindet.
+        // Symbox-Gateway: Host/Port entfallen, bereit ist die Instanz mit einer
+        // gewählten Brücke. Ob die Brücke selbst mit einem Gateway verbunden ist,
+        // ändert sich unabhängig von dieser Instanz — dann scheitert der
+        // Lesezyklus mit Status 201 und erklärendem Text, die Timer laufen.
         $ready   = $isCloud
             ? ($this->ReadAttributeString('InexogyToken') !== '' && $this->ReadPropertyString('InexogyMeterID') !== '')
-            : ($this->ReadPropertyString('ConnectionMode') === 'gateway' || $this->ReadPropertyString('Host') !== '');
+            : ($this->ReadPropertyString('ConnectionMode') === 'gateway'
+                ? $this->ReadPropertyInteger('BridgeInstanceID') > 0
+                : $this->ReadPropertyString('Host') !== '');
         if (!$this->ReadPropertyBoolean('Active') || !$ready) {
             // Ausfallverhalten "Default-Sollwert": beim Deaktivieren (nicht
             // beim erstmaligen Anlegen ohne Host — dort gibt es nichts zu
@@ -3768,7 +3778,7 @@ class MeterHub extends IPSModule
             return '✅ Verbindung erfolgreich, Werte aktualisiert (' . date('H:i:s') . ' Uhr).';
         }
         return $this->ReadPropertyString('ConnectionMode') === 'gateway'
-            ? '❌ Verbindung fehlgeschlagen — ist diese Instanz über das 🔌-Symbol am Kopf der Instanzkonfiguration mit einer passenden Modbus-Gateway-Instanz verbunden (richtige Unit-ID als deren Property „DeviceID")?'
+            ? '❌ Verbindung fehlgeschlagen — ' . $this->BridgeErrorText()
             : '❌ Verbindung fehlgeschlagen — Host/Port/Unit-ID/Zählertyp prüfen.';
     }
 
@@ -4047,8 +4057,11 @@ class MeterHub extends IPSModule
                 ],
                 'onChange' => 'MHUB_OnChangeConnectionMode($id, $ConnectionMode);',
             ],
-            ['type' => 'Label', 'name' => 'ConnectionModeGatewayWarning', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '⚠️ Dieser Verbindungsweg ist neu und ungetestet (SUITE.md 9j) — lesend am Rohcode von Symcons eigenem Referenzmodul verifiziert, aber noch ohne echte Symbox-Hardware geprüft. Schreibende Zählertypen (blue\'Log RPC/Power Control) NICHT über diesen Weg produktiv einsetzen — deren Sollwert-Schreibzugriff ist hier nur eine ungetestete Ableitung. Ohne Verbindung (siehe Hinweis unten) liefert dieser Modus keine Werte.'],
-            ['type' => 'Label', 'name' => 'ConnectionModeGatewayUnitIdHint', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ℹ️ Host/Port/Unit-ID entfallen in diesem Modus. Stattdessen: Für jedes Gerät am Bus (auch für Ihre Symbox) zuerst eine eigene native „ModBus Gateway"-Instanz mit der passenden Unit-ID (deren Property „DeviceID") anlegen, dann diese Instanz über das 🔌-Symbol am Kopf der Instanzkonfiguration mit genau dieser Gateway-Instanz verbinden.'],
+            ['type' => 'Label', 'name' => 'ConnectionModeGatewayWarning', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '⚠️ Dieser Verbindungsweg ist neu und noch nicht an vielen Geräten erprobt (SUITE.md 9j) — lesend am Rohcode von Symcons eigenem Referenzmodul verifiziert. Schreibende Zählertypen (blue\'Log RPC/Power Control) NICHT über diesen Weg produktiv einsetzen — deren Sollwert-Schreibzugriff ist hier nur eine ungetestete Ableitung. Ohne gewählte und verbundene Brücke liefert dieser Modus keine Werte.'],
+            ['type' => 'Label', 'name' => 'ConnectionModeGatewayUnitIdHint', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ℹ️ Host/Port/Unit-ID entfallen in diesem Modus. Ablauf: Für das Gerät ein natives „ModBus Gateway" anlegen und dessen „DeviceID" (= Unit-ID) auf die Modbus-Adresse des Geräts stellen — dieses Gateway unten wählen und „Brücke anlegen und verbinden" klicken, dann „Änderungen übernehmen". Von Hand geht es auch: eine „NRG-Stack MeterHub Brücke" anlegen, über „Gateway ändern" mit dem Gateway verbinden und unten wählen. Eine Brücke bedient genau eine Unit-ID.'],
+            ['type' => 'SelectInstance', 'name' => 'GatewayPick', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Einfachster Weg: natives ModBus Gateway dieses Geräts wählen …', 'moduleID' => MHUB_ModbusGatewayClient::GATEWAY_GUID],
+            ['type' => 'Button', 'name' => 'BtnCreateBridge', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '… und Brücke anlegen und verbinden', 'onClick' => 'echo MHUB_CreateBridge($id, $GatewayPick);'],
+            ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Brücke (MeterHub Brücke zum ModBus-Gateway)', 'moduleID' => self::BRIDGE_GUID],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP-Adresse', 'validate' => ($isCloud || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -4162,6 +4175,7 @@ class MeterHub extends IPSModule
                         ['type' => 'Label', 'caption' => '🆕 Meteocontrol blue\'Log SCADA: Ein blue\'Log kann JEDES angeschlossene Gerät (Wechselrichter, Zähler …) unter einer eigenen „SCADA-Adresse" anbieten — diese Adresse ist die Unit-ID unten, NICHT 1. Die Zuordnung steht auf dem blue\'Log selbst (Geräteliste → Spalte „SCADA Adresse"); Adresse 97 ist das blue\'Log selbst (Summenwerte). FC 0x03, Float wortgetauscht (CDAB) — an einer realen Solarpark-Anlage verifiziert.'],
                         ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
                         ['type' => 'Label', 'caption' => '🔧 Anschluss: Die Zähler nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (der PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
+                        ['type' => 'Label', 'caption' => '🔌 Symbox / ModBus-Gateway: Unter „Verbindung" den Weg „Symbox-Gateway" wählen — nur dann erscheinen die zugehörigen Felder. Für das Gerät ein natives „ModBus Gateway" anlegen (dessen „DeviceID" = Modbus-Adresse des Geräts), es hier wählen und „Brücke anlegen und verbinden" klicken, dann „Änderungen übernehmen". Eine Brücke bedient genau eine Unit-ID; mehrere Geräte brauchen je ein Gateway und eine Brücke. Neuer Weg, noch nicht an vielen Geräten erprobt.'],
                         ['type' => 'Label', 'caption' => '⚠️ UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
                     ],
@@ -4399,9 +4413,9 @@ class MeterHub extends IPSModule
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
             ],
             'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung vervollständigen (IP-Adresse bzw. Inexogy-Anmeldung).'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung vervollständigen (IP-Adresse, Inexogy-Anmeldung bzw. Brücke wählen).'],
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
-                ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – Zähler nicht erreichbar (bei Symbox-Gateway: ist ein Modbus-Gateway verbunden?).'],
+                ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – Zähler nicht erreichbar (bei Symbox-Gateway: Brücke und Gateway prüfen).'],
             ],
         ];
 
@@ -4437,6 +4451,9 @@ class MeterHub extends IPSModule
         $this->UpdateFormField('ConnectionMode', 'visible', !$isCloud);
         $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', !$isCloud && $isGateway);
+        $this->UpdateFormField('BridgeInstanceID', 'visible', !$isCloud && $isGateway);
+        $this->UpdateFormField('GatewayPick', 'visible', !$isCloud && $isGateway);
+        $this->UpdateFormField('BtnCreateBridge', 'visible', !$isCloud && $isGateway);
 
         // Sollwert-Panel (blue'Log RPC/Power Control) — nur bei den beiden
         // schreibenden Zählertypen sichtbar.
@@ -4458,9 +4475,12 @@ class MeterHub extends IPSModule
         $isGateway = $connectionMode === 'gateway';
         $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', $isGateway);
         $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', $isGateway);
+        $this->UpdateFormField('BridgeInstanceID', 'visible', $isGateway);
+        $this->UpdateFormField('GatewayPick', 'visible', $isGateway);
+        $this->UpdateFormField('BtnCreateBridge', 'visible', $isGateway);
         // Host/Port/Unit-ID entfallen im Gateway-Modus (ChargerHub-Fund 18.09.2026,
         // SUITE.md 9j): die Unit-ID sitzt dort am DeviceID-Property der
-        // übergeordneten Modbus-Gateway-Instanz, nicht an dieser Instanz.
+        // Gateway-Instanz hinter der Brücke, nicht an dieser Instanz.
         $this->UpdateFormField('Host', 'visible', !$isGateway);
         $this->UpdateFormField('Host', 'validate', $isGateway ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
         $this->UpdateFormField('Port', 'visible', !$isGateway);
@@ -4490,18 +4510,93 @@ class MeterHub extends IPSModule
         return $this->driver;
     }
 
+    /**
+     * Legt die Brücke (MeterHubBridge) an, verbindet sie mit dem gewählten
+     * nativen ModBus Gateway und trägt sie in das (noch ungespeicherte)
+     * Formular ein — Knopf statt automatischer Anlage: GetConfigurationForm()
+     * und ApplyChanges() dürfen keine Instanzen erzeugen, ein Klick darf es.
+     * Ist am Gateway schon eine Brücke, wird sie wiederverwendet.
+     */
+    public function CreateBridge(int $gatewayId): string
+    {
+        if ($gatewayId <= 0 || !IPS_InstanceExists($gatewayId)
+            || (IPS_GetInstance($gatewayId)['ModuleInfo']['ModuleID'] ?? '') !== MHUB_ModbusGatewayClient::GATEWAY_GUID) {
+            return '❌ Bitte zuerst das native „ModBus Gateway" dieses Geräts auswählen.';
+        }
+        $bridgeId = 0;
+        foreach (IPS_GetInstanceListByModuleID(self::BRIDGE_GUID) as $b) {
+            if ((int)(IPS_GetInstance($b)['ConnectionID'] ?? 0) === $gatewayId) {
+                $bridgeId = $b;
+                break;
+            }
+        }
+        $created = $bridgeId === 0;
+        if ($created) {
+            $bridgeId = IPS_CreateInstance(self::BRIDGE_GUID);
+            IPS_SetName($bridgeId, 'MeterHub Brücke ' . IPS_GetName($gatewayId));
+            IPS_SetParent($bridgeId, IPS_GetObject($this->InstanceID)['ParentID']);
+            IPS_ConnectInstance($bridgeId, $gatewayId);
+            IPS_ApplyChanges($bridgeId);
+        }
+        $this->UpdateFormField('BridgeInstanceID', 'value', $bridgeId);
+        return ($created ? '✅ Brücke #' . $bridgeId . ' angelegt' : '✅ Vorhandene Brücke #' . $bridgeId . ' wiederverwendet')
+            . ' und mit „' . IPS_GetName($gatewayId) . '" verbunden. Unten ist sie eingetragen — jetzt „Änderungen übernehmen" klicken.';
+    }
+
+    /** Grund des letzten Fehlschlags über die Brücke (no_bridge/not_connected/parent_inactive/no_response), für die Statustexte. */
+    private ?string $lastBridgeError = null;
+
+    /**
+     * Schickt einen Request über die Brücke (MeterHubBridge) und liefert die
+     * rohe Antwort — leer bei jedem Fehler, der Grund landet in $error.
+     * Die Brücke antwortet immer als JSON mit base64-kodierten Daten: rohe
+     * Registerbytes sind meist kein gültiges UTF-8 und sollen die
+     * Instanzgrenze unbeschadet überstehen. Hinter function_exists(), damit
+     * MeterHub ohne die Brücke unverändert läuft (Verbund-Grundregel).
+     */
+    private static function BridgeCall(int $bridgeId, string $json, ?string &$error): string
+    {
+        $error = null;
+        if ($bridgeId <= 0 || !IPS_InstanceExists($bridgeId) || !function_exists('MHUBB_Forward')) {
+            $error = 'no_bridge';
+            return '';
+        }
+        $r = json_decode((string)MHUBB_Forward($bridgeId, $json), true);
+        if (!is_array($r) || empty($r['ok'])) {
+            $error = is_array($r) ? (string)($r['error'] ?? 'no_response') : 'no_response';
+            return '';
+        }
+        $raw = base64_decode((string)($r['data'] ?? ''), true);
+        if ($raw === false || $raw === '') {
+            $error = 'no_response';
+            return '';
+        }
+        return $raw;
+    }
+
+    /** Erklärender Text zum letzten Brücken-Fehlschlag. */
+    private function BridgeErrorText(): string
+    {
+        switch ($this->lastBridgeError) {
+            case 'no_bridge':
+                return 'Keine Brücke gewählt oder die gewählte Instanz gibt es nicht mehr — unter „Verbindung" die MeterHub-Brücke auswählen.';
+            case 'not_connected':
+                return 'Die gewählte Brücke ist mit keinem Modbus-Gateway verbunden — an der Brücke über „Gateway ändern" das passende Gateway wählen.';
+            case 'parent_inactive':
+                return 'Das Gateway der Brücke ist nicht aktiv — dessen Verbindung zum Gerät prüfen.';
+            default:
+                return 'Das Gateway antwortet nicht — stimmt die Unit-ID (Property „DeviceID" am Gateway) mit der Adresse des Geräts überein?';
+        }
+    }
+
     private function GetModbusClient(): MHUB_ModbusClientInterface
     {
         if ($this->ReadPropertyString('ConnectionMode') === 'gateway') {
+            $bridgeId = $this->ReadPropertyInteger('BridgeInstanceID');
             $mb = new MHUB_ModbusGatewayClient(
                 $this->ReadPropertyInteger('UnitId'),
-                function (string $json): string {
-                    // Ohne verbundenes Gateway meldet SendDataToParent() bei jedem
-                    // Takt eine Symcon-Warnung — hier still leer zurueckgeben.
-                    if (IPS_GetInstance($this->InstanceID)['ConnectionID'] <= 0) {
-                        return '';
-                    }
-                    return $this->SendDataToParent($json);
+                function (string $json) use ($bridgeId): string {
+                    return self::BridgeCall($bridgeId, $json, $this->lastBridgeError);
                 }
             );
         } else {

@@ -150,6 +150,31 @@ Idents nur aus einer echten, live abgelesenen Installation übernehmen (nicht au
 Modul-Doku raten, siehe „Registerkarten: erst messen, dann glauben" unten). Verifiziert in
 `.tools/test-ident-mapping.php` (9 Prüfungen).
 
+## Symbox-Gateway über die Brücke `MeterHubBridge` (0.30.0, 19.09.2026)
+
+**Kein `parentRequirements`/`implemented` am Hauptmodul.** Beides an `MeterHub/module.json`
+(0.29.10–0.29.14) ließ bei JEDER bestehenden Direkt-Instanz den Balken „benötigt eine
+übergeordnete Instanz" erscheinen — live beim Schwestermodul InverterHub gesehen, zurückgenommen.
+Damit sich eine Instanz in der Konsole an ein natives „ModBus Gateway" hängen lässt, braucht
+sie BEIDES: `parentRequirements ["{E310B701-…}"]` und `implemented ["{77B31ABB-…}"]` (das
+Gateway hat selbst `ChildRequirements {77B31ABB-…}`; an Symcons Referenzmodul EM24-DIN und am
+Gateway per `IPS_GetModule()` gelesen). Diese Anforderung trägt allein `MeterHubBridge`.
+
+**Vertrag (in MeterHub, InverterHub und ChargerHub identisch, je eigene Brücke in der eigenen
+Bibliothek — die Hubs bleiben eigenständig):** `Forward(string $json): string` → immer JSON
+`{"ok":true,"data":"<base64>"}` oder `{"ok":false,"error":"not_connected"|"parent_inactive"|
+"no_response"}`; `GetState(): string` → `{connected, parentActive, parentStatus, unitId}`. Eigene
+GUID, Klassenname und Prefix je Hub (bei uns `MHUBB`). Der Hub ruft `MHUBB_Forward()` hinter
+`function_exists()`; fehlt die Brücke, ist nur der Gateway-Weg nicht verfügbar. **Eine Brücke =
+genau eine Unit-ID** (die `DeviceID` des Gateways, nicht im Request). Antwort immer base64:
+rohe Registerbytes sind meist kein gültiges UTF-8 (`0xFFFF` als Testwert, nie ein bequemer).
+
+**Anlegen nur per Klick** (`MeterHub::CreateBridge()`), nie in `ApplyChanges()` oder
+`GetConfigurationForm()`; `ConnectParent()` bleibt ungenutzt (legt laut SDK-Doku ungefragt einen
+Parent an). Prüfstand `.tools/test-bridge.php`. **Unbestätigt:** das Verhalten der Konsole und
+des Kernels beim Funktionsaufruf zwischen Instanzen an echter Hardware; der Schreibpfad
+(Function 16) bleibt eine ungetestete Ableitung.
+
 ## Hilfsordner im Wurzelverzeichnis müssen mit einem Punkt beginnen
 
 Die Store-Prüfung von IP-Symcon behandelt **jeden sichtbaren Ordner im Repo-Wurzelverzeichnis

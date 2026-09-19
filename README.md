@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.29.14--beta.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.30.0--beta.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -154,6 +154,28 @@ die Hosts bereits bestehender MeterHub-Instanzen vor. Vor dem eigentlichen Adres
 Suchlauf lohnt sich „Schnittstellen prüfen": eine SCADA-Lizenz ist ein teures Zusatzmodul und
 in der Praxis selten, die blue'Log-Standardlizenz enthält weder sie noch RPC — die Schaltfläche
 zeigt, welche der drei Rollen (Power Control/RPC/SCADA) an dieser IP überhaupt antworten.
+
+### MeterHubBridge (Brücke zum ModBus-Gateway, Symbox)
+
+Wer Zähler über den eingebauten RS485-Port einer Symcon-Symbox (oder ein anderes native
+„ModBus Gateway") anbindet, nutzt statt „Direkt" den Verbindungsweg **Symbox-Gateway**. Die
+Anbindung läuft über dieses kleine Modul, das als einziges an das Gateway gehängt wird — die
+MeterHub-Instanzen selbst bleiben ohne Elternteil, bestehende Direkt-Instanzen ändern sich
+nicht.
+
+1. Für das Gerät ein natives **„ModBus Gateway"** anlegen, dessen **DeviceID** (= Unit-ID) auf
+   die Modbus-Adresse des Geräts stellen.
+2. In der MeterHub-Instanz den Verbindungsweg „Symbox-Gateway" wählen, das Gateway auswählen
+   und **„Brücke anlegen und verbinden"** klicken, dann „Änderungen übernehmen". (Von Hand
+   geht es auch: eine „MeterHub Brücke" anlegen, über „Gateway ändern" mit dem Gateway
+   verbinden und in der Instanz auswählen.)
+
+**Eine Brücke bedient genau eine Unit-ID.** Mehrere Geräte mit verschiedenen Unit-IDs am selben
+Bus brauchen je ein eigenes Gateway und je eine eigene Brücke. Die Brücke reicht Anfragen
+unverändert durch (Lesen wie Schreiben) und liefert die Antwort base64-kodiert zurück. Der
+Weg ist lesend am Rohcode von Symcons Referenzmodul (SymconBC, EM24-DIN) verifiziert, aber
+noch nicht an vielen Geräten erprobt; das Schreiben (blue'Log RPC/Power Control) ist eine
+ungetestete Ableitung und gehört nicht auf diesen Weg.
 
 ## Funktionszuordnung (welcher Verbraucher hängt hier?)
 

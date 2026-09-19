@@ -2188,5 +2188,35 @@ for ($t = 0; $t <= 3600; $t += 5) {
 }
 check('46h: auch ein 500-MW-Ausreißer (unter dem Deckel) verfälscht den Ertrag nicht (3600 kWh)', abs($sum46b - 3600.0) < 1e-6, (string)$sum46b);
 
+echo "\n47) Symbox-Gateway-Felder (Gateway wählen, „Brücke anlegen und verbinden\", Brückenauswahl) erscheinen NUR im Verbindungsweg „Symbox-Gateway\" (Dietmars Frage 19.09.2026)\n";
+$findEl = function (array $els, string $name) use (&$findEl) {
+    foreach ($els as $e) {
+        if (is_array($e) && ($e['name'] ?? null) === $name) { return $e; }
+        foreach (['items', 'elements'] as $k) {
+            if (isset($e[$k]) && is_array($e[$k])) { $r = $findEl($e[$k], $name); if ($r) { return $r; } }
+        }
+    }
+    return null;
+};
+$hub47 = new MeterHub(9200);
+$hub47->Create();
+$visOf = function (string $mode, string $meter) use ($findEl, $hub47) {
+    IPS_SetProperty(9200, 'Meter', $meter);
+    IPS_SetProperty(9200, 'ConnectionMode', $mode);
+    $f = json_decode($hub47->GetConfigurationForm(), true);
+    $out = [];
+    foreach (['GatewayPick', 'BtnCreateBridge', 'BridgeInstanceID', 'Host'] as $n) {
+        $e = $findEl($f['elements'], $n);
+        $out[$n] = $e === null ? null : (bool)($e['visible'] ?? true);
+    }
+    return $out;
+};
+$direct = $visOf('direct', 'siemens_pac2200');
+check('47a: Direktweg — keines der drei Gateway-Felder sichtbar, Host sichtbar', $direct === ['GatewayPick' => false, 'BtnCreateBridge' => false, 'BridgeInstanceID' => false, 'Host' => true], json_encode($direct));
+$gw47 = $visOf('gateway', 'siemens_pac2200');
+check('47b: Symbox-Gateway — alle drei Gateway-Felder sichtbar, Host ausgeblendet', $gw47 === ['GatewayPick' => true, 'BtnCreateBridge' => true, 'BridgeInstanceID' => true, 'Host' => false], json_encode($gw47));
+$cloud47 = $visOf('gateway', 'inexogy');
+check('47c: Cloud-Zähler (Inexogy) — auch bei gespeichertem „gateway" keine Gateway-Felder', $cloud47['GatewayPick'] === false && $cloud47['BtnCreateBridge'] === false && $cloud47['BridgeInstanceID'] === false, json_encode($cloud47));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

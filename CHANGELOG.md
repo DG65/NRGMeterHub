@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.30.0-beta.1 (2026-09-19)
+
+- **Neu: Modul „MeterHub Brücke" (`MeterHubBridge`, Prefix `MHUBB`) — der Symbox-Gateway-Weg
+  läuft jetzt darüber; `parentRequirements`/`implemented` sind in `MeterHub/module.json`
+  zurückgenommen.** Auslöser: Beim Schwestermodul InverterHub zeigte jede bestehende
+  Direkt-Instanz den orangen Balken „Die Instanz benötigt eine übergeordnete Instanz, hat aber
+  keine" (Tester im Forum), bei MeterHub derselbe Mechanismus (0.29.10–0.29.14). Die
+  Anforderung trägt jetzt allein die Brücke (Kind des nativen ModBus Gateways); MeterHub wählt
+  sie im neuen Feld `BridgeInstanceID` und ruft `MHUBB_Forward()`. GUID und Prefix von
+  MeterHub bleiben unverändert — Konsumenten von `MHUB_GetFunctions` (EMS, Dashboard, OCPPHub,
+  HeishaMon, RLTHub, MeterHubVirtual) merken nichts, bestehende Instanzen behalten ihre Historie.
+- **Vertrag der Brücke (in allen drei Hubs identisch, jeweils eigene Brücke in der eigenen
+  Bibliothek — Dietmars Entscheidung, damit jedes Modul für sich eigenständig bleibt):**
+  `Forward(string $json): string` antwortet immer JSON `{"ok":true,"data":"<base64>"}` oder
+  `{"ok":false,"error":"not_connected"|"parent_inactive"|"no_response"}` — rohe Registerbytes
+  sind meist kein gültiges UTF-8, deshalb base64 über die Instanzgrenze. `GetState(): string`
+  liefert `{connected, parentActive, parentStatus, unitId}` (Unit-ID aus der `DeviceID` des
+  Gateways). Die Brücke kennt keine Function Codes und reicht Lesen wie Schreiben durch. Eine
+  Brücke bedient genau eine Unit-ID.
+- **Halbautomatisch:** Neben der Brückenauswahl gibt es „Natives ModBus Gateway wählen … und
+  Brücke anlegen und verbinden" — der Knopf legt die Brücke an, hängt sie ans Gateway, benennt
+  sie und trägt sie ein (eine vorhandene Brücke am selben Gateway wird wiederverwendet).
+  Anlegen nur per Klick, nie in `ApplyChanges()`/`GetConfigurationForm()`.
+- Verbindungstest und Statustexte nennen jetzt den Grund: keine Brücke gewählt, Brücke ohne
+  Gateway, Gateway nicht aktiv, Gateway antwortet nicht (Unit-ID prüfen). Bereitschaft im
+  Gateway-Modus = Brücke gewählt (`BridgeInstanceID > 0`).
+- **Wer den Gateway-Weg mit 0.29.10–0.29.14 eingerichtet hatte:** Instanz und Messhistorie
+  bleiben; Gateway wählen, „Brücke anlegen und verbinden" klicken, übernehmen. Der direkte
+  Anschluss der Instanz ans Gateway entfällt ohne diese Einträge.
+- Prüfstand `test-bridge.php` (neu): alle Fehlerarten der Brücke, Binärwerte 0xFFFF/0x8001
+  Bit für Bit über die Brücke, `BridgeCall()` bis zu den dekodierten Registern,
+  `CreateBridge()` (anlegen, verbinden, wiederverwenden), `module.json` beider Module.
+  Nicht nachgebildet: das Kernel-Verhalten beim Funktionsaufruf zwischen Instanzen und die
+  Konsole — an echter Hardware unbestätigt. `test-virtual.php` Block 47: Gateway-Auswahl,
+  Knopf und Brückenauswahl sind nur im Verbindungsweg „Symbox-Gateway" sichtbar (nicht bei
+  „Direkt" und nicht bei Cloud-Zählern).
+- Hilfe und Doku: neuer Absatz im Doku-Panel des Formulars, Abschnitt „MeterHubBridge" in der
+  README, News-Panel-Eintrag (`NEWS_VERSION` 0.30.0), Formularhinweise mit den drei Schritten.
+
 ## 0.29.14-beta.1 (2026-09-19)
 
 - **Fix: „Ertrag gesamt (hochgerechnet)" des blue'Log-Datenloggers (Adresse 97) hatte keine
