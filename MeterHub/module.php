@@ -3525,9 +3525,13 @@ class MeterHub extends IPSModule
         // Bereitschaft: Modbus-Zähler brauchen eine IP, Cloud-Zähler ein
         // gültiges Zugriffs-Token samt gewählter Zähler-UID.
         $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
+        // Symbox-Gateway: Host/Port entfallen, die Adresse steckt im verbundenen
+        // Gateway. Ohne verbundenes Gateway scheitert der Lesezyklus still mit
+        // Status 201 — die Timer laufen trotzdem, weil ApplyChanges() nicht
+        // sicher aufgerufen wird, wenn der Nutzer das Gateway erst danach verbindet.
         $ready   = $isCloud
             ? ($this->ReadAttributeString('InexogyToken') !== '' && $this->ReadPropertyString('InexogyMeterID') !== '')
-            : ($this->ReadPropertyString('Host') !== '');
+            : ($this->ReadPropertyString('ConnectionMode') === 'gateway' || $this->ReadPropertyString('Host') !== '');
         if (!$this->ReadPropertyBoolean('Active') || !$ready) {
             // Ausfallverhalten "Default-Sollwert": beim Deaktivieren (nicht
             // beim erstmaligen Anlegen ohne Host — dort gibt es nichts zu
@@ -4351,7 +4355,7 @@ class MeterHub extends IPSModule
             'status' => [
                 ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung vervollständigen (IP-Adresse bzw. Inexogy-Anmeldung).'],
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
-                ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – Zähler nicht erreichbar.'],
+                ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – Zähler nicht erreichbar (bei Symbox-Gateway: ist ein Modbus-Gateway verbunden?).'],
             ],
         ];
 
@@ -4445,7 +4449,14 @@ class MeterHub extends IPSModule
         if ($this->ReadPropertyString('ConnectionMode') === 'gateway') {
             $mb = new MHUB_ModbusGatewayClient(
                 $this->ReadPropertyInteger('UnitId'),
-                function (string $json): string { return $this->SendDataToParent($json); }
+                function (string $json): string {
+                    // Ohne verbundenes Gateway meldet SendDataToParent() bei jedem
+                    // Takt eine Symcon-Warnung — hier still leer zurueckgeben.
+                    if (IPS_GetInstance($this->InstanceID)['ConnectionID'] <= 0) {
+                        return '';
+                    }
+                    return $this->SendDataToParent($json);
+                }
             );
         } else {
             $mb = new MHUB_ModbusTcpClient(

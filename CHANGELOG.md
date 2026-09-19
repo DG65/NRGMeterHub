@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.29.13-beta.1 (2026-09-19)
+
+- **Fix: Symbox-Gateway-Instanz startete nie — `ApplyChanges()` verlangte weiterhin einen Host.**
+  Im Gateway-Modus ist das Host-Feld ausgeblendet und damit leer; die Bereitschaftsprüfung
+  (`Host !== ''`) setzte deshalb Status 104 („Bitte Verbindung vervollständigen (IP-Adresse …)")
+  und stellte beide Timer auf 0 — die Instanz las nie einen Wert, egal ob ein Gateway
+  verbunden war. Fund über den Forum-Beta-Test (Kopfzeile mit IP-Aufforderung trotz
+  Symbox-Gateway). Im Gateway-Modus gilt die Instanz jetzt als bereit; ohne verbundenes
+  Gateway endet der Lesezyklus in Status 201 statt in einem stillen Stillstand. Der Sendeweg
+  prüft dafür vorab die Verbindung (`ConnectionID`) und liefert leer zurück, statt bei jedem
+  Takt Symcons Warnung „Keine übergeordnete Instanz ist konfiguriert …" zu erzeugen. Status-
+  text 201 nennt jetzt auch das fehlende Gateway.
+
 ## 0.29.12-beta.1 (2026-09-19)
 
 - **Fix: Symbox-Gateway-Verbindung — die Reparatur aus 0.29.10 war nur die halbe
