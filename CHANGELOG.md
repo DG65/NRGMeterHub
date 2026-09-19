@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.31.1-beta.1 (2026-09-19)
+
+- **MeterHubDiscovery: Hinweis „nicht automatisch gefunden" vervollständigt.** Er nannte nur
+  Socomec und MBS. Jetzt zusätzlich: Zähler an einem ModBus Gateway wie dem RS485-Port der
+  Symbox (darunter die neuen reinen RS485-Geräte Eastron SDM120/220/230 — die Suche scannt nur
+  TCP), der Phoenix EEM-XM, Inexogy (Cloud) und die schreibenden blue'Log-Typen RPC/Power
+  Control; dazu der Weg: Instanz von Hand anlegen, bei der Symbox mit dem Verbindungsweg
+  „Symbox-Gateway". Steht an beiden Stellen im Formular und in der README. Fund bei der Frage,
+  ob die Suche alle Zählertypen enthält: sie findet 12 der 28 Typen automatisch (9 per Signatur,
+  3 über den SCADA-Scan), dazu die klassischen Janitza-Modelle und den SDM630 stellvertretend.
+  Ob sich der Phoenix EEM-XM per Signatur erkennen ließe, ist offen (Herstellerunterlagen
+  fehlen).
+
 ## 0.31.0-beta.1 (2026-09-19)
 
 - **Neu: drei einphasige Eastron-Zähler — SDM120, SDM220, SDM230** (Wunsch des Forum-Testers,

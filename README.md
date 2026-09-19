@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.31.0--beta.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.31.1--beta.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -133,6 +133,12 @@ Modbus-TCP-Port 502 durchsucht:
    danach in der Instanz einstellen (die Registerkarte ist ohnehin identisch).
 4. Treffer erscheinen in der Ergebnistabelle — Klick auf „Erstellen" legt eine
    `MeterHub`-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Zählertyp an.
+
+**Nicht automatisch gefunden:** Zähler hinter RTU/TCP-Gateways mit frei wählbarer Unit-ID (z. B. Socomec, MBS),
+Zähler an einem ModBus Gateway wie dem RS485-Port der Symbox (z. B. die reinen RS485-Geräte Eastron
+SDM120/220/230 — die Suche scannt nur TCP), der Phoenix EEM-XM, Inexogy (Cloud) und die schreibenden
+blue'Log-Typen RPC/Power Control. Dort die MeterHub-Instanz von Hand anlegen, bei der Symbox mit dem
+Verbindungsweg „Symbox-Gateway".
 
 **IPs ignorieren:** Adressen in dieser Liste werden bei der Suche komplett übersprungen —
 gedacht für andere Modbus-Geräte, die sonst Probe-Zeit kosten. Mehrere IPs Komma-getrennt.
