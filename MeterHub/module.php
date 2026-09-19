@@ -3675,10 +3675,44 @@ class MeterHub extends IPSModule
     }
 
     /**
+     * Plausibilitätssperre für CalcEnergyStep() (Pendant zu MeterHubVirtual::
+     * PlausiblePower(), Solarpark-Fund 15.09.2026: ein einzelner riesiger-aber-
+     * endlicher Fehl-Lesewert, z. B. eine verunglückte Modbus-Dekodierung bei
+     * einem Verbindungsaussetzer, blieb bisher dauerhaft im kumulativen
+     * Ertragszähler stehen — is_finite() fängt nur NaN/Unendlich).
+     *
+     * Der Median-Vergleich der virtuellen Zähler passt hier nicht: ein
+     * Einzelzähler hat im selben Durchlauf keine Vergleichsgeräte. Stattdessen
+     * (1) derselbe generische Absolutdeckel von 1 GW, den nie ein realer
+     * Messpunkt erreicht, und (2) ein Sprungvergleich gegen den letzten
+     * akzeptierten Wert derselben lückenlosen Messreihe. Bewusst KEIN fester
+     * Watt-Grenzwert (Balkonanlage und Solarpark haben andere Maßstäbe) — der
+     * Faktor ist relativ. Ein Sprung, der über CALC_JUMP_CONFIRM Takte in Folge
+     * ungefähr gleich hoch bleibt, ist keine Fehllesung, sondern ein echter
+     * Stufenwechsel (z. B. zugeschaltete Gruppe) und wird übernommen.
+     *
+     * Der Faktor ist mit 20 bewusst strenger als der 200 der virtuellen Zähler
+     * (dort ein Vergleich gegen Geräte derselben Gruppe): Eine Fehlablehnung
+     * kostet dank Bestätigung nur die Energie von höchstens zwei Takten, eine
+     * durchgelassene Fehllesung dagegen bleibt dauerhaft im Zählerstand. Bei
+     * 3,6 MW Grundlast hätte 200 noch Werte bis 720 MW durchgelassen.
+     */
+    private const CALC_POWER_CEILING_W = 1_000_000_000.0;
+    private const CALC_JUMP_FACTOR = 20.0;
+    private const CALC_JUMP_CONFIRM = 3;
+
+    /**
      * Ein Rechenschritt, frei von Symcon-Aufrufen (Prüfstand). Rückgabe
      * [kWh dazu, neuer Rechenstand]. Negative Leistung (Eigenverbrauch der
      * Wechselrichter nachts) zählt als 0 — ein Ertragszähler läuft nie
-     * rückwärts. Ungültige Werte ändern nichts.
+     * rückwärts. Ungültige und unplausible Werte ändern nichts; während eines
+     * abgelehnten Werts bleibt der Zeitstempel des letzten akzeptierten stehen,
+     * sodass der nächste gültige Wert die Zeit dazwischen mit beiden
+     * Nachbarwerten überbrückt.
+     *
+     * Grenze der Sprungsperre: Nach einer Lücke über $maxGap gibt es keinen
+     * Vergleichswert mehr — der neue Ausgangspunkt wird nur gegen den
+     * Absolutdeckel geprüft.
      */
     private static function CalcEnergyStep(?array $prev, int $t, float $p, int $maxGap): array
     {
@@ -3686,6 +3720,9 @@ class MeterHub extends IPSModule
             return [0.0, $prev];
         }
         $p = max(0.0, $p);
+        if ($p > self::CALC_POWER_CEILING_W) {
+            return [0.0, $prev];
+        }
         if ($prev === null || !isset($prev['t'], $prev['p'])) {
             return [0.0, ['t' => $t, 'p' => $p]];
         }
@@ -3695,6 +3732,15 @@ class MeterHub extends IPSModule
         }
         if ($dt > $maxGap) {
             return [0.0, ['t' => $t, 'p' => $p]];
+        }
+        $base = (float)$prev['p'];
+        if ($base > 1.0 && $p > $base * self::CALC_JUMP_FACTOR) {
+            $rp = (float)($prev['rp'] ?? 0.0);
+            $rn = ($rp > 0.0 && $p >= $rp / 2.0 && $p <= $rp * 2.0) ? (int)($prev['rn'] ?? 0) + 1 : 1;
+            if ($rn >= self::CALC_JUMP_CONFIRM) {
+                return [0.0, ['t' => $t, 'p' => $p]];
+            }
+            return [0.0, ['t' => (int)$prev['t'], 'p' => $base, 'rp' => $p, 'rn' => $rn]];
         }
         return [(((float)$prev['p'] + $p) / 2.0) * $dt / 3600000.0, ['t' => $t, 'p' => $p]];
     }

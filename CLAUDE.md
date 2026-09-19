@@ -1234,6 +1234,8 @@ einzelner Fehl-Lesewert wird bei ≥3 Mitgliedern verworfen (die anderen rechnen
 weiter), keine Dauersperre sobald der Wert wieder plausibel ist, unter drei Mitgliedern greift
 nur der Absolut-Deckel.
 
+**Einzelzähler-Pendant seit 0.29.14:** `MeterHub::CalcEnergyStep()` (blue'Log-Datenlogger, Adresse 97) hat Absolutdeckel 1 GW plus Sprungvergleich gegen den letzten akzeptierten Wert (Faktor 20, Bestätigung nach 3 Takten) — ohne Median, weil ein Einzelzähler keine Vergleichsgeräte hat; Prüfstand Block 46.
+
 **Noch offen:** die bereits im Solarpark-Archiv stehenden Fehl-Sprünge selbst — das ist eine
 separate, mit Dietmar abzustimmende Bereinigung der Live-Daten (kommerzielle Anlage, kein
 automatischer Zugriff ohne seine Bestätigung), nicht Teil dieses Fixes.

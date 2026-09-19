@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.29.14-beta.1 (2026-09-19)
+
+- **Fix: „Ertrag gesamt (hochgerechnet)" des blue'Log-Datenloggers (Adresse 97) hatte keine
+  Plausibilitätssperre.** Das Gegenstück zu MeterHubVirtual 0.29.5: `CalcEnergyStep()` prüfte
+  nur `is_finite()` — ein einzelner riesiger, aber endlicher Fehl-Lesewert (verunglückte
+  Modbus-Dekodierung bei einem Verbindungsaussetzer) lief ungebremst in den kumulativen
+  Zählerstand und blieb dort dauerhaft stehen. Zwei Sperren: (1) derselbe generische
+  Absolutdeckel von 1 GW wie bei den virtuellen Zählern; (2) ein Sprungvergleich gegen den
+  letzten akzeptierten Wert derselben lückenlosen Messreihe (mehr als das 20-Fache, bei
+  Ausgangswert über 1 W). Der Median-Vergleich der virtuellen Zähler passt hier nicht — ein
+  Einzelzähler hat im selben Durchlauf keine Vergleichsgeräte. Ein Sprung, der drei Takte in
+  Folge ungefähr gleich hoch bleibt, gilt als echter Stufenwechsel und wird übernommen; eine
+  Fehlablehnung kostet damit nur die Energie von höchstens zwei Takten, eine durchgelassene
+  Fehllesung wäre dauerhaft. Faktor 20 statt 200 der virtuellen Zähler: bei 3,6 MW Grundlast
+  hätte 200 noch Werte bis 720 MW durchgelassen (vom Prüfstand aufgedeckt).
+- Bekannte Grenze: Nach einer Lücke über 300 s gibt es keinen Vergleichswert mehr, der neue
+  Ausgangspunkt wird nur gegen den Absolutdeckel geprüft. Bereits im Archiv stehende
+  Fehl-Sprünge behebt das nicht (separate Bereinigung, nicht Teil dieses Fixes).
+- Prüfstand `test-virtual.php` Block 46: Deckel, Einzelausreißer, Bestätigung eines echten
+  Stufenwechsels, wechselnder Unsinn, kleiner Ausgangswert (Balkonanlage/Sonnenaufgang),
+  normaler Anstieg, Lücke sowie der Solarpark-Fund (6-GW-Ausreißer in einer Stunde 3,6 MW)
+  und ein 500-MW-Ausreißer unter dem Deckel.
+
 ## 0.29.13-beta.1 (2026-09-19)
 
 - **Fix: Symbox-Gateway-Instanz startete nie — `ApplyChanges()` verlangte weiterhin einen Host.**

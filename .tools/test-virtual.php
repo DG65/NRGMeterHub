@@ -2132,5 +2132,61 @@ $beforeSmall = GetValue($calcSmall);
 $small->Recalc();
 check('45d: 2 GW überschreitet den Absolut-Deckel (1 GW) und wird verworfen, auch ohne Peers', GetValue($calcSmall) === $beforeSmall, 'vorher ' . $beforeSmall . ', nachher ' . GetValue($calcSmall));
 
+echo "\n46) Plausibilitätssperre in MeterHub::CalcEnergyStep() — Pendant zu Block 45 für den Einzelzähler (kein Median-Vergleich möglich: Absolutdeckel + Sprungvergleich mit Bestätigung)\n";
+$s46 = fn($prev, $t, $p, $gap = 300) => (new ReflectionMethod('MeterHub', 'CalcEnergyStep'))->invoke(null, $prev, $t, $p, $gap);
+$base46 = ['t' => 1000, 'p' => 500000.0];
+
+[$k, $st] = $s46($base46, 1005, 2.0e9);
+check('46a: Wert über dem 1-GW-Deckel wird nie übernommen, Stand unverändert', $k === 0.0 && $st === $base46, json_encode([$k, $st]));
+[$k, $st] = $s46(null, 1000, 2.0e9);
+check('46a: auch als allererster Messwert (kein Ausgangspunkt gesetzt)', $k === 0.0 && $st === null);
+
+[$k1, $st1] = $s46($base46, 1005, 5.0e8); // 500 MW: unter dem Deckel, aber 1000-mal so hoch wie der letzte Wert (500 kW)
+check('46b: einzelner Fehl-Lesewert (unter dem Deckel) wird nicht verrechnet', $k1 === 0.0, (string)$k1);
+check('46b: Ausgangszeitpunkt bleibt beim letzten akzeptierten Wert, Ablehnung wird gemerkt', $st1['t'] === 1000 && $st1['p'] === 500000.0 && $st1['rn'] === 1, json_encode($st1));
+[$k2, $st2] = $s46($st1, 1010, 510000.0);
+check('46b: nächster plausibler Wert überbrückt die Zeit mit beiden Nachbarwerten: (500+510 kW)/2 × 10 s', abs($k2 - 505000.0 * 10 / 3600000.0) < 1e-9, (string)$k2);
+check('46b: nach einem plausiblen Wert ist der Stand wieder sauber (keine Reste der Ablehnung)', $st2 === ['t' => 1010, 'p' => 510000.0], json_encode($st2));
+
+$dawn = ['t' => 2000, 'p' => 2.0];
+[$k, $sa] = $s46($dawn, 2005, 5000.0);
+[$k, $sb] = $s46($sa, 2010, 5100.0);
+check('46c: zwei gleichartig hohe Werte in Folge sind noch nicht bestätigt (Energie 0, Stand wartet)', $k === 0.0 && $sb['t'] === 2000 && $sb['rn'] === 2, json_encode($sb));
+[$k, $sc] = $s46($sb, 2015, 5200.0);
+check('46c: der dritte gleichartige Wert bestätigt den Stufenwechsel: neu aufsetzen, ohne Energie für die Stufe', $k === 0.0 && $sc === ['t' => 2015, 'p' => 5200.0], json_encode([$k, $sc]));
+[$k, $sd] = $s46($sc, 2020, 5300.0);
+check('46c: danach läuft die Rechnung normal weiter', abs($k - 5250.0 * 5 / 3600000.0) < 1e-9 && $sd === ['t' => 2020, 'p' => 5300.0]);
+
+[$k, $sx] = $s46($dawn, 2005, 5000.0);
+[$k, $sx] = $s46($sx, 2010, 5.0e7); // ganz anderer Wert -- kein Bestätigen
+check('46d: wechselnder Unsinn (nicht ~gleich hoch) bestätigt nie: Zähler beginnt wieder bei 1', $sx['rn'] === 1 && $sx['t'] === 2000, json_encode($sx));
+
+[$k, $sb2] = $s46(['t' => 3000, 'p' => 0.5], 3005, 800.0);
+check('46e: unter 1 W Ausgangswert greift der Sprungvergleich nicht (Sonnenaufgang, Balkonanlage) — normal verrechnet', $sb2 === ['t' => 3005, 'p' => 800.0] && abs($k - 400.25 * 5 / 3600000.0) < 1e-9, json_encode([$k, $sb2]));
+
+[$k, $sr] = $s46($base46, 1005, 900000.0);
+check('46f: ein normaler Anstieg (500 kW → 900 kW) wird nie als Sprung gewertet', $sr === ['t' => 1005, 'p' => 900000.0] && $k > 0.0);
+
+[$k, $sg] = $s46($base46, 1000 + 1000, 5.0e8);
+check('46g: nach einer Lücke über 300 s gibt es keinen Vergleichswert — nur der Absolutdeckel schützt, Neustart ohne Energie', $k === 0.0 && $sg === ['t' => 2000, 'p' => 5.0e8]);
+
+$sum46 = 0.0;
+$st46 = null;
+for ($t = 0; $t <= 3600; $t += 5) {
+    $val = ($t === 1800) ? 6.0e9 : 3600000.0; // ein einzelner 6-GW-Ausreißer mitten in einer Stunde 3,6 MW (der Solarpark-Fund)
+    [$k, $st46] = $s46($st46, 100000 + $t, $val);
+    $sum46 += $k;
+}
+check('46h: Solarpark-Fund nachgestellt — ein 6-GW-Ausreißer in einer Stunde 3,6 MW verfälscht den Ertrag nicht (3600 kWh)', abs($sum46 - 3600.0) < 1e-6, (string)$sum46);
+
+$sum46b = 0.0;
+$st46 = null;
+for ($t = 0; $t <= 3600; $t += 5) {
+    $val = ($t === 1800) ? 5.0e8 : 3600000.0; // Ausreißer UNTER dem Deckel: nur der Sprungvergleich fängt ihn
+    [$k, $st46] = $s46($st46, 100000 + $t, $val);
+    $sum46b += $k;
+}
+check('46h: auch ein 500-MW-Ausreißer (unter dem Deckel) verfälscht den Ertrag nicht (3600 kWh)', abs($sum46b - 3600.0) < 1e-6, (string)$sum46b);
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
