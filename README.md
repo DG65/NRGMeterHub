@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.31.1--beta.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.31.2--beta.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -30,6 +30,7 @@ Ein herzliches Dankeschön an **Sepp Lausch** ([seppm im Symcon-Forum](https://c
 | **Janitza UMG 604 / 605 / 509 / 512 / 806 / 96PA / 801** | Summen-Wirkleistung, Ø Spannung/Strom, Frequenz, Energie Bezug/Abgabe, optional U/I/P/Q/S je Phase, cos φ, Netzqualität (THD, Drehfeld) | Gemeinsame **klassische Janitza-Registerkarte**: Float32 ab Register 19000, Energie in Wh bei 19068/19076, THD ab 19110, Drehfeld 19052. Ø-Werte werden aus den Phasen berechnet. FC 0x03. |
 | **Janitza UMG 800** | wie oben | Eigene, **frei konfigurierbare** Modbus-Karte — der Treiber folgt der ausgelieferten Werksvorgabe (Summe P 19030, Frequenz 19054, Bezug 19072, Abgabe 19080). Wurde die Zuordnung im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht. FC 0x03. |
 | **Eastron SDM72D-M v2 / SDM630 v2** | Summen-Wirkleistung, Ø U/I, Frequenz, Energie Bezug/Abgabe, optional U/I/P/Q/S je Phase, Leistungsfaktor, L-L-Spannung, Neutralleiterstrom | **FC 0x04** (Input-Register), Float32 Big-Endian ab Reg. 0, Energie in kWh (Reg. 72/74). SDM630 nutzt dieselbe Karte. Modbus RTU → über RTU/TCP-Gateway. |
+| **Eastron SDM120 / SDM220 / SDM230** (einphasig) | Wirkleistung, Spannung, Strom, Frequenz, Energie Bezug/Abgabe, optional Blind-/Scheinleistung und Leistungsfaktor | **FC 0x04**, Float32 Big-Endian, Modbus-Adresse ab Werk 1; die drei Geräte teilen dieselbe Registerkarte (Spannung 0, Strom 6, Wirkleistung 12, Scheinleistung 18, Blindleistung 24, Leistungsfaktor 30, Frequenz 70, Bezug 72, Abgabe 74). Reine RS485-Geräte — über die **Symbox-Brücke** oder ein RTU/TCP-Gateway. Anders als beim SDM630 keine Summenregister; jede Größe wird einzeln gelesen. Gegen nmakel/sdm_modbus, evcc und volkszaehler/mbmd gegengelesen und **von einem Tester an echter Hardware bestätigt**. Einphasig: kein Messmodus „dreiphasig/je Phase". |
 | **Carlo Gavazzi EM24 / EM300 / ET340** | Summen-Wirkleistung, Ø U/I, Frequenz, Energie Bezug/Abgabe, optional U/I/P/Q/S je Phase | **FC 0x04**, Int32 **wortgetauscht (CDAB)** mit Skalierung (U ×0,1 · I ×0,001 · P ×0,1 · f ×0,1 · Energie ×0,1 kWh). Registerkarte nach OpenEMS. |
 | **WhatWatt** | Summen-Wirkleistung (Bezug − Abgabe), Ø U/I, Energie Bezug/Abgabe (+ Tarif 1/2), optional U/I/P je Phase | **FC 0x04**, Float32 + 64-Bit-Double (Tarif-Energie), Big-Endian. Modbus TCP direkt. Getrennte Bezugs-/Abgabeleistung (501/505). |
 | **Phoenix Contact EEM-EM375 / EEM-XM** | Summen-Wirkleistung, Ø U/I, Bezugsenergie, optional U/I/P je Phase | **FC 0x04**, Float32. EM375 ab Reg. 4096 (Unit-ID oft 255), EEM-XM ab Reg. 32774 (Unit-ID meist 1). Bei EEM-XM ggf. den WordSwap-Schalter nutzen. |
@@ -70,7 +71,6 @@ Formular dient nur der richtigen Beschriftung.
 |---|---|
 | **Socomec Countis** (E23/E24/E27/E28/E34/E44) | FC 0x03; U/I/f als UInt32, P/Q als Int32, Energie UInt32. Skalen aus OpenEMS abgeleitet — **v. a. die Leistungs-Skala am Gerät prüfen**. |
 | **MBS Professional 3-75** | M-Bus→Modbus-Gateway, FC 0x03. Bezug/Abgabe (kWh), Wirkleistung, Spannung, Frequenz. Integer-Typgrößen aus den Symcon-Vorlagen abgeleitet. |
-| **Eastron SDM120 / SDM220 / SDM230** (einphasig) | Wirkleistung, Spannung, Strom, Frequenz, Energie Bezug/Abgabe, optional Blind-/Scheinleistung und Leistungsfaktor. **FC 0x04**, Float32 Big-Endian, Modbus-Adresse ab Werk 1; die drei Geräte teilen dieselbe Registerkarte (Spannung 0, Strom 6, Wirkleistung 12, Scheinleistung 18, Blindleistung 24, Leistungsfaktor 30, Frequenz 70, Bezug 72, Abgabe 74). Reine RS485-Geräte — über die **Symbox-Brücke** oder ein RTU/TCP-Gateway. Anders als beim SDM630 gibt es keine Summenregister; jede Größe wird einzeln gelesen. Registerkarte gegen nmakel/sdm_modbus, evcc und volkszaehler/mbmd gegengelesen, **nicht an echter Hardware bestätigt**. |
 
 Bei experimentellen Zählern die Messwerte gegen die Geräteanzeige abgleichen; bei
 unplausiblen Werten helfen der **WordSwap**- bzw. **Invers**-Schalter.

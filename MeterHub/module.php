@@ -1227,7 +1227,8 @@ class MHUB_EastronSdmDriver implements MHUB_MeterDriverInterface
 // steht auf 12. Jede Größe wird einzeln gelesen (je 2 Register), wie in allen
 // drei Quellen — die Register dazwischen sind nicht belegt, ein Blocklesen darüber
 // riskiert „Illegal Data Address" für die ganze Anfrage.
-// Noch nicht an echter Hardware bestätigt → im Dropdown „experimentell".
+// An echter Hardware bestätigt: ein Forum-Tester meldete am 20.09.2026, dass SDM120, SDM220 und
+// SDM230 alle funktionieren.
 // ---------------------------------------------------------------------------
 
 class MHUB_EastronSdmSinglePhaseDriver implements MHUB_MeterDriverInterface
@@ -3359,6 +3360,8 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
+    // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
+    private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230'];
     private const NEWS_VERSION = '0.31.0';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
@@ -3423,7 +3426,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen (z. B. viele Zähler am selben Solarpark): „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Zähler ohne eigenes Anzeige-Label heißen jetzt wie ihre Instanz statt pauschal nach der Funktion (z. B. „WR 4.1.01.02" statt für alle Wechselrichter gleich „PV-Erzeugung") — sofern die Instanz umbenannt wurde, sonst bleibt der Funktionsname der Rückfall.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „Rolle des Zählers" hat jetzt eine dritte Option „Unterzähler / Erzeuger" und wirkt sich erstmals wirklich aus: Für Unterzähler (Verbraucher oder Erzeuger, nicht „Netz-/NAP-Zähler") prüft eine neue Plausibilitätsprüfung, ob der Zähler über die Zeit überwiegend nur in eine Richtung misst — zeigt er dauerhaft beide Richtungen deutlich, passt vermutlich eher „Netz-/NAP-Zähler", oder die Verkabelung ist falsch gepolt. Ergebnis direkt unter der Rollen-Auswahl im Formular.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Drei neue, einphasige Zählertypen: Eastron SDM120, SDM220 und SDM230 (Wirkleistung, Spannung, Strom, Frequenz, Energie Bezug/Abgabe, optional Blind-/Scheinleistung und Leistungsfaktor). Reine RS485-Geräte — passend zum Verbindungsweg „Symbox-Gateway". Die Registerkarte ist gegen drei unabhängige Quellen gegengelesen, aber noch nicht an echter Hardware bestätigt: bitte die Messwerte gegen die Geräteanzeige abgleichen.'],
+                ['type' => 'Label', 'caption' => '• 🆕 Drei neue, einphasige Zählertypen: Eastron SDM120, SDM220 und SDM230 (Wirkleistung, Spannung, Strom, Frequenz, Energie Bezug/Abgabe, optional Blind-/Scheinleistung und Leistungsfaktor). Reine RS485-Geräte — passend zum Verbindungsweg „Symbox-Gateway". Die Registerkarte ist gegen drei unabhängige Quellen gegengelesen und von einem Tester an echter Hardware bestätigt.'],
                 ['type' => 'Label', 'caption' => '• 🚧 Neues Feld „Verbindungsweg" (Direkt/Symbox-Gateway) für Symcons eingebaute Symbox-Hardware: Der Weg läuft über das neue Modul „MeterHub Brücke" — pro Gerät ein natives „ModBus Gateway" (mit der Unit-ID als DeviceID), daran eine Brücke, und hier die Brücke wählen. Lesend am Rohcode von Symcons Referenzmodul verifiziert, aber noch nicht an echter Symbox-Hardware bestätigt. Schreibende Zählertypen dort nicht produktiv einsetzen. Für den normalen Betrieb bleibt „Direkt" die richtige Wahl und ändert sich nicht.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Frühere Beta-Stände (0.29.10–0.29.14) hängten das Gateway direkt an MeterHub — das ist zurückgenommen, weil es bei jeder Direkt-Instanz einen Balken „benötigt eine übergeordnete Instanz" zeigte. Wer den Gateway-Weg schon eingerichtet hatte: Brücke anlegen, mit dem Gateway verbinden und in dieser Instanz die Brücke wählen; die Instanz und ihre Messhistorie bleiben.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
@@ -4037,7 +4040,7 @@ class MeterHub extends IPSModule
             if ($p === 0 && $i === 0) {
                 $warn[] = '„' . IPS_GetName($iid) . '" liefert weder Gesamtleistung noch Bezug — die Zeile bleibt ohne Datenpunkt.';
             }
-            if ((string)@IPS_GetProperty($iid, 'MeasureMode') === 'perphase') {
+            if ((string)@IPS_GetProperty($iid, 'MeasureMode') === 'perphase' && !in_array((string)@IPS_GetProperty($iid, 'Meter'), self::SINGLE_PHASE_METERS, true)) {
                 $warn[] = '„' . IPS_GetName($iid) . '" misst je Phase drei getrennte Verbraucher; übernommen wird die Summe über alle Phasen.';
             }
             return ['Name' => IPS_GetName($iid), 'Factor' => $factor, 'PowerID' => $p, 'EnergyImportID' => $i, 'EnergyExportID' => $e];
@@ -4182,17 +4185,19 @@ class MeterHub extends IPSModule
             $funcOptions[] = ['caption' => $def[0], 'value' => $key];
         }
         $funcItems = [
-            ['type' => 'Label', 'caption' => 'Zuerst festlegen, WIE dieser Zähler misst — daraus ergibt sich, ob eine Funktion für das ganze Gerät oder je Phase eine eigene zugeordnet wird.'],
+            ['type' => 'Label', 'name' => 'MeasureModeSingle', 'visible' => $this->IsSinglePhaseMeter(), 'caption' => 'ℹ️ Dieser Zähler misst nur eine Phase — die Funktion gilt für das ganze Gerät.'],
+            ['type' => 'Label', 'name' => 'MeasureModeIntro', 'visible' => !$this->IsSinglePhaseMeter(), 'caption' => 'Zuerst festlegen, WIE dieser Zähler misst — daraus ergibt sich, ob eine Funktion für das ganze Gerät oder je Phase eine eigene zugeordnet wird.'],
             [
                 'type'    => 'Select',
                 'name'    => 'MeasureMode',
+                'visible' => !$this->IsSinglePhaseMeter(),
                 'caption' => 'Messmodus',
                 'options' => [
                     ['caption' => 'Dreiphasig — ein Verbraucher über alle 3 Phasen (z. B. Netzanschluss, Wärmepumpe)', 'value' => 'combined'],
                     ['caption' => 'Einphasig getrennt — 3 unabhängige Verbraucher (je Phase einer)',                    'value' => 'perphase'],
                 ],
             ],
-            ['type' => 'Label', 'caption' => 'Nach dem Umschalten einmal „Übernehmen" — danach erscheinen hier die passenden Zuordnungsfelder.'],
+            ['type' => 'Label', 'name' => 'MeasureModeHint', 'visible' => !$this->IsSinglePhaseMeter(), 'caption' => 'Nach dem Umschalten einmal „Übernehmen" — danach erscheinen hier die passenden Zuordnungsfelder.'],
         ];
         if ($this->IsPerPhaseMode()) {
             $funcItems[] = ['type' => 'Label', 'caption' => '⚡ Je Phase einen Verbraucher zuordnen. Für getrennte Energiezähler zusätzlich im Panel „Datenpunkte" die Gruppe „Energie je Phase" aktivieren (sofern der Zähler sie unterstützt).'];
@@ -4268,7 +4273,7 @@ class MeterHub extends IPSModule
                         ['type' => 'Label', 'caption' => '🔀 Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie geplant? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und konfigurieren, dann mit MigrationsHub die alte Historie übernehmen, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene, sich mit der Alt-Historie überlappende Werte.'],
                         ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (FC 0x03); Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 klassische Karte, UMG 800 Werkskarte, FC 0x03); Eastron SDM72D-M v2, WhatWatt und Phoenix Contact EEM-EM375/EEM-XM (FC 0x04, Input-Register).'],
                         ['type' => 'Label', 'caption' => 'Hinweis Eastron/Phoenix: Diese sprechen meist Modbus RTU und hängen über einen RTU/TCP-Gateway (dessen IP eintragen). Eastron-Geräteadresse ab Werk 1; Phoenix EEM-EM375 nutzt oft Unit-ID 255, EEM-XM meist 1. WhatWatt spricht Modbus TCP direkt.'],
-                        ['type' => 'Label', 'caption' => '🧪 Eastron SDM120/SDM220/SDM230 (einphasig): experimentell, noch nicht an echter Hardware bestätigt. Reine RS485-Geräte (Modbus-Adresse ab Werk 1) — über den Verbindungsweg „Symbox-Gateway" oder ein RTU/TCP-Gateway. Keine Summenregister wie beim SDM630: die Wirkleistung steht auf Register 12.'],
+                        ['type' => 'Label', 'caption' => '🔌 Eastron SDM120/SDM220/SDM230 (einphasig): von einem Tester an echter Hardware bestätigt. Reine RS485-Geräte (Modbus-Adresse ab Werk 1) — über den Verbindungsweg „Symbox-Gateway" oder ein RTU/TCP-Gateway. Keine Summenregister wie beim SDM630: die Wirkleistung steht auf Register 12.'],
                         ['type' => 'Label', 'caption' => '🧪 Experimentell: Socomec Countis und MBS Professional 3-75 sind aus Vorlagen abgeleitet und noch nicht an echter Hardware geprüft — bitte die Messwerte gegen die Geräteanzeige abgleichen. Bei unplausiblen Werten helfen der WordSwap- bzw. Invers-Schalter.'],
                         ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP muss am Gerät erst aktiviert werden (Einstellungen → Modbus, Port 502). Gelesen über FC 0x04, Float wortgetauscht (CDAB); Wire-Adressen = Doku − 30000 (Messwerte ab 1011, Energie 1162/1164). An echtem Gerät verifiziert.'],
                         ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP muss am Gerät erst aktiviert werden (go-e-App: Internet → Erweiterte Einstellungen → Modbus, oder HTTP-API men=true) — sonst bleibt Port 502 geschlossen; nach dem Aktivieren die Einstellung ggf. einmal aus-/einschalten. Kernwerte kommen aus der Kategorie Grid; Sensoren 1-6 und die Kategorien Home/Car/Relais/Solar/Akku sind zuschaltbar. An echtem Gerät verifiziert. (Die go-e-Wallboxen selbst bedient das Modul ChargerHub.)'],
@@ -4319,9 +4324,9 @@ class MeterHub extends IPSModule
                         ['caption' => 'Janitza UMG 800 (konfigurierbare Map — Werksvorgabe)', 'value' => 'janitza_umg800'],
                         ['caption' => 'Eastron SDM72D-M v2',     'value' => 'eastron_sdm72d'],
                         ['caption' => 'Eastron SDM630 v2',       'value' => 'eastron_sdm630'],
-                        ['caption' => 'Eastron SDM120 (einphasig, experimentell)', 'value' => 'eastron_sdm120'],
-                        ['caption' => 'Eastron SDM220 (einphasig, experimentell)', 'value' => 'eastron_sdm220'],
-                        ['caption' => 'Eastron SDM230 (einphasig, experimentell)', 'value' => 'eastron_sdm230'],
+                        ['caption' => 'Eastron SDM120 (einphasig)', 'value' => 'eastron_sdm120'],
+                        ['caption' => 'Eastron SDM220 (einphasig)', 'value' => 'eastron_sdm220'],
+                        ['caption' => 'Eastron SDM230 (einphasig)', 'value' => 'eastron_sdm230'],
                         ['caption' => 'WhatWatt',                'value' => 'whatwatt'],
                         ['caption' => 'Phoenix Contact EEM-EM375', 'value' => 'phoenix_eem375'],
                         ['caption' => 'Phoenix Contact EEM-XM',  'value' => 'phoenix_eemxm'],
@@ -4516,17 +4521,15 @@ class MeterHub extends IPSModule
                 ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo MHUB_TestConnection($id);'],
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
             ],
-            'status' => ($connectionMode === 'gateway' && !$isCloud)
-                ? [
-                    ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte die Brücke zum ModBus Gateway eintragen (Gateway wählen, „Brücke anlegen und verbinden", übernehmen).'],
-                    ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
-                    ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit-ID = DeviceID am Gateway).'],
-                ]
-                : [
-                    ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung vervollständigen (IP-Adresse bzw. Inexogy-Anmeldung).'],
-                    ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
-                    ['code' => 201, 'icon' => 'error',    'caption' => 'Verbindungsfehler – Zähler nicht erreichbar.'],
-                ],
+            // 104 bewusst neutral und in jedem Verbindungsweg gleich: die Statuszeile folgt dem GESPEICHERTEN
+            // Stand, ein Wechsel des Verbindungswegs im offenen Formular ändert sie nicht (Forum-Feedback 20.09.2026).
+            'status' => [
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung einstellen.'],
+                ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
+                ['code' => 201, 'icon' => 'error',    'caption' => ($connectionMode === 'gateway' && !$isCloud)
+                    ? 'Verbindungsfehler – keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit-ID = DeviceID am Gateway).'
+                    : 'Verbindungsfehler – Zähler nicht erreichbar.'],
+            ],
         ];
 
         return json_encode($form);
@@ -4574,6 +4577,11 @@ class MeterHub extends IPSModule
             $this->UpdateFormField($f, 'visible', $isWritable);
         }
         $this->UpdateFormField('RpcValidTimeMin', 'visible', in_array($meter, self::RPC_VALID_TIME_METERS, true));
+        $single = in_array($meter, self::SINGLE_PHASE_METERS, true);
+        foreach (['MeasureMode', 'MeasureModeIntro', 'MeasureModeHint'] as $f) {
+            $this->UpdateFormField($f, 'visible', !$single);
+        }
+        $this->UpdateFormField('MeasureModeSingle', 'visible', $single);
         $this->OnChangeSetpointMode($this->ReadPropertyString('SetpointMode'));
     }
 
@@ -5242,9 +5250,15 @@ class MeterHub extends IPSModule
     // Funktionszuordnung
     // -----------------------------------------------------------------------
 
+    private function IsSinglePhaseMeter(): bool
+    {
+        return in_array($this->ReadPropertyString('Meter'), self::SINGLE_PHASE_METERS, true);
+    }
+
+    // Einphasige Zähler kennen nur „ganzes Gerät" — ein früher gespeicherter „perphase" zählt dort nicht.
     private function IsPerPhaseMode(): bool
     {
-        return $this->ReadPropertyString('MeasureMode') === 'perphase';
+        return !$this->IsSinglePhaseMeter() && $this->ReadPropertyString('MeasureMode') === 'perphase';
     }
 
     /**
@@ -7165,7 +7179,7 @@ class MeterHub extends IPSModule
             'contractVersion' => '1.3',
             'instanceID'  => $this->InstanceID,
             'meter'       => $this->ReadPropertyString('Meter'),
-            'measureMode' => $this->ReadPropertyString('MeasureMode'),
+            'measureMode' => $this->IsPerPhaseMode() ? 'perphase' : 'combined',
             'latency'     => $latency,
             'authority'   => $authority,
             'pollInterval'=> $pollInterval,

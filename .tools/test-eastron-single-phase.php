@@ -8,8 +8,8 @@
  * nachgebaute Registertabelle (FC 0x04, Float32 Big-Endian): geprüft werden
  * damit die gesendeten Anfragen (Funktion, Adresse, Länge), die Dekodierung
  * und das Verhalten bei fehlenden Antworten. Die Registerkarte selbst stammt
- * aus nmakel/sdm_modbus, evcc und volkszaehler/mbmd — sie ist damit gegen
- * Fremdcode gegengelesen, aber NICHT an einem echten Zähler bestätigt.
+ * aus nmakel/sdm_modbus, evcc und volkszaehler/mbmd gegengelesen; ein Forum-Tester
+ * hat am 20.09.2026 bestätigt, dass SDM120, SDM220 und SDM230 an echter Hardware funktionieren.
  */
 
 if (!class_exists('IPSModule')) {

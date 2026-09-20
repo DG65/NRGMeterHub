@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.31.2-beta.1 (2026-09-20)
+
+- **Eastron SDM120, SDM220, SDM230 bestätigt:** Der Forum-Tester meldete am 20.09.2026, dass alle
+  drei an seiner Symbox funktionieren. Im Dropdown steht jetzt „einphasig" ohne „experimentell",
+  die README führt sie in der Hauptliste statt unter „Experimentell", Doku-Panel und News-Eintrag
+  entsprechend. (Beruht auf der Meldung „funktionieren alle"; einen ausdrücklichen
+  Wertevergleich mit der Geräteanzeige gab es dabei nicht.)
+- **Einphasige Zähler ohne Messmodus:** Bei SDM120/220/230 bot die Funktionszuordnung „Dreiphasig —
+  ein Verbraucher über alle 3 Phasen" oder „Einphasig getrennt — 3 unabhängige Verbraucher" — für
+  ein Gerät mit einer Phase sinnlos (Tester-Hinweis mit Screenshot). Die Auswahl ist dort
+  ausgeblendet, stattdessen steht ein Hinweis „Dieser Zähler misst nur eine Phase — die Funktion
+  gilt für das ganze Gerät"; es gibt nur ein Zuordnungsfeld. Ein früher gespeicherter Wert „je
+  Phase" wirkt bei einem einphasigen Zähler nicht mehr, auch nicht im `MHUB_GetFunctions`-Vertrag
+  (`measureMode` ist dort immer `combined`). Beim Wechsel des Zählertyps im offenen Formular
+  schalten die Felder live um.
+- **Statuszeile „Bitte Verbindung einstellen." in jedem Verbindungsweg gleich:** Die Zeile ganz oben
+  sagte bei einer neuen Instanz „Bitte Verbindung vervollständigen (IP-Adresse bzw. Inexogy-
+  Anmeldung)" — passt nicht mehr, seit es die Symbox-Anbindung gibt. Außerdem folgt die Statuszeile
+  dem GESPEICHERTEN Stand: wer im offenen Formular den Verbindungsweg wechselte, sah weiter den
+  Text des alten Wegs („Brücke eintragen" trotz „Direkt"). Symcon lässt sich die Statuszeile nicht
+  live umschalten, deshalb jetzt ein neutraler Text für 104. Status 201 (nur bei laufender
+  Instanz) nennt im Gateway-Modus weiter Brücke und Gateway.
+- Prüfstand `test-virtual.php` Block 47 (Statustexte), 48 (Dropdown ohne „experimentell") und
+  neu 49 (einphasiger Messmodus: ausgeblendet, ein Zuordnungsfeld, gespeichertes „je Phase"
+  wirkungslos, dreiphasige Zähler unverändert).
+
 ## 0.31.1-beta.1 (2026-09-19)
 
 - **MeterHubDiscovery: Hinweis „nicht automatisch gefunden" vervollständigt.** Er nannte nur
