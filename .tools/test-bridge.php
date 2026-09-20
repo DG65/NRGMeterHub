@@ -193,5 +193,13 @@ check('6b: die Brücke trägt beide Einträge', $brg['parentRequirements'] === [
 check('6c: Modulname = Klassenname, eigene GUID und eigenes Prefix', $brg['name'] === 'MeterHubBridge' && class_exists($brg['name']) && $brg['id'] === BRIDGE_GUID && $brg['prefix'] === 'MHUBB' && $brg['id'] !== $main['id']);
 check('6d: die GUID im Hauptmodul stimmt mit der module.json der Brücke überein', (new ReflectionClassConstant('MeterHub', 'BRIDGE_GUID'))->getValue() === $brg['id']);
 
+$expected = ['MeterHub' => 'NRG-Stack MeterHub', 'MeterHubVirtual' => 'NRG-Stack MeterHub Virtueller Zähler', 'MeterHubDiscovery' => 'NRG-Stack MeterHub Suche', 'MeterHubBridge' => 'NRG-Stack MeterHub Brücke (ModBus-Gateway)'];
+$aliasOk = true; $aliasDetail = [];
+foreach ($expected as $mod => $alias) {
+    $al = json_decode(file_get_contents(dirname(__DIR__) . "/$mod/module.json"), true)['aliases'] ?? [];
+    if ($al !== [$alias]) { $aliasOk = false; $aliasDetail[] = "$mod: " . json_encode($al, JSON_UNESCAPED_UNICODE); }
+}
+check('6e: jedes Modul hat genau EINEN Alias nach dem Muster „NRG-Stack MeterHub …" (jeder Alias wäre im Anlege-Dialog ein eigener Eintrag — Forum-Feedback Mstaudi 20.09.2026)', $aliasOk, implode('; ', $aliasDetail));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

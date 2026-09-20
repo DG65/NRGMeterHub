@@ -4,8 +4,7 @@
   "type": 5,
   "vendor": "",
   "aliases": [
-    "NRG-Stack MeterHubDiscovery",
-    "Energiezähler Suche"
+    "NRG-Stack MeterHub Suche"
   ],
   "url": "https://github.com/DG65/NRGMeterHub",
   "parentRequirements": [],

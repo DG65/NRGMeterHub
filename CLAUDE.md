@@ -175,6 +175,16 @@ Parent an). Prüfstand `.tools/test-bridge.php`. **Unbestätigt:** das Verhalten
 des Kernels beim Funktionsaufruf zwischen Instanzen an echter Hardware; der Schreibpfad
 (Function 16) bleibt eine ungetestete Ableitung.
 
+## Anzeigenamen im Anlege-Dialog: genau ein Alias je Modul (20.09.2026)
+
+Jeder Eintrag in `aliases` der `module.json` ist in „Instanz hinzufügen" ein EIGENER Eintrag (und
+der vorgeschlagene Instanzname): zwei Aliase heißen zwei Einträge für dasselbe Modul — ein Tester
+fragte deshalb, was der Unterschied zwischen „Energiezähler Suche" und „MeterHubDiscovery" sei.
+Regel: **ein Alias je Modul**, Muster „NRG-Stack MeterHub <Funktion>" (Suche, Brücke
+(ModBus-Gateway), Virtueller Zähler), einheitlich deutsch. Modulname, GUID und Prefix bleiben
+unangetastet (Instanzen hängen daran). Abgesichert in `.tools/test-bridge.php` 6e. Bei einem neuen
+Modul denselben Weg gehen; die Schwesterhubs InverterHub/ChargerHub folgen dem Muster mit ihrem Namen.
+
 ## Hilfsordner im Wurzelverzeichnis müssen mit einem Punkt beginnen
 
 Die Store-Prüfung von IP-Symcon behandelt **jeden sichtbaren Ordner im Repo-Wurzelverzeichnis

@@ -4,8 +4,7 @@
   "type": 3,
   "vendor": "",
   "aliases": [
-    "NRG-Stack MeterHub Brücke (ModBus-Gateway)",
-    "Brücke zwischen ModBus-Gateway und MeterHub"
+    "NRG-Stack MeterHub Brücke (ModBus-Gateway)"
   ],
   "url": "https://github.com/DG65/NRGMeterHub",
   "parentRequirements": [

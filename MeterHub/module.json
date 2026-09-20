@@ -4,8 +4,7 @@
   "type": 3,
   "vendor": "",
   "aliases": [
-    "NRG-Stack MeterHub",
-    "Energiezähler (Multi-Hersteller)"
+    "NRG-Stack MeterHub"
   ],
   "url": "https://github.com/DG65/NRGMeterHub",
   "parentRequirements": [],
