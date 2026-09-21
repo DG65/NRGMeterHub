@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.31.4-beta.1 (2026-09-21)
+
+- **Verbund-Verbindungen im Formular sichtbar machen (neue verbindliche SUITE.md-Konvention,
+  21.09.2026: „woher soll ich wissen, ob die Verbindung zustande gekommen ist und welche Werte
+  übernommen wurden?").** Jede automatische Verbindung bekommt eine live in
+  `GetConfigurationForm()` berechnete Statuszeile — ✅ verbunden (Instanz, Name, welche Werte mit
+  Quelle), ⚠️ verbunden, aber nichts Brauchbares, ℹ️ nicht gefunden (was dann gilt), ⛔ Pflichtangabe
+  fehlt. Die Messung der vier Formulare gegen die Konvention ergab diese Lücken, alle geschlossen:
+  - **MeterHub — Brücke (Symbox-Weg):** bisher nur statische Hinweise. Jetzt eine Zeile mit
+    Brücke, Gateway, Unit-ID und Quelle („DeviceID am Gateway") bzw. ⛔ keine/fehlende Brücke, ⚠️
+    Brücke ohne Gateway oder Gateway inaktiv. Sie folgt der Auswahl im offenen Formular
+    (`onChange`), nicht erst dem gespeicherten Stand.
+  - **MeterHub — Inexogy:** beim Öffnen war nicht erkennbar, ob die Anmeldung besteht. Jetzt ⛔ nicht
+    angemeldet, ⚠️ angemeldet ohne Zähler-UID, ✅ angemeldet mit UID, letzter Abfrage und aktueller
+    Leistung samt Quelle; aktualisiert sich nach der Anmeldung.
+  - **MeterHub — Archiv:** fand MeterHub kein Archiv, wurde stillschweigend nichts aufgezeichnet.
+    Jetzt ✅ mit Archiv-Instanz, ⚠️ bei mehreren Archiven (das erste wird verwendet), ℹ️ „nicht
+    aufgezeichnet, Verdichtung entfällt".
+  - **MeterHubDiscovery — MigrationsHub:** nur der statische Satz „Voraussetzung: MigrationsHub ist
+    installiert". Jetzt eine Zeile, die IMMER im Formular steht (auch wenn die Migrations-Knöpfe
+    ausgeblendet sind): ℹ️ nicht installiert, ℹ️ installiert ohne Instanz, ✅ Instanz mit ID und Name,
+    ⚠️ mehrere Instanzen (nicht raten).
+  - **MeterHubBridge:** die Zeile nannte weder Gateway-ID noch -Name. Jetzt „Verbunden mit ModBus
+    Gateway #ID „Name" — Unit-ID N (Quelle: DeviceID am Gateway)".
+  - **MeterHubVirtual:** die ✅-Vorschau der Formel nannte je Term nur den Namen. Jetzt zusätzlich
+    die gelesene Variable („[Quelle #ID „Name"]") — bei automatisch am Ziel gefundenen Datenpunkten
+    sonst nicht erkennbar. (Die ❌-Zeile bei Formelfehlern bleibt: sie meldet ungültige Eingaben,
+    keine fehlende Verbindung.)
+- **Prüfstand nach den zwei Fallen der Konvention:** die Zeile wird im ausgelieferten JSON
+  **rekursiv** über alle `items` gesucht (nicht nur auf oberster Ebene) und je Zustand geprüft
+  (`test-virtual.php` 50, `test-bridge.php` 3e/7, `test-discovery-migration.php` 1/1b/2/7).
+  Gegenprobe mit absichtlich umbenannten Zeilen: die Tests schlagen an.
+- Offen, bewusst nicht Teil dieses Stands: Der Auflösungsweg der Datenpunkte am Ziel (Vertrag
+  `*_GetFunctions` mit Version, bekannter Ident oder Suche) und die Schalter-Erkennung sind in der
+  Formelvorschau noch nicht genannt — dafür müsste `MetersOfDevice()` den Weg mitliefern.
+
 ## 0.31.3-beta.1 (2026-09-20)
 
 - **Einheitliche Anzeigenamen, kein Modul mehr doppelt im Anlege-Dialog** (Forum-Feedback: „Was

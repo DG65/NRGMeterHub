@@ -2265,5 +2265,50 @@ IPS_SetProperty(9200, 'Meter', 'eastron_sdm230');
 check('49d: bei einem SDM230 nie', $isPer->invoke($hub47) === false);
 IPS_SetProperty(9200, 'MeasureMode', 'combined');
 
+echo "\n50) Verbund-Verbindungen im Formular sichtbar machen (SUITE.md 21.09.2026): je Verbindung eine live berechnete Statuszeile im ausgelieferten JSON\n";
+$line50 = function (string $mode, string $meter, string $name) use ($hub47, $findEl) {
+    IPS_SetProperty(9200, 'Meter', $meter);
+    IPS_SetProperty(9200, 'ConnectionMode', $mode);
+    $f = json_decode($hub47->GetConfigurationForm(), true);
+    $e = $findEl($f['elements'], $name);
+    return $e === null ? null : ['caption' => (string)($e['caption'] ?? ''), 'visible' => (bool)($e['visible'] ?? true)];
+};
+IPS_SetProperty(9200, 'BridgeInstanceID', 0);
+$b = $line50('gateway', 'siemens_pac2200', 'BridgeStatusLine');
+check('50a: Brücke — die Zeile steht im Formular, im Gateway-Modus sichtbar, ⛔ ohne gewählte Brücke', $b !== null && $b['visible'] === true && str_starts_with($b['caption'], '⛔') && str_contains($b['caption'], 'Keine Brücke gewählt'), json_encode($b));
+check('50a: Brücke — bei „Direkt" ausgeblendet', ($line50('direct', 'siemens_pac2200', 'BridgeStatusLine')['visible'] ?? null) === false);
+IPS_SetProperty(9200, 'BridgeInstanceID', 99999);
+$b = $line50('gateway', 'siemens_pac2200', 'BridgeStatusLine');
+check('50a: Brücke — gewählte, aber fehlende Instanz (⛔)', str_starts_with($b['caption'] ?? '', '⛔') && str_contains($b['caption'], '#99999'), json_encode($b));
+IPS_SetProperty(9200, 'BridgeInstanceID', 0);
+
+unset($GLOBALS['ATTR'][9200]['InexogyToken']);
+IPS_SetProperty(9200, 'InexogyMeterID', '');
+$i = $line50('direct', 'inexogy', 'InexogyStatusLine');
+check('50b: Inexogy — nicht angemeldet (⛔), sichtbar bei Cloud-Zähler', $i !== null && $i['visible'] === true && str_starts_with($i['caption'], '⛔') && str_contains($i['caption'], 'Ohne Anmeldung liest diese Instanz nichts'), json_encode($i));
+$GLOBALS['ATTR'][9200]['InexogyToken'] = 'token';
+$i = $line50('direct', 'inexogy', 'InexogyStatusLine');
+check('50b: Inexogy — angemeldet, aber keine Zähler-UID (⚠️)', str_starts_with($i['caption'] ?? '', '⚠️') && str_contains($i['caption'], 'Zähler-UID'), json_encode($i));
+IPS_SetProperty(9200, 'InexogyMeterID', 'abc123');
+$i = $line50('direct', 'inexogy', 'InexogyStatusLine');
+check('50b: Inexogy — angemeldet mit Zähler-UID (✅): nennt UID und Quelle', str_starts_with($i['caption'] ?? '', '✅') && str_contains($i['caption'], 'abc123') && str_contains($i['caption'], 'Quelle'), json_encode($i));
+check('50b: Inexogy — bei einem Modbus-Zähler ausgeblendet', ($line50('direct', 'siemens_pac2200', 'InexogyStatusLine')['visible'] ?? null) === false);
+unset($GLOBALS['ATTR'][9200]['InexogyToken']);
+IPS_SetProperty(9200, 'InexogyMeterID', '');
+
+$a = $line50('direct', 'siemens_pac2200', 'ArchiveStatusLine');
+check('50c: Archiv — gefunden (✅): nennt Instanz-ID und Name', str_starts_with($a['caption'] ?? '', '✅') && str_contains($a['caption'], '#50'), json_encode($a));
+$acMod = $GLOBALS['INSTMOD'][50];
+unset($GLOBALS['INSTMOD'][50]);
+$a = $line50('direct', 'siemens_pac2200', 'ArchiveStatusLine');
+check('50c: Archiv — nicht gefunden (ℹ️): sagt, was dann gilt (nichts aufgezeichnet, Verdichtung entfällt)', str_starts_with($a['caption'] ?? '', 'ℹ️') && str_contains($a['caption'], 'nicht aufgezeichnet') && str_contains($a['caption'], 'entfällt'), json_encode($a));
+$GLOBALS['INSTMOD'][50] = $acMod;
+IPS_SetProperty(9200, 'Meter', 'siemens_pac2200');
+IPS_SetProperty(9200, 'ConnectionMode', 'direct');
+
+$formV = json_decode($GLOBALS['MODOBJ'][$plausIid]->GetConfigurationForm(), true);
+$vText = json_encode($formV, JSON_UNESCAPED_UNICODE);
+check('50d: Virtual — die ✅-Vorschau nennt je Term die gelesene Variable (Quelle #ID und Name)', str_contains($vText, '✅ Formel schlüssig') && str_contains($vText, '[Quelle #63001') && str_contains($vText, '[Quelle #63002') && str_contains($vText, '[Quelle #63003'), substr($vText, 0, 200));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

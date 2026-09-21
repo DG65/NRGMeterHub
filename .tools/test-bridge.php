@@ -73,6 +73,7 @@ if (!function_exists('IPS_LogMessage')) { function IPS_LogMessage($s, $m) {} }
 // Stellvertreter des vom Kernel bereitgestellten Prefix-Wrappers MHUBB_Forward($id, $json).
 $GLOBALS['BRIDGES'] = [];
 function MHUBB_Forward($id, $json) { return $GLOBALS['BRIDGES'][$id]->Forward($json); }
+function MHUBB_GetState($id) { return $GLOBALS['BRIDGES'][$id]->GetState(); }
 
 require_once dirname(__DIR__) . '/MeterHubBridge/module.php';
 require_once dirname(__DIR__) . '/MeterHub/module.php';
@@ -136,7 +137,11 @@ $b->ApplyChanges();
 $bNo->ApplyChanges();
 check('3d: Status 102 mit aktivem Gateway, 104 ohne', $GLOBALS['STATUS'][$bridge] === 102 && $GLOBALS['STATUS'][$bridgeNo] === 104, json_encode($GLOBALS['STATUS']));
 $form = json_decode($b->GetConfigurationForm(), true);
-check('3e: Formular ist gültig und nennt die gelesene Unit-ID', is_array($form) && str_contains(json_encode($form, JSON_UNESCAPED_UNICODE), 'Unit-ID (DeviceID am Gateway): 41'));
+check('3e: Formular ist gültig und die Statuszeile (✅) nennt Gateway mit ID und Name, Unit-ID und Quelle', is_array($form) && str_contains($form['elements'][0]['caption'] ?? '', '✅') && str_contains($form['elements'][0]['caption'] ?? '', '#' . $gw . ' „ModBus Gateway BCR PV Zähler"') && str_contains($form['elements'][0]['caption'] ?? '', 'Unit-ID 41') && str_contains($form['elements'][0]['caption'] ?? '', 'DeviceID'), $form['elements'][0]['caption'] ?? '');
+$formNo = json_decode($bNo->GetConfigurationForm(), true);
+check('3e: ohne Gateway (⚠️): sagt, was fehlt und was dann gilt', str_starts_with($formNo['elements'][0]['caption'] ?? '', '⚠️') && str_contains($formNo['elements'][0]['caption'], 'Gateway ändern') && str_contains($formNo['elements'][0]['caption'], 'keine Werte'), $formNo['elements'][0]['caption'] ?? '');
+$formDown = json_decode((new MeterHubBridge($bridgeDown))->GetConfigurationForm(), true);
+check('3e: Gateway inaktiv (⚠️): nennt Gateway und Status', str_starts_with($formDown['elements'][0]['caption'] ?? '', '⚠️') && str_contains($formDown['elements'][0]['caption'], '#' . $gwDown) && str_contains($formDown['elements'][0]['caption'], 'Status 201'), $formDown['elements'][0]['caption'] ?? '');
 check('3e: Formular sagt „eine Brücke = genau eine Unit-ID"', str_contains(json_encode($form, JSON_UNESCAPED_UNICODE), 'genau EINE Unit-ID'));
 
 echo "\n4) MeterHub: BridgeCall() bis zu den dekodierten Registern\n";
@@ -200,6 +205,19 @@ foreach ($expected as $mod => $alias) {
     if ($al !== [$alias]) { $aliasOk = false; $aliasDetail[] = "$mod: " . json_encode($al, JSON_UNESCAPED_UNICODE); }
 }
 check('6e: jedes Modul hat genau EINEN Alias nach dem Muster „NRG-Stack MeterHub …" (jeder Alias wäre im Anlege-Dialog ein eigener Eintrag — Forum-Feedback Mstaudi 20.09.2026)', $aliasOk, implode('; ', $aliasDetail));
+
+echo "\n7) MeterHub: live berechnete Statuszeile zur Brücke (SUITE.md „Verbund-Verbindungen im Formular sichtbar machen\")\n";
+$mhLine = fn(int $bid) => (new ReflectionMethod('MeterHub', 'BridgeStatusLine'))->invoke($mh, $bid);
+$l = $mhLine(0);
+check('7a: keine Brücke gewählt (⛔): sagt, was fehlt und dass dann nichts gelesen wird', str_starts_with($l, '⛔') && str_contains($l, 'Keine Brücke gewählt') && str_contains($l, 'liest diese Instanz nichts'), $l);
+$l = $mhLine(99999);
+check('7b: gewählte Brücke gibt es nicht mehr (⛔)', str_starts_with($l, '⛔') && str_contains($l, '#99999') && str_contains($l, 'nicht mehr'), $l);
+$l = $mhLine($bridgeNo);
+check('7c: Brücke ohne Gateway (⚠️): nennt die Brücke und den Weg zum Gateway', str_starts_with($l, '⚠️') && str_contains($l, '#' . $bridgeNo) && str_contains($l, 'Gateway ändern'), $l);
+$l = $mhLine($bridgeDown);
+check('7d: Gateway inaktiv (⚠️): nennt Brücke, Gateway und Status', str_starts_with($l, '⚠️') && str_contains($l, '#' . $bridgeDown) && str_contains($l, '#' . $gwDown) && str_contains($l, 'Status 201'), $l);
+$l = $mhLine($bridge);
+check('7e: alles in Ordnung (✅): Brücke und Gateway mit ID und Name, Unit-ID, Quelle', str_starts_with($l, '✅') && str_contains($l, '#' . $bridge) && str_contains($l, '#' . $gw . ' „ModBus Gateway BCR PV Zähler"') && str_contains($l, 'Unit-ID 41') && str_contains($l, 'DeviceID'), $l);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

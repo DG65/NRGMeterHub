@@ -81,6 +81,23 @@ function check($label, $cond, $detail = '') {
     else { $fails++; echo "  FEHLT $label" . ($detail !== '' ? "  ($detail)" : '') . "\n"; }
 }
 
+
+// Rekursive Suche über ALLE items (SUITE.md-Falle: ein Label in einem ExpansionPanel wurde beim
+// Szenariorechner nie ersetzt, weil nur die oberste Ebene durchsucht wurde).
+function findEl(array $els, string $name) {
+    foreach ($els as $e) {
+        if (is_array($e) && ($e['name'] ?? null) === $name) { return $e; }
+        foreach (['items', 'elements'] as $k) {
+            if (isset($e[$k]) && is_array($e[$k])) { $r = findEl($e[$k], $name); if ($r) { return $r; } }
+        }
+    }
+    return null;
+}
+function migLine($d): string {
+    $f = json_decode($d->GetConfigurationForm(), true);
+    $e = is_array($f) ? findEl($f['elements'] ?? [], 'MigrationStatusLine') : null;
+    return $e === null ? '' : (string)($e['caption'] ?? '');
+}
 // ---------------------------------------------------------------------------
 echo "\n1) Ohne MigrationsHub (function_exists false)\n";
 $d = new MeterHubDiscovery(1);
@@ -91,6 +108,7 @@ check('kein Treffer ohne MigrationsHub-Funktionen', $legacy === ['id' => 0, 'nam
 
 $d->PrepareMigration();
 check('Meldung: MigrationsHub nicht installiert', str_contains($GLOBALS['FORMFIELDS']['MigrationResult']['caption'] ?? '', 'nicht installiert'));
+check('Statuszeile im ausgelieferten Formular (ℹ️): MigrationsHub nicht installiert, Migration entfällt', str_starts_with(migLine($d), 'ℹ️') && str_contains(migLine($d), 'nicht installiert') && str_contains(migLine($d), 'entfällt'), migLine($d));
 
 // ---------------------------------------------------------------------------
 // Ab hier MIGHUB_* simulieren, als wäre MigrationsHub installiert. In eine
@@ -121,12 +139,15 @@ echo "\n1b) Funktionen vorhanden, aber keine MigrationsHub-INSTANZ -> kein Treff
 $legacy = $ref->invoke($d, '10.0.0.5', 1);
 check('kein Treffer ohne MigrationsHub-Instanz', $legacy === ['id' => 0, 'name' => '']);
 check('kein MIGHUB-Aufruf abgesetzt', count($GLOBALS['MIGHUB_FIND_CALLS']) === 0);
+check('Statuszeile (ℹ️): installiert, aber noch keine Instanz — sagt, wann sie entsteht', str_starts_with(migLine($d), 'ℹ️') && str_contains(migLine($d), 'noch keine Instanz'), migLine($d));
 
 echo "\n2) Mit MigrationsHub — Alt-Instanz gefunden\n";
 obj(555, 1, 'Alter Zähler (Fremdmodul)', 0);
 $GLOBALS['INSTMOD'][555] = '{SOME-OTHER-GUID}';
 // Vorhandene MigrationsHub-Instanz als Dispatch-Ziel.
 $migPre = IPS_CreateInstance(G_MIGHUB);
+obj($migPre, 1, 'MigrationsHub Bestand', 0);
+check('Statuszeile (✅): MigrationsHub-Instanz mit ID und Name genannt', str_starts_with(migLine($d), '✅') && str_contains(migLine($d), '#' . $migPre) && str_contains(migLine($d), 'MigrationsHub Bestand'), migLine($d));
 
 $legacy = $ref->invoke($d, '10.0.0.5', 1);
 check('Alt-Instanz #555 gefunden', $legacy['id'] === 555 && $legacy['name'] === 'Alter Zähler (Fremdmodul)');
@@ -211,5 +232,10 @@ $d4->PrepareMigration();
 check('Meldung: keine passende Kombination', str_contains($GLOBALS['FORMFIELDS']['MigrationResult']['caption'] ?? '', 'Keine passende Kombination'));
 
 // ---------------------------------------------------------------------------
+echo "\n7) Mehrere MigrationsHub-Instanzen: nicht raten, sondern warnen\n";
+$migTwo = IPS_CreateInstance(G_MIGHUB);
+obj($migTwo, 1, 'MigrationsHub Zweit', 0);
+check('Statuszeile (⚠️): nennt beide Instanzen und die verwendete', str_starts_with(migLine($d), '⚠️') && str_contains(migLine($d), '#' . $migPre) && str_contains(migLine($d), '#' . $migTwo) && str_contains(migLine($d), 'verwendet wird die erste'), migLine($d));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

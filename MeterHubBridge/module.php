@@ -95,12 +95,14 @@ class MeterHubBridge extends IPSModule
     public function GetConfigurationForm()
     {
         $s = $this->State();
+        $gid = (int)(IPS_GetInstance($this->InstanceID)['ConnectionID'] ?? 0);
+        $gateway = ($gid > 0 && IPS_InstanceExists($gid)) ? '#' . $gid . ' „' . IPS_GetName($gid) . '"' : '';
         if (!$s['connected']) {
-            $state = '⚠️ Noch kein Gateway verbunden — oben über „Gateway ändern" das passende native „ModBus Gateway" dieses Geräts wählen.';
+            $state = '⚠️ Noch kein Gateway verbunden — oben über „Gateway ändern" das passende native „ModBus Gateway" dieses Geräts wählen. Bis dahin liefert diese Brücke dem Hub keine Werte.';
         } elseif (!$s['parentActive']) {
-            $state = '⚠️ Gateway verbunden, aber nicht aktiv (Status ' . $s['parentStatus'] . ') — Verbindung des Gateways zum Gerät prüfen.';
+            $state = '⚠️ Mit ModBus Gateway ' . $gateway . ' verbunden, aber es ist nicht aktiv (Status ' . $s['parentStatus'] . ') — dessen Verbindung zum Gerät prüfen.';
         } else {
-            $state = '✅ Mit dem Gateway verbunden' . ($s['unitId'] !== null ? ' — Unit-ID (DeviceID am Gateway): ' . $s['unitId'] : '') . '.';
+            $state = '✅ Verbunden mit ModBus Gateway ' . $gateway . ' — Unit-ID ' . ($s['unitId'] !== null ? (string)$s['unitId'] : 'nicht lesbar') . ' (Quelle: Property „DeviceID" am Gateway).';
         }
         return (string)json_encode([
             'elements' => [

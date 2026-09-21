@@ -185,6 +185,20 @@ Regel: **ein Alias je Modul**, Muster „NRG-Stack MeterHub <Funktion>" (Suche, 
 unangetastet (Instanzen hängen daran). Abgesichert in `.tools/test-bridge.php` 6e. Bei einem neuen
 Modul denselben Weg gehen; die Schwesterhubs InverterHub/ChargerHub folgen dem Muster mit ihrem Namen.
 
+## Verbund-Verbindungen im Formular sichtbar machen (SUITE.md, verbindlich seit 21.09.2026)
+
+Jede automatische Verbindung eines Moduls braucht eine LIVE in `GetConfigurationForm()` berechnete
+Statuszeile (✅ verbunden mit Instanz/Name und den übernommenen Werten samt Quelle, ⚠️ verbunden ohne
+Brauchbares, ℹ️ nicht gefunden und was dann gilt, ⛔ Pflichtangabe fehlt) — ein statischer Satz wie
+„wird automatisch erkannt" reicht nie. Hier: `BridgeStatusLine()`/`OnChangeBridge()` (Brücke),
+`InexogyStatusLine()`, `ArchiveStatusLine()` im Hauptmodul, `MigrationStatusLine()` in der Suche,
+Gateway-Angaben in der Brücken-Zeile, `[Quelle #ID]` je Term in `FormulaPreview()`. **Zwei Fallen:**
+Elemente rekursiv über alle `items` suchen (ein Label in einem `ExpansionPanel` wurde im
+Szenariorechner nie ersetzt) und im Prüfstand prüfen, dass die Zeile im ausgelieferten JSON steht,
+je Zustand — Muster `$findEl` in `.tools/test-virtual.php` Block 47–50. Bei Auswahlfeldern zusätzlich
+`onChange` + `UpdateFormField(..., 'caption', ...)`, damit die Zeile der Auswahl folgt und nicht dem
+gespeicherten Stand. Neue Verbindungen bekommen ihre Zeile im selben Zug.
+
 ## Hilfsordner im Wurzelverzeichnis müssen mit einem Punkt beginnen
 
 Die Store-Prüfung von IP-Symcon behandelt **jeden sichtbaren Ordner im Repo-Wurzelverzeichnis

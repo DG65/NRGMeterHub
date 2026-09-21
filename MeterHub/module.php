@@ -3362,7 +3362,7 @@ class MeterHub extends IPSModule
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
     private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230'];
-    private const NEWS_VERSION = '0.31.0';
+    private const NEWS_VERSION = '0.31.4';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3427,6 +3427,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 Zähler ohne eigenes Anzeige-Label heißen jetzt wie ihre Instanz statt pauschal nach der Funktion (z. B. „WR 4.1.01.02" statt für alle Wechselrichter gleich „PV-Erzeugung") — sofern die Instanz umbenannt wurde, sonst bleibt der Funktionsname der Rückfall.'],
                 ['type' => 'Label', 'caption' => '• 🆕 „Rolle des Zählers" hat jetzt eine dritte Option „Unterzähler / Erzeuger" und wirkt sich erstmals wirklich aus: Für Unterzähler (Verbraucher oder Erzeuger, nicht „Netz-/NAP-Zähler") prüft eine neue Plausibilitätsprüfung, ob der Zähler über die Zeit überwiegend nur in eine Richtung misst — zeigt er dauerhaft beide Richtungen deutlich, passt vermutlich eher „Netz-/NAP-Zähler", oder die Verkabelung ist falsch gepolt. Ergebnis direkt unter der Rollen-Auswahl im Formular.'],
                 ['type' => 'Label', 'caption' => '• 🆕 Drei neue, einphasige Zählertypen: Eastron SDM120, SDM220 und SDM230 (Wirkleistung, Spannung, Strom, Frequenz, Energie Bezug/Abgabe, optional Blind-/Scheinleistung und Leistungsfaktor). Reine RS485-Geräte — passend zum Verbindungsweg „Symbox-Gateway". Die Registerkarte ist gegen drei unabhängige Quellen gegengelesen und von einem Tester an echter Hardware bestätigt.'],
+                ['type' => 'Label', 'caption' => '• 🔎 Neue Statuszeilen im Formular: Zu jeder automatischen Verbindung steht jetzt eine Zeile, die beim Öffnen live berechnet wird und sagt, ob es geklappt hat und welche Werte woher kommen — zur Brücke (Symbox-Weg: Brücke, Gateway, Unit-ID), zur Inexogy-Anmeldung und zum Archiv. Bei den virtuellen Zählern nennt die Formelvorschau je Term die gelesene Variable, in der Suche steht der Zustand der MigrationsHub-Kopplung. Ein Wechsel der Brücken-Auswahl aktualisiert die Zeile sofort.'],
                 ['type' => 'Label', 'caption' => '• 🚧 Neues Feld „Verbindungsweg" (Direkt/Symbox-Gateway) für Symcons eingebaute Symbox-Hardware: Der Weg läuft über das neue Modul „MeterHub Brücke" — pro Gerät ein natives „ModBus Gateway" (mit der Unit-ID als DeviceID), daran eine Brücke, und hier die Brücke wählen. Lesend am Rohcode von Symcons Referenzmodul verifiziert, aber noch nicht an echter Symbox-Hardware bestätigt. Schreibende Zählertypen dort nicht produktiv einsetzen. Für den normalen Betrieb bleibt „Direkt" die richtige Wahl und ändert sich nicht.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Frühere Beta-Stände (0.29.10–0.29.14) hängten das Gateway direkt an MeterHub — das ist zurückgenommen, weil es bei jeder Direkt-Instanz einen Balken „benötigt eine übergeordnete Instanz" zeigte. Wer den Gateway-Weg schon eingerichtet hatte: Brücke anlegen, mit dem Gateway verbinden und in dieser Instanz die Brücke wählen; die Instanz und ihre Messhistorie bleiben.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
@@ -4129,6 +4130,7 @@ class MeterHub extends IPSModule
         }
         $connectionItems = [
             ['type' => 'Label', 'name' => 'InexogyIntro', 'visible' => $isCloud, 'caption' => '🔐 Anmeldung bei Inexogy (ehem. Discovergy). E-Mail und Passwort deines my.inexogy.com-Kontos eintragen, übernehmen, dann „Anmelden". Das Passwort wird nur einmal für die Anmeldung benutzt, danach automatisch gelöscht — gespeichert werden ausschließlich Zugriffs-Token (nicht im Klartext).'],
+            ['type' => 'Label', 'name' => 'InexogyStatusLine', 'visible' => $isCloud, 'caption' => $isCloud ? $this->InexogyStatusLine() : ''],
             ['type' => 'ValidationTextBox', 'name' => 'InexogyEmail', 'visible' => $isCloud, 'caption' => 'E-Mail (Inexogy-Konto)'],
             ['type' => 'PasswordTextBox', 'name' => 'InexogyPassword', 'visible' => $isCloud, 'caption' => 'Passwort (wird nach der Anmeldung gelöscht)'],
             ['type' => 'Button', 'name' => 'InexogyLoginButton', 'visible' => $isCloud, 'caption' => '🔑  Anmelden und Zähler abrufen', 'onClick' => 'MHUB_InexogyLogin($id);'],
@@ -4164,7 +4166,8 @@ class MeterHub extends IPSModule
             ['type' => 'Label', 'name' => 'ConnectionModeGatewayUnitIdHint', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ℹ️ Host/Port/Unit-ID entfallen in diesem Modus. Ablauf: Für das Gerät ein natives „ModBus Gateway" anlegen und dessen „DeviceID" (= Unit-ID) auf die Modbus-Adresse des Geräts stellen — dieses Gateway unten wählen und „Brücke anlegen und verbinden" klicken, dann „Änderungen übernehmen". Von Hand geht es auch: eine „NRG-Stack MeterHub Brücke" anlegen, über „Gateway ändern" mit dem Gateway verbinden und unten wählen. Eine Brücke bedient genau eine Unit-ID.'],
             ['type' => 'SelectInstance', 'name' => 'GatewayPick', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ModBus Gateway zum Gerät', 'moduleID' => MHUB_ModbusGatewayClient::GATEWAY_GUID],
             ['type' => 'Button', 'name' => 'BtnCreateBridge', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Brücke anlegen und verbinden', 'onClick' => 'echo MHUB_CreateBridge($id, $GatewayPick);'],
-            ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'NRG-Stack Brücke zum ModBus Gateway', 'moduleID' => self::BRIDGE_GUID],
+            ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'NRG-Stack Brücke zum ModBus Gateway', 'moduleID' => self::BRIDGE_GUID, 'onChange' => 'MHUB_OnChangeBridge($id, $BridgeInstanceID);'],
+            ['type' => 'Label', 'name' => 'BridgeStatusLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->BridgeStatusLine($this->ReadPropertyInteger('BridgeInstanceID'))],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP-Adresse', 'validate' => ($isCloud || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -4422,6 +4425,7 @@ class MeterHub extends IPSModule
                         ['type' => 'NumberSpinner', 'name' => 'IntervalSlow', 'caption' => 'Langsam-Intervall (Energiezähler, Sekunden)', 'minimum' => 10, 'maximum' => 3600, 'suffix' => 's'],
                     ],
                 ],
+                ['type' => 'Label', 'name' => 'ArchiveStatusLine', 'caption' => $this->ArchiveStatusLine()],
                 [
                     // Zwei eigene Panels statt einem gemeinsamen (Dietmars
                     // Rückmeldung 31.08.2026: Symcons Formularsprache kennt
@@ -4546,7 +4550,7 @@ class MeterHub extends IPSModule
     public function OnChangeMeter(string $meter)
     {
         $isCloud = in_array($meter, self::CLOUD_METERS, true);
-        foreach (['InexogyIntro', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton', 'InexogyHintAutoBackfill', 'InexogyAutoBackfillEnabled', 'InexogyAutoBackfillIntervalMin', 'InexogyAutoBackfillDays', 'InexogyHintCleanup', 'InexogyCleanupDays', 'InexogyCleanupCheck', 'InexogyCleanupRun'] as $f) {
+        foreach (['InexogyIntro', 'InexogyStatusLine', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton', 'InexogyHintAutoBackfill', 'InexogyAutoBackfillEnabled', 'InexogyAutoBackfillIntervalMin', 'InexogyAutoBackfillDays', 'InexogyHintCleanup', 'InexogyCleanupDays', 'InexogyCleanupCheck', 'InexogyCleanupRun'] as $f) {
             $this->UpdateFormField($f, 'visible', $isCloud);
         }
         if (!$isCloud) {
@@ -4565,6 +4569,7 @@ class MeterHub extends IPSModule
         $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('BridgeInstanceID', 'visible', !$isCloud && $isGateway);
+        $this->UpdateFormField('BridgeStatusLine', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('GatewayPick', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('BtnCreateBridge', 'visible', !$isCloud && $isGateway);
 
@@ -4594,6 +4599,7 @@ class MeterHub extends IPSModule
         $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', $isGateway);
         $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', $isGateway);
         $this->UpdateFormField('BridgeInstanceID', 'visible', $isGateway);
+        $this->UpdateFormField('BridgeStatusLine', 'visible', $isGateway);
         $this->UpdateFormField('GatewayPick', 'visible', $isGateway);
         $this->UpdateFormField('BtnCreateBridge', 'visible', $isGateway);
         // Host/Port/Unit-ID entfallen im Gateway-Modus (ChargerHub-Fund 18.09.2026,
@@ -4657,8 +4663,88 @@ class MeterHub extends IPSModule
             IPS_ApplyChanges($bridgeId);
         }
         $this->UpdateFormField('BridgeInstanceID', 'value', $bridgeId);
+        $this->UpdateFormField('BridgeStatusLine', 'caption', $this->BridgeStatusLine($bridgeId));
         return ($created ? '✅ Brücke #' . $bridgeId . ' angelegt' : '✅ Vorhandene Brücke #' . $bridgeId . ' wiederverwendet')
             . ' und mit „' . IPS_GetName($gatewayId) . '" verbunden. Unten ist sie eingetragen — jetzt „Änderungen übernehmen" klicken.';
+    }
+
+    // -----------------------------------------------------------------------
+    // Verbund-Verbindungen im Formular sichtbar machen (SUITE.md, verbindlich seit
+    // 21.09.2026): je automatischer Verbindung eine LIVE berechnete Statuszeile —
+    // ✅ verbunden (Instanz, Name, welche Werte mit Quelle), ⚠️ verbunden, aber
+    // nichts Brauchbares, ℹ️ nicht gefunden (was dann gilt), ⛔ Pflichtangabe fehlt.
+    // Ein statischer Satz wie „wird automatisch erkannt" sagt nicht, ob es geklappt hat.
+    // -----------------------------------------------------------------------
+
+    /** Brücke (Symbox-Gateway-Weg): Instanz, Gateway, Unit-ID und Zustand. */
+    private function BridgeStatusLine(int $bridgeId): string
+    {
+        if ($bridgeId <= 0) {
+            return '⛔ Keine Brücke gewählt — ModBus Gateway wählen und „Brücke anlegen und verbinden" klicken. Ohne Brücke liest diese Instanz nichts.';
+        }
+        if (!IPS_InstanceExists($bridgeId)) {
+            return '⛔ Die gewählte Brücke #' . $bridgeId . ' gibt es nicht mehr — neu anlegen oder eine andere wählen. Bis dahin liest diese Instanz nichts.';
+        }
+        $bridge = '#' . $bridgeId . ' „' . IPS_GetName($bridgeId) . '"';
+        if (!function_exists('MHUBB_GetState')) {
+            return '⚠️ Brücke ' . $bridge . ' gewählt, aber das Brücken-Modul ist nicht geladen — Bibliothek in der Modulverwaltung neu laden.';
+        }
+        try {
+            $st = json_decode((string)MHUBB_GetState($bridgeId), true);
+        } catch (\Throwable $e) {
+            $st = null;
+        }
+        if (!is_array($st)) {
+            return '⚠️ Brücke ' . $bridge . ': Zustand nicht lesbar — die Brücke öffnen und prüfen.';
+        }
+        $gid = (int)(IPS_GetInstance($bridgeId)['ConnectionID'] ?? 0);
+        $gateway = ($gid > 0 && IPS_InstanceExists($gid)) ? '#' . $gid . ' „' . IPS_GetName($gid) . '"' : '';
+        if (empty($st['connected'])) {
+            return '⚠️ Brücke ' . $bridge . ' ist mit keinem ModBus Gateway verbunden — an der Brücke über „Gateway ändern" das Gateway des Geräts wählen. Bis dahin liest diese Instanz nichts.';
+        }
+        if (empty($st['parentActive'])) {
+            return '⚠️ Brücke ' . $bridge . ' → ModBus Gateway ' . $gateway . ' ist nicht aktiv (Status ' . (int)($st['parentStatus'] ?? 0) . ') — dessen Verbindung zum Gerät prüfen.';
+        }
+        $unit = isset($st['unitId']) && $st['unitId'] !== null ? (string)(int)$st['unitId'] : 'nicht lesbar';
+        return '✅ Brücke ' . $bridge . ' → ModBus Gateway ' . $gateway . ' aktiv, Unit-ID ' . $unit . ' (Quelle: Property „DeviceID" am Gateway).';
+    }
+
+    /** Wird beim Ändern der Brücken-Auswahl im offenen Formular aufgerufen — die Zeile folgt der Auswahl, nicht erst dem Speicherstand. */
+    public function OnChangeBridge(int $bridgeId)
+    {
+        $this->UpdateFormField('BridgeStatusLine', 'caption', $this->BridgeStatusLine($bridgeId));
+    }
+
+    /** Inexogy (Cloud): angemeldet? Zähler-UID? letzte Abfrage? aktueller Wert samt Quelle. */
+    private function InexogyStatusLine(): string
+    {
+        if ($this->ReadAttributeString('InexogyToken') === '') {
+            return '⛔ Noch nicht angemeldet — E-Mail und Passwort des Inexogy-Kontos eintragen und „Anmelden und Zähler abrufen" klicken. Ohne Anmeldung liest diese Instanz nichts.';
+        }
+        $uid = $this->ReadPropertyString('InexogyMeterID');
+        if ($uid === '') {
+            return '⚠️ Bei Inexogy angemeldet (Zugriffsschlüssel gespeichert), aber noch keine Zähler-UID gewählt — Zähler unten auswählen und übernehmen.';
+        }
+        $inst = function_exists('IPS_GetInstance') ? @IPS_GetInstance($this->InstanceID) : [];
+        $status = (int)($inst['InstanceStatus'] ?? 0);
+        $tail = $status === 201
+            ? ' Die letzte Abfrage ist fehlgeschlagen — Zugang, Zähler-UID und Internetverbindung prüfen.'
+            : ($status === 102 ? ' Die letzte Abfrage war erfolgreich.' : ' Noch keine Abfrage ausgewertet.');
+        $pid = $this->FindVarByIdent('power_total');
+        $value = $pid ? ' Aktuelle Leistung: ' . round((float)GetValue($pid)) . ' W (Quelle: Inexogy-Zähler ' . $uid . ').' : '';
+        return '✅ Bei Inexogy angemeldet (Zugriffsschlüssel gespeichert), Zähler-UID ' . $uid . ' (Quelle: Auswahl unten).' . $value . $tail;
+    }
+
+    /** Archiv (Archive Control): findet MeterHub eines, und was gilt sonst? */
+    private function ArchiveStatusLine(): string
+    {
+        $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        if (!$acs) {
+            return 'ℹ️ Kein Archiv (Archive Control) gefunden — die Werte dieser Instanz werden nicht aufgezeichnet, die Verdichtung unten entfällt. Archiv-Instanz anlegen, dann „Übernehmen".';
+        }
+        $ac = (int)$acs[0];
+        $more = count($acs) > 1 ? ' (verwendet wird das erste von ' . count($acs) . ' Archiven)' : '';
+        return ($more !== '' ? '⚠️' : '✅') . ' Archiv #' . $ac . ' „' . IPS_GetName($ac) . '" gefunden' . $more . ' — Leistungs- und Energiewerte dieser Instanz werden dort aufgezeichnet und nach den Einstellungen unten verdichtet.';
     }
 
     /** Grund des letzten Fehlschlags über die Brücke (no_bridge/not_connected/parent_inactive/no_response), für die Statustexte. */
@@ -4811,6 +4897,7 @@ class MeterHub extends IPSModule
         IPS_SetProperty($this->InstanceID, 'InexogyPassword', '');
         IPS_ApplyChanges($this->InstanceID);
         $this->UpdateFormField('InexogyPassword', 'value', '');
+        $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
 
         $meters = $c->getMeters();
         if (!$meters) {

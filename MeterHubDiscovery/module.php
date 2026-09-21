@@ -698,6 +698,7 @@ class MeterHubDiscovery extends IPSModule
                             ],
                             'values' => $values,
                         ],
+                        ['type' => 'Label', 'name' => 'MigrationStatusLine', 'caption' => $this->MigrationStatusLine()],
                         [
                             'type' => 'Label', 'caption' => '🔀 Migration von einer Alt-Instanz (anderes Modul, gleiche IP/Unit-ID): erst oben „Erstellen" klicken, dann hier „Migration vorbereiten".',
                             'visible' => function_exists('MIGHUB_FindLegacyCandidates'),
@@ -1167,6 +1168,28 @@ class MeterHubDiscovery extends IPSModule
             }
         }
         return $map;
+    }
+
+    /**
+     * Live berechnete Statuszeile zur MigrationsHub-Kopplung (SUITE.md, „Verbund-
+     * Verbindungen im Formular sichtbar machen", verbindlich seit 21.09.2026): sagt, ob die
+     * Kopplung gerade zustande kommt und was sonst gilt. Steht IMMER im Formular, auch wenn
+     * MigrationsHub fehlt (die Migrations-Knöpfe sind dann ausgeblendet, der Grund dafür nicht).
+     */
+    private function MigrationStatusLine(): string
+    {
+        if (!function_exists('MIGHUB_FindLegacyCandidates')) {
+            return 'ℹ️ MigrationsHub ist nicht installiert — die Übernahme von Alt-Instanzen samt Messhistorie entfällt. Gefundene Zähler lassen sich trotzdem als MeterHub-Instanz anlegen.';
+        }
+        $ids = IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
+        if (!$ids) {
+            return 'ℹ️ MigrationsHub ist installiert, hat aber noch keine Instanz — „Migration vorbereiten" legt sie beim ersten Klick an; die Spalte „Alt-Instanz gefunden" bleibt bis dahin leer.';
+        }
+        $id = (int)$ids[0];
+        if (count($ids) > 1) {
+            return '⚠️ Mehrere MigrationsHub-Instanzen gefunden (' . implode(', ', array_map(fn($i) => '#' . $i, $ids)) . ') — verwendet wird die erste, #' . $id . ' „' . IPS_GetName($id) . '". Die übrigen bitte nicht für dieselbe Übernahme nutzen.';
+        }
+        return '✅ MigrationsHub-Instanz #' . $id . ' „' . IPS_GetName($id) . '" gefunden — Alt-Instanzen mit gleicher IP und Unit-ID erscheinen in der Spalte „Alt-Instanz gefunden".';
     }
 
     /**

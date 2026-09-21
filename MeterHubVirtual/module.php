@@ -4551,7 +4551,11 @@ class MeterHubVirtual extends IPSModule
                     $valText = 'Wert fehlt';
                 }
                 $pctText = $isFull ? '' : ' × ' . rtrim(rtrim(number_format(abs($factor), 2, ',', '.'), '0'), ',') . ' %';
-                $terms[] = $sign . ' ' . $name . $pctText . ' (' . $valText . ')';
+                // Quelle je Term (SUITE.md „Verbund-Verbindungen im Formular sichtbar machen", 21.09.2026):
+                // welche Variable tatsächlich gelesen wird — bei automatisch am Ziel gefundenen Datenpunkten
+                // sonst nicht erkennbar.
+                $src = ' [Quelle #' . $vid . (IPS_VariableExists($vid) ? ' „' . IPS_GetName($vid) . '"' : ' fehlt') . ']';
+                $terms[] = $sign . ' ' . $name . $src . $pctText . ' (' . $valText . ')';
             }
             if ($terms) {
                 $expr = implode('  ', $terms);
