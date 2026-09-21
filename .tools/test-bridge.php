@@ -233,6 +233,9 @@ check('8e: der automatische Wert wird NIE per UpdateFormField in das Eingabefeld
 $GLOBALS['FORMFIELDS'] = [];
 $mh->OnChangeBridge($bridge);
 check('8f: Brücken-Auswahl im offenen Formular frischt die 🔗-Zeile auf', str_starts_with($GLOBALS['FORMFIELDS']['UnitIdAutoLine']['caption'] ?? '', '🔗'), json_encode($GLOBALS['FORMFIELDS'], JSON_UNESCAPED_UNICODE));
+check('8f2: 🔗-Zeile wird grün (0x2E8B3D) gesetzt', ($GLOBALS['FORMFIELDS']['UnitIdAutoLine']['color'] ?? null) === 0x2E8B3D, json_encode($GLOBALS['FORMFIELDS'], JSON_UNESCAPED_UNICODE));
+$mh->OnChangeBridge($bridgeNo);
+check('8f3: ℹ️-Zustand setzt die Standardfarbe (-1) zurück', ($GLOBALS['FORMFIELDS']['UnitIdAutoLine']['color'] ?? null) === -1 && str_starts_with($GLOBALS['FORMFIELDS']['UnitIdAutoLine']['caption'], 'ℹ️'));
 $GLOBALS['FORMFIELDS'] = [];
 $mh->OnChangeConnectionMode('gateway');
 check('8g: Wechsel auf Gateway-Weg blendet die 🔗-Zeile ein, Wechsel zurück blendet sie aus', ($GLOBALS['FORMFIELDS']['UnitIdAutoLine']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['UnitId']['visible'] ?? null) === false);

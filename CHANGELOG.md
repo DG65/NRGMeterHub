@@ -33,7 +33,8 @@
   Eingabefeld „Unit ID" war dort schon ausgeblendet; jetzt steht an seiner Stelle eine
   schreibgeschützte Zeile „🔗 Unit-ID: N (automatisch vom ModBus Gateway #ID „Name", Property
   „DeviceID")" — bzw. „ℹ️ noch nicht verfügbar", solange keine mit einem Gateway verbundene Brücke
-  gewählt ist. Sie folgt der Brücken-Auswahl im offenen Formular und dem Wechsel des
+  gewählt ist. Die 🔗-Zeile ist grün (Label-Farbe 0x2E8B3D, beim Aktualisieren mitgesetzt, sonst
+  Standardfarbe). Sie folgt der Brücken-Auswahl im offenen Formular und dem Wechsel des
   Verbindungswegs. Der Wert wird bewusst nie in die Property „UnitId" geschrieben (er soll dem
   Gateway folgen). Geprüft an den übrigen Feldern: Brücke, Archiv, Inexogy-Zähler-UID (Auswahl,
   nichts kommt automatisch) und die Suche (Adressbereich ist ein Startvorschlag zum Bearbeiten,

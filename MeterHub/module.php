@@ -4168,7 +4168,7 @@ class MeterHub extends IPSModule
             ['type' => 'Button', 'name' => 'BtnCreateBridge', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Brücke anlegen und verbinden', 'onClick' => 'echo MHUB_CreateBridge($id, $GatewayPick);'],
             ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'NRG-Stack Brücke zum ModBus Gateway', 'moduleID' => self::BRIDGE_GUID, 'onChange' => 'MHUB_OnChangeBridge($id, $BridgeInstanceID);'],
             ['type' => 'Label', 'name' => 'BridgeStatusLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->BridgeStatusLine($this->ReadPropertyInteger('BridgeInstanceID'))],
-            ['type' => 'Label', 'name' => 'UnitIdAutoLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID'))],
+            ['type' => 'Label', 'name' => 'UnitIdAutoLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID')), 'color' => self::AutoLineColor($this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID')))],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP-Adresse', 'validate' => ($isCloud || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -4667,7 +4667,7 @@ class MeterHub extends IPSModule
         }
         $this->UpdateFormField('BridgeInstanceID', 'value', $bridgeId);
         $this->UpdateFormField('BridgeStatusLine', 'caption', $this->BridgeStatusLine($bridgeId));
-        $this->UpdateFormField('UnitIdAutoLine', 'caption', $this->UnitIdAutoLine($bridgeId));
+        $this->RefreshUnitIdAutoLine($bridgeId);
         return ($created ? '✅ Brücke #' . $bridgeId . ' angelegt' : '✅ Vorhandene Brücke #' . $bridgeId . ' wiederverwendet')
             . ' und mit „' . IPS_GetName($gatewayId) . '" verbunden. Unten ist sie eingetragen — jetzt „Änderungen übernehmen" klicken.';
     }
@@ -4717,7 +4717,7 @@ class MeterHub extends IPSModule
     public function OnChangeBridge(int $bridgeId)
     {
         $this->UpdateFormField('BridgeStatusLine', 'caption', $this->BridgeStatusLine($bridgeId));
-        $this->UpdateFormField('UnitIdAutoLine', 'caption', $this->UnitIdAutoLine($bridgeId));
+        $this->RefreshUnitIdAutoLine($bridgeId);
     }
 
     /**
@@ -4728,6 +4728,20 @@ class MeterHub extends IPSModule
      * geschrieben — er soll dem Gateway folgen, nicht als eigene Eingabe erstarren.
      * 🔗 automatisch übernommen, ℹ️ nichts verfügbar.
      */
+    /** Grün (SUITE.md: 🔗 = automatisch übernommen, Label-Farbe 0x2E8B3D), sonst Standardfarbe (-1). */
+    private static function AutoLineColor(string $caption): int
+    {
+        return str_starts_with($caption, '🔗') ? 0x2E8B3D : -1;
+    }
+
+    /** Text und Farbe der Zeile zusammen setzen — die Farbe folgt dem Zustand, nicht nur dem Öffnen des Formulars. */
+    private function RefreshUnitIdAutoLine(int $bridgeId): void
+    {
+        $line = $this->UnitIdAutoLine($bridgeId);
+        $this->UpdateFormField('UnitIdAutoLine', 'caption', $line);
+        $this->UpdateFormField('UnitIdAutoLine', 'color', self::AutoLineColor($line));
+    }
+
     private function UnitIdAutoLine(int $bridgeId): string
     {
         $unit = null;
