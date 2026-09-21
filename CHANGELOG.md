@@ -39,6 +39,10 @@
   Gateway folgen). Geprüft an den übrigen Feldern: Brücke, Archiv, Inexogy-Zähler-UID (Auswahl,
   nichts kommt automatisch) und die Suche (Adressbereich ist ein Startvorschlag zum Bearbeiten,
   kein nachgeführter Wert) haben kein Feld, das eine Automatik überholt.
+- **Vertrag `GetFunctions` klargestellt (nur Text, kein Feld geändert; Frage von EMS/Prognose):**
+  Vorzeichen von `powerID` je Funktion (`house` + Verbrauch, `grid` + Bezug, `pv`/`battery` nicht
+  festgelegt) und der Unterschied `measured` (nur virtueller Zähler) / `energyMeasured` (nur echter
+  MeterHub) stehen jetzt in README („Vorzeichen-Konvention") und CLAUDE.md.
 - **Prüfstand nach den zwei Fallen der Konvention:** die Zeile wird im ausgelieferten JSON
   **rekursiv** über alle `items` gesucht (nicht nur auf oberster Ebene) und je Zustand geprüft
   (`test-virtual.php` 50, `test-bridge.php` 3e/7, `test-discovery-migration.php` 1/1b/2/7).

@@ -225,6 +225,33 @@ Modulweit gilt: **+ = Bezug** aus dem Netz, **− = Einspeisung**. PAC2200 und U
 ihre Summen-Wirkleistung bereits vorzeichenbehaftet; passt die Richtung durch Einbaulage
 oder Verdrahtung nicht, hilft der Invers-Schalter.
 
+### Vorzeichen und „gemessen" im Vertrag `MHUB_GetFunctions` / `MHUBV_GetFunctions`
+
+Für Konsumenten (Prognose, Dashboard, EMS, Stromflusskachel) ist das verbindlich, damit niemand raten muss:
+
+- **`powerID`** zeigt immer auf die Leistung in **W**, nach Anwendung des Invers-Schalters. Die Richtung
+  folgt der Zählerkonvention **+ = Leistung fließt in den gemessenen Zweig hinein**:
+  - **`grid` (Netzanschluss): + = Bezug, − = Einspeisung.**
+  - **`house` (Hausverbrauch): + = Verbrauch.** Im Normalbetrieb nie dauerhaft negativ. Ein dauerhaft
+    negativer Hausverbrauch ist eine falsche Richtung am Zähler (Invers-Schalter) bzw. in der Formel des
+    virtuellen Zählers, kein Messwert — Konsumenten sollen ihn nicht stillschweigend umdrehen.
+  - **Verbraucher-Funktionen** (Wärmepumpe, Wallbox, Sonstiger Verbraucher …): + = Verbrauch.
+  - **`pv` und `battery`: kein festgelegtes Vorzeichen.** Ein Erzeuger-Unterzähler misst je nach
+    Einbau mit + oder −; Konsumenten verwenden bei `pv` den Betrag (so rechnet auch die eigene
+    Richtungsprüfung).
+- **Geprüft** wird die Richtung nur beim Netzanschluss (Diagnose `MHUB_GetDiagnostics`, Richtungsprüfung).
+  Für `house` prüft MeterHub sie nicht; beim **virtuellen Zähler** trägt der Nutzer die Verantwortung
+  über die Anteile (+/−) der Formel: Ergebnis = Σ (Anteil × Wert), „Hausverbrauch" heißt, dass dabei
+  positiver Verbrauch herauskommt.
+- **`measured` und `energyMeasured` sind zwei getrennte Fragen.** `measured` = ist die *Leistung* gemessen
+  (Vertrag 1.0); `energyMeasured` = ist der *Zählerstand* gemessen oder aus der Leistung hochgerechnet
+  (Vertrag 1.3, `false` nur beim blue'Log-Datenlogger Adresse 97). Der **echte MeterHub liefert nur
+  `energyMeasured`** — eine lokal gelesene Leistung ist immer gemessen, ein eigenes Feld dafür wäre
+  Ballast; fehlt `measured`, gilt `true`. Der **virtuelle Zähler liefert `measured: true`** (Rechenergebnis
+  gemessener Zähler) **und kein `energyMeasured`** — fehlt es, gilt `true`. Das stimmt nicht, sobald ein
+  Term selbst eine „Energie hochgerechnet"-Variable ist; das ist eine bekannte Lücke, sie wird
+  additiv geschlossen (Vertrag 1.5 des virtuellen Zählers).
+
 ### MeterHubVirtual (virtuelle Zähler)
 
 Bildet **virtuelle Zähler aus der Verdrahtung** statt aus Formeln. Statt Rechenoperationen zu

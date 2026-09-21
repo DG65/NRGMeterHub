@@ -512,6 +512,20 @@ Eigenschaften (energyKind/sourceCount) nur je Zuordnung.**
    Feld ausdrücklich `null` sein dürfen. Sonst verhält sich der Konsument je nach Quelle
    unterschiedlich, ohne dass es jemand bemerkt.
 
+7. **Vorzeichen von `powerID` (klargestellt 21.09.2026, Frage von EMS/Prognose ohne Feldänderung).**
+   Immer W nach Invers-Schalter, Zählerkonvention „+ = Leistung fließt in den gemessenen Zweig":
+   `grid` + Bezug/− Einspeisung, **`house` + Verbrauch**, Verbraucher-Funktionen + Verbrauch,
+   **`pv`/`battery` ohne festgelegtes Vorzeichen** (Konsument nimmt bei `pv` den Betrag, so rechnet
+   auch `DirectionArchive`/die Richtungsprüfung). Geprüft wird nur der Netzanschluss; bei `house`
+   trägt beim echten Zähler der Invers-Schalter, beim virtuellen die Formel die Verantwortung — der
+   Konsument darf einen negativen Hausverbrauch nicht still umdrehen. `Role` (Netz/Verbraucher/
+   Erzeuger) ändert keine Werte, nur die Plausibilitätsmeldung.
+8. **`measured` vs. `energyMeasured`:** zwei Fragen, zwei Felder. Echter MeterHub liefert nur
+   `energyMeasured` (Leistung lokal gelesen = immer gemessen, `measured` fehlt → `true`), der
+   virtuelle nur `measured: true`, kein `energyMeasured` (→ `true`; falsch bei einem Term aus einer
+   „Energie hochgerechnet"-Variable — bekannte Lücke, additiv als 1.5 zu schließen, noch nicht
+   gebaut). Beim nächsten Vertragsbump beide Felder in beiden Modulen liefern.
+
 Intern werden alle Quellen auf dieselbe Zeilenstruktur normalisiert (siehe
 `MeterHubAssignments()` / `HeishaAssignments()` in `InverterHubTile` und `InverterHubEnergy`).
 Ein neuer Partner heißt also: eine Einleseschicht ergänzen, nicht die Verarbeitung anfassen.
