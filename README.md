@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.31.4--beta.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.31.5--beta.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -247,10 +247,14 @@ Für Konsumenten (Prognose, Dashboard, EMS, Stromflusskachel) ist das verbindlic
   (Vertrag 1.0); `energyMeasured` = ist der *Zählerstand* gemessen oder aus der Leistung hochgerechnet
   (Vertrag 1.3, `false` nur beim blue'Log-Datenlogger Adresse 97). Der **echte MeterHub liefert nur
   `energyMeasured`** — eine lokal gelesene Leistung ist immer gemessen, ein eigenes Feld dafür wäre
-  Ballast; fehlt `measured`, gilt `true`. Der **virtuelle Zähler liefert `measured: true`** (Rechenergebnis
-  gemessener Zähler) **und kein `energyMeasured`** — fehlt es, gilt `true`. Das stimmt nicht, sobald ein
-  Term selbst eine „Energie hochgerechnet"-Variable ist; das ist eine bekannte Lücke, sie wird
-  additiv geschlossen (Vertrag 1.5 des virtuellen Zählers).
+  Ballast; fehlt `measured`, gilt `true`. Seit **0.31.5** meldet er zusätzlich `calculatedEnergyIDs`
+  (Vertrag 1.4, Instanz-Ebene): die Variablen-IDs, deren Zählerstand hochgerechnet ist — auch für Zähler
+  ohne Funktion. Der **virtuelle Zähler liefert `measured: true`** (Rechenergebnis gemessener Zähler)
+  und seit **0.31.5** `energyMeasured` (Vertrag 1.5, an der Instanz **und** an der Zuordnung): `false`,
+  sobald ein eingehender Term (Anteil ≠ 0, nicht ausgesetzt) einen hochgerechneten Zählerstand hat —
+  eine eigene „Energie hochgerechnet"-Variable, eine Variable aus `calculatedEnergyIDs` eines MeterHub oder
+  ein verketteter virtueller Zähler, der selbst `false` meldet. Fremdvariablen ohne bekannte Hochrechnung
+  zählen als gemessen (Vertragsstandard, wenn das Feld fehlt).
 
 ### MeterHubVirtual (virtuelle Zähler)
 

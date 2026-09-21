@@ -7274,6 +7274,20 @@ class MeterHub extends IPSModule
         // der Leistung gerechnet ist, statt es aus dem Namen zu erraten.
         $driver = $this->GetDriver();
         $calcIdents = $driver instanceof MHUB_CalculatedEnergyDriverInterface ? array_keys($driver->calculatedEnergy()) : [];
+        // 1.4: IDs der Energie-Variablen, deren Zählerstand hochgerechnet ist —
+        // additiv auf Instanz-Ebene. Grund: MeterHubVirtual bildet Summen aus
+        // fremden Variablen und muss erkennen können, ob ein Term hochgerechnet
+        // ist (dessen energyMeasured). Die Zuordnungs-Liste reicht dafür nicht,
+        // sie kennt nur Zähler MIT Funktion. Die Variable ist die, in die der
+        // Setter tatsächlich schreibt (Invers-Umleitung eingerechnet).
+        $calculatedEnergyIDs = [];
+        foreach ($calcIdents as $ci) {
+            $cv = $this->FindVarByIdent($this->EnergyIdentForInvert($ci));
+            if ($cv) {
+                $calculatedEnergyIDs[$cv] = $cv;
+            }
+        }
+        $calculatedEnergyIDs = array_values($calculatedEnergyIDs);
 
         $list = [];
         foreach ($this->FunctionAssignments() as $a) {
@@ -7311,7 +7325,9 @@ class MeterHub extends IPSModule
             // jeweils niedrigere Version anzunehmen.
             // 1.3 = energyMeasured je Zuordnung (0.26.4, hochgerechnete
             // Energie beim blue'Log-Datenlogger). Fehlt es, gilt true.
-            'contractVersion' => '1.3',
+            // 1.4 = calculatedEnergyIDs auf Instanz-Ebene (21.09.2026): die
+            // Variablen-IDs mit hochgerechnetem Zählerstand, auch ohne Funktion.
+            'contractVersion' => '1.4',
             'instanceID'  => $this->InstanceID,
             'meter'       => $this->ReadPropertyString('Meter'),
             'measureMode' => $this->IsPerPhaseMode() ? 'perphase' : 'combined',
@@ -7319,6 +7335,7 @@ class MeterHub extends IPSModule
             'authority'   => $authority,
             'pollInterval'=> $pollInterval,
             'archiveWatermarkTs' => $archiveWatermarkTs,
+            'calculatedEnergyIDs' => $calculatedEnergyIDs,
             'assignments' => $list,
         ]);
     }

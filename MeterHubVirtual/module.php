@@ -4032,6 +4032,81 @@ class MeterHubVirtual extends IPSModule
         return $out;
     }
 
+    /**
+     * Vertrag 1.5: ist der Zählerstand dieses virtuellen Zählers aus gemessenen
+     * Zählerständen gebildet (true) oder geht mindestens ein Term ein, dessen
+     * Stand selbst hochgerechnet ist (false)? Betrachtet werden nur Terme, die
+     * wirklich eingehen (nicht ausgesetzt, Anteil ≠ 0). Ein Term gilt als
+     * hochgerechnet, wenn er (a) eine eigene „Energie hochgerechnet"-Variable
+     * dieser Instanz ist, (b) laut MHUB_GetFunctions().calculatedEnergyIDs zu
+     * einem MeterHub gehört, dessen Stand hochgerechnet ist, oder (c) zu einem
+     * anderen virtuellen Zähler gehört, der selbst energyMeasured=false meldet
+     * (Verkettung; Kreisverweise sind über Validate() ausgeschlossen, ein
+     * Wiedereintritt wird in EnergyMeasured() zusätzlich abgefangen). Alles Unbekannte zählt als gemessen —
+     * das ist der Vertragsstandard, wenn das Feld fehlt.
+     */
+    private function EnergyMeasured(): bool
+    {
+        // Wiedereintritt (Kreisverweis zweier Instanzen, die Validate() eigentlich
+        // verhindert): nicht endlos rekursieren, sondern den Vertragsstandard geben.
+        static $running = [];
+        if (isset($running[$this->InstanceID])) {
+            return true;
+        }
+        $running[$this->InstanceID] = true;
+        try {
+            return $this->EnergyMeasuredUnguarded();
+        } finally {
+            unset($running[$this->InstanceID]);
+        }
+    }
+
+    private function EnergyMeasuredUnguarded(): bool
+    {
+        $perInstance = []; // Fremdaufruf je Instanz nur einmal
+        foreach ($this->Nodes() as $n) {
+            if (!empty($n['excluded']) || (float)$n['factor'] == 0.0) {
+                continue;
+            }
+            foreach (['imp', 'exp'] as $k) {
+                $vid = (int)$n[$k];
+                if ($vid <= 0 || !IPS_VariableExists($vid)) {
+                    continue;
+                }
+                if ($this->IsOwnCalculatedEnergyVar($vid)) {
+                    return false;
+                }
+                $pi = (int)@IPS_GetParent($vid);
+                if ($pi <= 0 || $pi === $this->InstanceID || !IPS_InstanceExists($pi)) {
+                    continue;
+                }
+                if (!isset($perInstance[$pi])) {
+                    $guid = (string)(IPS_GetInstance($pi)['ModuleInfo']['ModuleID'] ?? '');
+                    $d = null;
+                    try {
+                        if ($guid === self::GUID_METER && function_exists('MHUB_GetFunctions')) {
+                            $d = json_decode((string)MHUB_GetFunctions($pi), true);
+                        } elseif ($guid === self::GUID_VIRTUAL && function_exists('MHUBV_GetFunctions')) {
+                            $d = json_decode((string)MHUBV_GetFunctions($pi), true);
+                        }
+                    } catch (\Throwable $e) {
+                        $d = null;
+                    }
+                    $perInstance[$pi] = ['guid' => $guid, 'data' => is_array($d) ? $d : []];
+                }
+                $info = $perInstance[$pi];
+                if ($info['guid'] === self::GUID_METER
+                    && in_array($vid, array_map('intval', (array)($info['data']['calculatedEnergyIDs'] ?? [])), true)) {
+                    return false;
+                }
+                if ($info['guid'] === self::GUID_VIRTUAL && ($info['data']['energyMeasured'] ?? true) === false) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     public function GetFunctions(): string
     {
         // Während des Neuladens: leer statt Warnungen (9c), 'ready' rein additiv.
@@ -4041,6 +4116,7 @@ class MeterHubVirtual extends IPSModule
         $func = $this->ReadPropertyString('Function');
         $pollInterval = max(2, $this->ReadPropertyInteger('Interval'));
         $members = $this->MemberList();
+        $energyMeasured = $this->EnergyMeasured();
         // Gruppenschalter (1.4): nur vorhanden, wenn mindestens ein positives
         // Mitglied schaltbar ist — sonst 0 (RegisterVariables() legt die
         // Variablen dann gar nicht erst an).
@@ -4059,6 +4135,9 @@ class MeterHubVirtual extends IPSModule
                 'energyImportID' => $id('energy_import'),
                 'energyExportID' => $id('energy_export'),
                 'measured'       => true, // Rechenergebnis gemessener Zähler
+                // 1.5: false = mindestens ein eingehender Term hat einen
+                // hochgerechneten Zählerstand (siehe EnergyMeasured()).
+                'energyMeasured' => $energyMeasured,
                 'energyKind'     => 'counter',
                 // Güte = Zahl der MESSENDEN Mitglieder (Dashboard-Frage
                 // 11.09.2026). Im Baum-Modus kann members[] mehr enthalten:
@@ -4077,8 +4156,11 @@ class MeterHubVirtual extends IPSModule
             // 1.2 = archiveWatermarkTs (bei 'realtime' bewusst null),
             // 1.3 = members (03.09.2026, additiv, siehe MemberList()),
             // 1.4 = switchID je Mitglied + switchID/switchStateID der Gruppe
-            //       (03.09.2026, Schaltgruppe — siehe Abschnitt "Schaltgruppe").
-            'contractVersion' => '1.4',
+            //       (03.09.2026, Schaltgruppe — siehe Abschnitt "Schaltgruppe"),
+            // 1.5 = energyMeasured (21.09.2026, je Zuordnung UND auf Instanz-Ebene:
+            //       ein reiner Zwischenknoten ohne Funktion hat keine Zuordnung,
+            //       die Verkettung braucht das Feld trotzdem).
+            'contractVersion' => '1.5',
             'instanceID'  => $this->InstanceID,
             'meter'       => 'virtual',
             'measureMode' => 'combined',
@@ -4086,6 +4168,7 @@ class MeterHubVirtual extends IPSModule
             'authority'   => 'auxiliary',
             'pollInterval'=> $pollInterval,
             'archiveWatermarkTs' => null,
+            'energyMeasured' => $energyMeasured,
             // Auch auf Instanzebene, unabhängig von "Funktion": ein reiner
             // Zwischenknoten einer Verkettung (z. B. "Licht OG") braucht
             // keine Dashboard-Funktion — ohne dieses Feld würde die

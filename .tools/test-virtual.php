@@ -474,7 +474,7 @@ echo "\n8) Vertragserweiterung MHUBV_GetFunctions — Funktion jetzt Instanz-Pro
 IPS_SetProperty($new, 'Function', 'house');
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
 $gf = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
-check('contractVersion = 1.4 (1.1 latency/authority/…, 1.2 archiveWatermarkTs, 1.3 members, 1.4 switchID/switchStateID)', ($gf['contractVersion'] ?? '') === '1.4', json_encode($gf['contractVersion'] ?? null));
+check('contractVersion = 1.5 (1.1 latency/authority/…, 1.2 archiveWatermarkTs, 1.3 members, 1.4 switchID/switchStateID, 1.5 energyMeasured)', ($gf['contractVersion'] ?? '') === '1.5', json_encode($gf['contractVersion'] ?? null));
 check('latency = realtime',   ($gf['latency'] ?? '') === 'realtime', json_encode($gf['latency'] ?? null));
 check('authority = auxiliary', ($gf['authority'] ?? '') === 'auxiliary');
 check('pollInterval gesetzt',  ($gf['pollInterval'] ?? 0) >= 2);
@@ -1305,7 +1305,7 @@ check('32d: neue Funktionen stehen im Suchfilter "Nur Funktion X" zur Auswahl', 
 echo "\n33) MHUBV_GetFunctions 1.3: \"members\" — Mitglieder einer Formel nach außen (Dashboards Anfrage 03.09.2026, Hierarchie liegt beim Anbieter)\n";
 // $new (Block 1): Hausanschluss (+100), Wärmepumpe (−100), Wallbox (−100), Funktion 'house' seit Block 11.
 $gf33 = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
-check('33a: contractVersion 1.4 (additive Minor-Sprünge: 1.3 members, 1.4 switchID/switchStateID)', ($gf33['contractVersion'] ?? '') === '1.4', $gf33['contractVersion'] ?? 'fehlt');
+check('33a: contractVersion 1.5 (additive Minor-Sprünge: 1.3 members, 1.4 switchID/switchStateID, 1.5 energyMeasured)', ($gf33['contractVersion'] ?? '') === '1.5', $gf33['contractVersion'] ?? 'fehlt');
 $m33 = $gf33['assignments'][0]['members'] ?? null;
 check('33b: members je Zuordnung, alle drei Terme, Felder name/factor/powerID/energyImportID/energyExportID', is_array($m33) && count($m33) === 3 && isset($m33[0]['name'], $m33[0]['factor'], $m33[0]['powerID'], $m33[0]['energyImportID'], $m33[0]['energyExportID']), json_encode($m33));
 $factors33 = is_array($m33) ? array_map(fn($x) => (float)$x['factor'], $m33) : [];
@@ -1416,7 +1416,7 @@ check('34e: unbekannter Ident wirft (kein stiller Fehlschlag)', $threw);
 
 echo "  34f) MHUBV_GetFunctions 1.4: switchID je Mitglied (auch bei abgezogenen Zeilen) + switchID/switchStateID der Gruppe, je Zuordnung UND auf Instanzebene\n";
 $gf34 = json_decode($lichtOG->GetFunctions(), true);
-check('34f: contractVersion 1.4', ($gf34['contractVersion'] ?? '') === '1.4', $gf34['contractVersion'] ?? 'fehlt');
+check('34f: contractVersion 1.5', ($gf34['contractVersion'] ?? '') === '1.5', $gf34['contractVersion'] ?? 'fehlt');
 $heizMember = null;
 foreach ($gf34['members'] ?? [] as $m) { if ($m['name'] === 'Heizstab') { $heizMember = $m; } }
 check('34f: Heizstab (abgezogen) hat trotzdem sein switchID — einzeln bleibt er schaltbar', ($heizMember['switchID'] ?? 0) === 3033, json_encode($heizMember));
@@ -2309,6 +2309,62 @@ IPS_SetProperty(9200, 'ConnectionMode', 'direct');
 $formV = json_decode($GLOBALS['MODOBJ'][$plausIid]->GetConfigurationForm(), true);
 $vText = json_encode($formV, JSON_UNESCAPED_UNICODE);
 check('50d: Virtual — die ✅-Vorschau nennt je Term die gelesene Variable (Quelle #ID und Name)', str_contains($vText, '✅ Formel schlüssig') && str_contains($vText, '[Quelle #63001') && str_contains($vText, '[Quelle #63002') && str_contains($vText, '[Quelle #63003'), substr($vText, 0, 200));
+
+echo "\n51) MHUBV_GetFunctions 1.5: energyMeasured — hochgerechnete Terme machen den Zählerstand des virtuellen Zählers nicht \"gemessen\" (EMS/Prognose-Frage 21.09.2026)\n";
+$emOf = fn(int $iid) => json_decode($GLOBALS['MODOBJ'][$iid]->GetFunctions(), true);
+// 51a: eigene "Energie hochgerechnet"-Variable (Block 24) → false, auf Instanz-Ebene
+$e24 = $emOf($calcIid);
+check('51a: Instanz mit eigener „Energie hochgerechnet"-Variable meldet energyMeasured=false (Instanz-Ebene)', ($e24['energyMeasured'] ?? null) === false, json_encode($e24['energyMeasured'] ?? 'fehlt'));
+// 51b: nur gemessene Terme → true, an Instanz UND Zuordnung
+$measCat = obj(64000, 0, 'Gemessen-Test', 10);
+vari(64001, 'Gemessen Leistung', $measCat, '', 'MHB.W', 700.0);
+vari(64002, 'Gemessen Bezug', $measCat, '', 'MHB.kWh', 30.0);
+$measIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($measIid, 1, 'Gemessen-Instanz', 10);
+IPS_SetProperty($measIid, 'Function', 'house');
+IPS_SetProperty($measIid, 'Nodes', json_encode([['Name' => 'Zähler', 'Factor' => 100, 'PowerID' => 64001, 'EnergyImportID' => 64002, 'EnergyExportID' => 0]]));
+IPS_ApplyChanges($measIid);
+$e = $emOf($measIid);
+check('51b: nur gemessene Terme → energyMeasured=true, an Instanz UND Zuordnung, Vertrag 1.5', ($e['energyMeasured'] ?? null) === true && ($e['assignments'][0]['energyMeasured'] ?? null) === true && ($e['contractVersion'] ?? '') === '1.5', json_encode([$e['energyMeasured'] ?? 'fehlt', $e['assignments'][0]['energyMeasured'] ?? 'fehlt', $e['contractVersion'] ?? '']));
+// 51c: Term aus einem echten MeterHub, der die Variable als hochgerechnet meldet (MHUB_GetFunctions 1.4 calculatedEnergyIDs)
+obj(64010, 1, 'Logger-Instanz', 10);
+$GLOBALS['INSTMOD'][64010] = G_METER;
+vari(64011, 'Ertrag gesamt (hochgerechnet)', 64010, '', 'MHB.kWh', 5.0);
+$GLOBALS['FAKE_MHUB_CALC'] = [64011];
+$GLOBALS['MODOBJ'][64010] = new class {
+    public function GetFunctions() { return json_encode(['contractVersion' => '1.4', 'instanceID' => 64010, 'calculatedEnergyIDs' => $GLOBALS['FAKE_MHUB_CALC'], 'assignments' => []]); }
+};
+$logIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($logIid, 1, 'Logger-Summe', 10);
+IPS_SetProperty($logIid, 'Function', 'pv');
+IPS_SetProperty($logIid, 'Nodes', json_encode([['Name' => 'Logger', 'Factor' => 100, 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 64011]]));
+IPS_ApplyChanges($logIid);
+$e = $emOf($logIid);
+check('51c: Term liegt in der calculatedEnergyIDs eines MeterHub → energyMeasured=false (Instanz UND Zuordnung)', ($e['energyMeasured'] ?? null) === false && ($e['assignments'][0]['energyMeasured'] ?? null) === false, json_encode([$e['energyMeasured'] ?? 'fehlt', $e['assignments'][0]['energyMeasured'] ?? 'fehlt']));
+$GLOBALS['FAKE_MHUB_CALC'] = [];
+check('51c: meldet der MeterHub die Variable NICHT als hochgerechnet → true (Gegenprobe)', ($emOf($logIid)['energyMeasured'] ?? null) === true);
+$GLOBALS['FAKE_MHUB_CALC'] = [64011];
+// 51d: Faktor 0 und ausgesetzte Terme gehen nicht ein
+IPS_SetProperty($logIid, 'Nodes', json_encode([
+    ['Name' => 'Logger', 'Factor' => 0, 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => 64011],
+    ['Name' => 'Zähler', 'Factor' => 100, 'PowerID' => 64001, 'EnergyImportID' => 64002, 'EnergyExportID' => 0],
+]));
+IPS_ApplyChanges($logIid);
+check('51d: Term mit Anteil 0 geht nicht ein → true', ($emOf($logIid)['energyMeasured'] ?? null) === true);
+// 51e: Verkettung — ein virtueller Zähler, der einen hochgerechneten virtuellen Zähler als Term nutzt
+$outA = (int)IPS_GetObjectIDByIdent('energy_import', $calcIid);
+check('51e: Vorbedingung: der hochgerechnete virtuelle Zähler hat eine Energie-Ausgabe', $outA > 0);
+$chainIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($chainIid, 1, 'Kette', 10);
+IPS_SetProperty($chainIid, 'Nodes', json_encode([['Name' => 'Vorstufe', 'Factor' => 100, 'PowerID' => 0, 'EnergyImportID' => $outA, 'EnergyExportID' => 0]]));
+IPS_ApplyChanges($chainIid);
+check('51e: Verkettung reicht „hochgerechnet" nach oben durch (Zwischenknoten ohne Funktion)', ($emOf($chainIid)['energyMeasured'] ?? null) === false && ($emOf($chainIid)['assignments'] ?? []) === []);
+// 51f: ohne MeterHub-Funktion (Fremdvariable) zählt alles als gemessen
+$foreignIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($foreignIid, 1, 'Fremd', 10);
+IPS_SetProperty($foreignIid, 'Nodes', json_encode([['Name' => 'Fremd', 'Factor' => 100, 'PowerID' => 0, 'EnergyImportID' => 61003, 'EnergyExportID' => 0]]));
+IPS_ApplyChanges($foreignIid);
+check('51f: Fremdvariable ohne bekannte Hochrechnung → true (Vertragsstandard)', ($emOf($foreignIid)['energyMeasured'] ?? null) === true);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

@@ -194,7 +194,7 @@ echo "\n9) GetFunctions() meldet den Wasserstand als archiveWatermarkTs (Dashboa
 $wm9 = time() - 12 * 60;
 $GLOBALS['ARCHIVE_LATEST'] = [701 => $wm9, 702 => $wm9, 703 => $wm9];
 $gf = json_decode($h700->GetFunctions(), true);
-check('contractVersion = 1.3 (energyMeasured, MeterHub 0.26.4)', ($gf['contractVersion'] ?? '') === '1.3', (string) ($gf['contractVersion'] ?? ''));
+check('contractVersion = 1.4 (1.3 energyMeasured, 1.4 calculatedEnergyIDs)', ($gf['contractVersion'] ?? '') === '1.4', (string) ($gf['contractVersion'] ?? ''));
 check('gemessener Zähler meldet energyMeasured = true in jeder Zuordnung', array_filter($gf['assignments'] ?? [], fn($a) => ($a['energyMeasured'] ?? null) !== true) === [], json_encode($gf['assignments'] ?? []));
 check('archiveWatermarkTs auf oberster Ebene gesetzt', abs(($gf['archiveWatermarkTs'] ?? 0) - $wm9) <= 2, json_encode($gf['archiveWatermarkTs'] ?? null));
 
@@ -209,6 +209,16 @@ $h750 = new MeterHub(750); $h750->Create();
 $gf750 = json_decode($h750->GetFunctions(), true);
 check('archiveWatermarkTs = null für realtime-Zähler', array_key_exists('archiveWatermarkTs', $gf750) && $gf750['archiveWatermarkTs'] === null, var_export($gf750['archiveWatermarkTs'] ?? '(fehlt)', true));
 check('latency = realtime', ($gf750['latency'] ?? '') === 'realtime');
+check('9c: gemessener Zähler meldet calculatedEnergyIDs = [] (Vertrag 1.4)', ($gf750['calculatedEnergyIDs'] ?? null) === [], json_encode($gf750['calculatedEnergyIDs'] ?? '(fehlt)'));
+
+echo "\n  9d) blue'Log-Datenlogger (hochgerechneter Ertrag) -> calculatedEnergyIDs nennt die Energie-Variable, auch ohne Funktion\n";
+$GLOBALS['PROP'][760] = ['Meter' => 'bluelog_scada_logger'];
+obj(761, 760, 'energy_export');
+obj(762, 760, 'power_total');
+$GLOBALS['OBJ'][760] = ['ObjectType' => 1, 'ObjectIdent' => '', 'ParentID' => 0];
+$h760 = new MeterHub(760); $h760->Create();
+$gf760 = json_decode($h760->GetFunctions(), true);
+check('9d: calculatedEnergyIDs = [Ertrag-Variable]', ($gf760['calculatedEnergyIDs'] ?? null) === [761], json_encode($gf760['calculatedEnergyIDs'] ?? '(fehlt)'));
 
 echo "\n  8e) Kein Archiv-Modul installiert -> klare Fehlermeldung, kein Absturz\n";
 $GLOBALS['ARCHIVE_IDS'] = [];

@@ -461,6 +461,9 @@ measured), **1.1** = die latency/authority/pollInterval/energyKind/sourceCount-E
 **1.2** = `archiveWatermarkTs` (MeterHub, 27.08.2026), **1.3** = `energyMeasured` je
 Zuordnung (MeterHub 0.26.4, 11.09.2026 — `false` = Zählerstand aus der Leistung
 hochgerechnet, fehlt das Feld, gilt `true`).
+**MHUB 1.4** = `calculatedEnergyIDs` (Instanz-Ebene, MeterHub 0.31.5: IDs der Variablen mit hochgerechnetem
+Zählerstand, auch ohne Funktion — Grundlage für den virtuellen Zähler). **MHUBV 1.5** = `energyMeasured`
+(Instanz-Ebene UND je Zuordnung, 0.31.5; die MHUBV-Zählung läuft eigen: 1.3 members, 1.4 switchID).
 **Major nur bei Bruch;** volle Kompatibilität ist nur innerhalb derselben Major garantiert
 (blue'Log-Prinzip). Additiv erweitern hebt die Minor, nie die Major. Fehlt das Feld (alter
 Anbieter), ist konservativ `'1.0'` anzunehmen. Ein Konsument, der eine höhere Major braucht als
@@ -520,11 +523,12 @@ Eigenschaften (energyKind/sourceCount) nur je Zuordnung.**
    trägt beim echten Zähler der Invers-Schalter, beim virtuellen die Formel die Verantwortung — der
    Konsument darf einen negativen Hausverbrauch nicht still umdrehen. `Role` (Netz/Verbraucher/
    Erzeuger) ändert keine Werte, nur die Plausibilitätsmeldung.
-8. **`measured` vs. `energyMeasured`:** zwei Fragen, zwei Felder. Echter MeterHub liefert nur
-   `energyMeasured` (Leistung lokal gelesen = immer gemessen, `measured` fehlt → `true`), der
-   virtuelle nur `measured: true`, kein `energyMeasured` (→ `true`; falsch bei einem Term aus einer
-   „Energie hochgerechnet"-Variable — bekannte Lücke, additiv als 1.5 zu schließen, noch nicht
-   gebaut). Beim nächsten Vertragsbump beide Felder in beiden Modulen liefern.
+8. **`measured` vs. `energyMeasured`:** zwei Fragen, zwei Felder. Echter MeterHub liefert
+   `energyMeasured` je Zuordnung (Leistung lokal gelesen = immer gemessen, `measured` fehlt → `true`)
+   und seit 0.31.5 `calculatedEnergyIDs`. Der virtuelle liefert `measured: true` und seit 0.31.5
+   `energyMeasured` (Instanz + Zuordnung; false bei einem eingehenden hochgerechneten Term, auch
+   verkettet — `EnergyMeasured()`, Prüfstand test-virtual Block 51). Ein Zwischenknoten ohne
+   Funktion hat keine Zuordnung, deshalb steht das Feld auch auf Instanz-Ebene.
 
 Intern werden alle Quellen auf dieselbe Zeilenstruktur normalisiert (siehe
 `MeterHubAssignments()` / `HeishaAssignments()` in `InverterHubTile` und `InverterHubEnergy`).
