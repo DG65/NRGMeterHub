@@ -219,5 +219,25 @@ check('7d: Gateway inaktiv (⚠️): nennt Brücke, Gateway und Status', str_sta
 $l = $mhLine($bridge);
 check('7e: alles in Ordnung (✅): Brücke und Gateway mit ID und Name, Unit-ID, Quelle', str_starts_with($l, '✅') && str_contains($l, '#' . $bridge) && str_contains($l, '#' . $gw . ' „ModBus Gateway BCR PV Zähler"') && str_contains($l, 'Unit-ID 41') && str_contains($l, 'DeviceID'), $l);
 
+echo "\n8) MeterHub: Unit-ID kommt automatisch vom Gateway und ersetzt das Eingabefeld (SUITE.md „Wert kommt automatisch: Eingabefeld ersetzen\", 21.09.2026)\n";
+$uLine = fn(int $bid) => (new ReflectionMethod('MeterHub', 'UnitIdAutoLine'))->invoke($mh, $bid);
+$l = $uLine(0);
+check('8a: keine Brücke (ℹ️): sagt ehrlich, dass nichts verfügbar ist und woher der Wert kommt', str_starts_with($l, 'ℹ️') && str_contains($l, 'noch nicht verfügbar') && str_contains($l, 'ModBus Gateway'), $l);
+$l = $uLine($bridgeNo);
+check('8b: Brücke ohne Gateway (ℹ️ statt einer erfundenen Zahl)', str_starts_with($l, 'ℹ️') && !preg_match('/Unit-ID: \d/', $l), $l);
+$l = $uLine($bridge);
+check('8c: Gateway liefert Unit-ID (🔗): Wert, Gateway mit ID und Name, Quelle', str_starts_with($l, '🔗') && str_contains($l, 'Unit-ID: 41') && str_contains($l, '#' . $gw . ' „ModBus Gateway BCR PV Zähler"') && str_contains($l, 'DeviceID'), $l);
+$src = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
+check('8d: das Eingabefeld „Unit ID" ist im Gateway-Weg ausgeblendet, die 🔗-Zeile nur dort sichtbar', str_contains($src, "'name' => 'UnitId', 'visible' => !\$isCloud && \$connectionMode !== 'gateway'") && str_contains($src, "'name' => 'UnitIdAutoLine', 'visible' => !\$isCloud && \$connectionMode === 'gateway'"));
+check('8e: der automatische Wert wird NIE per UpdateFormField in das Eingabefeld geschrieben', !preg_match("/UpdateFormField\\('UnitId',\\s*'value'/", $src));
+$GLOBALS['FORMFIELDS'] = [];
+$mh->OnChangeBridge($bridge);
+check('8f: Brücken-Auswahl im offenen Formular frischt die 🔗-Zeile auf', str_starts_with($GLOBALS['FORMFIELDS']['UnitIdAutoLine']['caption'] ?? '', '🔗'), json_encode($GLOBALS['FORMFIELDS'], JSON_UNESCAPED_UNICODE));
+$GLOBALS['FORMFIELDS'] = [];
+$mh->OnChangeConnectionMode('gateway');
+check('8g: Wechsel auf Gateway-Weg blendet die 🔗-Zeile ein, Wechsel zurück blendet sie aus', ($GLOBALS['FORMFIELDS']['UnitIdAutoLine']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['UnitId']['visible'] ?? null) === false);
+$mh->OnChangeConnectionMode('direct');
+check('8h: zurück auf direkt: Zeile aus, Feld an', ($GLOBALS['FORMFIELDS']['UnitIdAutoLine']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['UnitId']['visible'] ?? null) === true);
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

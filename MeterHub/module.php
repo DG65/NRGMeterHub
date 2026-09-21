@@ -4168,6 +4168,7 @@ class MeterHub extends IPSModule
             ['type' => 'Button', 'name' => 'BtnCreateBridge', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Brücke anlegen und verbinden', 'onClick' => 'echo MHUB_CreateBridge($id, $GatewayPick);'],
             ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'NRG-Stack Brücke zum ModBus Gateway', 'moduleID' => self::BRIDGE_GUID, 'onChange' => 'MHUB_OnChangeBridge($id, $BridgeInstanceID);'],
             ['type' => 'Label', 'name' => 'BridgeStatusLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->BridgeStatusLine($this->ReadPropertyInteger('BridgeInstanceID'))],
+            ['type' => 'Label', 'name' => 'UnitIdAutoLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID'))],
             ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP-Adresse', 'validate' => ($isCloud || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
             ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
@@ -4570,6 +4571,7 @@ class MeterHub extends IPSModule
         $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('BridgeInstanceID', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('BridgeStatusLine', 'visible', !$isCloud && $isGateway);
+        $this->UpdateFormField('UnitIdAutoLine', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('GatewayPick', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('BtnCreateBridge', 'visible', !$isCloud && $isGateway);
 
@@ -4600,6 +4602,7 @@ class MeterHub extends IPSModule
         $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', $isGateway);
         $this->UpdateFormField('BridgeInstanceID', 'visible', $isGateway);
         $this->UpdateFormField('BridgeStatusLine', 'visible', $isGateway);
+        $this->UpdateFormField('UnitIdAutoLine', 'visible', $isGateway);
         $this->UpdateFormField('GatewayPick', 'visible', $isGateway);
         $this->UpdateFormField('BtnCreateBridge', 'visible', $isGateway);
         // Host/Port/Unit-ID entfallen im Gateway-Modus (ChargerHub-Fund 18.09.2026,
@@ -4664,6 +4667,7 @@ class MeterHub extends IPSModule
         }
         $this->UpdateFormField('BridgeInstanceID', 'value', $bridgeId);
         $this->UpdateFormField('BridgeStatusLine', 'caption', $this->BridgeStatusLine($bridgeId));
+        $this->UpdateFormField('UnitIdAutoLine', 'caption', $this->UnitIdAutoLine($bridgeId));
         return ($created ? '✅ Brücke #' . $bridgeId . ' angelegt' : '✅ Vorhandene Brücke #' . $bridgeId . ' wiederverwendet')
             . ' und mit „' . IPS_GetName($gatewayId) . '" verbunden. Unten ist sie eingetragen — jetzt „Änderungen übernehmen" klicken.';
     }
@@ -4713,6 +4717,36 @@ class MeterHub extends IPSModule
     public function OnChangeBridge(int $bridgeId)
     {
         $this->UpdateFormField('BridgeStatusLine', 'caption', $this->BridgeStatusLine($bridgeId));
+        $this->UpdateFormField('UnitIdAutoLine', 'caption', $this->UnitIdAutoLine($bridgeId));
+    }
+
+    /**
+     * Unit-ID im Gateway-Weg: kommt automatisch vom ModBus Gateway hinter der Brücke und
+     * ersetzt dort das Eingabefeld „Unit ID" (SUITE.md „Wert kommt automatisch: Eingabefeld
+     * ersetzen", 21.09.2026): das Feld ist ausgeblendet, statt seiner steht diese
+     * schreibgeschützte Zeile. Der Wert wird bewusst NICHT in die Property „UnitId"
+     * geschrieben — er soll dem Gateway folgen, nicht als eigene Eingabe erstarren.
+     * 🔗 automatisch übernommen, ℹ️ nichts verfügbar.
+     */
+    private function UnitIdAutoLine(int $bridgeId): string
+    {
+        $unit = null;
+        if ($bridgeId > 0 && IPS_InstanceExists($bridgeId) && function_exists('MHUBB_GetState')) {
+            try {
+                $st = json_decode((string)MHUBB_GetState($bridgeId), true);
+            } catch (\Throwable $e) {
+                $st = null;
+            }
+            if (is_array($st) && isset($st['unitId']) && $st['unitId'] !== null) {
+                $unit = (int)$st['unitId'];
+            }
+        }
+        if ($unit === null) {
+            return 'ℹ️ Unit-ID: noch nicht verfügbar — sie kommt automatisch vom ModBus Gateway, sobald eine mit einem Gateway verbundene Brücke gewählt ist.';
+        }
+        $gid = (int)(IPS_GetInstance($bridgeId)['ConnectionID'] ?? 0);
+        $gateway = ($gid > 0 && IPS_InstanceExists($gid)) ? ' #' . $gid . ' „' . IPS_GetName($gid) . '"' : '';
+        return '🔗 Unit-ID: ' . $unit . ' (automatisch vom ModBus Gateway' . $gateway . ', Property „DeviceID").';
     }
 
     /** Inexogy (Cloud): angemeldet? Zähler-UID? letzte Abfrage? aktueller Wert samt Quelle. */
