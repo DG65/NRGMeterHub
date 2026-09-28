@@ -1504,9 +1504,24 @@ class MeterHubVirtual extends IPSModule
             }
         }
 
-        // 3. Reihenfolge: nur neu vergeben, wenn sie im Formular geändert wurde
-        $current = array_values(array_filter(array_column($this->TreeMembers(), 'member'), fn($id) => in_array($id, $order, true)));
-        if ($current !== $order) {
+        // 3. Reihenfolge: nur neu vergeben, wenn die Einreichung vom natürlichen
+        // Ergebnis OHNE Umsortieren abweicht — Basis ist der Stand beim ÖFFNEN
+        // (FormSnapshot), nicht der Baum JETZT (HeishaMon-Fund im Symcon-Store-
+        // Review 23.09.2026, verwandtes Muster: eine sortierbare Liste, die bei
+        // jedem Übernehmen blind ihre gespeicherte Reihenfolge durchsetzt,
+        // überschreibt eine zwischenzeitliche Umsortierung von außen — z. B. ein
+        // Ziehen im Objektbaum, während diese Maske offen war, ohne dass der
+        // Nutzer die Liste selbst angefasst hätte). „Natürlich" heißt: überlebende
+        // alte Mitglieder behalten ihre ursprüngliche Relativ-Reihenfolge aus dem
+        // Öffnungsstand, neu angelegte Mitglieder hängen ans Ende (ihre in
+        // CreateMemberLink() vergebene Anfangsposition bleibt dann unangetastet).
+        // Weicht die eingereichte Reihenfolge davon ab — echtes Umsortieren ODER
+        // ein neues Mitglied an anderer Stelle als am Ende —, wird neu positioniert.
+        $snapshotIds = is_array($snapshot) ? array_map('intval', $snapshot) : [];
+        $survivors   = array_values(array_intersect($snapshotIds, $order));
+        $newOnes     = array_values(array_diff($order, $snapshotIds));
+        $noOpOrder   = array_merge($survivors, $newOnes);
+        if ($order !== $noOpOrder) {
             foreach ($order as $i => $id) {
                 IPS_SetPosition($id, 100 + 10 * $i);
             }

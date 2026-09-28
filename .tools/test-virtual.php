@@ -1714,6 +1714,39 @@ check('35m: Ziel geändert (Link zeigt jetzt auf den Zweikanal-Aktor)', (IPS_Get
 check('35m: Umsortieren setzt die Positionen', t35_names($e) === ['Sauna', 'Garage', 'Im Baum umbenannt', 'Direkter Zähler'], json_encode(t35_names($e), JSON_UNESCAPED_UNICODE));
 check('35m: ohne Probleme keine Hinweise', $e->ReadAttributeString('ReconcileNotes') === '');
 
+echo "  35m2) Übernehmen ohne eigene Umsortierung überschreibt keine Umsortierung von außen (HeishaMon-Fund im Symcon-Store-Review 23.09.2026)\n";
+check('35m2: Test-IDs 4970/4972/4974 frei', !IPS_ObjectExists(4970) && !IPS_ObjectExists(4972) && !IPS_ObjectExists(4974));
+meter(4970, 'Reorder A', 100.0, 10.0);
+meter(4972, 'Reorder B', 200.0, 20.0);
+meter(4974, 'Reorder C', 300.0, 30.0);
+$fIid = IPS_CreateInstance(T35_GV);
+IPS_SetParent($fIid, 10);
+$lF1 = t35_link($fIid, 4970, 'A', 100);
+$lF2 = t35_link($fIid, 4972, 'B', 110);
+$lF3 = t35_link($fIid, 4974, 'C', 120);
+$f = t35_apply($fIid);
+// Formular öffnen (setzt FormSnapshot = [A, B, C]), Zeilen unverändert wieder
+// einreichen — der Nutzer hat die Liste selbst NICHT angefasst.
+$rowsF = t35_find(json_decode($f->GetConfigurationForm(), true), 'MemberSettings')['values'];
+check('35m2: Formular zeigt A, B, C', array_column($rowsF, 'Name') === ['A', 'B', 'C'], json_encode(array_column($rowsF, 'Name')));
+// Während die Maske offen war, hat jemand im Objektbaum umsortiert — hier
+// simuliert durch direktes IPS_SetPosition, unabhängig von diesem Formular.
+IPS_SetPosition($lF1, 999);
+check('35m2: externe Umsortierung wirkt sofort im Baum (B, C, A)', t35_names($f) === ['B', 'C', 'A'], json_encode(t35_names($f)));
+IPS_SetProperty($fIid, 'MemberSettings', json_encode($rowsF));
+$f = t35_apply($fIid);
+check('35m2: unverändertes Übernehmen wirft die externe Umsortierung NICHT zurück (bleibt B, C, A)', t35_names($f) === ['B', 'C', 'A'], json_encode(t35_names($f)));
+check('35m2: keine Hinweise, kein stiller Fehlschlag', $f->ReadAttributeString('ReconcileNotes') === '');
+// Gegenprobe: sortiert der Nutzer jetzt selbst im Formular um, gilt das weiter.
+// (Erste Zeile ans Ende — NICHT einfach der vorige Öffnungsstand [A,B,C],
+// sonst träfe die Einreichung zufällig wieder den zuletzt abgeglichenen Stand
+// und der „schon bekannt"-Kurzschluss oben würde den Test verfälschen.)
+$rowsF2 = t35_find(json_decode($f->GetConfigurationForm(), true), 'MemberSettings')['values'];
+array_push($rowsF2, array_shift($rowsF2));   // erste Zeile ans Ende
+IPS_SetProperty($fIid, 'MemberSettings', json_encode($rowsF2));
+$f = t35_apply($fIid);
+check('35m2: echtes Umsortieren im Formular wirkt weiterhin', t35_names($f) === ['C', 'A', 'B'], json_encode(t35_names($f)));
+
 echo "  35n) Dashboard-Befund 11.09.2026: Wallbox-Gesamtleistung statt einer Phase — Vertrag des Ziels, Ident \"power\", Rangfolge\n";
 check('35n: Test-IDs 5000–5212 frei', !IPS_ObjectExists(5000) && !IPS_ObjectExists(5100) && !IPS_ObjectExists(5200) && !IPS_ObjectExists(5210));
 $GLOBALS['MODULES']['{TEST-CHUB}'] = ['ModuleID' => '{TEST-CHUB}', 'Prefix' => 'TESTCHUB'];
@@ -2293,6 +2326,31 @@ IPS_SetProperty(9200, 'InexogyMeterID', 'abc123');
 $i = $line50('direct', 'inexogy', 'InexogyStatusLine');
 check('50b: Inexogy — angemeldet mit Zähler-UID (✅): nennt UID und Quelle', str_starts_with($i['caption'] ?? '', '✅') && str_contains($i['caption'], 'abc123') && str_contains($i['caption'], 'Quelle'), json_encode($i));
 check('50b: Inexogy — bei einem Modbus-Zähler ausgeblendet', ($line50('direct', 'siemens_pac2200', 'InexogyStatusLine')['visible'] ?? null) === false);
+
+echo "\n50b2) Inexogy — Zählerliste übersteht den Formular-Reload nach IPS_ApplyChanges() (HeishaMon-Fund im Symcon-Store-Review 23.09.2026: InexogyLogin() rief bisher ApplyChanges() VOR den UpdateFormField()-Aufrufen auf, die dadurch laut Reviewer wirkungslos blieben — Fix: Reihenfolge getauscht + Zählerliste zusätzlich im Attribut InexogyMeterOptions gecacht, GetConfigurationForm() liest es beim [erzwungenen] Neuaufbau)\n";
+$meterOptsEl = function () use ($hub47, $findEl) {
+    $f = json_decode($hub47->GetConfigurationForm(), true);
+    return $findEl($f['elements'], 'InexogyMeterID');
+};
+unset($GLOBALS['ATTR'][9200]['InexogyMeterOptions']);
+IPS_SetProperty(9200, 'InexogyMeterID', '');
+IPS_SetProperty(9200, 'Meter', 'inexogy');
+$el = $meterOptsEl();
+check('50b2: ohne Cache (nie angemeldet oder noch nie erfolgreich abgerufen): alter Platzhalter-Text', ($el['options'] ?? null) === [['caption' => '— bitte zuerst anmelden —', 'value' => '']], json_encode($el['options'] ?? 'fehlt'));
+$GLOBALS['ATTR'][9200]['InexogyMeterOptions'] = json_encode([['caption' => 'SN12345 (SGM)', 'value' => 'm1'], ['caption' => 'SN67890 (SGM)', 'value' => 'm2']]);
+$el = $meterOptsEl();
+check('50b2: Cache vorhanden, noch nichts gewählt: „bitte wählen" + beide gecachten Zähler, KEIN „zuerst anmelden" mehr (genau das ging vorher beim Reload verloren)', ($el['options'] ?? null) === [['caption' => '— bitte wählen —', 'value' => ''], ['caption' => 'SN12345 (SGM)', 'value' => 'm1'], ['caption' => 'SN67890 (SGM)', 'value' => 'm2']], json_encode($el['options'] ?? 'fehlt'));
+IPS_SetProperty(9200, 'InexogyMeterID', 'm2');
+$el = $meterOptsEl();
+check('50b2: Cache vorhanden, gewählter Wert ist Teil davon: kein Platzhalter, keine Dopplung', ($el['options'] ?? null) === [['caption' => 'SN12345 (SGM)', 'value' => 'm1'], ['caption' => 'SN67890 (SGM)', 'value' => 'm2']], json_encode($el['options'] ?? 'fehlt'));
+IPS_SetProperty(9200, 'InexogyMeterID', 'm3');
+$el = $meterOptsEl();
+check('50b2: gewählter Wert fehlt im Cache (z. B. Zähler beim Anbieter seither entfernt): wird trotzdem angeboten, nicht verworfen', ($el['options'] ?? null) === [['caption' => 'SN12345 (SGM)', 'value' => 'm1'], ['caption' => 'SN67890 (SGM)', 'value' => 'm2'], ['caption' => 'm3', 'value' => 'm3']], json_encode($el['options'] ?? 'fehlt'));
+unset($GLOBALS['ATTR'][9200]['InexogyMeterOptions']);
+$src = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
+$loginSrc = substr($src, strpos($src, 'public function InexogyLogin()'), strpos($src, "\n    public function", strpos($src, 'public function InexogyLogin()') + 10) - strpos($src, 'public function InexogyLogin()'));
+check('50b2: im Quelltext steht IPS_ApplyChanges() NACH jedem UpdateFormField()-Aufruf in InexogyLogin() (nicht davor)', strpos($loginSrc, 'IPS_ApplyChanges($this->InstanceID)') > strrpos($loginSrc, '$this->UpdateFormField('), $loginSrc);
+
 unset($GLOBALS['ATTR'][9200]['InexogyToken']);
 IPS_SetProperty(9200, 'InexogyMeterID', '');
 

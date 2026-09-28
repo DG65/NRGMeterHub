@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.31.6-beta.1 (2026-09-28)
+
+- **Fix: `ApplyChanges()`+`UpdateFormField()`-Antipattern (HeishaMon-Fund im Symcon-Store-Review,
+  weitergegeben 23.09.2026).** Zwei Stellen betroffen, beide korrigiert:
+  - **`InexogyLogin()`:** rief `IPS_SetProperty()`+`IPS_ApplyChanges()` (Passwort-Löschung) bisher
+    VOR den `UpdateFormField()`-Aufrufen auf, die danach laut Reviewer-Zitat „wirkungslos" sind
+    (bestätigt gegen die offizielle Doku: `IPS_SetProperty()` plant den Wert nur, erst
+    `IPS_ApplyChanges()` aktiviert ihn — ganz weglassen verbietet sich hier, das Passwort muss
+    sofort wirklich gelöscht werden). Fix: Reihenfolge getauscht, das Löschen steht jetzt ganz am
+    Ende. Die frisch gefundene Zählerliste zusätzlich im neuen Attribut `InexogyMeterOptions`
+    gecacht, damit sie auch den durch `IPS_ApplyChanges()` ausgelösten Formular-Reload übersteht
+    (vorher wäre sie dabei verloren gegangen — ein echter, bisher unbemerkter Anzeigefehler direkt
+    nach jeder erfolgreichen Anmeldung, nicht nur ein Store-Review-Formalismus).
+  - **`MeterHubVirtual::ReconcileFormMembers()`** (Mitglieder-Reihenfolge im Baum-Modus): setzte
+    beim „Übernehmen" die Positionen neu, sobald die eingereichte Reihenfolge vom Baum JETZT abwich
+    — das überschrieb auch eine Umsortierung von außen (z. B. ein Ziehen im Objektbaum, während die
+    Maske offen war), obwohl der Nutzer die Liste selbst gar nicht angefasst hatte. Fix: Vergleich
+    jetzt gegen den Stand beim Öffnen (`FormSnapshot`) statt gegen den Baum jetzt — nur ein echtes
+    Umsortieren im Formular (oder ein neues Mitglied an anderer Stelle als am Ende) löst noch eine
+    Neupositionierung aus.
+  - Prüfstand: `test-virtual.php` Block 50b2 (Zählerliste übersteht den Reload, alle drei
+    Cache-Zustände) und 35m2 (externe Umsortierung bleibt erhalten, echtes Umsortieren wirkt
+    weiterhin). Keine Formular-/Vertragsänderung, daher kein News-Panel-Eintrag.
+
 ## 0.31.5-beta.1 (2026-09-21)
 
 - **Vertrag `GetFunctions` erweitert — additiv, kein bestehendes Feld ändert sich (Anlass: Prognose

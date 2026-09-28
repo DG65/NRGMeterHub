@@ -3280,6 +3280,11 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeString('InexogyConsumerSecret', '');
         $this->RegisterAttributeString('InexogyToken', '');
         $this->RegisterAttributeString('InexogyTokenSecret', '');
+        // Zuletzt bei Inexogy gefundene Zähler, als Formular-Optionen fertig
+        // aufbereitet (JSON-Liste ['caption'=>…,'value'=>…]) — überlebt einen
+        // Formular-Reload/-Neuaufbau, anders als die rein ephemere Anzeige direkt
+        // nach dem Login (siehe InexogyLogin()/GetConfigurationForm()).
+        $this->RegisterAttributeString('InexogyMeterOptions', '');
         // Rechenstand der hochgerechneten Energie (letzter Zeitpunkt + Leistung
         // je Energie-Ident), siehe AdvanceCalculatedEnergy(). Der Zählerstand
         // selbst steckt in der Variable, nicht hier.
@@ -4108,10 +4113,25 @@ class MeterHub extends IPSModule
         // blockiert. Das Host-Feld bekommt sein 'validate' deshalb ebenfalls
         // über OnChangeMeter() geleert, nicht nur 'visible' — falls die
         // Regex-Prüfung auch an unsichtbaren Feldern noch greifen sollte.
-        $meterOpts = [['caption' => '— bitte zuerst anmelden —', 'value' => '']];
+        // Die bei der letzten Anmeldung gefundenen Zähler aus dem Attribut
+        // wiederverwenden, nicht nur den aktuell gewählten Wert — sonst würde ein
+        // Formular-Reload (z. B. durch das eigene IPS_ApplyChanges() beim
+        // Passwort-Löschen, InexogyLogin() unten) die gerade erst angezeigte
+        // Zählerliste wieder verschlucken, bevor der Nutzer wählen konnte.
         $curUID = $this->ReadPropertyString('InexogyMeterID');
-        if ($curUID !== '') {
-            $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];
+        $cachedMeterOpts = json_decode((string)$this->ReadAttributeString('InexogyMeterOptions'), true);
+        $cachedMeterOpts = is_array($cachedMeterOpts) ? $cachedMeterOpts : [];
+        if ($cachedMeterOpts) {
+            $meterOpts = $curUID === '' ? [['caption' => '— bitte wählen —', 'value' => '']] : [];
+            $meterOpts = array_merge($meterOpts, $cachedMeterOpts);
+            if ($curUID !== '' && !in_array($curUID, array_column($cachedMeterOpts, 'value'), true)) {
+                $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];
+            }
+        } else {
+            $meterOpts = [['caption' => '— bitte zuerst anmelden —', 'value' => '']];
+            if ($curUID !== '') {
+                $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];
+            }
         }
         // Archiv-Wasserstand einmal beim Formularaufbau berechnen (Dietmars
         // Wunsch 27.08.2026: „Zeitstempel des letzten vorhandenen
@@ -4900,6 +4920,21 @@ class MeterHub extends IPSModule
      * die Tokens (Attribute) und leert das Passwort-Property. Anschließend wird
      * die Zählerliste des Kontos geholt und als Auswahl angeboten. Rückgabe-
      * texte gehen nur ins Formularfeld — Passwort/Token nie in Log/Anzeige.
+     *
+     * Reihenfolge bewusst so: ALLE UpdateFormField()-Aufrufe (Ergebnistext,
+     * Zählerliste) laufen VOR `IPS_SetProperty()`+`IPS_ApplyChanges()`, das
+     * Löschen des Passwort-Property steht ganz am Ende. Anlass: HeishaMon-Fund
+     * im Symcon-Store-Review 23.09.2026, Reviewer-Zitat „Bei ApplyChanges wird
+     * das Formular neu geladen und die UpdateFormField gehen verloren" — genau
+     * dieser Fund traf hier zu: `IPS_ApplyChanges()` stand bisher VOR den
+     * UpdateFormField()-Aufrufen, die dadurch wirkungslos blieben (bestätigt
+     * durch die offizielle Doku: `IPS_SetProperty()` plant den Wert nur, erst
+     * `IPS_ApplyChanges()` aktiviert ihn — ganz weglassen wie bei einem reinen
+     * Formular-Vorschlag verbietet sich hier also, das Passwort MUSS sofort
+     * wirklich gelöscht werden, siehe Zugangsdaten-Konvention oben). Die
+     * gefundene Zählerliste zusätzlich als Attribut `InexogyMeterOptions`
+     * gecacht (GetConfigurationForm() liest es), damit sie auch den durch
+     * `IPS_ApplyChanges()` ausgelösten Formular-Reload übersteht.
      */
     public function InexogyLogin()
     {
@@ -4937,34 +4972,41 @@ class MeterHub extends IPSModule
             return;
         }
 
-        // Erfolg: Tokens sichern, Passwort verwerfen.
+        // Erfolg: Tokens sichern (Attribute, unproblematisch — kein ApplyChanges nötig).
         $this->WriteAttributeString('InexogyConsumerKey',    $c->getConsumerKey());
         $this->WriteAttributeString('InexogyConsumerSecret', $c->getConsumerSecret());
         $this->WriteAttributeString('InexogyToken',          $c->getToken());
         $this->WriteAttributeString('InexogyTokenSecret',    $c->getTokenSecret());
-        IPS_SetProperty($this->InstanceID, 'InexogyPassword', '');
-        IPS_ApplyChanges($this->InstanceID);
-        $this->UpdateFormField('InexogyPassword', 'value', '');
-        $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
 
         $meters = $c->getMeters();
+        $opts = [];
         if (!$meters) {
             $say('✅ Angemeldet, Tokens gespeichert, Passwort verworfen. Es wurden aber keine Zähler gefunden.');
-            return;
+        } else {
+            $lines = ['✅ Angemeldet, Tokens gespeichert, Passwort verworfen. Gefundene Zähler:'];
+            foreach ($meters as $m) {
+                $uid  = (string)($m['meterId'] ?? '');
+                $sn   = (string)($m['serialNumber'] ?? ($m['fullSerialNumber'] ?? ''));
+                $type = (string)($m['type'] ?? ($m['measurementType'] ?? ''));
+                if ($uid === '') { continue; }
+                $lines[] = '   • ' . ($sn !== '' ? $sn : $uid) . ($type !== '' ? " ($type)" : '');
+                $opts[]  = ['caption' => ($sn !== '' ? $sn : $uid) . ($type !== '' ? " — $type" : ''), 'value' => $uid];
+            }
+            $lines[] = 'Bitte unten die Zähler-UID wählen und übernehmen.';
+            $this->WriteAttributeString('InexogyMeterOptions', (string)json_encode($opts));
+            $this->UpdateFormField('InexogyMeterID', 'options', json_encode($opts));
+            $say(implode("\n", $lines));
         }
-        $lines = ['✅ Angemeldet, Tokens gespeichert, Passwort verworfen. Gefundene Zähler:'];
-        $opts  = [];
-        foreach ($meters as $m) {
-            $uid  = (string)($m['meterId'] ?? '');
-            $sn   = (string)($m['serialNumber'] ?? ($m['fullSerialNumber'] ?? ''));
-            $type = (string)($m['type'] ?? ($m['measurementType'] ?? ''));
-            if ($uid === '') { continue; }
-            $lines[] = '   • ' . ($sn !== '' ? $sn : $uid) . ($type !== '' ? " ($type)" : '');
-            $opts[]  = ['caption' => ($sn !== '' ? $sn : $uid) . ($type !== '' ? " — $type" : ''), 'value' => $uid];
-        }
-        $lines[] = 'Bitte unten die Zähler-UID wählen und übernehmen.';
-        $this->UpdateFormField('InexogyMeterID', 'options', json_encode($opts));
-        $say(implode("\n", $lines));
+
+        // Ganz am Ende: Passwort-Property wirklich löschen. IPS_SetProperty()
+        // allein plant den Wert nur — erst IPS_ApplyChanges() aktiviert ihn
+        // (offizielle Doku), das Löschen braucht also beides. Der dadurch
+        // ausgelöste Formular-Reload zeigt Passwortfeld und Statuszeile danach
+        // ohnehin korrekt (beide werden in GetConfigurationForm() frisch aus
+        // Property/Attribut berechnet) — eigene UpdateFormField()-Aufrufe dafür
+        // wären wirkungslose Last, siehe Funktionskommentar.
+        IPS_SetProperty($this->InstanceID, 'InexogyPassword', '');
+        IPS_ApplyChanges($this->InstanceID);
     }
 
     /**

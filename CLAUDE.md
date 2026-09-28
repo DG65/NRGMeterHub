@@ -1253,6 +1253,58 @@ correlation (NORMIERT: +1 = passt, bei opposite/pv = umgekehrte Rohkorrelation; 
 
 Nicht erneut als Befund vorlegen.
 
+## Fix: `ApplyChanges()`+`UpdateFormField()`-Antipattern (0.31.6, HeishaMon-Fund, 23.09.2026)
+
+HeishaMon hat sich per Cross-Session-Nachricht gemeldet: Symcon hat deren v1.33.0 im Store-Review
+abgelehnt, weil eine Funktion `IPS_SetProperty()`+`IPS_ApplyChanges($this->InstanceID)` gefolgt von
+`UpdateFormField()` aufrief — Reviewer-Zitat: „Das funktioniert so nicht. Bei ApplyChanges wird das
+Formular neu geladen und die UpdateFormField gehen verloren." HeishaMon hat daraufhin bei uns denselben
+Fund vermutet und weitergegeben (Prinzip „keine fremden Arbeitsverzeichnisse" — Fund melden statt
+selbst im fremden Repo zu ändern). Gegen die offizielle Doku verifiziert, nicht angenommen:
+`IPS_SetProperty()` plant den Wert nur — erst `IPS_ApplyChanges()` aktiviert ihn. Der mechanische
+Effekt (`UpdateFormField()` nach `ApplyChanges()` wirkungslos) gilt dabei **unabhängig davon, ob die
+Persistenz legitim ist** — dieselbe Lehre, zu der WPHub bei ihrer Version desselben Funds kam
+(`WPHub/CLAUDE.md`, `SetManagedBy()`).
+
+**Zwei betroffene Stellen in diesem Repo:**
+
+1. **`InexogyLogin()`** (`MeterHub/module.php`) — `IPS_SetProperty()`+`IPS_ApplyChanges()` zum
+   Löschen von `InexogyPassword` stand VOR den `UpdateFormField()`-Aufrufen für Statuszeile,
+   Passwortfeld und vor allem die frisch gefundene Zählerliste. Anders als bei WPHubs
+   `AdoptMeterHubAssignment()` (dort: Property-Write ganz weglassen, Nutzer klickt selbst
+   „Übernehmen") verbietet sich das hier — das Passwort ist sicherheitsrelevant und muss sofort
+   wirklich gelöscht werden (siehe „Zugangsdaten bei Cloud-/API-Zählern" oben), ein bloßer
+   Formular-Vorschlag reicht nicht. Fix: `IPS_SetProperty()`+`IPS_ApplyChanges()` an die ALLERLETZTE
+   Stelle der Funktion verschoben (nach allen `UpdateFormField()`-Aufrufen, für beide Erfolgspfade
+   „Zähler gefunden"/„keine Zähler gefunden"). Die beiden bis dahin direkt danach stehenden
+   `UpdateFormField()`-Aufrufe für `InexogyPassword`/`InexogyStatusLine` sind jetzt echt überflüssig
+   entfernt — `GetConfigurationForm()` berechnet beide beim durch `ApplyChanges()` ausgelösten
+   Reload ohnehin frisch aus Property/Attribut (Passwortfeld zeigt automatisch den jetzt leeren
+   Property-Wert, `InexogyStatusLine()` liest `InexogyToken`, das schon vorher per
+   `WriteAttributeString()` — kein `ApplyChanges` nötig — gesetzt wurde). Die Zählerliste selbst
+   ist **nicht** aus Properties rekonstruierbar (kein „letzter API-Aufruf"-Property) — sie landet
+   deshalb zusätzlich im neuen Attribut `InexogyMeterOptions` (JSON, `['caption','value']`-Paare),
+   das `GetConfigurationForm()` beim Aufbau der `InexogyMeterID`-Auswahl jetzt bevorzugt vor dem
+   alten `curUID`-Only-Fallback liest — überlebt dadurch nicht nur diesen Reload, sondern auch ein
+   Schließen/Wiederöffnen der Maske, bis zur nächsten Anmeldung.
+2. **`MeterHubVirtual::ReconcileFormMembers()`** (Baum-Modus, Mitglieder-Reihenfolge) — kein direktes
+   `ApplyChanges()`-vor-`UpdateFormField()`-Muster, aber dasselbe Grundproblem in Variante „blind
+   Gespeichertes durchsetzt eine Änderung von außen": die Positions-Neuvergabe verglich die
+   eingereichte Reihenfolge gegen den Baum **JETZT** (`TreeMembers()`, live zum Zeitpunkt des
+   `ApplyChanges()`-Aufrufs) statt gegen den Stand beim Öffnen der Maske (`FormSnapshot`). Hat
+   während die Maske offen war jemand extern umsortiert (Ziehen im Objektbaum), wurde das beim
+   nächsten „Übernehmen" wieder zurückgedreht — obwohl der Nutzer die Liste selbst nie angefasst
+   hatte. Fix: Baseline ist jetzt „überlebende alte Mitglieder in ihrer Reihenfolge beim Öffnen,
+   neue Mitglieder ans Ende" (`$noOpOrder`); nur eine Abweichung davon (echtes Umsortieren im
+   Formular ODER ein neues Mitglied an anderer Stelle als am Ende) löst noch `IPS_SetPosition()`
+   aus.
+
+Verifiziert in `.tools/test-virtual.php` Block 50b2 (alle drei Cache-Zustände der Zählerliste, plus
+ein Quelltext-Check, dass `IPS_ApplyChanges()` in `InexogyLogin()` nach jedem `UpdateFormField()`
+steht) und Block 35m2 (externe Umsortierung bleibt bei unverändertem Übernehmen erhalten, ein
+echtes Umsortieren im Formular wirkt weiterhin — Gegenprobe mit einer zufällig zusammenfallenden
+Zielreihenfolge hätte den Test beinahe verfälscht, siehe Kommentar dort).
+
 ## Zählerschutz und Archiv-Reparatur (0.26.6, 12.09.2026)
 
 Inexogy füllt Übertragungslücken des Smart-Meter-Gateways mit **Zählerstand 0** (live
