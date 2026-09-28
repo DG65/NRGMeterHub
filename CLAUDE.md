@@ -1305,6 +1305,23 @@ steht) und Block 35m2 (externe Umsortierung bleibt bei unverändertem Übernehme
 echtes Umsortieren im Formular wirkt weiterhin — Gegenprobe mit einer zufällig zusammenfallenden
 Zielreihenfolge hätte den Test beinahe verfälscht, siehe Kommentar dort).
 
+**Nachtrag (0.31.7, EMS-Nachtrag zur systematischen Verbund-Suche, 28.09.2026):** dasselbe
+9m-Muster, aber ohne `changeOrder`-Liste — `MeterHub::RegisterVar()` setzte `IPS_SetPosition()`
+außerhalb des Neuanlage-Zweigs, bei JEDEM `ApplyChanges()` erneut für jede bereits vorhandene
+Variable (im Gegensatz zu `EnsureCategory()` im selben Modul, das es schon immer nur bei Neuanlage
+tut — der Unterschied fiel bislang nie auf, weil dieser Codepfad in `.tools/test-virtual.php` vor
+0.31.7 nie wirklich durchlaufen wurde). Beim eigenen Durchsehen aller `IPS_SetPosition()`-Aufrufe
+aus demselben Anlass denselben Bug zusätzlich in `MeterHubVirtual::RegisterVariables()` (die drei
+Ausgabevariablen `power`/`energy_import`/`energy_export`) und `EnsureGroupVariables()`
+(Gruppenschalter/-status) gefunden. Fix an allen vier Stellen identisch: `$created`-Flag, Position
+nur setzen, wenn die Variable in diesem Aufruf neu angelegt wurde — 1:1 dasselbe Muster, mit dem
+InverterHub denselben Fund an eigener Stelle behoben hat (`RegisterVariable*()`, Kommentar dort
+„Position nur beim erstmaligen Anlegen setzen"). Verifiziert in `.tools/test-virtual.php` Block 52
+(`RegisterVar()`, inkl. Gegenprobe: eine wirklich neue Variable bekommt weiterhin ihre Position)
+und Block 53 (`MeterHubVirtual`s eigene Ausgaben). Für Block 52 musste die Test-Infrastruktur um
+`IPS_CreateCategory()` und die Konstante `VARIABLETYPE_STRING` ergänzt werden — dieser Codepfad
+lief vorher noch nie in `.tools/test-virtual.php`.
+
 ## Zählerschutz und Archiv-Reparatur (0.26.6, 12.09.2026)
 
 Inexogy füllt Übertragungslücken des Smart-Meter-Gateways mit **Zählerstand 0** (live

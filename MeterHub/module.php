@@ -7562,14 +7562,22 @@ class MeterHub extends IPSModule
             @IPS_DeleteVariable($vid);
             $vid = 0;
         }
-        if (!$vid) {
+        $created = !$vid;
+        if ($created) {
             $vid = IPS_CreateVariable($vtype);
             IPS_SetIdent($vid, $ident);
         }
 
         $catID = $this->EnsureCategory($group);
         IPS_SetParent($vid, $catID);
-        IPS_SetPosition($vid, $pos);
+        // Store-Review-Fund 9m (HeishaMon-Sitzung, 28.09.2026, von InverterHub
+        // identisch gefixt): Position nur beim erstmaligen Anlegen setzen, nicht
+        // bei jedem ApplyChanges() — sonst wirft eine Umsortierung im Objektbaum
+        // von Hand beim nächsten „Übernehmen" die Variable automatisch wieder auf
+        // die feste Treiber-Reihenfolge zurück, ohne dass der Nutzer das will.
+        if ($created) {
+            IPS_SetPosition($vid, $pos);
+        }
 
         // Funktionszuordnung: Bezeichnung voranstellen und passendes Icon
         // setzen, damit im Objektbaum direkt „Wärmepumpe — …" steht.

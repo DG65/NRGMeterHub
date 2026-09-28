@@ -8,6 +8,7 @@
 const VARIABLETYPE_BOOLEAN = 0;
 const VARIABLETYPE_INTEGER = 1;
 const VARIABLETYPE_FLOAT = 2;
+const VARIABLETYPE_STRING = 3;
 const KR_READY = 104;
 const IPS_KERNELMESSAGE = 10603;
 function IPS_GetKernelRunlevel() { return KR_READY; }
@@ -101,6 +102,7 @@ function IPS_CreateVariable($t) {
 }
 function IPS_SetVariableCustomProfile($id, $p) { $GLOBALS['VAR'][$id]['VariableCustomProfile'] = $p; }
 function IPS_DeleteVariable($id) { unset($GLOBALS['OBJ'][$id], $GLOBALS['VAR'][$id]); }
+function IPS_CreateCategory() { $id = $GLOBALS['NEXTID']++; obj($id, 0, 'neu', 0); return $id; }
 // Echte, zustandsbehaftete Profil-Registry (statt fixer Whitelist) — nötig,
 // um zu verifizieren, dass ensureSharedProfile() ein bereits vorhandenes
 // Profil NICHT überschreibt (Verbund-Konvention: kein Eigentümer-Modul).
@@ -2423,6 +2425,48 @@ obj($foreignIid, 1, 'Fremd', 10);
 IPS_SetProperty($foreignIid, 'Nodes', json_encode([['Name' => 'Fremd', 'Factor' => 100, 'PowerID' => 0, 'EnergyImportID' => 61003, 'EnergyExportID' => 0]]));
 IPS_ApplyChanges($foreignIid);
 check('51f: Fremdvariable ohne bekannte Hochrechnung → true (Vertragsstandard)', ($emOf($foreignIid)['energyMeasured'] ?? null) === true);
+
+echo "\n52) MeterHub::RegisterVar() — Position nur beim erstmaligen Anlegen setzen (Store-Review-Fund 9m, EMS-Sitzung 28.09.2026, HeishaMon-Muster wie bei MeterHubVirtual oben, auch von InverterHub identisch gefixt): eine Umsortierung im Objektbaum von Hand darf ein späteres ApplyChanges() nicht zurückwerfen\n";
+$rv = new ReflectionMethod('MeterHub', 'RegisterVar');
+$findVar = new ReflectionMethod('MeterHub', 'FindVarByIdent'); // rekursiv über Kategorien, wie IPS_GetObjectIDByIdent es NICHT ist
+obj(4990, 1, 'Positions-Test-Hub', 10);
+$rvHub = new MeterHub(4990);
+$rvHub->Create();
+$rv->invoke($rvHub, ['pos_test_a', 'Test A', 'F', '', false, 'total'], 0);
+$rv->invoke($rvHub, ['pos_test_b', 'Test B', 'F', '', false, 'total'], 1);
+$vidA = $findVar->invoke($rvHub, 'pos_test_a');
+$vidB = $findVar->invoke($rvHub, 'pos_test_b');
+check('52a: beide Variablen angelegt, Positionen wie beim Anlegen übergeben', $vidA > 0 && $vidB > 0 && $vidA !== $vidB && $GLOBALS['OBJ'][$vidA]['ObjectPosition'] === 0 && $GLOBALS['OBJ'][$vidB]['ObjectPosition'] === 1);
+// Von Hand im Objektbaum umsortiert (z. B. per Ziehen in der Konsole) — NICHT
+// über RegisterVar(), unabhängig davon.
+IPS_SetPosition($vidA, 50);
+IPS_SetPosition($vidB, 40);
+// Erneuter Durchlauf, wie ihn jedes ApplyChanges() auslöst — dieselben
+// Idents existieren schon, RegisterVar() soll die Positionen deshalb NICHT
+// wieder auf 0/1 zurückwerfen.
+$rv->invoke($rvHub, ['pos_test_a', 'Test A', 'F', '', false, 'total'], 0);
+$rv->invoke($rvHub, ['pos_test_b', 'Test B', 'F', '', false, 'total'], 1);
+check('52b: erneuter Durchlauf bei bereits vorhandenen Variablen lässt die von Hand gesetzten Positionen unangetastet', $GLOBALS['OBJ'][$vidA]['ObjectPosition'] === 50 && $GLOBALS['OBJ'][$vidB]['ObjectPosition'] === 40, json_encode(['a' => $GLOBALS['OBJ'][$vidA]['ObjectPosition'], 'b' => $GLOBALS['OBJ'][$vidB]['ObjectPosition']]));
+check('52c: Name/Ident bleiben trotzdem gepflegt (kein Totalausfall der Funktion)', IPS_GetName($vidA) === 'Test A' && IPS_GetName($vidB) === 'Test B');
+// Gegenprobe: eine WIRKLICH neue Variable bekommt weiterhin ihre Position.
+$rv->invoke($rvHub, ['pos_test_c', 'Test C', 'F', '', false, 'total'], 2);
+$vidC = $findVar->invoke($rvHub, 'pos_test_c');
+check('52d: eine neu angelegte Variable bekommt weiterhin ihre Position', $vidC > 0 && $GLOBALS['OBJ'][$vidC]['ObjectPosition'] === 2);
+
+echo "\n53) MeterHubVirtual::RegisterVariables()/EnsureGroupVariables() — dieselbe Regel für die eigenen Ausgabe- und Gruppen-Variablen\n";
+check('53: Test-ID 4995 frei', !IPS_ObjectExists(4995));
+$rvvIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($rvvIid, 1, 'Positions-Test', 10);
+meter(4995, 'Positions-Zähler', 100.0, 10.0);
+IPS_SetProperty($rvvIid, 'Nodes', json_encode([['Name' => 'Zähler', 'Factor' => 100, 'PowerID' => 4998, 'EnergyImportID' => 4999, 'EnergyExportID' => 0]]));
+$rvv = t35_apply($rvvIid);
+$pOut = IPS_GetObjectIDByIdent('power', $rvvIid);
+$iOut = IPS_GetObjectIDByIdent('energy_import', $rvvIid);
+check('53a: power/energy_import angelegt', $pOut > 0 && $iOut > 0);
+IPS_SetPosition($pOut, 77);
+IPS_SetPosition($iOut, 88);
+$rvv = t35_apply($rvvIid);
+check('53b: erneutes ApplyChanges() wirft eine von Hand gesetzte Position der eigenen Ausgaben nicht zurück', $GLOBALS['OBJ'][$pOut]['ObjectPosition'] === 77 && $GLOBALS['OBJ'][$iOut]['ObjectPosition'] === 88, json_encode(['power' => $GLOBALS['OBJ'][$pOut]['ObjectPosition'], 'imp' => $GLOBALS['OBJ'][$iOut]['ObjectPosition']]));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

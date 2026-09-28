@@ -2134,13 +2134,22 @@ class MeterHubVirtual extends IPSModule
         $pos = 0;
         foreach ($defs as [$ident, $caption, $profile, $field]) {
             $vid = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
-            if (!$vid) {
+            $created = !$vid;
+            if ($created) {
                 $vid = IPS_CreateVariable(VARIABLETYPE_FLOAT);
                 IPS_SetIdent($vid, $ident);
                 IPS_SetParent($vid, $this->InstanceID);
             }
             IPS_SetName($vid, $caption);
-            IPS_SetPosition($vid, $pos++);
+            // Store-Review-Fund 9m (HeishaMon-Sitzung, 28.09.2026, siehe CLAUDE.md):
+            // Position nur beim erstmaligen Anlegen setzen, sonst wirft eine
+            // Umsortierung im Objektbaum von Hand bei jedem ApplyChanges() automatisch
+            // wieder um. $pos zählt trotzdem immer weiter — neue Variablen sollen sich
+            // weiterhin an dieser Reihenfolge orientieren.
+            if ($created) {
+                IPS_SetPosition($vid, $pos);
+            }
+            $pos++;
             if (self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), $profile)) {
                 IPS_SetVariableCustomProfile($vid, $profile);
             }
@@ -2237,27 +2246,39 @@ class MeterHubVirtual extends IPSModule
         if (!$switchables) {
             return;
         }
+        // Store-Review-Fund 9m (HeishaMon-Sitzung, 28.09.2026, siehe CLAUDE.md):
+        // Position nur beim erstmaligen Anlegen setzen, sonst wirft eine
+        // Umsortierung im Objektbaum von Hand bei jedem ApplyChanges() automatisch
+        // wieder um.
         $vid = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_SWITCH, $this->InstanceID);
-        if (!$vid) {
+        $created = !$vid;
+        if ($created) {
             $vid = IPS_CreateVariable(VARIABLETYPE_BOOLEAN);
             IPS_SetIdent($vid, self::IDENT_GROUP_SWITCH);
             IPS_SetParent($vid, $this->InstanceID);
         }
         IPS_SetName($vid, 'Gruppe schalten');
-        IPS_SetPosition($vid, $pos++);
+        if ($created) {
+            IPS_SetPosition($vid, $pos);
+        }
+        $pos++;
         if (self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), '~Switch')) {
             IPS_SetVariableCustomProfile($vid, '~Switch');
         }
         $this->EnableAction(self::IDENT_GROUP_SWITCH);
 
         $vid = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_STATE, $this->InstanceID);
-        if (!$vid) {
+        $created = !$vid;
+        if ($created) {
             $vid = IPS_CreateVariable(VARIABLETYPE_INTEGER);
             IPS_SetIdent($vid, self::IDENT_GROUP_STATE);
             IPS_SetParent($vid, $this->InstanceID);
         }
         IPS_SetName($vid, 'Gruppenstatus');
-        IPS_SetPosition($vid, $pos++);
+        if ($created) {
+            IPS_SetPosition($vid, $pos);
+        }
+        $pos++;
         if (self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), self::PROFILE_GROUP_STATE)) {
             IPS_SetVariableCustomProfile($vid, self::PROFILE_GROUP_STATE);
         }
