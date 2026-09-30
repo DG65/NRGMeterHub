@@ -1253,6 +1253,22 @@ correlation (NORMIERT: +1 = passt, bei opposite/pv = umgekehrte Rohkorrelation; 
 
 Nicht erneut als Befund vorlegen.
 
+## `CHANGELOG.md` im Store schlank halten (SUITE.md, verbundweit verbindlich seit 30.09.2026)
+
+Symcon-Store-Review-Feedback: „Die Module fühlen sich alle ziemlich überladen an" — Hauptursache
+war das komplett angezeigte `CHANGELOG.md` (MeterHub stand bei der Stichprobe 30.09.2026 bei 170
+Versionen/2635 Zeilen). Umgesetzt am selben Tag: `CHANGELOG.md` enthält nur noch die letzten 20
+Versionen (0.31.7 zurück bis 0.29.5), alles Ältere unverändert nach `CHANGELOG-Archiv.md`
+verschoben (verifiziert per Diff: Gesamtinhalt vor/nach der Aufteilung byte-identisch, nur die
+Kopfzeile mit dem Archiv-Link ist neu). Kein Versionsbump dafür — reine Doku-Umstellung, keine
+Modul-/Code-Änderung, kein News-Panel-Eintrag nötig (SUITE.md: „betrifft nur die Store-Anzeige").
+
+**Für künftige Changelog-Einträge:** neue Einträge weiterhin oben in `CHANGELOG.md` einfügen wie
+bisher. Wächst die Datei spürbar über ~20 Versionen hinaus, bei Gelegenheit erneut den ältesten
+Teil nach `CHANGELOG-Archiv.md` verschieben (oben anfügen, nichts umschreiben) — keine feste
+Automatik, „wer das CHANGELOG ohnehin anfasst, schneidet bei der Gelegenheit zurück" (SUITE.md,
+analog zur `NEWS_VERSIONS`-Umstellung).
+
 ## Fix: `ApplyChanges()`+`UpdateFormField()`-Antipattern (0.31.6, HeishaMon-Fund, 23.09.2026)
 
 HeishaMon hat sich per Cross-Session-Nachricht gemeldet: Symcon hat deren v1.33.0 im Store-Review
