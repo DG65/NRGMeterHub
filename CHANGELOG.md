@@ -7,10 +7,16 @@
 - **Inexogy: optionale automatische Neuanmeldung aus einem Tresor (Dietmars Frage 06.10.2026:
   „Wäre es nicht denkbar, das Passwort an anderer Stelle zur Verfügung zu stellen?").**
   Ein ungültig gewordener Zugriffsschlüssel (HTTP 401) ließ sich bisher nur von Hand erneuern, weil
-  MeterHub das Passwort bewusst nicht speichert. Jetzt kann unter „Cloud-Zugang" ein Tresor
-  gewählt werden (Community-Modul **SymconSecrets**, `SEC_GetSecret`): Eintrag, Feld mit dem
-  Passwort (Standard `Pass`) und optional ein Feld mit der E-Mail (Standard `User`, nur genutzt,
-  wenn in der Instanz keine eingetragen ist). Bei 401 meldet sich MeterHub dann selbst neu an.
+  MeterHub das Passwort bewusst nicht speichert. Jetzt nutzt MeterHub einen Tresor
+  (Community-Modul **SymconSecrets**, `SEC_GetSecret`), **wenn er da ist und das Passwort enthält**
+  — sonst gilt der normale Weg ohne Tresor. Eintrag (Standard `Inexogy`), Feld mit dem Passwort
+  (Standard `Pass`) und optional ein Feld mit der E-Mail (Standard `User`, nur genutzt, wenn in der
+  Instanz keine eingetragen ist). Bei 401 meldet sich MeterHub dann selbst neu an.
+  - **Selbst erkannt, nicht geraten:** Ohne Auswahl nutzt MeterHub den Tresor automatisch, wenn
+    GENAU EIN Tresor Eintrag und Feld mit Inhalt hat. Bei mehreren wird nicht geraten (⚠️, bitte
+    wählen). Eine ausdrückliche Auswahl gewinnt immer und wird nicht still durch einen anderen
+    Tresor ersetzt. Die Checkbox „Tresor für die automatische Neuanmeldung nutzen, wenn vorhanden"
+    (Standard an) schaltet es ganz ab.
   - **Passwort nie in MeterHub:** nur für die Dauer der Anmeldung im Arbeitsspeicher, in keinem
     Protokoll, Attribut oder Formularfeld (Prüfstand 54c/54e, mit Gegenprobe: ein absichtlich
     eingebautes Leck wird gefunden).

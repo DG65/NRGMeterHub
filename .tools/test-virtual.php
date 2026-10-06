@@ -2574,27 +2574,66 @@ check('54h: Feld fehlt im Eintrag → Bericht nennt die vorhandenen Felder', $vh
 // Statuszeile der Tresor-Anbindung, alle Zustände
 $GLOBALS['SEC'][9301]['Inexogy'] = json_encode(['User' => 'a@b.de', 'Pass' => $PW54]);
 $GLOBALS['ATTR'][9300]['InexogyAutoReloginInfo'] = '';
-$l = $secStatus->invoke($vh, 0);
-check('54i: kein Tresor (ℹ️): sagt, was dann gilt', str_starts_with($l, 'ℹ️') && str_contains($l, 'von Hand'), $l);
-check('54i: kein Tresor gewählt, Modul installiert: nennt die vorhandene Tresor-Instanz zum Wählen', str_contains($l, 'installiert') && str_contains($l, '#9301') && str_contains($l, 'oben wählen'), $l);
+// Ohne ausdrückliche Auswahl erkennt MeterHub den Tresor selbst (Dietmar 06.10.2026)
+$l = $secStatus->invoke($vh, true, 0);
+check('54i: keine Auswahl, genau ein Tresor mit Eintrag und Feld → ✅ „automatisch erkannt" (Tresor, Eintrag, Feld, nur die Länge)', str_starts_with($l, '✅') && str_contains($l, 'automatisch erkannt') && str_contains($l, '#9301') && str_contains($l, '14 Zeichen') && !str_contains($l, $PW54), $l);
+$l = $secStatus->invoke($vh, false, 0);
+check('54i: Tresor-Nutzung abgeschaltet (ℹ️): sagt, was dann gilt (normaler Weg)', str_starts_with($l, 'ℹ️') && str_contains($l, 'abgeschaltet') && str_contains($l, 'von Hand'), $l);
+$saveSec = $GLOBALS['SEC'][9301];
+$GLOBALS['SEC'][9301] = [];
+$l = $secStatus->invoke($vh, true, 0);
+check('54i: Tresor da, aber ohne den Eintrag (ℹ️): nennt Tresor, Eintrag und Feld, normaler Weg', str_starts_with($l, 'ℹ️') && str_contains($l, '#9301') && str_contains($l, 'ohne Eintrag') && str_contains($l, 'von Hand'), $l);
+$GLOBALS['SEC'][9301] = ['Inexogy' => json_encode(['User' => 'a@b.de', 'Pass' => ''])];
+$l = $secStatus->invoke($vh, true, 0);
+check('54i: Eintrag da, aber Passwortfeld leer → gilt als „nicht vorhanden" (ℹ️), kein Rätselraten', str_starts_with($l, 'ℹ️') && str_contains($l, 'ohne Eintrag'), $l);
+$GLOBALS['SEC'][9301] = $saveSec;
 $mods54 = $GLOBALS['INSTMOD'][9301];
 unset($GLOBALS['INSTMOD'][9301]);
-$l = $secStatus->invoke($vh, 0);
-check('54i: kein Tresor gewählt, Modul installiert, aber noch keine Instanz: sagt „anlegen"', str_contains($l, 'noch keine Instanz') && str_contains($l, 'anlegen'), $l);
+$l = $secStatus->invoke($vh, true, 0);
+check('54i: Tresor-Modul installiert, aber noch keine Instanz (ℹ️): sagt „anlegen"', str_starts_with($l, 'ℹ️') && str_contains($l, 'noch keine Instanz') && str_contains($l, 'anlegen'), $l);
 $GLOBALS['INSTMOD'][9301] = $mods54;
+// zwei Tresore enthalten beide den Eintrag: nicht raten
+$GLOBALS['INSTMOD'][9302] = '{TEST-SECRETS}';
+obj(9302, 1, 'Zweiter Tresor', 10);
+$GLOBALS['SEC'][9302]['Inexogy'] = json_encode(['User' => 'x@y.de', 'Pass' => 'anderes-pw']);
+$l = $secStatus->invoke($vh, true, 0);
+check('54i: zwei Tresore mit dem Eintrag → ⚠️ „rät nicht", nennt beide', str_starts_with($l, '⚠️') && str_contains($l, '#9301') && str_contains($l, '#9302') && str_contains($l, 'rät nicht'), $l);
+$l = $secStatus->invoke($vh, true, 9301);
+check('54i: ausdrückliche Auswahl gewinnt auch bei zwei Tresoren (✅ ohne „automatisch")', str_starts_with($l, '✅') && !str_contains($l, 'automatisch erkannt') && str_contains($l, '#9301'), $l);
+// Automatik ohne Auswahl: nur bei genau einem Tresor, bei zwei NICHT
+IPS_SetProperty(9300, 'SecretsInstanceID', 0);
+$GLOBALS['ATTR'][9300]['InexogyAutoReloginLastTs'] = 0;
+$vh->clientStub->failAt = 0;
+$callsA = $vh->handshakeCalls;
+$vh->NoteInexogyAuth(false);
+$vh->NoteInexogyAuth(true);
+check('54l: zwei Tresore → keine automatische Anmeldung (kein Raten)', $vh->handshakeCalls === $callsA);
+unset($GLOBALS['INSTMOD'][9302], $GLOBALS['SEC'][9302]);
+$GLOBALS['ATTR'][9300]['InexogyAutoReloginLastTs'] = 0;
+$vh->NoteInexogyAuth(false);
+$vh->NoteInexogyAuth(true);
+check('54l: ohne Auswahl, genau ein Tresor mit Passwort → meldet sich automatisch neu an (selbst erkannt)', $vh->handshakeCalls === $callsA + 1 && ($GLOBALS['ATTR'][9300]['InexogyAuthRejected'] ?? null) === false && $vh->clientStub->seen === ['a@b.de', $PW54]);
+IPS_SetProperty(9300, 'SecretsEnabled', false);
+$GLOBALS['ATTR'][9300]['InexogyAutoReloginLastTs'] = 0;
+$vh->NoteInexogyAuth(false);
+$vh->NoteInexogyAuth(true);
+check('54m: Tresor-Nutzung abgeschaltet → keine automatische Anmeldung, auch wenn ein Tresor da wäre', $vh->handshakeCalls === $callsA + 1);
+IPS_SetProperty(9300, 'SecretsEnabled', true);
+$vh->NoteInexogyAuth(false);
+IPS_SetProperty(9300, 'SecretsInstanceID', 9301);
 $GLOBALS['INSTMOD'][9300] = G_METER; // eine echte, aber falsche Instanz (ein MeterHub)
-$l = $secStatus->invoke($vh, 9300);
+$l = $secStatus->invoke($vh, true, 9300);
 check('54i: versehentlich eine andere Instanz gewählt (⚠️): „ist kein Tresor" statt irreführend „Eintrag nicht gefunden"', str_starts_with($l, '⚠️') && str_contains($l, 'kein Tresor') && !str_contains($l, 'nicht gefunden'), $l);
-$l = $secStatus->invoke($vh, 9999);
+$l = $secStatus->invoke($vh, true, 9999);
 check('54i: Tresor-Instanz gibt es nicht mehr (⚠️)', str_starts_with($l, '⚠️') && str_contains($l, '#9999'), $l);
-$l = $secStatus->invoke($vh, 9301, 'Gibtsnicht');
+$l = $secStatus->invoke($vh, true, 9301, 'Gibtsnicht');
 check('54i: Eintrag nicht gefunden (⚠️)', str_starts_with($l, '⚠️') && str_contains($l, 'Gibtsnicht'), $l);
-$l = $secStatus->invoke($vh, 9301, 'Inexogy', 'Passwort');
+$l = $secStatus->invoke($vh, true, 9301, 'Inexogy', 'Passwort');
 check('54i: Feld fehlt (⚠️): nennt die vorhandenen Felder', str_starts_with($l, '⚠️') && str_contains($l, 'Pass') && str_contains($l, 'User'), $l);
-$l = $secStatus->invoke($vh, 9301, 'Inexogy', 'Pass');
+$l = $secStatus->invoke($vh, true, 9301, 'Inexogy', 'Pass');
 check('54i: alles in Ordnung (✅): nennt Tresor, Eintrag, Feld und nur die LÄNGE, nie das Passwort', str_starts_with($l, '✅') && str_contains($l, '14 Zeichen') && str_contains($l, 'Tresor #9301') && !str_contains($l, $PW54), $l);
 $GLOBALS['FORMFIELDS'] = [];
-$vh->OnChangeSecrets(9301, 'Inexogy', 'Pass');
+$vh->OnChangeSecrets(true, 9301, 'Inexogy', 'Pass');
 check('54i: Auswahl im offenen Formular frischt die Zeile auf', str_starts_with($GLOBALS['FORMFIELDS']['SecretsStatusLine']['caption'] ?? '', '✅'));
 
 // Manuelles „Anmelden" nutzt den Tresor, wenn das Passwortfeld leer ist

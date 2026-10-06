@@ -565,7 +565,13 @@ selbst heraus. (2) Abstand zwischen Versuchen 15 min, nach Fehlversuchen verdopp
 `AutoReloginCooldown()`) — nie ohne diese Bremse, ein falsches Passwort würde das Konto fluten.
 (3) Das Passwort darf in keinem Fehlertext, Protokoll, Attribut oder Formularfeld landen
 (Prüfstand 54c/54e); in der Statuszeile nur die LÄNGE. (4) Alles hinter `function_exists()`,
-ohne Tresor bleibt es beim ⚠️ und manuellen Anmelden. (5) `NoteInexogyAuth(true)` stößt die
+ohne Tresor bleibt es beim ⚠️ und manuellen Anmelden. (5) **Tresor-Auswahl `ResolveSecrets()`** (Dietmar 06.10.2026: „das Modul soll erkennen, ob ein
+Tresor da ist und das Passwort hat — sonst der normale Weg"): ausdrückliche Auswahl gewinnt
+immer und wird nie still ersetzt; ohne Auswahl nur dann automatisch, wenn GENAU EIN Tresor
+(Modul-Präfix `SEC`) Eintrag und Feld mit Inhalt hat — bei mehreren ⚠️ statt Raten; Checkbox
+`SecretsEnabled` schaltet ab. Geprüft: Prüfstand 54i/54l/54m, drei Mutationen (Raten,
+Abschalter, Auswahl ignoriert) schlagen an. Die Instanz-Typprüfung läuft über das Modul-Präfix,
+nicht über eine fest eingetragene GUID. (6) `NoteInexogyAuth(true)` stößt die
 Automatik an; er wird je Abfragetakt und vom Nachtrag aufgerufen, der Abstand hält
 `MaybeAutoRelogin()` selbst ein. Prüfstand: `.tools/test-virtual.php` Block 54 (Handshake über
 `NewInexogyClient()` ersetzt, kein Netzzugriff).
