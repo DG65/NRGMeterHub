@@ -2520,6 +2520,8 @@ $PW54 = 'geheim-123-xyz';
 obj(9300, 1, 'Inexogy-Auto', 10);
 obj(9301, 1, 'Tresor', 10);
 $GLOBALS['INSTMOD'][9301] = '{TEST-SECRETS}';
+$GLOBALS['MODULES']['{TEST-SECRETS}'] = ['ModuleID' => '{TEST-SECRETS}', 'Prefix' => 'SEC'];
+function IPS_GetModuleList() { return array_keys($GLOBALS['MODULES']); }
 $vh = new MHTestVaultHub(9300);
 $vh->Create();
 $vh->clientStub = new InexogyClientFake();
@@ -2574,6 +2576,15 @@ $GLOBALS['SEC'][9301]['Inexogy'] = json_encode(['User' => 'a@b.de', 'Pass' => $P
 $GLOBALS['ATTR'][9300]['InexogyAutoReloginInfo'] = '';
 $l = $secStatus->invoke($vh, 0);
 check('54i: kein Tresor (ℹ️): sagt, was dann gilt', str_starts_with($l, 'ℹ️') && str_contains($l, 'von Hand'), $l);
+check('54i: kein Tresor gewählt, Modul installiert: nennt die vorhandene Tresor-Instanz zum Wählen', str_contains($l, 'installiert') && str_contains($l, '#9301') && str_contains($l, 'oben wählen'), $l);
+$mods54 = $GLOBALS['INSTMOD'][9301];
+unset($GLOBALS['INSTMOD'][9301]);
+$l = $secStatus->invoke($vh, 0);
+check('54i: kein Tresor gewählt, Modul installiert, aber noch keine Instanz: sagt „anlegen"', str_contains($l, 'noch keine Instanz') && str_contains($l, 'anlegen'), $l);
+$GLOBALS['INSTMOD'][9301] = $mods54;
+$GLOBALS['INSTMOD'][9300] = G_METER; // eine echte, aber falsche Instanz (ein MeterHub)
+$l = $secStatus->invoke($vh, 9300);
+check('54i: versehentlich eine andere Instanz gewählt (⚠️): „ist kein Tresor" statt irreführend „Eintrag nicht gefunden"', str_starts_with($l, '⚠️') && str_contains($l, 'kein Tresor') && !str_contains($l, 'nicht gefunden'), $l);
 $l = $secStatus->invoke($vh, 9999);
 check('54i: Tresor-Instanz gibt es nicht mehr (⚠️)', str_starts_with($l, '⚠️') && str_contains($l, '#9999'), $l);
 $l = $secStatus->invoke($vh, 9301, 'Gibtsnicht');

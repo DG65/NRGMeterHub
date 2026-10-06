@@ -26,6 +26,11 @@
   - **Live gemessen statt aus der README geraten:** `SEC_GetSecret($id, 'Eintrag/Feld')` lieferte
     bei Dietmar nichts, `SEC_GetSecret($id, 'Eintrag')` dagegen ein JSON mit allen Feldern —
     deshalb liest MeterHub den ganzen Eintrag und zieht das Feld selbst heraus.
+  - **Hinweise vorab:** Ist noch kein Tresor gewählt, sagt die Zeile, ob das Tresor-Modul
+    installiert ist und welche Instanz(en) es schon gibt (zum Wählen) bzw. dass noch keine
+    angelegt ist oder das Modul im Store fehlt. Wählt man versehentlich eine andere Instanz (die
+    Auswahl zeigt alle), steht dort „ist kein Tresor" statt eines irreführenden „Eintrag nicht
+    gefunden" — geprüft über das Modul-Präfix der Instanz.
   - Ohne Tresor ändert sich nichts. Der Aufruf steht hinter `function_exists('SEC_GetSecret')`.
   - Intern: der Handshake ist aus `InexogyLogin()` in `InexogyHandshake()` herausgelöst (ein
     Weg für Knopf und Automatik), der Client über `NewInexogyClient()` ersetzbar — dadurch ist die

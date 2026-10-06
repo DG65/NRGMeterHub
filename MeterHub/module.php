@@ -4851,6 +4851,32 @@ class MeterHub extends IPSModule
         return $this->ReadPropertyInteger('SecretsInstanceID') > 0;
     }
 
+    /** Instanzen des Tresor-Moduls (Modul-Präfix „SEC", wie SymconSecrets es führt): [ID => Name]. Leer, wenn das Modul fehlt. */
+    private function SecretsInstances(): array
+    {
+        $out = [];
+        if (!function_exists('IPS_GetModuleList') || !function_exists('IPS_GetModule')) {
+            return $out;
+        }
+        foreach (IPS_GetModuleList() as $guid) {
+            $m = @IPS_GetModule($guid);
+            if (is_array($m) && ($m['Prefix'] ?? '') === 'SEC') {
+                foreach (IPS_GetInstanceListByModuleID($guid) as $iid) {
+                    $out[(int)$iid] = IPS_GetName((int)$iid);
+                }
+            }
+        }
+        return $out;
+    }
+
+    /** Gehört die Instanz zum Tresor-Modul? (Die Auswahl im Formular zeigt alle Instanzen.) */
+    private function IsSecretsInstance(int $id): bool
+    {
+        $guid = (string)(IPS_GetInstance($id)['ModuleInfo']['ModuleID'] ?? '');
+        $m = $guid === '' ? null : @IPS_GetModule($guid);
+        return is_array($m) && ($m['Prefix'] ?? '') === 'SEC';
+    }
+
     /**
      * Liest ein Feld aus dem Tresor (SymconSecrets). Der Tresor liefert für einen
      * Eintrag ein JSON-Objekt aller Felder (`SEC_GetSecret($id, 'Inexogy')` →
@@ -4871,6 +4897,9 @@ class MeterHub extends IPSModule
         }
         if (!IPS_InstanceExists($id)) {
             return [null, 'die gewählte Tresor-Instanz #' . $id . ' gibt es nicht mehr'];
+        }
+        if (!$this->IsSecretsInstance($id)) {
+            return [null, 'die gewählte Instanz #' . $id . ' ist kein Tresor (SymconSecrets)'];
         }
         $record = trim($this->ReadPropertyString('SecretsRecord'));
         if ($record === '' || $field === '') {
@@ -4962,13 +4991,28 @@ class MeterHub extends IPSModule
     {
         $id = $instanceId ?? $this->ReadPropertyInteger('SecretsInstanceID');
         if ($id <= 0) {
-            return 'ℹ️ Automatische Neuanmeldung aus: kein Tresor gewählt — lehnt Inexogy den Zugriffsschlüssel ab, meldest du dich von Hand neu an („Anmelden und Zähler abrufen").';
+            $base = 'ℹ️ Automatische Neuanmeldung aus: kein Tresor gewählt — lehnt Inexogy den Zugriffsschlüssel ab, meldest du dich von Hand neu an („Anmelden und Zähler abrufen").';
+            if (!function_exists('SEC_GetSecret')) {
+                return $base . ' Das Tresor-Modul „SymconSecrets" ist nicht installiert (Module Store) — nur nötig, wenn du die automatische Neuanmeldung willst.';
+            }
+            $found = $this->SecretsInstances();
+            if (!$found) {
+                return $base . ' Das Tresor-Modul „SymconSecrets" ist installiert, es gibt aber noch keine Instanz davon — anlegen und ein Passwort darin hinterlegen.';
+            }
+            $names = [];
+            foreach ($found as $iid => $nm) {
+                $names[] = '#' . $iid . ' „' . $nm . '"';
+            }
+            return $base . ' Das Tresor-Modul ist installiert, vorhandene Instanz(en): ' . implode(', ', $names) . ' — oben wählen.';
         }
         if (!function_exists('SEC_GetSecret')) {
             return '⚠️ Tresor #' . $id . ' gewählt, aber das Tresor-Modul (SymconSecrets) ist nicht geladen — in der Modulverwaltung installieren. Bis dahin: manuell anmelden.';
         }
         if (!IPS_InstanceExists($id)) {
             return '⚠️ Die gewählte Tresor-Instanz #' . $id . ' gibt es nicht mehr — neu wählen.';
+        }
+        if (!$this->IsSecretsInstance($id)) {
+            return '⚠️ Die gewählte Instanz #' . $id . ' „' . IPS_GetName($id) . '" ist kein Tresor (SymconSecrets) — die Instanz des Tresor-Moduls wählen.';
         }
         // Eingabe aus dem offenen Formular (noch ungespeichert) hat Vorrang vor dem Speicherstand.
         $rec = trim($record ?? $this->ReadPropertyString('SecretsRecord'));
