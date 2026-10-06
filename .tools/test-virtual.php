@@ -102,6 +102,7 @@ function IPS_CreateVariable($t) {
 }
 function IPS_SetVariableCustomProfile($id, $p) { $GLOBALS['VAR'][$id]['VariableCustomProfile'] = $p; }
 function IPS_DeleteVariable($id) { unset($GLOBALS['OBJ'][$id], $GLOBALS['VAR'][$id]); }
+function IPS_LogMessage($sender, $msg) { $GLOBALS['LOGMSG'][] = $msg; }
 function IPS_CreateCategory() { $id = $GLOBALS['NEXTID']++; obj($id, 0, 'neu', 0); return $id; }
 // Echte, zustandsbehaftete Profil-Registry (statt fixer Whitelist) — nötig,
 // um zu verifizieren, dass ensureSharedProfile() ein bereits vorhandenes
@@ -124,7 +125,7 @@ function IPS_GetInstanceListByModuleID($guid) {
     return $out;
 }
 function IPS_GetInstance($iid) {
-    return ['ModuleInfo' => ['ModuleID' => $GLOBALS['INSTMOD'][$iid] ?? '']];
+    return ['ModuleInfo' => ['ModuleID' => $GLOBALS['INSTMOD'][$iid] ?? ''], 'InstanceStatus' => $GLOBALS['INSTSTATUS'][$iid] ?? 102];
 }
 // Modul-Präfix für die Vertragserkennung (ContractMetersOf(), 0.26.1) plus
 // ein ChargerHub-artiger Testvertrag.
@@ -2328,6 +2329,32 @@ IPS_SetProperty(9200, 'InexogyMeterID', 'abc123');
 $i = $line50('direct', 'inexogy', 'InexogyStatusLine');
 check('50b: Inexogy — angemeldet mit Zähler-UID (✅): nennt UID und Quelle', str_starts_with($i['caption'] ?? '', '✅') && str_contains($i['caption'], 'abc123') && str_contains($i['caption'], 'Quelle'), json_encode($i));
 check('50b: Inexogy — bei einem Modbus-Zähler ausgeblendet', ($line50('direct', 'siemens_pac2200', 'InexogyStatusLine')['visible'] ?? null) === false);
+
+echo "\n50b3) Inexogy — Statuszeile unterscheidet „Zugriffsschlüssel abgelehnt (HTTP 401)\" von einem sonstigen Abfragefehler (Dietmars Screenshot 06.10.2026: ✅ angemeldet, aber „letzte Abfrage fehlgeschlagen\" — widersprüchlich und ohne Handlungshinweis; Inexogy-Doku: bei ungültigem Token muss die Anmeldung wiederholt werden)\n";
+$GLOBALS['ATTR'][9200]['InexogyToken'] = 'token';
+IPS_SetProperty(9200, 'InexogyMeterID', 'abc123');
+$GLOBALS['ATTR'][9200]['InexogyAuthRejected'] = false;
+$GLOBALS['INSTSTATUS'][9200] = 102;
+$i = $line50('direct', 'inexogy', 'InexogyStatusLine');
+check('50b3: alles in Ordnung bleibt ✅', str_starts_with($i['caption'] ?? '', '✅') && !str_contains($i['caption'], 'fehlgeschlagen'), json_encode($i));
+$GLOBALS['INSTSTATUS'][9200] = 201;
+$i = $line50('direct', 'inexogy', 'InexogyStatusLine');
+check('50b3: Abfrage fehlgeschlagen ohne 401 ist jetzt ⚠️ statt ✅ (kein Widerspruch mehr)', str_starts_with($i['caption'] ?? '', '⚠️') && str_contains($i['caption'], 'fehlgeschlagen'), json_encode($i));
+$GLOBALS['ATTR'][9200]['InexogyAuthRejected'] = true;
+$i = $line50('direct', 'inexogy', 'InexogyStatusLine');
+check('50b3: 401 → ⚠️ mit klarem Satz und Handlungsweg (neu anmelden), UID bleibt erhalten', str_starts_with($i['caption'] ?? '', '⚠️') && str_contains($i['caption'], 'HTTP 401') && str_contains($i['caption'], 'Anmelden und Zähler abrufen') && str_contains($i['caption'], 'abc123') && !str_contains($i['caption'], 'Zugang, Zähler-UID und Internetverbindung prüfen'), json_encode($i));
+$GLOBALS['ATTR'][9200]['InexogyAuthRejected'] = false;
+$GLOBALS['INSTSTATUS'][9200] = 102;
+// NoteInexogyAuth(): schreibt nur bei Wechsel, protokolliert den Wechsel auf "abgelehnt"
+$GLOBALS['LOGMSG'] = [];
+$hub47->NoteInexogyAuth(true);
+check('50b3: NoteInexogyAuth(true) setzt das Attribut und protokolliert einmal', ($GLOBALS['ATTR'][9200]['InexogyAuthRejected'] ?? null) === true && count($GLOBALS['LOGMSG']) === 1 && str_contains($GLOBALS['LOGMSG'][0], 'HTTP 401'), json_encode($GLOBALS['LOGMSG']));
+$hub47->NoteInexogyAuth(true);
+check('50b3: wiederholtes NoteInexogyAuth(true) protokolliert nicht erneut (kein Log-Fluten je Abfragetakt)', count($GLOBALS['LOGMSG']) === 1);
+$hub47->NoteInexogyAuth(false);
+check('50b3: NoteInexogyAuth(false) nimmt den Zustand zurück, ohne zu protokollieren', ($GLOBALS['ATTR'][9200]['InexogyAuthRejected'] ?? null) === false && count($GLOBALS['LOGMSG']) === 1);
+unset($GLOBALS['ATTR'][9200]['InexogyToken']);
+IPS_SetProperty(9200, 'InexogyMeterID', '');
 
 echo "\n50b2) Inexogy — Zählerliste übersteht den Formular-Reload nach IPS_ApplyChanges() (HeishaMon-Fund im Symcon-Store-Review 23.09.2026: InexogyLogin() rief bisher ApplyChanges() VOR den UpdateFormField()-Aufrufen auf, die dadurch laut Reviewer wirkungslos blieben — Fix: Reihenfolge getauscht + Zählerliste zusätzlich im Attribut InexogyMeterOptions gecacht, GetConfigurationForm() liest es beim [erzwungenen] Neuaufbau)\n";
 $meterOptsEl = function () use ($hub47, $findEl) {

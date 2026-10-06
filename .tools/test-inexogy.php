@@ -76,7 +76,9 @@ echo "\n3) Treiber: Skalierung und Feldzuordnung\n";
 // Client-Stub: liefert ein festes last_reading (Dietmars echte Größenordnung).
 class ClientStub {
     public $values;
+    public $httpCode = 0;
     public function getLastReading($id) { return $this->values; }
+    public function getLastHttpCode(): int { return $this->httpCode; }
 }
 // Hub-Stub: zeichnet auf, prüft Gruppen.
 class HubStub {
@@ -88,6 +90,8 @@ class HubStub {
     public function SetVarFloat($i, $v)     { $this->vals[$i] = round($v, 4); }
     public function SetVarBool($i, $v)      { $this->vals[$i] = $v; }
     public function SetVarEnergykWh($i, $v) { $this->vals[$i] = round($v, 4); }
+    public $authRejected = [];
+    public function NoteInexogyAuth(bool $r) { $this->authRejected[] = $r; }
 }
 
 $drv = new MHUB_InexogyDriver();
@@ -137,6 +141,23 @@ $hub4 = new HubStub([]);
 $okNull = $drv->readFast($csNull, $hub4);
 check('null-Reading → readFast false', $okNull === false);
 check('null-Reading → connected false', ($hub4->vals['connected'] ?? null) === false);
+
+// Fall D2: HTTP 401 (Zugriffsschlüssel abgelehnt) wird vom sonstigen Fehler unterschieden
+$cs401 = new ClientStub();
+$cs401->values = null;
+$cs401->httpCode = 401;
+$hub401 = new HubStub([]);
+$drv->readFast($cs401, $hub401);
+check('401 → NoteInexogyAuth(true)', $hub401->authRejected === [true], json_encode($hub401->authRejected));
+$cs500 = new ClientStub();
+$cs500->values = null;
+$cs500->httpCode = 500;
+$hub500 = new HubStub([]);
+$drv->readFast($cs500, $hub500);
+check('anderer Fehler (500) → NoteInexogyAuth(false), kein „abgelehnt"', $hub500->authRejected === [false], json_encode($hub500->authRejected));
+$hubOk = new HubStub([]);
+$drv->readFast($cs, $hubOk);
+check('erfolgreiche Abfrage → NoteInexogyAuth(false) (hebt ein früheres „abgelehnt" wieder auf)', $hubOk->authRejected === [false], json_encode($hubOk->authRejected));
 
 // Fall E: Vertragsfelder am Treiber selbst
 check('getBaseVars hat KEINE Frequenz', !in_array('frequency', array_column($drv->getBaseVars(), 0), true));

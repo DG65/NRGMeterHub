@@ -2194,6 +2194,8 @@ class MHUB_InexogyClient
     // HTTP-Status samt Antwortanfang) — für eine aussagekräftige
     // Fehlermeldung, wenn ein Handshake-Schritt fehlschlägt.
     private $lastError = '';
+    /** HTTP-Statuscode des zuletzt ausgeführten http()-Aufrufs (0 = Netzwerkfehler/noch keiner). */
+    private $lastHttpCode = 0;
 
     public function __construct(string $consumerKey = '', string $consumerSecret = '', string $token = '', string $tokenSecret = '')
     {
@@ -2291,6 +2293,7 @@ class MHUB_InexogyClient
         // echte HTTP-Antwort brauchen unterschiedliche Diagnose — beides
         // wird sonst gleich zu "false" verworfen und ist nicht mehr
         // unterscheidbar, sobald ein Schritt fehlschlägt.
+        $this->lastHttpCode = $err !== '' ? 0 : $code;
         $this->lastError = $err !== ''
             ? 'Netzwerkfehler: ' . $err
             : 'HTTP ' . $code . ($body !== false && $body !== '' ? ' – ' . substr($body, 0, 200) : ' (leere Antwort)');
@@ -2301,6 +2304,12 @@ class MHUB_InexogyClient
     public function getLastError(): string
     {
         return $this->lastError;
+    }
+
+    /** HTTP-Statuscode des zuletzt fehlgeschlagenen http()-Aufrufs; 401 = Inexogy lehnt den Zugriffsschlüssel ab. */
+    public function getLastHttpCode(): int
+    {
+        return $this->lastHttpCode;
     }
 
     // --- Handshake-Schritte (nur beim Login aufgerufen) --------------------
@@ -2485,8 +2494,14 @@ class MHUB_InexogyDriver implements MHUB_MeterDriverInterface
         $v = $client->getLastReading($hub->InexogyMeterId());
         if ($v === null) {
             $hub->SetVarBool('connected', false);
+            // 401 = Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (laut
+            // Inexogy-Doku läuft er irgendwann ab/wird ungültig, dann muss die
+            // Anmeldung wiederholt werden) — vom reinen Netzwerk-/Serverfehler
+            // unterscheiden, damit das Formular das sagen kann.
+            $hub->NoteInexogyAuth($client->getLastHttpCode() === 401);
             return false;
         }
+        $hub->NoteInexogyAuth(false);
         $hub->SetVarBool('connected', true);
 
         $p = self::pick($v, ['power']);
@@ -3285,6 +3300,9 @@ class MeterHub extends IPSModule
         // Formular-Reload/-Neuaufbau, anders als die rein ephemere Anzeige direkt
         // nach dem Login (siehe InexogyLogin()/GetConfigurationForm()).
         $this->RegisterAttributeString('InexogyMeterOptions', '');
+        // true, solange Inexogy den gespeicherten Zugriffsschlüssel mit HTTP 401
+        // ablehnt — nur für die Statuszeile im Formular (InexogyStatusLine()).
+        $this->RegisterAttributeBoolean('InexogyAuthRejected', false);
         // Rechenstand der hochgerechneten Energie (letzter Zeitpunkt + Leistung
         // je Energie-Ident), siehe AdvanceCalculatedEnergy(). Der Zählerstand
         // selbst steckt in der Variable, nicht hier.
@@ -3367,7 +3385,7 @@ class MeterHub extends IPSModule
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
     private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230'];
-    private const NEWS_VERSION = '0.31.4';
+    private const NEWS_VERSION = '0.31.8';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3412,6 +3430,7 @@ class MeterHub extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🔐 Inexogy: Lehnt Inexogy den gespeicherten Zugriffsschlüssel ab (HTTP 401 — laut Inexogy kann er ungültig werden), sagt die Statuszeile im „Cloud-Zugang" das jetzt klar („⚠️ … neu anmelden") statt eines widersprüchlichen „✅ angemeldet, Abfrage fehlgeschlagen". Dann einmal E-Mail/Passwort eintragen und „Anmelden und Zähler abrufen" klicken; der Nachtrag holt die Lücke danach selbst nach. Die Zählerliste nach der Anmeldung bleibt außerdem stehen, statt beim Übernehmen wieder zu verschwinden.'],
                 ['type' => 'Label', 'caption' => '• 🧭 Richtungsprüfung vergleicht zuerst mit unabhängigen Quellen: Netzmessung des Wechselrichters, dann die PV-Erzeugung (Summe aller PV-Zähler im Verbund, egal wie herum eingestellt). Ein anderer Netzzähler dieses Moduls dient nur noch als Notlösung, mit dem Hinweis, dass eine gemeinsame Verdrehung so nicht auffällt. Die Zeilen tragen jetzt den Instanznamen.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Richtung im Archiv: Nächte mit zu wenig Leistung für eine Aussage (bis 12 h) werden zwischen zwei gegenläufigen Abschnitten mitgedreht, statt stehen zu bleiben. Bei Cloud-Zählern (Inexogy) entfallen Leistungsabgleich und Richtungsprüfung — Leistung und Zählerstände kommen dort zeitversetzt an und ergaben Fehlalarme.'],
                 ['type' => 'Label', 'caption' => '• ↔️ „Bezug/Einspeisung vertauscht" umschalten ohne Sprung: Die beiden Energiezähler-Variablen tauschen dabei ihre Rolle, jede zählt mit ihrem Verlauf weiter. Vorher sprangen Bezug und Einspeisung aufeinander — Tages- und Monatswerte zeigten riesige Scheinverbräuche.'],
@@ -4783,6 +4802,24 @@ class MeterHub extends IPSModule
         return '🔗 Unit-ID: ' . $unit . ' (automatisch vom ModBus Gateway' . $gateway . ', Property „DeviceID").';
     }
 
+    /**
+     * Vom Inexogy-Treiber nach jeder Abfrage aufgerufen: lehnt Inexogy den
+     * gespeicherten Zugriffsschlüssel ab (HTTP 401)? Schreibt nur bei einem
+     * Wechsel (kein Attribut-Schreiben je Abfragetakt) und protokolliert den
+     * Wechsel auf „abgelehnt" einmal im Systemprotokoll.
+     */
+    public function NoteInexogyAuth(bool $rejected)
+    {
+        if ($this->ReadAttributeBoolean('InexogyAuthRejected') === $rejected) {
+            return;
+        }
+        $this->WriteAttributeBoolean('InexogyAuthRejected', $rejected);
+        if ($rejected) {
+            IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — im Instanzformular unter „Cloud-Zugang" neu anmelden.');
+        }
+        $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
+    }
+
     /** Inexogy (Cloud): angemeldet? Zähler-UID? letzte Abfrage? aktueller Wert samt Quelle. */
     private function InexogyStatusLine(): string
     {
@@ -4793,6 +4830,9 @@ class MeterHub extends IPSModule
         if ($uid === '') {
             return '⚠️ Bei Inexogy angemeldet (Zugriffsschlüssel gespeichert), aber noch keine Zähler-UID gewählt — Zähler unten auswählen und übernehmen.';
         }
+        if ($this->ReadAttributeBoolean('InexogyAuthRejected')) {
+            return '⚠️ Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — laut Inexogy-Dokumentation kann er ungültig werden, dann muss die Anmeldung wiederholt werden. E-Mail und Passwort unten eintragen, „Änderungen übernehmen", dann „Anmelden und Zähler abrufen". Bis dahin liest diese Instanz nichts (Zähler-UID ' . $uid . ' bleibt gespeichert).';
+        }
         $inst = function_exists('IPS_GetInstance') ? @IPS_GetInstance($this->InstanceID) : [];
         $status = (int)($inst['InstanceStatus'] ?? 0);
         $tail = $status === 201
@@ -4800,7 +4840,7 @@ class MeterHub extends IPSModule
             : ($status === 102 ? ' Die letzte Abfrage war erfolgreich.' : ' Noch keine Abfrage ausgewertet.');
         $pid = $this->FindVarByIdent('power_total');
         $value = $pid ? ' Aktuelle Leistung: ' . round((float)GetValue($pid)) . ' W (Quelle: Inexogy-Zähler ' . $uid . ').' : '';
-        return '✅ Bei Inexogy angemeldet (Zugriffsschlüssel gespeichert), Zähler-UID ' . $uid . ' (Quelle: Auswahl unten).' . $value . $tail;
+        return ($status === 201 ? '⚠️' : '✅') . ' Bei Inexogy angemeldet (Zugriffsschlüssel gespeichert), Zähler-UID ' . $uid . ' (Quelle: Auswahl unten).' . $value . $tail;
     }
 
     /** Archiv (Archive Control): findet MeterHub eines, und was gilt sonst? */
@@ -4977,6 +5017,7 @@ class MeterHub extends IPSModule
         $this->WriteAttributeString('InexogyConsumerSecret', $c->getConsumerSecret());
         $this->WriteAttributeString('InexogyToken',          $c->getToken());
         $this->WriteAttributeString('InexogyTokenSecret',    $c->getTokenSecret());
+        $this->WriteAttributeBoolean('InexogyAuthRejected', false);
 
         $meters = $c->getMeters();
         $opts = [];
@@ -5300,7 +5341,11 @@ class MeterHub extends IPSModule
             $chunkTo  = min($chunkFrom + $chunkDays * 86400, $toOverall);
             $readings = $c->getReadings($meterId, $chunkFrom * 1000, $chunkTo * 1000, 'fifteen_minutes');
             if (count($readings) === 0) {
-                $emptyChunks[] = date('d.m.Y', $chunkFrom) . '–' . date('d.m.Y', $chunkTo) . ' (' . $c->getLastError() . ')';
+                $rejectedAuth = $c->getLastHttpCode() === 401;
+                if ($rejectedAuth) {
+                    $this->NoteInexogyAuth(true);
+                }
+                $emptyChunks[] = date('d.m.Y', $chunkFrom) . '–' . date('d.m.Y', $chunkTo) . ' (' . $c->getLastError() . ($rejectedAuth ? ' — Zugriffsschlüssel abgelehnt, bitte unter „Cloud-Zugang" neu anmelden' : '') . ')';
                 $chunkFrom = $chunkTo;
                 continue;
             }
