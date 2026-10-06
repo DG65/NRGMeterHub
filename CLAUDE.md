@@ -553,6 +553,23 @@ Consumer-/Access-Token in Attributen; `InexogyPassword` wird nach erfolgreichem 
 sowohl als Property geleert (`IPS_SetProperty` + `IPS_ApplyChanges`) als auch im offenen
 Formular (`UpdateFormField`), damit kein Klartext-Rest sichtbar bleibt.
 
+**Nachtrag 0.32.0 (06.10.2026): Passwort außerhalb von MeterHub für die automatische
+Neuanmeldung.** Inexogy-Zugriffsschlüssel werden laut offizieller Doku irgendwann ungültig
+(zweimal live erlebt, 24.08. und 05./06.10.), dann muss der Handshake wiederholt werden — der
+braucht das Passwort. Statt es in MeterHub zu speichern (Verstoß gegen Punkt 1/2), liest
+`MaybeAutoRelogin()` es bei Bedarf aus einem Tresor (Community-Modul SymconSecrets,
+`SEC_GetSecret`) und hält es nur für die Dauer der Anmeldung im Arbeitsspeicher. Punkte, die
+beim nächsten Anfassen zählen: (1) Der README-Pfad `Eintrag/Feld` funktionierte live nicht —
+`SEC_GetSecret($id, 'Eintrag')` liefert ein JSON aller Felder, `ReadSecretField()` zieht das Feld
+selbst heraus. (2) Abstand zwischen Versuchen 15 min, nach Fehlversuchen verdoppelt (max. 6 h,
+`AutoReloginCooldown()`) — nie ohne diese Bremse, ein falsches Passwort würde das Konto fluten.
+(3) Das Passwort darf in keinem Fehlertext, Protokoll, Attribut oder Formularfeld landen
+(Prüfstand 54c/54e); in der Statuszeile nur die LÄNGE. (4) Alles hinter `function_exists()`,
+ohne Tresor bleibt es beim ⚠️ und manuellen Anmelden. (5) `NoteInexogyAuth(true)` stößt die
+Automatik an; er wird je Abfragetakt und vom Nachtrag aufgerufen, der Abstand hält
+`MaybeAutoRelogin()` selbst ein. Prüfstand: `.tools/test-virtual.php` Block 54 (Handshake über
+`NewInexogyClient()` ersetzt, kein Netzzugriff).
+
 ## Gemeinsame NRG-Stack-Profile (Verbund-Konvention 24.07.2026)
 
 Sechs physikalische Grundgrößen bekommen einen gemeinsamen `NRG.*`-Präfix statt eines

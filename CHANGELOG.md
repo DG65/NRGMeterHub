@@ -2,6 +2,35 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.32.0-beta.1 (2026-10-06)
+
+- **Inexogy: optionale automatische Neuanmeldung aus einem Tresor (Dietmars Frage 06.10.2026:
+  „Wäre es nicht denkbar, das Passwort an anderer Stelle zur Verfügung zu stellen?").**
+  Ein ungültig gewordener Zugriffsschlüssel (HTTP 401) ließ sich bisher nur von Hand erneuern, weil
+  MeterHub das Passwort bewusst nicht speichert. Jetzt kann unter „Cloud-Zugang" ein Tresor
+  gewählt werden (Community-Modul **SymconSecrets**, `SEC_GetSecret`): Eintrag, Feld mit dem
+  Passwort (Standard `Pass`) und optional ein Feld mit der E-Mail (Standard `User`, nur genutzt,
+  wenn in der Instanz keine eingetragen ist). Bei 401 meldet sich MeterHub dann selbst neu an.
+  - **Passwort nie in MeterHub:** nur für die Dauer der Anmeldung im Arbeitsspeicher, in keinem
+    Protokoll, Attribut oder Formularfeld (Prüfstand 54c/54e, mit Gegenprobe: ein absichtlich
+    eingebautes Leck wird gefunden).
+  - **Abstand zwischen Versuchen:** mindestens 15 Minuten, nach jedem Fehlversuch doppelt so
+    lang (Obergrenze 6 h) — ein falsches Passwort soll das Inexogy-Konto nicht überhäufen. Eine
+    von Hand geglückte Anmeldung setzt die Wartezeit zurück.
+  - **Statuszeile zum Tresor** (live, folgt der Eingabe im offenen Formular): ℹ️ kein Tresor,
+    ⚠️ Tresor-Modul nicht geladen / Instanz fehlt / Eintrag nicht gefunden / Feld fehlt (mit
+    den vorhandenen Feldern) / Feld leer, ✅ Passwort gefunden (nur die LÄNGE wird gezeigt) samt
+    Kurzbericht des letzten automatischen Versuchs.
+  - **„Anmelden und Zähler abrufen"** kommt bei gewähltem Tresor und leerem Passwortfeld ohne
+    eingetipptes Passwort aus.
+  - **Live gemessen statt aus der README geraten:** `SEC_GetSecret($id, 'Eintrag/Feld')` lieferte
+    bei Dietmar nichts, `SEC_GetSecret($id, 'Eintrag')` dagegen ein JSON mit allen Feldern —
+    deshalb liest MeterHub den ganzen Eintrag und zieht das Feld selbst heraus.
+  - Ohne Tresor ändert sich nichts. Der Aufruf steht hinter `function_exists('SEC_GetSecret')`.
+  - Intern: der Handshake ist aus `InexogyLogin()` in `InexogyHandshake()` herausgelöst (ein
+    Weg für Knopf und Automatik), der Client über `NewInexogyClient()` ersetzbar — dadurch ist die
+    Automatik im Prüfstand ohne Netzzugriff prüfbar (`test-virtual.php` Block 54).
+
 ## 0.31.8-beta.1 (2026-10-06)
 
 - **Inexogy: „Zugriffsschlüssel abgelehnt" (HTTP 401) wird erkannt und klar gemeldet.** Anlass:

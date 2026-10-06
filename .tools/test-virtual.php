@@ -2495,5 +2495,113 @@ IPS_SetPosition($iOut, 88);
 $rvv = t35_apply($rvvIid);
 check('53b: erneutes ApplyChanges() wirft eine von Hand gesetzte Position der eigenen Ausgaben nicht zurück', $GLOBALS['OBJ'][$pOut]['ObjectPosition'] === 77 && $GLOBALS['OBJ'][$iOut]['ObjectPosition'] === 88, json_encode(['power' => $GLOBALS['OBJ'][$pOut]['ObjectPosition'], 'imp' => $GLOBALS['OBJ'][$iOut]['ObjectPosition']]));
 
+echo "\n54) Inexogy: automatische Neuanmeldung aus dem Tresor (SymconSecrets, Dietmars Wunsch 06.10.2026: Passwort nicht in MeterHub speichern)\n";
+function SEC_GetSecret($id, $path) { return $GLOBALS['SEC'][$id][$path] ?? false; }
+class InexogyClientFake {
+    public $failAt = 0;      // 0 = alles gut, 1..4 = scheitert in Schritt n
+    public $seen = [];
+    public function registerConsumer($n) { return $this->failAt !== 1; }
+    public function fetchRequestToken() { return $this->failAt !== 2; }
+    public function authorize($email, $pass) { $this->seen = [$email, $pass]; return $this->failAt === 3 ? '' : 'verifier'; }
+    public function fetchAccessToken($v) { return $this->failAt !== 4; }
+    public function getLastError() { return 'HTTP 401'; }
+    public function getConsumerKey() { return 'ck2'; }
+    public function getConsumerSecret() { return 'cs2'; }
+    public function getToken() { return 'tok2'; }
+    public function getTokenSecret() { return 'ts2'; }
+    public function getMeters() { return []; }
+}
+class MHTestVaultHub extends MeterHub {
+    public $clientStub;
+    public $handshakeCalls = 0;
+    protected function NewInexogyClient() { $this->handshakeCalls++; return $this->clientStub; }
+}
+$PW54 = 'geheim-123-xyz';
+obj(9300, 1, 'Inexogy-Auto', 10);
+obj(9301, 1, 'Tresor', 10);
+$GLOBALS['INSTMOD'][9301] = '{TEST-SECRETS}';
+$vh = new MHTestVaultHub(9300);
+$vh->Create();
+$vh->clientStub = new InexogyClientFake();
+IPS_SetProperty(9300, 'Meter', 'inexogy');
+IPS_SetProperty(9300, 'InexogyEmail', '');
+$cool = new ReflectionMethod('MeterHub', 'AutoReloginCooldown');
+$secStatus = new ReflectionMethod('MeterHub', 'SecretsStatusLine');
+
+$vh->NoteInexogyAuth(true);
+check('54a: ohne Tresor wird bei 401 nicht automatisch angemeldet', $vh->handshakeCalls === 0 && ($GLOBALS['ATTR'][9300]['InexogyAuthRejected'] ?? null) === true);
+$vh->NoteInexogyAuth(false);
+
+IPS_SetProperty(9300, 'SecretsInstanceID', 9301);
+$GLOBALS['SEC'][9301]['Inexogy'] = json_encode(['User' => 'a@b.de', 'Pass' => $PW54]);
+$GLOBALS['LOGMSG'] = [];
+$vh->NoteInexogyAuth(true);
+check('54b: mit Tresor wird bei 401 genau einmal neu angemeldet, E-Mail ersatzweise aus dem Tresor', $vh->handshakeCalls === 1 && $vh->clientStub->seen === ['a@b.de', $PW54], json_encode([$vh->handshakeCalls, $vh->clientStub->seen === ['a@b.de', $PW54]]));
+check('54b: neue Tokens gespeichert, „abgelehnt" zurückgenommen, Fehlversuche 0, Zeitpunkt gemerkt', ($GLOBALS['ATTR'][9300]['InexogyToken'] ?? '') === 'tok2' && ($GLOBALS['ATTR'][9300]['InexogyTokenSecret'] ?? '') === 'ts2' && ($GLOBALS['ATTR'][9300]['InexogyAuthRejected'] ?? null) === false && $vh->ReadAttributeInteger('InexogyAutoReloginFails') === 0 && $vh->ReadAttributeInteger('InexogyAutoReloginLastTs') > 0);
+check('54b: Kurzbericht „erfolgreich", Protokollzeile ohne Passwort', str_contains($vh->ReadAttributeString('InexogyAutoReloginInfo'), 'erfolgreich') && count(array_filter($GLOBALS['LOGMSG'], fn($m) => str_contains($m, 'automatisch bei Inexogy neu angemeldet'))) === 1);
+$leak = json_encode([$GLOBALS['LOGMSG'], $GLOBALS['ATTR'][9300], $GLOBALS['FORMFIELDS']], JSON_UNESCAPED_UNICODE);
+check('54c: das Passwort taucht in keinem Protokoll, Attribut oder Formularfeld auf', !str_contains($leak, $PW54));
+
+$vh->NoteInexogyAuth(false);
+$vh->NoteInexogyAuth(true);
+check('54d: innerhalb der Wartezeit kein zweiter Versuch (Abstand ≥ 15 Minuten)', $vh->handshakeCalls === 1);
+$GLOBALS['ATTR'][9300]['InexogyAutoReloginLastTs'] = 0;
+$vh->clientStub->failAt = 3;
+$GLOBALS['LOGMSG'] = [];
+$vh->NoteInexogyAuth(true);
+check('54e: scheitert die Anmeldung, bleiben die alten Tokens, ein Fehlversuch wird gezählt, der Bericht sagt warum', $vh->handshakeCalls === 2 && ($GLOBALS['ATTR'][9300]['InexogyToken'] ?? '') === 'tok2' && $vh->ReadAttributeInteger('InexogyAutoReloginFails') === 1 && str_contains($vh->ReadAttributeString('InexogyAutoReloginInfo'), 'Schritt 3/4'), $vh->ReadAttributeString('InexogyAutoReloginInfo'));
+check('54e: auch ein Fehlversuch verrät das Passwort nicht', !str_contains(json_encode([$GLOBALS['LOGMSG'], $GLOBALS['ATTR'][9300]], JSON_UNESCAPED_UNICODE), $PW54));
+check('54f: Wartezeit wächst bei Fehlversuchen (900 s, 1800 s, … Obergrenze 6 h)', (function () use ($cool, $vh) {
+    $out = [];
+    foreach ([0, 1, 2, 5, 9] as $f) { $GLOBALS['ATTR'][9300]['InexogyAutoReloginFails'] = $f; $out[] = $cool->invoke($vh); }
+    $GLOBALS['ATTR'][9300]['InexogyAutoReloginFails'] = 1;
+    return $out === [900, 1800, 3600, 21600, 21600];
+})());
+
+// Tresor nicht lesbar -> kein Netzzugriff, Fehlversuch mit Grund
+$before = $vh->handshakeCalls;
+$GLOBALS['ATTR'][9300]['InexogyAutoReloginLastTs'] = 0;
+$GLOBALS['SEC'][9301] = [];
+$vh->NoteInexogyAuth(true);
+check('54g: Eintrag fehlt im Tresor → kein Anmeldeversuch bei Inexogy, Grund im Bericht', $vh->handshakeCalls === $before && str_contains($vh->ReadAttributeString('InexogyAutoReloginInfo'), 'nicht gefunden'), $vh->ReadAttributeString('InexogyAutoReloginInfo'));
+$GLOBALS['ATTR'][9300]['InexogyAutoReloginLastTs'] = 0;
+$GLOBALS['SEC'][9301]['Inexogy'] = json_encode(['User' => 'a@b.de']);
+$vh->NoteInexogyAuth(true);
+check('54h: Feld fehlt im Eintrag → Bericht nennt die vorhandenen Felder', $vh->handshakeCalls === $before && str_contains($vh->ReadAttributeString('InexogyAutoReloginInfo'), 'fehlt') && str_contains($vh->ReadAttributeString('InexogyAutoReloginInfo'), 'User'), $vh->ReadAttributeString('InexogyAutoReloginInfo'));
+
+// Statuszeile der Tresor-Anbindung, alle Zustände
+$GLOBALS['SEC'][9301]['Inexogy'] = json_encode(['User' => 'a@b.de', 'Pass' => $PW54]);
+$GLOBALS['ATTR'][9300]['InexogyAutoReloginInfo'] = '';
+$l = $secStatus->invoke($vh, 0);
+check('54i: kein Tresor (ℹ️): sagt, was dann gilt', str_starts_with($l, 'ℹ️') && str_contains($l, 'von Hand'), $l);
+$l = $secStatus->invoke($vh, 9999);
+check('54i: Tresor-Instanz gibt es nicht mehr (⚠️)', str_starts_with($l, '⚠️') && str_contains($l, '#9999'), $l);
+$l = $secStatus->invoke($vh, 9301, 'Gibtsnicht');
+check('54i: Eintrag nicht gefunden (⚠️)', str_starts_with($l, '⚠️') && str_contains($l, 'Gibtsnicht'), $l);
+$l = $secStatus->invoke($vh, 9301, 'Inexogy', 'Passwort');
+check('54i: Feld fehlt (⚠️): nennt die vorhandenen Felder', str_starts_with($l, '⚠️') && str_contains($l, 'Pass') && str_contains($l, 'User'), $l);
+$l = $secStatus->invoke($vh, 9301, 'Inexogy', 'Pass');
+check('54i: alles in Ordnung (✅): nennt Tresor, Eintrag, Feld und nur die LÄNGE, nie das Passwort', str_starts_with($l, '✅') && str_contains($l, '14 Zeichen') && str_contains($l, 'Tresor #9301') && !str_contains($l, $PW54), $l);
+$GLOBALS['FORMFIELDS'] = [];
+$vh->OnChangeSecrets(9301, 'Inexogy', 'Pass');
+check('54i: Auswahl im offenen Formular frischt die Zeile auf', str_starts_with($GLOBALS['FORMFIELDS']['SecretsStatusLine']['caption'] ?? '', '✅'));
+
+// Manuelles „Anmelden" nutzt den Tresor, wenn das Passwortfeld leer ist
+$vh->clientStub->failAt = 0;
+$GLOBALS['ATTR'][9300]['InexogyToken'] = 'alt';
+$calls = $vh->handshakeCalls;
+set_error_handler(function () { return true; }); // InexogyLogin() meldet per trigger_error ins Protokoll
+$vh->InexogyLogin();
+restore_error_handler();
+check('54j: „Anmelden" bei leerem Passwortfeld und gewähltem Tresor nutzt das Tresor-Passwort', $vh->handshakeCalls === $calls + 1 && ($GLOBALS['ATTR'][9300]['InexogyToken'] ?? '') === 'tok2' && $vh->clientStub->seen[1] === $PW54);
+
+// Formular: Felder vorhanden, nur bei Cloud-Zählern sichtbar
+$sv = $line50('direct', 'inexogy', 'SecretsStatusLine');
+check('54k: Formular enthält die Tresor-Zeile, bei einem Cloud-Zähler sichtbar', $sv !== null && $sv['visible'] === true && $sv['caption'] !== '', json_encode($sv));
+check('54k: bei einem Modbus-Zähler ausgeblendet', ($line50('direct', 'siemens_pac2200', 'SecretsStatusLine')['visible'] ?? null) === false);
+$fAll = json_decode($hub47->GetConfigurationForm(), true);
+check('54k: Tresor-Auswahl und Feldnamen stehen im Formular', $findEl($fAll['elements'], 'SecretsInstanceID') !== null && $findEl($fAll['elements'], 'SecretsRecord') !== null && $findEl($fAll['elements'], 'SecretsPassField') !== null && $findEl($fAll['elements'], 'SecretsUserField') !== null);
+IPS_SetProperty(9200, 'Meter', 'siemens_pac2200');
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

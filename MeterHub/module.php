@@ -3303,6 +3303,19 @@ class MeterHub extends IPSModule
         // true, solange Inexogy den gespeicherten Zugriffsschlüssel mit HTTP 401
         // ablehnt — nur für die Statuszeile im Formular (InexogyStatusLine()).
         $this->RegisterAttributeBoolean('InexogyAuthRejected', false);
+        // Automatische Neuanmeldung bei abgelehntem Zugriffsschlüssel: Passwort
+        // wird NICHT in MeterHub gespeichert, sondern bei Bedarf aus einem
+        // Tresor (Community-Modul SymconSecrets, SEC_GetSecret) gelesen. Instanz
+        // 0 = aus (dann bleibt es bei der Meldung und dem manuellen Anmelden).
+        $this->RegisterPropertyInteger('SecretsInstanceID', 0);
+        $this->RegisterPropertyString('SecretsRecord', 'Inexogy');
+        $this->RegisterPropertyString('SecretsPassField', 'Pass');
+        $this->RegisterPropertyString('SecretsUserField', 'User');
+        // Zeitpunkt des letzten automatischen Versuchs, Fehlversuche in Folge
+        // (für den wachsenden Abstand) und Kurzbericht des letzten Versuchs.
+        $this->RegisterAttributeInteger('InexogyAutoReloginLastTs', 0);
+        $this->RegisterAttributeInteger('InexogyAutoReloginFails', 0);
+        $this->RegisterAttributeString('InexogyAutoReloginInfo', '');
         // Rechenstand der hochgerechneten Energie (letzter Zeitpunkt + Leistung
         // je Energie-Ident), siehe AdvanceCalculatedEnergy(). Der Zählerstand
         // selbst steckt in der Variable, nicht hier.
@@ -3385,7 +3398,7 @@ class MeterHub extends IPSModule
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
     private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230'];
-    private const NEWS_VERSION = '0.31.8';
+    private const NEWS_VERSION = '0.32.0';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3430,6 +3443,7 @@ class MeterHub extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🗝️ Inexogy: Optionale automatische Neuanmeldung. Wird der Zugriffsschlüssel ungültig, kann MeterHub sich selbst neu anmelden — das Passwort liegt dafür in einem Tresor (Community-Modul „SymconSecrets"), nie in MeterHub. Unter „Cloud-Zugang" den Tresor wählen; die Zeile darunter zeigt, ob das Passwort gefunden wird. Ohne Tresor ändert sich nichts. Auch „Anmelden" kommt dann ohne eingetipptes Passwort aus.'],
                 ['type' => 'Label', 'caption' => '• 🔐 Inexogy: Lehnt Inexogy den gespeicherten Zugriffsschlüssel ab (HTTP 401 — laut Inexogy kann er ungültig werden), sagt die Statuszeile im „Cloud-Zugang" das jetzt klar („⚠️ … neu anmelden") statt eines widersprüchlichen „✅ angemeldet, Abfrage fehlgeschlagen". Dann einmal E-Mail/Passwort eintragen und „Anmelden und Zähler abrufen" klicken; der Nachtrag holt die Lücke danach selbst nach. Die Zählerliste nach der Anmeldung bleibt außerdem stehen, statt beim Übernehmen wieder zu verschwinden.'],
                 ['type' => 'Label', 'caption' => '• 🧭 Richtungsprüfung vergleicht zuerst mit unabhängigen Quellen: Netzmessung des Wechselrichters, dann die PV-Erzeugung (Summe aller PV-Zähler im Verbund, egal wie herum eingestellt). Ein anderer Netzzähler dieses Moduls dient nur noch als Notlösung, mit dem Hinweis, dass eine gemeinsame Verdrehung so nicht auffällt. Die Zeilen tragen jetzt den Instanznamen.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Richtung im Archiv: Nächte mit zu wenig Leistung für eine Aussage (bis 12 h) werden zwischen zwei gegenläufigen Abschnitten mitgedreht, statt stehen zu bleiben. Bei Cloud-Zählern (Inexogy) entfallen Leistungsabgleich und Richtungsprüfung — Leistung und Zählerstände kommen dort zeitversetzt an und ergaben Fehlalarme.'],
@@ -4174,6 +4188,12 @@ class MeterHub extends IPSModule
             ['type' => 'PasswordTextBox', 'name' => 'InexogyPassword', 'visible' => $isCloud, 'caption' => 'Passwort (wird nach der Anmeldung gelöscht)'],
             ['type' => 'Button', 'name' => 'InexogyLoginButton', 'visible' => $isCloud, 'caption' => '🔑  Anmelden und Zähler abrufen', 'onClick' => 'MHUB_InexogyLogin($id);'],
             ['type' => 'Label', 'name' => 'InexogyResult', 'caption' => '', 'visible' => false],
+            ['type' => 'Label', 'name' => 'SecretsIntro', 'visible' => $isCloud, 'caption' => '🗝️ Automatische Neuanmeldung (optional): Wird der Inexogy-Zugriffsschlüssel ungültig, kann MeterHub sich selbst neu anmelden — das Passwort dafür bleibt NICHT in MeterHub, sondern liegt in einem Tresor (Community-Modul „SymconSecrets", Eintrag mit Feldern für E-Mail und Passwort). Ohne Tresor bleibt es beim manuellen Anmelden.'],
+            ['type' => 'SelectInstance', 'name' => 'SecretsInstanceID', 'visible' => $isCloud, 'caption' => 'Tresor (SymconSecrets), leer = aus', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
+            ['type' => 'ValidationTextBox', 'name' => 'SecretsRecord', 'visible' => $isCloud, 'caption' => 'Eintrag im Tresor', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
+            ['type' => 'ValidationTextBox', 'name' => 'SecretsPassField', 'visible' => $isCloud, 'caption' => 'Feld mit dem Passwort', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
+            ['type' => 'ValidationTextBox', 'name' => 'SecretsUserField', 'visible' => $isCloud, 'caption' => 'Feld mit der E-Mail (nur genutzt, wenn oben keine eingetragen ist)'],
+            ['type' => 'Label', 'name' => 'SecretsStatusLine', 'visible' => $isCloud, 'caption' => $isCloud ? $this->SecretsStatusLine() : ''],
             ['type' => 'Select', 'name' => 'InexogyMeterID', 'visible' => $isCloud, 'caption' => 'Zähler-UID', 'options' => $meterOpts],
             ['type' => 'Label', 'name' => 'InexogyHintPoll', 'visible' => $isCloud, 'caption' => 'ℹ️ Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
             ['type' => 'Label', 'name' => 'InexogyHintMigration', 'visible' => $isCloud, 'caption' => '→ Umstieg von einem anderen Discovergy-/Inexogy-Modul mit Übernahme der Messhistorie? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann mit MigrationsHub adoptieren, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene Historie.'],
@@ -4590,7 +4610,7 @@ class MeterHub extends IPSModule
     public function OnChangeMeter(string $meter)
     {
         $isCloud = in_array($meter, self::CLOUD_METERS, true);
-        foreach (['InexogyIntro', 'InexogyStatusLine', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton', 'InexogyHintAutoBackfill', 'InexogyAutoBackfillEnabled', 'InexogyAutoBackfillIntervalMin', 'InexogyAutoBackfillDays', 'InexogyHintCleanup', 'InexogyCleanupDays', 'InexogyCleanupCheck', 'InexogyCleanupRun'] as $f) {
+        foreach (['InexogyIntro', 'InexogyStatusLine', 'SecretsIntro', 'SecretsInstanceID', 'SecretsRecord', 'SecretsPassField', 'SecretsUserField', 'SecretsStatusLine', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton', 'InexogyHintAutoBackfill', 'InexogyAutoBackfillEnabled', 'InexogyAutoBackfillIntervalMin', 'InexogyAutoBackfillDays', 'InexogyHintCleanup', 'InexogyCleanupDays', 'InexogyCleanupCheck', 'InexogyCleanupRun'] as $f) {
             $this->UpdateFormField($f, 'visible', $isCloud);
         }
         if (!$isCloud) {
@@ -4810,14 +4830,225 @@ class MeterHub extends IPSModule
      */
     public function NoteInexogyAuth(bool $rejected)
     {
-        if ($this->ReadAttributeBoolean('InexogyAuthRejected') === $rejected) {
+        if ($this->ReadAttributeBoolean('InexogyAuthRejected') !== $rejected) {
+            $this->WriteAttributeBoolean('InexogyAuthRejected', $rejected);
+            if ($rejected) {
+                IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — '
+                    . ($this->SecretsConfigured() ? 'automatische Neuanmeldung aus dem Tresor wird versucht.' : 'im Instanzformular unter „Cloud-Zugang" neu anmelden.'));
+            }
+            $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
+        }
+        // Bei jeder weiter abgelehnten Abfrage erneut prüfen — MaybeAutoRelogin()
+        // hält selbst den Abstand zwischen zwei Versuchen ein.
+        if ($rejected) {
+            $this->MaybeAutoRelogin();
+        }
+    }
+
+    /** Ist ein Tresor (Instanz) für die automatische Neuanmeldung gewählt? */
+    private function SecretsConfigured(): bool
+    {
+        return $this->ReadPropertyInteger('SecretsInstanceID') > 0;
+    }
+
+    /**
+     * Liest ein Feld aus dem Tresor (SymconSecrets). Der Tresor liefert für einen
+     * Eintrag ein JSON-Objekt aller Felder (`SEC_GetSecret($id, 'Inexogy')` →
+     * {"User":…,"Pass":…}) — live bei Dietmar so gemessen, der in der README
+     * genannte Feldpfad `Eintrag/Feld` lieferte dort nichts. Deshalb den ganzen
+     * Eintrag lesen und das Feld selbst herausziehen; ist die Antwort kein JSON,
+     * zählt sie als der Wert selbst (Eintrag direkt auf ein Blatt gerichtet).
+     * Rückgabe [Wert|null, Fehlertext]. Der Wert wird nie protokolliert.
+     */
+    private function ReadSecretField(string $field): array
+    {
+        $id = $this->ReadPropertyInteger('SecretsInstanceID');
+        if ($id <= 0) {
+            return [null, 'kein Tresor gewählt'];
+        }
+        if (!function_exists('SEC_GetSecret')) {
+            return [null, 'das Tresor-Modul (SymconSecrets) ist nicht geladen'];
+        }
+        if (!IPS_InstanceExists($id)) {
+            return [null, 'die gewählte Tresor-Instanz #' . $id . ' gibt es nicht mehr'];
+        }
+        $record = trim($this->ReadPropertyString('SecretsRecord'));
+        if ($record === '' || $field === '') {
+            return [null, 'Eintrag oder Feldname nicht angegeben'];
+        }
+        try {
+            $raw = @SEC_GetSecret($id, $record);
+        } catch (\Throwable $e) {
+            return [null, 'Tresor nicht lesbar'];
+        }
+        if ($raw === false || $raw === null || $raw === '') {
+            return [null, 'Eintrag „' . $record . '" im Tresor nicht gefunden'];
+        }
+        $j = json_decode((string)$raw, true);
+        if (is_array($j)) {
+            $v = $j[$field] ?? null;
+            if (!is_string($v) && !is_numeric($v)) {
+                return [null, 'Feld „' . $field . '" fehlt im Eintrag „' . $record . '" (vorhanden: ' . implode(', ', array_map('strval', array_keys($j))) . ')'];
+            }
+            $v = (string)$v;
+            return $v === '' ? [null, 'Feld „' . $field . '" ist leer'] : [$v, ''];
+        }
+        return [(string)$raw, ''];
+    }
+
+    /** Wie viele Sekunden mindestens zwischen zwei automatischen Anmeldeversuchen liegen (wächst bei Fehlversuchen, Obergrenze 6 h). */
+    private function AutoReloginCooldown(): int
+    {
+        $fails = max(0, $this->ReadAttributeInteger('InexogyAutoReloginFails'));
+        return (int)min(21600, 900 * (2 ** min($fails, 5)));
+    }
+
+    /**
+     * Meldet sich bei abgelehntem Zugriffsschlüssel selbst neu an, wenn ein
+     * Tresor gewählt ist. Abstand: mindestens 15 Minuten, nach Fehlversuchen
+     * länger (Obergrenze 6 h) — ein falsches Passwort soll das Inexogy-Konto
+     * nicht mit Anmeldeversuchen überhäufen. E-Mail aus der Instanz, ersatzweise
+     * aus dem Tresor; das Passwort liegt nur für die Dauer der Anmeldung im
+     * Arbeitsspeicher und taucht in keinem Protokoll und keinem Attribut auf.
+     */
+    private function MaybeAutoRelogin(): void
+    {
+        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true) || !$this->SecretsConfigured()) {
             return;
         }
-        $this->WriteAttributeBoolean('InexogyAuthRejected', $rejected);
-        if ($rejected) {
-            IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — im Instanzformular unter „Cloud-Zugang" neu anmelden.');
+        if ((time() - $this->ReadAttributeInteger('InexogyAutoReloginLastTs')) < $this->AutoReloginCooldown()) {
+            return;
         }
+        // Vor dem Versuch merken (nicht danach): ein Absturz mitten drin darf
+        // nicht zu Sofort-Wiederholungen führen.
+        $this->WriteAttributeInteger('InexogyAutoReloginLastTs', time());
+        $stamp = date('d.m.Y H:i');
+        $fail = function (string $why) use ($stamp): void {
+            $this->WriteAttributeInteger('InexogyAutoReloginFails', $this->ReadAttributeInteger('InexogyAutoReloginFails') + 1);
+            $this->WriteAttributeString('InexogyAutoReloginInfo', $stamp . ' — fehlgeschlagen: ' . $why);
+            IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': automatische Inexogy-Neuanmeldung fehlgeschlagen — ' . $why);
+            $this->UpdateFormField('SecretsStatusLine', 'caption', $this->SecretsStatusLine());
+        };
+        [$pass, $err] = $this->ReadSecretField(trim($this->ReadPropertyString('SecretsPassField')));
+        if ($pass === null) {
+            $fail('Passwort nicht lesbar (' . $err . ')');
+            return;
+        }
+        $email = trim($this->ReadPropertyString('InexogyEmail'));
+        if ($email === '') {
+            [$mail, ] = $this->ReadSecretField(trim($this->ReadPropertyString('SecretsUserField')));
+            $email = (string)$mail;
+        }
+        if ($email === '') {
+            $fail('keine E-Mail-Adresse (weder in der Instanz noch im Tresor)');
+            return;
+        }
+        $c = $this->InexogyHandshake($email, $pass, $why);
+        $pass = '';
+        if ($c === null) {
+            $fail($why);
+            return;
+        }
+        $this->StoreInexogyTokens($c);
+        $this->WriteAttributeInteger('InexogyAutoReloginFails', 0);
+        $this->WriteAttributeString('InexogyAutoReloginInfo', $stamp . ' — erfolgreich neu angemeldet');
+        IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': automatisch bei Inexogy neu angemeldet (Zugriffsschlüssel aus dem Tresor erneuert).');
         $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
+        $this->UpdateFormField('SecretsStatusLine', 'caption', $this->SecretsStatusLine());
+    }
+
+    /** Statuszeile zur Tresor-Anbindung (SUITE.md: je Verbindung eine live berechnete Zeile). */
+    private function SecretsStatusLine(?int $instanceId = null, ?string $record = null, ?string $passField = null): string
+    {
+        $id = $instanceId ?? $this->ReadPropertyInteger('SecretsInstanceID');
+        if ($id <= 0) {
+            return 'ℹ️ Automatische Neuanmeldung aus: kein Tresor gewählt — lehnt Inexogy den Zugriffsschlüssel ab, meldest du dich von Hand neu an („Anmelden und Zähler abrufen").';
+        }
+        if (!function_exists('SEC_GetSecret')) {
+            return '⚠️ Tresor #' . $id . ' gewählt, aber das Tresor-Modul (SymconSecrets) ist nicht geladen — in der Modulverwaltung installieren. Bis dahin: manuell anmelden.';
+        }
+        if (!IPS_InstanceExists($id)) {
+            return '⚠️ Die gewählte Tresor-Instanz #' . $id . ' gibt es nicht mehr — neu wählen.';
+        }
+        // Eingabe aus dem offenen Formular (noch ungespeichert) hat Vorrang vor dem Speicherstand.
+        $rec = trim($record ?? $this->ReadPropertyString('SecretsRecord'));
+        $fld = trim($passField ?? $this->ReadPropertyString('SecretsPassField'));
+        $name = '#' . $id . ' „' . IPS_GetName($id) . '"';
+        try {
+            $raw = @SEC_GetSecret($id, $rec);
+        } catch (\Throwable $e) {
+            $raw = null;
+        }
+        $j = ($raw === false || $raw === null || $raw === '') ? null : json_decode((string)$raw, true);
+        if ($raw === false || $raw === null || $raw === '') {
+            return '⚠️ Tresor ' . $name . ': Eintrag „' . $rec . '" nicht gefunden — Name im Tresor prüfen.';
+        }
+        if (is_array($j)) {
+            $v = $j[$fld] ?? null;
+            if (!is_string($v) && !is_numeric($v)) {
+                return '⚠️ Tresor ' . $name . ': Eintrag „' . $rec . '" hat kein Feld „' . $fld . '" (vorhanden: ' . implode(', ', array_map('strval', array_keys($j))) . ').';
+            }
+            $len = strlen((string)$v);
+        } else {
+            $len = strlen((string)$raw);
+        }
+        if ($len === 0) {
+            return '⚠️ Tresor ' . $name . ': Feld „' . $fld . '" im Eintrag „' . $rec . '" ist leer.';
+        }
+        $info = $this->ReadAttributeString('InexogyAutoReloginInfo');
+        return '✅ Tresor ' . $name . ': Passwort gefunden (Eintrag „' . $rec . '", Feld „' . $fld . '", ' . $len . ' Zeichen, nur Länge gezeigt) — bei abgelehntem Zugriffsschlüssel meldet sich MeterHub automatisch neu an (frühestens alle 15 Minuten).'
+            . ($info !== '' ? ' Letzter Versuch: ' . $info . '.' : '');
+    }
+
+    /** Wird beim Ändern der Tresor-Felder im offenen Formular aufgerufen — die Zeile folgt der Eingabe, nicht dem Speicherstand. */
+    public function OnChangeSecrets(int $instanceId, string $record, string $passField)
+    {
+        $this->UpdateFormField('SecretsStatusLine', 'caption', $this->SecretsStatusLine($instanceId, $record, $passField));
+    }
+
+    /** Factory für den Inexogy-Client des Handshakes (in Prüfständen ersetzbar, damit kein Netzzugriff nötig ist). */
+    protected function NewInexogyClient()
+    {
+        return new MHUB_InexogyClient();
+    }
+
+    /**
+     * Die vier Handshake-Schritte. Rückgabe: der Client mit gültigen Tokens
+     * oder null; $why trägt dann den deutschen Fehltext (mit Schritt-Nummer).
+     * E-Mail und Passwort werden nur durchgereicht, nie gespeichert oder protokolliert.
+     */
+    private function InexogyHandshake(string $email, string $pass, ?string &$why)
+    {
+        $why = null;
+        $c = $this->NewInexogyClient();
+        if (!$c->registerConsumer('IP-Symcon MeterHub ' . $this->InstanceID)) {
+            $why = 'Anmeldung fehlgeschlagen bei der Registrierung (Schritt 1/4). Ist die Inexogy-API erreichbar? (' . $c->getLastError() . ')';
+            return null;
+        }
+        if (!$c->fetchRequestToken()) {
+            $why = 'Anmeldung fehlgeschlagen beim Anforderungs-Token (Schritt 2/4). (' . $c->getLastError() . ')';
+            return null;
+        }
+        $verifier = $c->authorize($email, $pass);
+        if ($verifier === '') {
+            $why = 'Anmeldung fehlgeschlagen bei der Autorisierung (Schritt 3/4). E-Mail oder Passwort falsch? (' . $c->getLastError() . ')';
+            return null;
+        }
+        if (!$c->fetchAccessToken($verifier)) {
+            $why = 'Anmeldung fehlgeschlagen beim Zugriffs-Token (Schritt 4/4). (' . $c->getLastError() . ')';
+            return null;
+        }
+        return $c;
+    }
+
+    /** Tokens eines erfolgreichen Handshakes sichern (Attribute, kein ApplyChanges nötig) und „abgelehnt" zurücknehmen. */
+    private function StoreInexogyTokens($c): void
+    {
+        $this->WriteAttributeString('InexogyConsumerKey',    $c->getConsumerKey());
+        $this->WriteAttributeString('InexogyConsumerSecret', $c->getConsumerSecret());
+        $this->WriteAttributeString('InexogyToken',          $c->getToken());
+        $this->WriteAttributeString('InexogyTokenSecret',    $c->getTokenSecret());
+        $this->WriteAttributeBoolean('InexogyAuthRejected', false);
     }
 
     /** Inexogy (Cloud): angemeldet? Zähler-UID? letzte Abfrage? aktueller Wert samt Quelle. */
@@ -4988,36 +5219,35 @@ class MeterHub extends IPSModule
         };
         $email = trim($this->ReadPropertyString('InexogyEmail'));
         $pass  = (string)$this->ReadPropertyString('InexogyPassword');
+        // Ist ein Tresor gewählt, genügt dort das Passwort — Feld hier leer lassen.
+        $fromVault = false;
+        if ($pass === '' && $this->SecretsConfigured()) {
+            [$vp, ] = $this->ReadSecretField(trim($this->ReadPropertyString('SecretsPassField')));
+            if ($vp !== null) {
+                $pass = $vp;
+                $fromVault = true;
+            }
+        }
+        if ($email === '' && $fromVault) {
+            [$vm, ] = $this->ReadSecretField(trim($this->ReadPropertyString('SecretsUserField')));
+            $email = (string)$vm;
+        }
         if ($email === '' || $pass === '') {
-            $say('❌ Bitte zuerst E-Mail und Passwort eintragen und übernehmen, dann anmelden.');
+            $say('❌ Bitte zuerst E-Mail und Passwort eintragen und übernehmen, dann anmelden — oder ein Passwort im Tresor hinterlegen und den Tresor unten wählen.');
             return;
         }
 
-        $c = new MHUB_InexogyClient();
-        if (!$c->registerConsumer('IP-Symcon MeterHub ' . $this->InstanceID)) {
-            $say('❌ Anmeldung fehlgeschlagen bei der Registrierung (Schritt 1/4). Ist die Inexogy-API erreichbar? (' . $c->getLastError() . ')');
-            return;
-        }
-        if (!$c->fetchRequestToken()) {
-            $say('❌ Anmeldung fehlgeschlagen beim Anforderungs-Token (Schritt 2/4). (' . $c->getLastError() . ')');
-            return;
-        }
-        $verifier = $c->authorize($email, $pass);
-        if ($verifier === '') {
-            $say('❌ Anmeldung fehlgeschlagen bei der Autorisierung (Schritt 3/4). E-Mail oder Passwort falsch? (' . $c->getLastError() . ')');
-            return;
-        }
-        if (!$c->fetchAccessToken($verifier)) {
-            $say('❌ Anmeldung fehlgeschlagen beim Zugriffs-Token (Schritt 4/4). (' . $c->getLastError() . ')');
+        $c = $this->InexogyHandshake($email, $pass, $why);
+        $pass = '';
+        if ($c === null) {
+            $say('❌ ' . $why);
             return;
         }
 
         // Erfolg: Tokens sichern (Attribute, unproblematisch — kein ApplyChanges nötig).
-        $this->WriteAttributeString('InexogyConsumerKey',    $c->getConsumerKey());
-        $this->WriteAttributeString('InexogyConsumerSecret', $c->getConsumerSecret());
-        $this->WriteAttributeString('InexogyToken',          $c->getToken());
-        $this->WriteAttributeString('InexogyTokenSecret',    $c->getTokenSecret());
-        $this->WriteAttributeBoolean('InexogyAuthRejected', false);
+        $this->StoreInexogyTokens($c);
+        // Eine von Hand geglückte Anmeldung beendet auch die Wartezeit der automatischen Versuche.
+        $this->WriteAttributeInteger('InexogyAutoReloginFails', 0);
 
         $meters = $c->getMeters();
         $opts = [];
@@ -5046,8 +5276,10 @@ class MeterHub extends IPSModule
         // ohnehin korrekt (beide werden in GetConfigurationForm() frisch aus
         // Property/Attribut berechnet) — eigene UpdateFormField()-Aufrufe dafür
         // wären wirkungslose Last, siehe Funktionskommentar.
-        IPS_SetProperty($this->InstanceID, 'InexogyPassword', '');
-        IPS_ApplyChanges($this->InstanceID);
+        if ($this->ReadPropertyString('InexogyPassword') !== '') {
+            IPS_SetProperty($this->InstanceID, 'InexogyPassword', '');
+            IPS_ApplyChanges($this->InstanceID);
+        }
     }
 
     /**
