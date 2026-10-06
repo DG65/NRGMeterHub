@@ -17,6 +17,11 @@
     wählen). Eine ausdrückliche Auswahl gewinnt immer und wird nicht still durch einen anderen
     Tresor ersetzt. Die Checkbox „Tresor für die automatische Neuanmeldung nutzen, wenn vorhanden"
     (Standard an) schaltet es ganz ab.
+  - **Hinweis auf die Tresor-Möglichkeit, wo sie nützt:** Lehnt Inexogy den Schlüssel ab und ist
+    kein Tresor in Benutzung, steht in der 401-Zeile (und im Systemprotokoll) ein Tipp mit dem
+    Verweis auf „SymconSecrets" und den Abschnitt „Automatische Neuanmeldung". Ist ein Tresor in
+    Benutzung, nennt die Zeile stattdessen den Stand der automatischen Neuanmeldung. Hat man die
+    Tresor-Nutzung bewusst abgeschaltet, wird nicht weiter geworben.
   - **Passwort nie in MeterHub:** nur für die Dauer der Anmeldung im Arbeitsspeicher, in keinem
     Protokoll, Attribut oder Formularfeld (Prüfstand 54c/54e, mit Gegenprobe: ein absichtlich
     eingebautes Leck wird gefunden).

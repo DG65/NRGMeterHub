@@ -4838,7 +4838,7 @@ class MeterHub extends IPSModule
             $this->WriteAttributeBoolean('InexogyAuthRejected', $rejected);
             if ($rejected) {
                 IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — '
-                    . ($this->SecretsConfigured() ? 'automatische Neuanmeldung aus dem Tresor wird versucht.' : 'im Instanzformular unter „Cloud-Zugang" neu anmelden.'));
+                    . ($this->SecretsConfigured() ? 'automatische Neuanmeldung aus dem Tresor wird versucht.' : 'im Instanzformular unter „Cloud-Zugang" neu anmelden.' . $this->SecretsTip()));
             }
             $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
         }
@@ -5044,6 +5044,26 @@ class MeterHub extends IPSModule
         $this->UpdateFormField('SecretsStatusLine', 'caption', $this->SecretsStatusLine());
     }
 
+    /**
+     * Hinweis auf die Tresor-Möglichkeit, wo sie gerade nützt (abgelehnter Zugriffsschlüssel, kein
+     * Tresor in Benutzung). Leer, wenn der Nutzer die Tresor-Nutzung bewusst abgeschaltet hat —
+     * dann wird nicht weiter geworben.
+     */
+    private function SecretsTip(): string
+    {
+        if (!$this->ReadPropertyBoolean('SecretsEnabled')) {
+            return '';
+        }
+        return ' Tipp: Mit einem Tresor (Community-Modul „SymconSecrets") meldet sich MeterHub künftig selbst neu an — das Passwort bleibt dabei außerhalb von MeterHub; Einrichtung unter „Automatische Neuanmeldung" weiter unten.';
+    }
+
+    /** Stand der automatischen Neuanmeldung für die 401-Zeile, wenn ein Tresor in Benutzung ist. */
+    private function AutoReloginHint(): string
+    {
+        $info = $this->ReadAttributeString('InexogyAutoReloginInfo');
+        return ' Die automatische Neuanmeldung aus dem Tresor läuft (frühestens alle 15 Minuten)' . ($info !== '' ? ' — letzter Versuch: ' . $info : '') . '.';
+    }
+
     /** Statuszeile zur Tresor-Anbindung (SUITE.md: je Verbindung eine live berechnete Zeile). */
     private function SecretsStatusLine(?bool $enabled = null, ?int $instanceId = null, ?string $record = null, ?string $passField = null): string
     {
@@ -5165,7 +5185,7 @@ class MeterHub extends IPSModule
             return '⚠️ Bei Inexogy angemeldet (Zugriffsschlüssel gespeichert), aber noch keine Zähler-UID gewählt — Zähler unten auswählen und übernehmen.';
         }
         if ($this->ReadAttributeBoolean('InexogyAuthRejected')) {
-            return '⚠️ Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — laut Inexogy-Dokumentation kann er ungültig werden, dann muss die Anmeldung wiederholt werden. E-Mail und Passwort unten eintragen, „Änderungen übernehmen", dann „Anmelden und Zähler abrufen". Bis dahin liest diese Instanz nichts (Zähler-UID ' . $uid . ' bleibt gespeichert).';
+            return '⚠️ Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — laut Inexogy-Dokumentation kann er ungültig werden, dann muss die Anmeldung wiederholt werden. E-Mail und Passwort unten eintragen, „Änderungen übernehmen", dann „Anmelden und Zähler abrufen". Bis dahin liest diese Instanz nichts (Zähler-UID ' . $uid . ' bleibt gespeichert).' . ($this->SecretsConfigured() ? $this->AutoReloginHint() : $this->SecretsTip());
         }
         $inst = function_exists('IPS_GetInstance') ? @IPS_GetInstance($this->InstanceID) : [];
         $status = (int)($inst['InstanceStatus'] ?? 0);

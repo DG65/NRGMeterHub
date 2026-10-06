@@ -2343,6 +2343,20 @@ check('50b3: Abfrage fehlgeschlagen ohne 401 ist jetzt ⚠️ statt ✅ (kein Wi
 $GLOBALS['ATTR'][9200]['InexogyAuthRejected'] = true;
 $i = $line50('direct', 'inexogy', 'InexogyStatusLine');
 check('50b3: 401 → ⚠️ mit klarem Satz und Handlungsweg (neu anmelden), UID bleibt erhalten', str_starts_with($i['caption'] ?? '', '⚠️') && str_contains($i['caption'], 'HTTP 401') && str_contains($i['caption'], 'Anmelden und Zähler abrufen') && str_contains($i['caption'], 'abc123') && !str_contains($i['caption'], 'Zugang, Zähler-UID und Internetverbindung prüfen'), json_encode($i));
+$GLOBALS['ATTR'][9200]['InexogyAuthRejected'] = true;
+$i = $line50('direct', 'inexogy', 'InexogyStatusLine');
+check('50b3: bei 401 ohne Tresor weist die Zeile auf die Tresor-Möglichkeit hin (Tipp, SymconSecrets, wo einrichten)', str_contains($i['caption'] ?? '', 'Tipp') && str_contains($i['caption'], 'SymconSecrets') && str_contains($i['caption'], 'Automatische Neuanmeldung'), json_encode($i));
+IPS_SetProperty(9200, 'SecretsEnabled', false);
+$i = $line50('direct', 'inexogy', 'InexogyStatusLine');
+check('50b3: bewusst abgeschaltete Tresor-Nutzung → kein Werben mehr, aber weiter der klare 401-Satz', !str_contains($i['caption'] ?? '', 'Tipp') && str_contains($i['caption'], 'HTTP 401'), json_encode($i));
+IPS_SetProperty(9200, 'SecretsEnabled', true);
+IPS_SetProperty(9200, 'SecretsInstanceID', 9301);
+$GLOBALS['INSTMOD'][9301] = '{TEST-SECRETS}';
+$GLOBALS['ATTR'][9200]['InexogyAutoReloginInfo'] = '06.10.2026 12:00 — fehlgeschlagen: Passwort nicht lesbar';
+$i = $line50('direct', 'inexogy', 'InexogyStatusLine');
+check('50b3: mit Tresor in Benutzung nennt die 401-Zeile stattdessen den Stand der automatischen Neuanmeldung', str_contains($i['caption'] ?? '', 'läuft') && str_contains($i['caption'], 'fehlgeschlagen: Passwort nicht lesbar') && !str_contains($i['caption'], 'Tipp'), json_encode($i));
+unset($GLOBALS['INSTMOD'][9301], $GLOBALS['ATTR'][9200]['InexogyAutoReloginInfo']);
+IPS_SetProperty(9200, 'SecretsInstanceID', 0);
 $GLOBALS['ATTR'][9200]['InexogyAuthRejected'] = false;
 $GLOBALS['INSTSTATUS'][9200] = 102;
 // NoteInexogyAuth(): schreibt nur bei Wechsel, protokolliert den Wechsel auf "abgelehnt"
