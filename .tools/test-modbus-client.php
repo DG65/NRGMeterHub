@@ -201,7 +201,14 @@ $w = $gw->writeHolding(300, [0xFFFF, 0x8001]);
 check('writeHolding: Function 16 gesendet', $calls[2]['Function'] === 16 && $calls[2]['Address'] === 300 && $calls[2]['Quantity'] === 2);
 check('writeHolding: "Data" ist gueltiges JSON trotz nicht-UTF8-Registerwerten (base64)', $calls[2]['Data'] === base64_encode(pack('n', 0xFFFF) . pack('n', 0x8001)), $calls[2]['Data']);
 check('writeHolding: liefert true bei Erfolg', $w === true);
-check('writeHolding: genau EIN Warnhinweis (ungetestete Ableitung) trotz mehrerer Aufrufe', count($GLOBALS['LOG']) === 1, (string)count($GLOBALS['LOG']));
+// Store-Review 12.10.2026: Bibliotheksklassen dürfen nicht per IPS_LogMessage() protokollieren —
+// der Hinweis wird stattdessen an die Modulklasse zurückgereicht (takeNotices()), die ihn per
+// $this->LogMessage() schreibt.
+check('writeHolding: schreibt NICHT mehr per IPS_LogMessage()', count($GLOBALS['LOG']) === 0, (string)count($GLOBALS['LOG']));
+$gw->writeHolding(301, [1]);
+$notices = $gw->takeNotices();
+check('writeHolding: genau EIN Warnhinweis (ungetestete Ableitung) trotz mehrerer Aufrufe, per takeNotices() abholbar', count($notices) === 1 && str_contains($notices[0], 'ungetestete Ableitung'), json_encode($notices));
+check('takeNotices() leert die Liste (zweites Abholen: nichts)', $gw->takeNotices() === []);
 $fakeFail = function (string $json) { return false; };
 $gwFail = new MHUB_ModbusGatewayClient(1, $fakeFail);
 check('Verbindungsfehler (false von SendDataToParent) liefert null, kein Fatal Error', $gwFail->readHolding(1, 1) === null);

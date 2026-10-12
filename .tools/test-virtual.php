@@ -102,7 +102,7 @@ function IPS_CreateVariable($t) {
 }
 function IPS_SetVariableCustomProfile($id, $p) { $GLOBALS['VAR'][$id]['VariableCustomProfile'] = $p; }
 function IPS_DeleteVariable($id) { unset($GLOBALS['OBJ'][$id], $GLOBALS['VAR'][$id]); }
-function IPS_LogMessage($sender, $msg) { $GLOBALS['LOGMSG'][] = $msg; }
+foreach (['KL_MESSAGE' => 101, 'KL_WARNING' => 104, 'KL_ERROR' => 103, 'KL_NOTIFY' => 102, 'KL_DEBUG' => 100, 'KL_CUSTOM' => 105] as $c => $v) { if (!defined($c)) { define($c, $v); } }
 function IPS_CreateCategory() { $id = $GLOBALS['NEXTID']++; obj($id, 0, 'neu', 0); return $id; }
 // Echte, zustandsbehaftete Profil-Registry (statt fixer Whitelist) — nötig,
 // um zu verifizieren, dass ensureSharedProfile() ein bereits vorhandenes
@@ -222,6 +222,7 @@ class IPSModule
     protected function EnableAction($ident) { $GLOBALS['ENABLED_ACTIONS'][$this->InstanceID][$ident] = true; }
     protected function SendDebug($sender, $msg, $format) {}
     public function UpdateFormField($f, $p, $v) { $GLOBALS['FORMFIELDS'][$f][$p] = $v; }
+    public function LogMessage($m, $type) { $GLOBALS['LOGMSG'][] = $m; }
     protected function ReloadForm() {}
     protected function RegisterAttributeString($n, $v) { $this->defs['@' . $n] = $v; }
     public function ReadAttributeString($n)  { return (string)($GLOBALS['ATTR'][$this->InstanceID][$n] ?? $this->defs['@' . $n] ?? ''); }
@@ -2554,7 +2555,7 @@ $GLOBALS['LOGMSG'] = [];
 $vh->NoteInexogyAuth(true);
 check('54b: mit Tresor wird bei 401 genau einmal neu angemeldet, E-Mail ersatzweise aus dem Tresor', $vh->handshakeCalls === 1 && $vh->clientStub->seen === ['a@b.de', $PW54], json_encode([$vh->handshakeCalls, $vh->clientStub->seen === ['a@b.de', $PW54]]));
 check('54b: neue Tokens gespeichert, „abgelehnt" zurückgenommen, Fehlversuche 0, Zeitpunkt gemerkt', ($GLOBALS['ATTR'][9300]['InexogyToken'] ?? '') === 'tok2' && ($GLOBALS['ATTR'][9300]['InexogyTokenSecret'] ?? '') === 'ts2' && ($GLOBALS['ATTR'][9300]['InexogyAuthRejected'] ?? null) === false && $vh->ReadAttributeInteger('InexogyAutoReloginFails') === 0 && $vh->ReadAttributeInteger('InexogyAutoReloginLastTs') > 0);
-check('54b: Kurzbericht „erfolgreich", Protokollzeile ohne Passwort', str_contains($vh->ReadAttributeString('InexogyAutoReloginInfo'), 'erfolgreich') && count(array_filter($GLOBALS['LOGMSG'], fn($m) => str_contains($m, 'automatisch bei Inexogy neu angemeldet'))) === 1);
+check('54b: Kurzbericht „erfolgreich", Protokollzeile ohne Passwort', str_contains($vh->ReadAttributeString('InexogyAutoReloginInfo'), 'erfolgreich') && count(array_filter($GLOBALS['LOGMSG'], fn($m) => str_contains($m, 'Automatisch bei Inexogy neu angemeldet'))) === 1);
 $leak = json_encode([$GLOBALS['LOGMSG'], $GLOBALS['ATTR'][9300], $GLOBALS['FORMFIELDS']], JSON_UNESCAPED_UNICODE);
 check('54c: das Passwort taucht in keinem Protokoll, Attribut oder Formularfeld auf', !str_contains($leak, $PW54));
 
@@ -2666,6 +2667,16 @@ check('54k: bei einem Modbus-Zähler ausgeblendet', ($line50('direct', 'siemens_
 $fAll = json_decode($hub47->GetConfigurationForm(), true);
 check('54k: Tresor-Auswahl und Feldnamen stehen im Formular', $findEl($fAll['elements'], 'SecretsInstanceID') !== null && $findEl($fAll['elements'], 'SecretsRecord') !== null && $findEl($fAll['elements'], 'SecretsPassField') !== null && $findEl($fAll['elements'], 'SecretsUserField') !== null);
 IPS_SetProperty(9200, 'Meter', 'siemens_pac2200');
+
+echo "\n55) Logging nur über \$this->LogMessage() (Symcon-Store-Review 12.10.2026, SUITE.md Punkt 15)\n";
+foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge'] as $mod55) {
+    $src55 = file_get_contents(dirname(__DIR__) . "/$mod55/module.php");
+    check("55: $mod55/module.php enthält kein IPS_LogMessage(", strpos($src55, 'IPS_LogMessage(') === false);
+}
+$src55 = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
+$withType55 = preg_match_all('/->LogMessage\((?:(?!->LogMessage\().)*?KL_(?:WARNING|ERROR|NOTIFY|MESSAGE|DEBUG|CUSTOM)\);/s', $src55);
+$all55 = substr_count($src55, '->LogMessage(');
+check('55: jeder LogMessage()-Aufruf trägt eine KL_*-Konstante als Typ (kein nacktes Zahlenliteral)', $all55 >= 9 && $withType55 === $all55, "$withType55 von $all55");
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

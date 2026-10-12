@@ -357,6 +357,16 @@ class MHUB_ModbusGatewayClient implements MHUB_ModbusClientInterface
     private $sendFn;
 
     private static $writeWarned = false;
+    /** Hinweise für die Modulklasse (Store-Review 12.10.2026: Bibliotheksklassen haben kein $this->LogMessage) — abgeholt per takeNotices(). */
+    private $notices = [];
+
+    /** Liefert die seit dem letzten Abholen aufgelaufenen Hinweise und leert die Liste. */
+    public function takeNotices(): array
+    {
+        $n = $this->notices;
+        $this->notices = [];
+        return $n;
+    }
 
     public function __construct($unitId, callable $sendFn)
     {
@@ -414,7 +424,7 @@ class MHUB_ModbusGatewayClient implements MHUB_ModbusClientInterface
     {
         if (!self::$writeWarned) {
             self::$writeWarned = true;
-            IPS_LogMessage('MeterHub', 'Symbox-Gateway: Schreibzugriff (Function 16) ist eine ungetestete Ableitung aus dem verifizierten Lese-Schema, SUITE.md 9j — unbedingt an echter Hardware prüfen, bevor ein Sollwert-Zählertyp produktiv über diesen Verbindungsweg läuft.');
+            $this->notices[] = 'Symbox-Gateway: Schreibzugriff (Function 16) ist eine ungetestete Ableitung aus dem verifizierten Lese-Schema, SUITE.md 9j — unbedingt an echter Hardware prüfen, bevor ein Sollwert-Zählertyp produktiv über diesen Verbindungsweg läuft.';
         }
         $payload = '';
         foreach ($regs as $r) {
@@ -3749,6 +3759,7 @@ class MeterHub extends IPSModule
         // Gültigkeitszeit am blue'Log).
         if ($driver instanceof MHUB_WritableMeterDriverInterface) {
             $driver->writeSetpoint($mb, $this);
+            $this->FlushTransportNotices($mb);
         }
         if ($ok && $driver instanceof MHUB_CalculatedEnergyDriverInterface) {
             $this->AdvanceCalculatedEnergy($driver->calculatedEnergy());
@@ -3760,6 +3771,16 @@ class MeterHub extends IPSModule
         }
         $this->SetStatus($ok ? 102 : 201);
         $this->UpdateMirrors();
+    }
+
+    /** Hinweise der Transportklasse (Bibliotheksklasse ohne eigenes LogMessage) ins Protokoll dieser Instanz übernehmen. */
+    private function FlushTransportNotices($mb): void
+    {
+        if (is_object($mb) && method_exists($mb, 'takeNotices')) {
+            foreach ($mb->takeNotices() as $n) {
+                $this->LogMessage((string)$n, KL_WARNING);
+            }
+        }
     }
 
     public function ReadSlow()
@@ -3949,7 +3970,9 @@ class MeterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('Active')) {
             return '⚠️ Zielwert gespeichert, Instanz ist aber inaktiv — es wird nicht geschrieben.';
         }
-        $driver->writeSetpoint($this->GetTransport(), $this);
+        $mb = $this->GetTransport();
+        $driver->writeSetpoint($mb, $this);
+        $this->FlushTransportNotices($mb);
         return '✅ Zielwert ' . $value . ' (' . ($this->SetpointMode() === 'abs' ? 'W' : '%') . ') gesetzt und sofort geschrieben.';
     }
 
@@ -4837,8 +4860,8 @@ class MeterHub extends IPSModule
         if ($this->ReadAttributeBoolean('InexogyAuthRejected') !== $rejected) {
             $this->WriteAttributeBoolean('InexogyAuthRejected', $rejected);
             if ($rejected) {
-                IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — '
-                    . ($this->SecretsConfigured() ? 'automatische Neuanmeldung aus dem Tresor wird versucht.' : 'im Instanzformular unter „Cloud-Zugang" neu anmelden.' . $this->SecretsTip()));
+                $this->LogMessage('Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — '
+                    . ($this->SecretsConfigured() ? 'automatische Neuanmeldung aus dem Tresor wird versucht.' : 'im Instanzformular unter „Cloud-Zugang" neu anmelden.' . $this->SecretsTip()), KL_WARNING);
             }
             $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
         }
@@ -5013,7 +5036,7 @@ class MeterHub extends IPSModule
         $fail = function (string $why) use ($stamp): void {
             $this->WriteAttributeInteger('InexogyAutoReloginFails', $this->ReadAttributeInteger('InexogyAutoReloginFails') + 1);
             $this->WriteAttributeString('InexogyAutoReloginInfo', $stamp . ' — fehlgeschlagen: ' . $why);
-            IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': automatische Inexogy-Neuanmeldung fehlgeschlagen — ' . $why);
+            $this->LogMessage('Automatische Inexogy-Neuanmeldung fehlgeschlagen — ' . $why, KL_WARNING);
             $this->UpdateFormField('SecretsStatusLine', 'caption', $this->SecretsStatusLine());
         };
         [$pass, $err] = $this->ReadSecretField(trim($this->ReadPropertyString('SecretsPassField')));
@@ -5039,7 +5062,7 @@ class MeterHub extends IPSModule
         $this->StoreInexogyTokens($c);
         $this->WriteAttributeInteger('InexogyAutoReloginFails', 0);
         $this->WriteAttributeString('InexogyAutoReloginInfo', $stamp . ' — erfolgreich neu angemeldet');
-        IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': automatisch bei Inexogy neu angemeldet (Zugriffsschlüssel aus dem Tresor erneuert).');
+        $this->LogMessage('Automatisch bei Inexogy neu angemeldet (Zugriffsschlüssel aus dem Tresor erneuert).', KL_MESSAGE);
         $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
         $this->UpdateFormField('SecretsStatusLine', 'caption', $this->SecretsStatusLine());
     }
@@ -6009,7 +6032,7 @@ class MeterHub extends IPSModule
             $this->WriteAttributeString('CounterGuard', (string)json_encode($state));
         }
         if ($why === 'reset') {
-            IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ' / ' . IPS_GetName($vid) . ': Zählerstand dauerhaft niedriger (' . $current . ' → ' . $new . ') — als Zählertausch übernommen.');
+            $this->LogMessage(IPS_GetName($vid) . ': Zählerstand dauerhaft niedriger (' . $current . ' → ' . $new . ') — als Zählertausch übernommen.', KL_WARNING);
         } elseif (!$ok) {
             $this->SendDebug('Zählerschutz', IPS_GetName($vid) . ': ' . ($why === 'null' ? 'Wert 0/ungültig' : 'rückwärts') . " verworfen ($new, Stand $current)", 0);
         }
@@ -6353,7 +6376,7 @@ class MeterHub extends IPSModule
             }
             $this->ReAggregate($ac, $pvid);
         }
-        IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': Energie-Archiv repariert — ' . str_replace("\n", ' | ', implode("\n", $lines)));
+        $this->LogMessage('Energie-Archiv repariert — ' . str_replace("\n", ' | ', implode("\n", $lines)), KL_MESSAGE);
         return implode("\n", $lines);
     }
 
@@ -6475,8 +6498,8 @@ class MeterHub extends IPSModule
             $done[] = '#' . $imp . ' ↔ #' . $exp;
         }
         if ($done) {
-            IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': „Bezug/Einspeisung vertauscht" ' . ($want === 'on' ? 'eingeschaltet' : 'ausgeschaltet')
-                . ' — die Energiezähler-Variablen haben ihre Rolle getauscht (' . implode(', ', $done) . '). Jede zählt ohne Sprung weiter, die Bezeichnungen passen zur neuen Richtung. Skripte mit fest eingetragenen Variablen-IDs bitte prüfen.');
+            $this->LogMessage('„Bezug/Einspeisung vertauscht" ' . ($want === 'on' ? 'eingeschaltet' : 'ausgeschaltet')
+                . ' — die Energiezähler-Variablen haben ihre Rolle getauscht (' . implode(', ', $done) . '). Jede zählt ohne Sprung weiter, die Bezeichnungen passen zur neuen Richtung. Skripte mit fest eingetragenen Variablen-IDs bitte prüfen.', KL_MESSAGE);
         }
     }
 
@@ -6627,7 +6650,7 @@ class MeterHub extends IPSModule
         if (!$apply) {
             $lines[] = $todo ? '→ „Korrigieren" führt genau das aus und sichert vorher (JSON-Datei im Symcon-Verzeichnis).' : '→ Nichts zu korrigieren.';
         } elseif ($changed) {
-            IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': Richtung im Archiv korrigiert — ' . str_replace("\n", ' | ', implode("\n", $lines)));
+            $this->LogMessage('Richtung im Archiv korrigiert — ' . str_replace("\n", ' | ', implode("\n", $lines)), KL_MESSAGE);
         }
         return implode("\n", $lines);
     }
@@ -7154,7 +7177,7 @@ class MeterHub extends IPSModule
         }
         foreach ($fresh['entries'] as $e) {
             if (in_array($e['level'], ['auffaellig', 'kritisch'], true) && ($old[$e['slot']] ?? null) !== $e['level']) {
-                IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': ' . $e['label'] . ' — ' . $e['reason']);
+                $this->LogMessage($e['label'] . ' — ' . $e['reason'], KL_WARNING);
             }
         }
         $this->WriteAttributeString('DirectionDiag', (string)json_encode($fresh));
@@ -7678,7 +7701,7 @@ class MeterHub extends IPSModule
                 ? '→ „Bereinigen" führt genau das aus. Offizielle Viertelstundenwerte bleiben unangetastet, Live-Werte ohne offizielle Daten in der Nähe ebenso.'
                 : '→ Nichts zu bereinigen.';
         } elseif ($total > 0) {
-            IPS_LogMessage('MeterHub', IPS_GetName($this->InstanceID) . ': ' . str_replace("\n", ' | ', implode("\n", $lines)));
+            $this->LogMessage(str_replace("\n", ' | ', implode("\n", $lines)), KL_MESSAGE);
         }
         return implode("\n", $lines);
     }

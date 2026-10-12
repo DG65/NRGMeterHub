@@ -2,6 +2,21 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.32.1-beta.1 (2026-10-12)
+
+- **Logging über `$this->LogMessage()` statt `IPS_LogMessage()` (Symcon-Store-Review 12.10.2026,
+  SUITE.md Store-Review-Checkliste Punkt 15; Reviewer: „Verwende stattdessen bitte das bessere
+  $this->LogMessage").** Zehn Stellen in `MeterHub/module.php` umgestellt, jeweils mit Typ
+  (`KL_WARNING` für Auffälliges wie abgelehnten Schlüssel, fehlgeschlagene Neuanmeldung,
+  Zählertausch, Richtungsbefund; `KL_MESSAGE` für Normales wie Reparatur, Umschalten,
+  erfolgreiche Neuanmeldung). Die Instanz erscheint im Protokoll nun als Absender, der
+  Instanzname steht deshalb nicht mehr im Text. Der einzige Aufruf in einer Bibliotheksklasse
+  (Symbox-Gateway-Client: Hinweis auf die ungetestete Schreib-Ableitung) gibt den Hinweis jetzt
+  über `takeNotices()` an die Modulklasse zurück, die ihn nach dem Schreiben protokolliert.
+  Prüfstand: `test-virtual.php` Block 55 (kein `IPS_LogMessage(` in den vier `module.php`, jeder
+  LogMessage-Aufruf trägt eine KL_*-Konstante), `test-modbus-client.php` (takeNotices()).
+  Keine Verhaltens- oder Formularänderung, daher kein News-Panel-Eintrag.
+
 ## 0.32.0-beta.1 (2026-10-06)
 
 - **Inexogy: optionale automatische Neuanmeldung aus einem Tresor (Dietmars Frage 06.10.2026:

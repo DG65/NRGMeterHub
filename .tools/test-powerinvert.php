@@ -56,11 +56,13 @@ function AC_ReAggregateVariable($ac, $vid) {
     return true;
 }
 
+foreach (['KL_MESSAGE' => 101, 'KL_WARNING' => 104, 'KL_ERROR' => 103, 'KL_NOTIFY' => 102, 'KL_DEBUG' => 100, 'KL_CUSTOM' => 105] as $c => $v) { if (!defined($c)) { define($c, $v); } }
 class IPSModule
 {
     public $InstanceID;
     protected $defs = [];
     public function __construct($id) { $this->InstanceID = $id; }
+    public function LogMessage($m, $type) { $GLOBALS['LOG'][] = $m; }
     public function Create() {}
     public function ApplyChanges() {}
     protected function ConnectParent($guid) {}
