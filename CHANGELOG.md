@@ -2,6 +2,18 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.32.2-beta.1 (2026-10-13)
+
+- **Übernahme-Schnittstelle: Präfix-Umbenennung `MIGHUB_` → `GTAUSCH_` nachgezogen** (Partnermodul
+  MigrationsHub heißt jetzt „Gerätetausch", Repo `DG65/Geraetetausch`; Modul-GUID und Parameter
+  unverändert, DG65-Toolkit-Regel „Umbenennung auf Funktionsnamen", Meldung der Gerätetausch-Sitzung).
+  `MeterHubDiscovery` ruft `GTAUSCH_FindLegacyCandidates()`/`GTAUSCH_PrefillMigration()` zuerst auf
+  und fällt auf `MIGHUB_…` zurück, solange nur der alte Stand installiert ist — die Reihenfolge der
+  Updates beider Module ist damit egal. Der Rückfall kann entfernt werden, sobald GTAUSCH_ überall
+  installiert ist. Prüfstand: `test-discovery-migration.php` Abschnitt 8 (Rückfall, Vorrang,
+  Kandidatensuche und Vorbereiten über GTAUSCH_, Statuszeile). Unverändert: die eigene
+  `MHUB_GetIdentMapping`. Nur Funktionsnamen; die sichtbaren Texte nennen weiter „MigrationsHub".
+
 ## 0.32.1-beta.1 (2026-10-12)
 
 - **Logging über `$this->LogMessage()` statt `IPS_LogMessage()` (Symcon-Store-Review 12.10.2026,

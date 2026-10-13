@@ -694,18 +694,18 @@ class MeterHubDiscovery extends IPSModule
                                 ['caption' => 'IP-Adresse',   'name' => 'ip',     'width' => '150px'],
                                 ['caption' => 'Unit ID',      'name' => 'unitId', 'width' => '100px'],
                                 ['caption' => 'Alt-Instanz gefunden (MigrationsHub)', 'name' => 'legacy', 'width' => '280px',
-                                 'visible' => function_exists('MIGHUB_FindLegacyCandidates')],
+                                 'visible' => $this->MigrationApiPrefix() !== ''],
                             ],
                             'values' => $values,
                         ],
                         ['type' => 'Label', 'name' => 'MigrationStatusLine', 'caption' => $this->MigrationStatusLine()],
                         [
                             'type' => 'Label', 'caption' => '🔀 Migration von einer Alt-Instanz (anderes Modul, gleiche IP/Unit-ID): erst oben „Erstellen" klicken, dann hier „Migration vorbereiten".',
-                            'visible' => function_exists('MIGHUB_FindLegacyCandidates'),
+                            'visible' => $this->MigrationApiPrefix() !== '',
                         ],
                         [
                             'type' => 'PopupButton', 'caption' => 'Wie funktioniert „Migration vorbereiten" genau?', 'width' => '480px',
-                            'visible' => function_exists('MIGHUB_FindLegacyCandidates'),
+                            'visible' => $this->MigrationApiPrefix() !== '',
                             'popup' => [
                                 'caption' => 'Migration vorbereiten',
                                 'items' => [
@@ -720,7 +720,7 @@ class MeterHubDiscovery extends IPSModule
                         [
                             'type' => 'Button', 'name' => 'BtnPrepareMigration', 'caption' => '🔀  Migration vorbereiten',
                             'onClick' => 'MHUBD_PrepareMigration($id);',
-                            'visible' => function_exists('MIGHUB_FindLegacyCandidates'),
+                            'visible' => $this->MigrationApiPrefix() !== '',
                         ],
                         ['type' => 'Label', 'name' => 'MigrationResult', 'caption' => '', 'visible' => false],
                         ['type' => 'OpenObjectButton', 'name' => 'BtnOpenMigration', 'caption' => '→ Zur MigrationsHub-Instanz', 'objectID' => 0, 'visible' => false],
@@ -1171,6 +1171,23 @@ class MeterHubDiscovery extends IPSModule
     }
 
     /**
+     * Präfix der Übernahme-Schnittstelle des Partnermoduls: `GTAUSCH_` (Gerätetausch, vormals
+     * MigrationsHub, Umbenennung 13.10.2026 — gleiche Modul-GUID, gleiche Parameter), ersatzweise
+     * der alte `MIGHUB_`. Neuer Präfix zuerst, damit die Reihenfolge der Pushes beider Seiten
+     * egal ist. '' = Partnermodul nicht installiert. $needPrefill: auch PrefillMigration nötig.
+     */
+    private function MigrationApiPrefix(bool $needPrefill = false): string
+    {
+        if (function_exists('GTAUSCH_FindLegacyCandidates') && (!$needPrefill || function_exists('GTAUSCH_PrefillMigration'))) {
+            return 'GTAUSCH';
+        }
+        if (function_exists('MIGHUB_FindLegacyCandidates') && (!$needPrefill || function_exists('MIGHUB_PrefillMigration'))) {
+            return 'MIGHUB';
+        }
+        return '';
+    }
+
+    /**
      * Live berechnete Statuszeile zur MigrationsHub-Kopplung (SUITE.md, „Verbund-
      * Verbindungen im Formular sichtbar machen", verbindlich seit 21.09.2026): sagt, ob die
      * Kopplung gerade zustande kommt und was sonst gilt. Steht IMMER im Formular, auch wenn
@@ -1178,7 +1195,7 @@ class MeterHubDiscovery extends IPSModule
      */
     private function MigrationStatusLine(): string
     {
-        if (!function_exists('MIGHUB_FindLegacyCandidates')) {
+        if ($this->MigrationApiPrefix() === '') {
             return 'ℹ️ MigrationsHub ist nicht installiert — die Übernahme von Alt-Instanzen samt Messhistorie entfällt. Gefundene Zähler lassen sich trotzdem als MeterHub-Instanz anlegen.';
         }
         $ids = IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
@@ -1209,7 +1226,7 @@ class MeterHubDiscovery extends IPSModule
      *    (hier wird bewusst KEINE angelegt — GetConfigurationForm() darf
      *    keine Instanzen erzeugen; PrepareMigration() legt sie beim ersten
      *    Klick an, danach füllt sich auch die Formular-Spalte).
-     * 2. MIGHUB_FindLegacyCandidates hat inzwischen 5 Parameter
+     * 2. FindLegacyCandidates (GTAUSCH_/MIGHUB_) hat inzwischen 5 Parameter
      *    ($excludeInstanceID gegen "migriere von deiner eigenen frisch
      *    angelegten Instanz") — PREFIX_-Wrapper honorieren PHP-Defaults
      *    NICHT (SUITE.md-Stolperstein), alle Argumente sind Pflicht. Ein
@@ -1221,7 +1238,8 @@ class MeterHubDiscovery extends IPSModule
      */
     private function LegacyCandidateFor(string $host, int $unitId, int $excludeInstanceID = 0): array
     {
-        if (!function_exists('MIGHUB_FindLegacyCandidates')) {
+        $api = $this->MigrationApiPrefix();
+        if ($api === '') {
             return ['id' => 0, 'name' => ''];
         }
         $migIDs = IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
@@ -1230,9 +1248,11 @@ class MeterHubDiscovery extends IPSModule
             return ['id' => 0, 'name' => ''];
         }
         try {
-            $found = MIGHUB_FindLegacyCandidates($migID, $host, $this->ReadPropertyInteger('Port'), $unitId, $excludeInstanceID);
+            $found = $api === 'GTAUSCH'
+                ? GTAUSCH_FindLegacyCandidates($migID, $host, $this->ReadPropertyInteger('Port'), $unitId, $excludeInstanceID)
+                : MIGHUB_FindLegacyCandidates($migID, $host, $this->ReadPropertyInteger('Port'), $unitId, $excludeInstanceID);
         } catch (\Throwable $e) {
-            $this->SendDebug('LegacyCandidateFor', 'MIGHUB_FindLegacyCandidates fehlgeschlagen: ' . $e->getMessage(), 0);
+            $this->SendDebug('LegacyCandidateFor', $api . '_FindLegacyCandidates fehlgeschlagen: ' . $e->getMessage(), 0);
             return ['id' => 0, 'name' => ''];
         }
         if (!is_array($found) || count($found) === 0) {
@@ -1250,7 +1270,7 @@ class MeterHubDiscovery extends IPSModule
      * Verknüpft die erste bereits erstellte MeterHub-Instanz, für die eine
      * Alt-Instanz gefunden wurde, mit MigrationsHub — legt bei Bedarf eine
      * MigrationsHub-Instanz an (wiederverwendet eine vorhandene) und ruft
-     * MIGHUB_PrefillMigration() auf. Absichtlich nur EIN Treffer je Klick:
+     * PrefillMigration() des Partnermoduls (GTAUSCH_, ersatzweise MIGHUB_) auf. Absichtlich nur EIN Treffer je Klick:
      * PrefillMigration setzt Source/Target auf EINER MigrationsHub-Instanz,
      * ein zweiter Aufruf vor Abschluss der ersten Migration würde die noch
      * nicht bestätigte Zuordnung überschreiben.
@@ -1261,7 +1281,8 @@ class MeterHubDiscovery extends IPSModule
             $this->UpdateFormField('MigrationResult', 'caption', $m);
             $this->UpdateFormField('MigrationResult', 'visible', true);
         };
-        if (!function_exists('MIGHUB_FindLegacyCandidates') || !function_exists('MIGHUB_PrefillMigration')) {
+        $api = $this->MigrationApiPrefix(true);
+        if ($api === '') {
             $say('❌ MigrationsHub ist nicht installiert.');
             return;
         }
@@ -1299,7 +1320,11 @@ class MeterHubDiscovery extends IPSModule
                 IPS_ApplyChanges($targetID);
             }
 
-            MIGHUB_PrefillMigration($migID, $legacy['id'], $targetID);
+            if ($api === 'GTAUSCH') {
+                GTAUSCH_PrefillMigration($migID, $legacy['id'], $targetID);
+            } else {
+                MIGHUB_PrefillMigration($migID, $legacy['id'], $targetID);
+            }
 
             $say('✅ Migration vorbereitet: „' . $legacy['name'] . '" (#' . $legacy['id'] . ') → „' .
                 IPS_GetName($targetID) . '" (#' . $targetID . '). Weiter in der MigrationsHub-Instanz — dort simulieren, prüfen, ausführen.');

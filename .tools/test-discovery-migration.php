@@ -237,5 +237,40 @@ $migTwo = IPS_CreateInstance(G_MIGHUB);
 obj($migTwo, 1, 'MigrationsHub Zweit', 0);
 check('Statuszeile (⚠️): nennt beide Instanzen und die verwendete', str_starts_with(migLine($d), '⚠️') && str_contains(migLine($d), '#' . $migPre) && str_contains(migLine($d), '#' . $migTwo) && str_contains(migLine($d), 'verwendet wird die erste'), migLine($d));
 
+// ---------------------------------------------------------------------------
+echo "\n8) Präfix-Umbenennung MIGHUB_ → GTAUSCH_ (Gerätetausch, 13.10.2026): neuer Präfix zuerst, MIGHUB_ als Rückfall\n";
+$GLOBALS['GTAUSCH_FIND_CALLS'] = [];
+$GLOBALS['GTAUSCH_PREFILL_CALLS'] = [];
+$mighubBefore = count($GLOBALS['MIGHUB_FIND_CALLS']);
+$apiPrefix = new ReflectionMethod($d, 'MigrationApiPrefix');
+check('8a: nur MIGHUB_ vorhanden → Rückfall auf MIGHUB', $apiPrefix->invoke($d) === 'MIGHUB' && $apiPrefix->invoke($d, true) === 'MIGHUB');
+if (!function_exists('GTAUSCH_FindLegacyCandidates')) {
+    function GTAUSCH_FindLegacyCandidates($id, string $host, int $port, int $unitId, int $excludeInstanceID): array {
+        $GLOBALS['GTAUSCH_FIND_CALLS'][] = [$id, $host, $port, $unitId, $excludeInstanceID];
+        if ($host === '10.0.0.5' && $unitId === 1 && $excludeInstanceID !== 555) {
+            return [['instanceID' => 555, 'name' => 'Alter Zähler (Fremdmodul)']];
+        }
+        return [];
+    }
+}
+check('8b: nur GTAUSCH_FindLegacyCandidates (ohne Prefill) → für die Suche GTAUSCH, für die Vorbereitung weiter MIGHUB', $apiPrefix->invoke($d) === 'GTAUSCH' && $apiPrefix->invoke($d, true) === 'MIGHUB');
+if (!function_exists('GTAUSCH_PrefillMigration')) {
+    function GTAUSCH_PrefillMigration($id, $oldInstanceID, $newInstanceID): void {
+        $GLOBALS['GTAUSCH_PREFILL_CALLS'][] = [$id, $oldInstanceID, $newInstanceID];
+    }
+}
+check('8c: beide GTAUSCH_-Funktionen vorhanden → GTAUSCH hat Vorrang', $apiPrefix->invoke($d) === 'GTAUSCH' && $apiPrefix->invoke($d, true) === 'GTAUSCH');
+$legacy8 = $ref->invoke($d, '10.0.0.5', 1);
+check('8d: Kandidatensuche läuft über GTAUSCH_, nicht mehr über MIGHUB_, mit allen 5 Argumenten', ($legacy8['id'] ?? 0) === 555 && count($GLOBALS['GTAUSCH_FIND_CALLS']) === 1 && count($GLOBALS['MIGHUB_FIND_CALLS']) === $mighubBefore && count($GLOBALS['GTAUSCH_FIND_CALLS'][0]) === 5, json_encode([$legacy8, $GLOBALS['GTAUSCH_FIND_CALLS']]));
+check('8e: Statuszeile erkennt die Kopplung auch nur mit GTAUSCH_ (kein „nicht installiert")', !str_contains(migLine($d), 'nicht installiert'), migLine($d));
+// Vorbereiten über den neuen Präfix: Ziel-Instanz aus Abschnitt 4 existiert weiter ($target, 10.0.0.5/1)
+$GLOBALS['MIGHUB_PREFILL_CALLS'] = [];
+$GLOBALS['GTAUSCH_PREFILL_CALLS'] = [];
+IPS_SetProperty($target, 'Active', true);
+$d8 = new MeterHubDiscovery(1);
+$d8->Create();
+$d8->PrepareMigration();
+check('8f: PrepareMigration ruft GTAUSCH_PrefillMigration mit den richtigen IDs auf, MIGHUB_PrefillMigration nicht', count($GLOBALS['GTAUSCH_PREFILL_CALLS']) === 1 && $GLOBALS['GTAUSCH_PREFILL_CALLS'][0][1] === 555 && $GLOBALS['GTAUSCH_PREFILL_CALLS'][0][2] === $target && count($GLOBALS['MIGHUB_PREFILL_CALLS']) === 0, json_encode([$GLOBALS['GTAUSCH_PREFILL_CALLS'], $GLOBALS['MIGHUB_PREFILL_CALLS']]));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
