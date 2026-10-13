@@ -89,7 +89,9 @@ muss ohne manuellen Eingriff funktionieren, für jeden Hersteller.
 **Umbenennung 13.10.2026:** das Partnermodul heißt jetzt **Gerätetausch** (Repo `DG65/Geraetetausch`),
 Präfix `MIGHUB_` → `GTAUSCH_` (GUID und Parameter unverändert). `MeterHubDiscovery::MigrationApiPrefix()`
 nimmt `GTAUSCH_` zuerst und fällt auf `MIGHUB_` zurück; wo unten `MIGHUB_…` steht, ist beides gemeint.
-Die sichtbaren Texte („MigrationsHub") sind noch nicht umgestellt — Entscheidung bei Dietmar.
+Die sichtbaren Texte sagen seit 0.32.3 „Gerätetausch (vormals MigrationsHub)" (Dietmar 13.10.2026);
+Code-Kommentare und ältere Changelog-Einträge nennen weiter den damaligen Namen, die Konstante
+`MIGRATIONSHUB_GUID` bleibt (GUID unverändert).
 
 **Vertrag:** `MIGHUB_FindLegacyCandidates($id, string $host, int $port, int $unitId,
 int $excludeInstanceID): array` (Match-Schlüssel Host+Unit-ID, **nie über den Namen** —

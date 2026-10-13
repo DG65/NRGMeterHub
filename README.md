@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.32.2--beta.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.32.3--beta.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -318,7 +318,7 @@ Dabei wird geprüft: Datenpunkte ohne verwertbare Einheit werden übersprungen, 
 eingetragene nicht doppelt vorgeschlagen, und **Ausgaben virtueller Zähler bleiben
 ausgeschlossen** — sonst flösse ein berechneter Wert wieder als Quelle ein. Ebenso bleiben
 **Variablen aus bekannten NRG-Stack-Modulen** außen vor (EMS, InverterHub, ChargerHub,
-Prognose, Tibber Grid Rewards, StromGedacht, HeishaMon, Tessie, MigrationsHub, Gleitender
+Prognose, Tibber Grid Rewards, StromGedacht, HeishaMon, Tessie, Gerätetausch (vormals MigrationsHub), Gleitender
 Mittelwert, SteuerboxHub, GoodweET) — sie sind dort schon korrekt eingebunden, und ein
 berechneter Wert (z. B. eine vom EMS ermittelte Hauslast) dürfte sonst versehentlich in eine
 Berechnung zurückfließen, aus der er selbst stammt. Zusätzlich wird gemeldet, wenn ein

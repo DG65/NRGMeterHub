@@ -2,6 +2,17 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.32.3-beta.1 (2026-10-13)
+
+- **Sichtbare Texte auf „Gerätetausch" umgestellt** (das Partnermodul MigrationsHub heißt seit
+  13.10.2026 Gerätetausch; wer es im Store sucht, findet es unter dem neuen Namen). Betrifft die
+  Suche (Statuszeile zur Kopplung, Hinweise zu „Migration vorbereiten", Spaltenüberschrift „Alt-Instanz
+  gefunden (Gerätetausch)", Knopf „→ Zur Gerätetausch-Instanz", Meldungen), die Umstiegshinweise im
+  Zähler-Formular (Modbus und Inexogy) und die README. Beim ersten Auftreten steht „(vormals
+  MigrationsHub)", damit niemand nach dem alten Namen suchen muss. Reine Textänderung: Funktionsnamen
+  (0.32.2), Modul-GUID und Verhalten bleiben. Ältere Changelog-Einträge nennen weiter den damaligen
+  Namen.
+
 ## 0.32.2-beta.1 (2026-10-13)
 
 - **Übernahme-Schnittstelle: Präfix-Umbenennung `MIGHUB_` → `GTAUSCH_` nachgezogen** (Partnermodul

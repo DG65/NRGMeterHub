@@ -181,7 +181,7 @@ class MeterHubDiscovery extends IPSModule
                 ['type' => 'Label', 'caption' => '• 🆕 „Schnittstellen prüfen" testet vorab, ob Power Control/RPC/SCADA an einer blue\'Log-IP überhaupt antworten — eine SCADA-Lizenz ist teuer und in der Praxis selten, die Standardlizenz hat weder sie noch RPC.'],
                 ['type' => 'Label', 'caption' => '• Fundliste im „Erstellen"-Panel ist jetzt breiter/höher, die Namens-Vorlage sitzt dort statt im Suchbereich-Panel, und die blue\'Log-Suche ist bei dünn besetzten Adressbereichen spürbar schneller.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Fix: Die Modellbezeichnung bei blue\'Log-SCADA-Funden war fehlerhaft dekodiert (zeigte Zeichensalat statt eines lesbaren Namens) — jetzt an mehreren echten Geräten geprüft.'],
-                ['type' => 'Label', 'caption' => '• 🔀 Migration von einer Alt-Instanz (anderes Modul, gleiche IP/Unit-ID): „Migration vorbereiten" verknüpft automatisch mit MigrationsHub — Simulieren/Ausführen bleiben dort bewusst manuelle Schritte. Details über das „?" beim Knopf.'],
+                ['type' => 'Label', 'caption' => '• 🔀 Migration von einer Alt-Instanz (anderes Modul, gleiche IP/Unit-ID): „Migration vorbereiten" verknüpft automatisch mit Gerätetausch (vormals MigrationsHub) — Simulieren/Ausführen bleiben dort bewusst manuelle Schritte. Details über das „?" beim Knopf.'],
                 ['type' => 'Label', 'caption' => '• Die Suche lässt sich jederzeit abbrechen („✖ Suche abbrechen"), die Kopfzeile zeigt live, wie viele Zähler bereits gefunden wurden.'],
                 ['type' => 'Label', 'caption' => '• Erkennt inzwischen neun Zählertypen: Siemens PAC2200, Janitza UMG (klassisch + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375, Eastron SDM72D/SDM630, go-e Controller. Details über das „?" beim Suche-Knopf.'],
                 ['type' => 'Label', 'caption' => '• IPs lassen sich gezielt von der Suche ausschließen (Feld „IPs ignorieren").'],
@@ -590,7 +590,7 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'Label', 'caption' => 'MeterHubDiscovery ' . self::NEWS_VERSION . ' — Stand dieser Anleitung.'],
                         ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Energiezählern auf Modbus-TCP-Port 502 und erkennt den Zählertyp anhand eines charakteristischen Registers (Frequenz + Spannung als Plausibilitätsprüfung).'],
                         ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Zähler erscheinen unten — Klick auf „Erstellen" legt eine MeterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Zählertyp an.'],
-                        ['type' => 'Label', 'caption' => '🔀 Neue Instanz kommt mit „Kommunikation aktiv" bereits eingeschaltet. Falls ein Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie geplant ist: direkt nach dem Anlegen an der neuen MeterHub-Instanz wieder ausschalten, bis MigrationsHub die alte Historie übernommen hat — sonst überlappen sich die neu geloggten Werte mit der übertragenen Alt-Historie.'],
+                        ['type' => 'Label', 'caption' => '🔀 Neue Instanz kommt mit „Kommunikation aktiv" bereits eingeschaltet. Falls ein Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie geplant ist: direkt nach dem Anlegen an der neuen MeterHub-Instanz wieder ausschalten, bis Gerätetausch die alte Historie übernommen hat — sonst überlappen sich die neu geloggten Werte mit der übertragenen Alt-Historie.'],
                         ['type' => 'Label', 'caption' => 'Die Suche prüft nur wenige dokumentierte Standard-Unit-IDs je Zähler, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die MeterHub-Instanz manuell anlegen.'],
                         ['type' => 'Label', 'caption' => 'Erkannt werden: Siemens PAC2200, Janitza UMG (klassisch + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375 und Eastron SDM72D/SDM630. Beim Shelly Pro 3EM muss Modbus TCP am Gerät aktiviert sein. Nicht automatisch gefunden werden: Zähler hinter RTU/TCP-Gateways mit frei wählbarer Unit-ID (z. B. Socomec, MBS), Zähler an einem ModBus Gateway wie dem RS485-Port der Symbox (z. B. die reinen RS485-Geräte Eastron SDM120/220/230), der Phoenix EEM-XM, Inexogy (Cloud) und die schreibenden blue\'Log-Typen RPC/Power Control — dort die MeterHub-Instanz manuell anlegen, bei der Symbox mit dem Verbindungsweg „Symbox-Gateway".'],
                         ['type' => 'Label', 'caption' => '🆕 Ein Meteocontrol blue\'Log-Datenlogger wird von „🔎 Netzwerk durchsuchen" jetzt von sich aus erkannt — keine vorher bekannte IP mehr nötig. Bei einem Treffer wird direkt der SCADA-Adressbereich dahinter mitdurchsucht (Einstellung im Panel „blue\'Log SCADA-Adressbereich" unten). Das eigene Panel dort bleibt der schnellere, gezielte Weg, wenn die IP schon bekannt ist.'],
@@ -693,7 +693,7 @@ class MeterHubDiscovery extends IPSModule
                                 ['caption' => 'Zählertyp',    'name' => 'meter',  'width' => 'auto'],
                                 ['caption' => 'IP-Adresse',   'name' => 'ip',     'width' => '150px'],
                                 ['caption' => 'Unit ID',      'name' => 'unitId', 'width' => '100px'],
-                                ['caption' => 'Alt-Instanz gefunden (MigrationsHub)', 'name' => 'legacy', 'width' => '280px',
+                                ['caption' => 'Alt-Instanz gefunden (Gerätetausch)', 'name' => 'legacy', 'width' => '280px',
                                  'visible' => $this->MigrationApiPrefix() !== ''],
                             ],
                             'values' => $values,
@@ -709,11 +709,11 @@ class MeterHubDiscovery extends IPSModule
                             'popup' => [
                                 'caption' => 'Migration vorbereiten',
                                 'items' => [
-                                    ['type' => 'Label', 'caption' => 'Voraussetzung: MigrationsHub ist installiert und kennt eine Alt-Instanz (anderes Modul) an genau derselben IP-Adresse und Unit-ID wie ein hier gefundener Zähler — die Spalte „Alt-Instanz gefunden" zeigt das.'],
+                                    ['type' => 'Label', 'caption' => 'Voraussetzung: Gerätetausch (vormals MigrationsHub) ist installiert und kennt eine Alt-Instanz (anderes Modul) an genau derselben IP-Adresse und Unit-ID wie ein hier gefundener Zähler — die Spalte „Alt-Instanz gefunden" zeigt das.'],
                                     ['type' => 'Label', 'caption' => '1. Oben bei der Fund-Zeile auf „Erstellen" klicken. Die neue MeterHub-Instanz bekommt „Kommunikation aktiv" automatisch AUSGESCHALTET — sonst würden sich neu geloggte Werte mit der noch nicht übertragenen Alt-Historie überlappen.'],
-                                    ['type' => 'Label', 'caption' => '2. Hier „Migration vorbereiten" klicken. Verknüpft die neue Instanz mit der Alt-Instanz in MigrationsHub (legt bei Bedarf eine MigrationsHub-Instanz an).'],
-                                    ['type' => 'Label', 'caption' => '3. Weiter geht es in der MigrationsHub-Instanz (Knopf „→ Zur MigrationsHub-Instanz" erscheint danach) — dort bleiben Simulation, Bestätigung und die eigentliche Übernahme der Archiv-Historie bewusst manuelle, einzeln zu bestätigende Schritte.'],
-                                    ['type' => 'Label', 'caption' => 'Bei mehreren Treffern: immer nur EIN Klick auf „Migration vorbereiten" pro noch offener Migration — erst die laufende in MigrationsHub abschließen, dann hier für den nächsten Treffer erneut klicken.'],
+                                    ['type' => 'Label', 'caption' => '2. Hier „Migration vorbereiten" klicken. Verknüpft die neue Instanz mit der Alt-Instanz im Gerätetausch (legt bei Bedarf eine Gerätetausch-Instanz an).'],
+                                    ['type' => 'Label', 'caption' => '3. Weiter geht es in der Gerätetausch-Instanz (Knopf „→ Zur Gerätetausch-Instanz" erscheint danach) — dort bleiben Simulation, Bestätigung und die eigentliche Übernahme der Archiv-Historie bewusst manuelle, einzeln zu bestätigende Schritte.'],
+                                    ['type' => 'Label', 'caption' => 'Bei mehreren Treffern: immer nur EIN Klick auf „Migration vorbereiten" pro noch offener Migration — erst die laufende im Gerätetausch abschließen, dann hier für den nächsten Treffer erneut klicken.'],
                                 ],
                             ],
                         ],
@@ -723,7 +723,7 @@ class MeterHubDiscovery extends IPSModule
                             'visible' => $this->MigrationApiPrefix() !== '',
                         ],
                         ['type' => 'Label', 'name' => 'MigrationResult', 'caption' => '', 'visible' => false],
-                        ['type' => 'OpenObjectButton', 'name' => 'BtnOpenMigration', 'caption' => '→ Zur MigrationsHub-Instanz', 'objectID' => 0, 'visible' => false],
+                        ['type' => 'OpenObjectButton', 'name' => 'BtnOpenMigration', 'caption' => '→ Zur Gerätetausch-Instanz', 'objectID' => 0, 'visible' => false],
                     ],
                 ],
             ], [$this->ForumHint(), $this->LicenseHint()]))),
@@ -1196,17 +1196,17 @@ class MeterHubDiscovery extends IPSModule
     private function MigrationStatusLine(): string
     {
         if ($this->MigrationApiPrefix() === '') {
-            return 'ℹ️ MigrationsHub ist nicht installiert — die Übernahme von Alt-Instanzen samt Messhistorie entfällt. Gefundene Zähler lassen sich trotzdem als MeterHub-Instanz anlegen.';
+            return 'ℹ️ Gerätetausch (vormals MigrationsHub) ist nicht installiert — die Übernahme von Alt-Instanzen samt Messhistorie entfällt. Gefundene Zähler lassen sich trotzdem als MeterHub-Instanz anlegen.';
         }
         $ids = IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
         if (!$ids) {
-            return 'ℹ️ MigrationsHub ist installiert, hat aber noch keine Instanz — „Migration vorbereiten" legt sie beim ersten Klick an; die Spalte „Alt-Instanz gefunden" bleibt bis dahin leer.';
+            return 'ℹ️ Gerätetausch ist installiert, hat aber noch keine Instanz — „Migration vorbereiten" legt sie beim ersten Klick an; die Spalte „Alt-Instanz gefunden" bleibt bis dahin leer.';
         }
         $id = (int)$ids[0];
         if (count($ids) > 1) {
-            return '⚠️ Mehrere MigrationsHub-Instanzen gefunden (' . implode(', ', array_map(fn($i) => '#' . $i, $ids)) . ') — verwendet wird die erste, #' . $id . ' „' . IPS_GetName($id) . '". Die übrigen bitte nicht für dieselbe Übernahme nutzen.';
+            return '⚠️ Mehrere Gerätetausch-Instanzen gefunden (' . implode(', ', array_map(fn($i) => '#' . $i, $ids)) . ') — verwendet wird die erste, #' . $id . ' „' . IPS_GetName($id) . '". Die übrigen bitte nicht für dieselbe Übernahme nutzen.';
         }
-        return '✅ MigrationsHub-Instanz #' . $id . ' „' . IPS_GetName($id) . '" gefunden — Alt-Instanzen mit gleicher IP und Unit-ID erscheinen in der Spalte „Alt-Instanz gefunden".';
+        return '✅ Gerätetausch-Instanz #' . $id . ' „' . IPS_GetName($id) . '" gefunden — Alt-Instanzen mit gleicher IP und Unit-ID erscheinen in der Spalte „Alt-Instanz gefunden".';
     }
 
     /**
@@ -1283,7 +1283,7 @@ class MeterHubDiscovery extends IPSModule
         };
         $api = $this->MigrationApiPrefix(true);
         if ($api === '') {
-            $say('❌ MigrationsHub ist nicht installiert.');
+            $say('❌ Gerätetausch (vormals MigrationsHub) ist nicht installiert.');
             return;
         }
 
@@ -1327,7 +1327,7 @@ class MeterHubDiscovery extends IPSModule
             }
 
             $say('✅ Migration vorbereitet: „' . $legacy['name'] . '" (#' . $legacy['id'] . ') → „' .
-                IPS_GetName($targetID) . '" (#' . $targetID . '). Weiter in der MigrationsHub-Instanz — dort simulieren, prüfen, ausführen.');
+                IPS_GetName($targetID) . '" (#' . $targetID . '). Weiter in der Gerätetausch-Instanz — dort simulieren, prüfen, ausführen.');
             $this->UpdateFormField('BtnOpenMigration', 'objectID', $migID);
             $this->UpdateFormField('BtnOpenMigration', 'visible', true);
             return;
