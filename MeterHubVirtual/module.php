@@ -2119,6 +2119,14 @@ class MeterHubVirtual extends IPSModule
             $valid[self::IDENT_GROUP_SWITCH] = true;
             $valid[self::IDENT_GROUP_STATE]  = true;
         }
+        // Beim Symcon-START (Kernel noch nicht KR_READY) wird NICHT gelöscht, nur angelegt
+        // (Store-Review-Checkliste Punkt 17, EMS 18.10.2026): im Baum-Modus lösen sich die
+        // Datenpunkte der Mitglieder über Fremdinstanzen auf (MetersOfDevice() fragt deren
+        // *_GetFunctions-Vertrag), und die sind beim Start noch nicht instanziiert — eine
+        // dadurch zu klein ausfallende Ausgabeliste würde sonst Ausgabevariablen samt
+        // Archivhistorie löschen. Nach KR_READY läuft ApplyChanges() über MessageSink()
+        // ohnehin erneut und räumt dann mit vollständigen Daten auf.
+        $mayDelete = !function_exists('IPS_GetKernelRunlevel') || IPS_GetKernelRunlevel() === KR_READY;
         foreach (IPS_GetChildrenIDs($this->InstanceID) as $cid) {
             $o = IPS_GetObject($cid);
             // "Energie hochgerechnet"-Variablen (siehe CALC_ENERGY_IDENT_PREFIX)
@@ -2126,7 +2134,7 @@ class MeterHubVirtual extends IPSModule
             // als Historie stehen bleiben, wenn keine Zeile sie gerade mehr
             // referenziert (AddCalculatedEnergy()), nur ihre Fortschreibung
             // in AdvanceCalculatedEnergy() endet dann.
-            if ($o['ObjectType'] === 2 && $o['ObjectIdent'] !== '' && !isset($valid[$o['ObjectIdent']])
+            if ($mayDelete && $o['ObjectType'] === 2 && $o['ObjectIdent'] !== '' && !isset($valid[$o['ObjectIdent']])
                 && !str_starts_with($o['ObjectIdent'], self::CALC_ENERGY_IDENT_PREFIX)) {
                 @IPS_DeleteVariable($cid);
             }

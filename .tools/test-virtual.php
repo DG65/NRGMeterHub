@@ -11,7 +11,8 @@ const VARIABLETYPE_FLOAT = 2;
 const VARIABLETYPE_STRING = 3;
 const KR_READY = 104;
 const IPS_KERNELMESSAGE = 10603;
-function IPS_GetKernelRunlevel() { return KR_READY; }
+$GLOBALS['RUNLEVEL'] = KR_READY;
+function IPS_GetKernelRunlevel() { return $GLOBALS['RUNLEVEL']; }
 
 $GLOBALS['OBJ'] = [];      // id => ObjectType/ObjectIdent/ObjectName/ParentID
 $GLOBALS['VAR'] = [];      // id => VariableType/Profile/Updated
@@ -2677,6 +2678,33 @@ $src55 = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
 $withType55 = preg_match_all('/->LogMessage\((?:(?!->LogMessage\().)*?KL_(?:WARNING|ERROR|NOTIFY|MESSAGE|DEBUG|CUSTOM)\);/s', $src55);
 $all55 = substr_count($src55, '->LogMessage(');
 check('55: jeder LogMessage()-Aufruf trägt eine KL_*-Konstante als Typ (kein nacktes Zahlenliteral)', $all55 >= 9 && $withType55 === $all55, "$withType55 von $all55");
+
+echo "\n56) Symcon-START: ApplyChanges() löscht keine Ausgabevariablen, solange der Kernel nicht KR_READY ist (Store-Review-Checkliste Punkt 17, EMS 18.10.2026)\n";
+$svIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($svIid, 1, 'Start-Test', 10);
+meter(5300, 'Start-Zähler', 100.0, 10.0, 5.0);   // Leistung 5303, Bezug 5304, Einspeisung 5305
+IPS_SetProperty($svIid, 'Nodes', json_encode([['Name' => 'Z', 'Factor' => 100, 'PowerID' => 5303, 'EnergyImportID' => 5304, 'EnergyExportID' => 5305]]));
+$sv = t35_apply($svIid);
+$ident56 = fn($i) => (int)IPS_GetObjectIDByIdent($i, $svIid);
+check('56a: Ausgangslage: Leistung, Bezug und Einspeisung als Ausgaben angelegt', $ident56('power') > 0 && $ident56('energy_import') > 0 && $ident56('energy_export') > 0);
+// Beim Start lösen sich die Datenpunkte noch nicht auf: die Mitglieder-Variablen fehlen (Fremdinstanz nicht bereit)
+$saveNodes = IPS_GetProperty($svIid, 'Nodes');
+IPS_SetProperty($svIid, 'Nodes', json_encode([['Name' => 'Z', 'Factor' => 100, 'PowerID' => 5303, 'EnergyImportID' => 0, 'EnergyExportID' => 0]]));
+$GLOBALS['RUNLEVEL'] = 10101; // KR_STARTING o. ä., nicht KR_READY
+$sv = t35_apply($svIid);
+check('56b: Kernel nicht bereit und kleinere Ausgabeliste → Bezug/Einspeisung bleiben erhalten (nichts gelöscht)', $ident56('energy_import') > 0 && $ident56('energy_export') > 0);
+$GLOBALS['RUNLEVEL'] = KR_READY;
+$sv = t35_apply($svIid);
+check('56c: Gegenprobe: bei KR_READY wird mit derselben Eingabe wie bisher aufgeräumt (die Ausgaben ohne Mitglied-Datenpunkt entfallen)', $ident56('energy_import') === 0 && $ident56('energy_export') === 0 && $ident56('power') > 0);
+IPS_SetProperty($svIid, 'Nodes', $saveNodes);
+$sv = t35_apply($svIid);
+check('56d: danach mit voller Verdrahtung werden die Ausgaben wieder angelegt', $ident56('energy_import') > 0 && $ident56('energy_export') > 0);
+
+echo "\n57) Darstellungen: keine Presentation-OPTIONS in den Modulen (EMS 18.10.2026, SUITE.md Punkt 16: Farb-Schlüssel hängen von der Darstellung ab, ein falscher bricht das Anlegen der Instanz ab)\n";
+foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge'] as $mod57) {
+    $src57 = file_get_contents(dirname(__DIR__) . "/$mod57/module.php");
+    check("57: $mod57/module.php baut keine OPTIONS/ColorValue/ColorActive-Darstellung (kommt eine hinzu, diesen Test bewusst gegen die Symcon-Doku prüfen)", !preg_match("/'(OPTIONS|ColorValue|ColorActive)'/", $src57));
+}
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

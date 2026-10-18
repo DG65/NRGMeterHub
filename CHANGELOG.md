@@ -2,6 +2,23 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.32.4-beta.1 (2026-10-18)
+
+- **Symcon-Start: `MeterHubVirtual` löscht beim Start keine Ausgabevariablen mehr (Store-Review-
+  Checkliste Punkt 17, Hinweis von EMS aus dem HeishaMon-Review).** Im Baum-Modus lösen sich die
+  Datenpunkte der Mitglieder über Fremdinstanzen auf (`MetersOfDevice()` fragt deren
+  `*_GetFunctions`-Vertrag). Beim Symcon-Start sind die noch nicht instanziiert; fiel die Ausgabeliste
+  dadurch zu klein aus, hätte `RegisterVariables()` Ausgabevariablen samt Archivhistorie gelöscht.
+  Jetzt wird nur noch aufgeräumt, wenn der Kernel `KR_READY` ist; davor wird nur angelegt. Nach
+  `KR_READY` läuft `ApplyChanges()` über `MessageSink()` ohnehin erneut und räumt mit vollständigen
+  Daten auf. `MeterHub` selbst war nicht betroffen (sein Aufräumen hängt nur an den eigenen
+  Einstellungen, nicht an Fremdabfragen).
+- **Darstellungen geprüft (Punkt 16):** MeterHub baut keine Presentation-OPTIONS (nur Profile),
+  nichts zu ändern; ein Test hält das fest, damit eine künftige Darstellung bewusst gegen die
+  Symcon-Doku geprüft wird.
+  Prüfstand: `test-virtual.php` Block 56 (Start: nichts gelöscht, mit Gegenprobe bei KR_READY) und 57.
+  Keine Formularänderung, daher kein News-Panel-Eintrag.
+
 ## 0.32.3-beta.1 (2026-10-13)
 
 - **Sichtbare Texte auf „Gerätetausch" umgestellt** (das Partnermodul MigrationsHub heißt seit
