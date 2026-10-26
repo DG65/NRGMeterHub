@@ -168,10 +168,11 @@ virtuelle Zähler denselben Vertrag.
 
 Das Modul ist als wachsendes Projekt angelegt:
 
-- **SMA Sunny Home Manager 2.0 und SMA Energy Meter** — die spannendste offene Baustelle. Beide
-  sprechen kein Modbus, sondern senden per Speedwire-Multicast (UDP). Das wird deshalb ein
-  eigenes Empfängermodul auf dem Multicast-Socket von IP-Symcon. Konzept steht, Umsetzung hängt
-  an einem Tester mit SMA-Anlage — Freiwillige vor.
+- **SMA Sunny Home Manager 2.0 und SMA Energy Meter** — die spannendste offene Baustelle. Der
+  Home Manager 2.0 hat eine Modbus-TCP-Schnittstelle (im Sunny Portal einzuschalten), über die
+  Bezug, Einspeisung und Netzleistung abrufbar sind. Der Energy Meter sendet nur per
+  Speedwire-Multicast (UDP); dafür braucht es einen eigenen Empfänger auf dem Multicast-Socket
+  von IP-Symcon. Umsetzung hängt an einem Tester mit SMA-Anlage — Freiwillige vor.
 - **Chint DTSU666** — der Zähler, der bei vielen Huawei-, Sungrow- und Growatt-Anlagen mitgeliefert
   wird. Guter nächster Kandidat.
 - **ABB B23/B24 und Schneider iEM3000** — sobald die Registerdaten da sind (siehe oben). Weitere
