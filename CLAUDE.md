@@ -1689,6 +1689,19 @@ Beide Kategorien starten mit identischen Vorbelegungen (Dietmars ursprüngliche 
 zu diesem Zeitpunkt keine unterschiedlichen Zahlen für die beiden Kategorien genannt, nur die
 strukturelle Trennung gefordert.
 
+## Archiv-Verdichtung: Standard „aus", Reset nur beim Wechsel an → aus (0.32.6, 27.10.2026)
+
+Checkliste 9k verlangt bei archivbezogenen Schaltern den Standard „aus". Dietmars Vorgabe: Bestand
+bleibt an, nur neue Instanzen starten aus. Umsetzung ohne Raten, ob ein Wert „gespeichert" oder
+„Standard" ist (das lässt sich über `ReadProperty…` nicht unterscheiden): `CompactionPlan()` liefert bei
+ausgeschaltetem Schalter `[]` (und `SetArchive()` fasst die Verdichtung dann gar nicht an), solange das
+Attribut `CompactionApplied<kind>` nicht „war angewendet" sagt; `CommitCompactionState()` setzt es am
+Ende jedes vollständigen Registrierungsdurchlaufs auf den Schalterwert. Erst der beobachtete Wechsel
+an → aus löst das aktive Zurücksetzen (alle drei Stufen auf −1) aus. Folge: auch eine Bestandsinstanz,
+deren gespeicherter Wert fehlen sollte, verliert nie still ihre Regeln. Prüfstand Block 58 (Bestand
+simuliert der `IPS_CreateInstance`-Stub mit gespeichert AN). Der folgende Abschnitt (01.09.2026) gilt
+weiter für den bewussten Ausschaltfall.
+
 ## Verdichtung „aus" muss die Archiv-Regel aktiv löschen (01.09.2026)
 
 **Auslöser:** Dietmar prüfte die neue Verdichtungs-Automatik live an einer echten Instanz

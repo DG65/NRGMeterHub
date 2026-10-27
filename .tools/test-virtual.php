@@ -135,6 +135,11 @@ function IPS_GetModule($guid) { return $GLOBALS['MODULES'][$guid] ?? ['ModuleID'
 function TESTCHUB_GetFunctions($iid) { return $GLOBALS['CONTRACT'][$iid] ?? []; }
 function IPS_CreateInstance($guid) {
     $id = $GLOBALS['NEXTID']++;
+    // Bestandsinstanzen: die Verdichtung steht gespeichert AN (so war der Standard seit 31.08.2026,
+    // der Wert liegt in jeder Instanzkonfiguration). Neue Instanzen mit Standard „aus" bildet
+    // Block 58 gesondert nach.
+    $GLOBALS['PROP'][$id]['AutoCompactionPower'] = true;
+    $GLOBALS['PROP'][$id]['AutoCompactionEnergy'] = true;
     obj($id, 1, 'neue Instanz', 0);
     $GLOBALS['INSTMOD'][$id] = $guid;
     return $id;
@@ -813,6 +818,7 @@ check('18f: Leistung erkannt, Bezug/Einspeisung korrekt "nicht gefunden"', str_c
 
 echo "\n19) Durchgängig: Suchen -> \"Fund auswählen\" -> übernehmen (Dietmars Anregung 31.08.2026)\n";
 $fresh2 = new MeterHubVirtual(8100);
+$GLOBALS['PROP'][8100]['AutoCompactionPower'] = true; $GLOBALS['PROP'][8100]['AutoCompactionEnergy'] = true;
 $GLOBALS['INSTMOD'][8100] = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
 obj(8100, 1, 'Virtuell leer 2', 10);
 $fresh2->Create();
@@ -844,11 +850,13 @@ check('20d: >= 3600s — bereits gröber als jede Stufe, alle drei aktiv auf -1'
 check('20d2: dieselbe Vorbelegung gilt unabhängig für Energy', $plan->invoke($anyInstance, 10, 'Energy') === [[-1, 0], [1, 1], [12, 2]], json_encode($plan->invoke($anyInstance, 10, 'Energy')));
 $planHub = new ReflectionMethod('MeterHub', 'CompactionPlan');
 $hubInstance = new MeterHub(998);
+$GLOBALS['PROP'][998]['AutoCompactionPower'] = true; $GLOBALS['PROP'][998]['AutoCompactionEnergy'] = true;
 $hubInstance->Create(); // registriert AutoCompaction u.a. mit ihren Vorbelegungen
 check('20e: identische Staffelung im Schwestermodul MeterHub', $planHub->invoke($hubInstance, 10, 'Power') === [[-1, 0], [1, 1], [12, 2]], json_encode($planHub->invoke($hubInstance, 10, 'Power')));
 
 echo "\n  20f) Wirklich konfigurierbar (Dietmars Einwand 31.08.2026: \"ich bin nicht der einzigste Nutzer\") — nicht nur intervallabhängig, sondern von den Formularwerten\n";
 IPS_SetProperty(8100, 'AutoCompactionPower', false);
+$GLOBALS['ATTR'][8100]['CompactionApplied' . 'Power'] = true; // sie lief vorher (Wechsel an → aus)
 // Dietmars Entscheidung 01.09.2026: der Hauptschalter setzt aktiv zurück
 // (alle drei Stufen auf -1), statt einfach nichts mehr zu tun — konsistent
 // zur Einzelstufen-Regel, räumt auch Regeln aus einem früheren "an" auf.
@@ -888,7 +896,7 @@ foreach (['Power', 'Energy'] as $kind) {
 }
 check('20g: alle zwölf Einstellfelder vorhanden (getrennt für Power/Energy)', array_diff($expectedCompactFields, $compactFieldNames) === [], implode(',', $compactFieldNames));
 $compactPowerText = implode(' ', array_column($compactPanelPower['items'] ?? [], 'caption'));
-check('20h: Hauptschalter warnt vor dem aktiven Zurücksetzen (Dietmars Auftrag 01.09.2026)', str_contains($compactPowerText, '⚠️') && str_contains($compactPowerText, 'löscht aktiv'), $compactPowerText);
+check('20h: Hauptschalter warnt vor dem aktiven Zurücksetzen beim Ausschalten (Dietmars Auftrag 01.09.2026) und nennt den neuen Standard aus', str_contains($compactPowerText, '⚠️') && str_contains($compactPowerText, 'löscht MeterHub einmalig aktiv') && str_contains($compactPowerText, 'starten deshalb mit'), $compactPowerText);
 
 echo "\n21) Anteil (%) mit bis zu zwei Nachkommastellen (Dietmars Auftrag 01.09.2026: krumme Aufteilungen wie Drittel)\n";
 $fracCat = obj(970, 0, 'Drittel-Test', 10);
@@ -2705,6 +2713,60 @@ foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge'] 
     $src57 = file_get_contents(dirname(__DIR__) . "/$mod57/module.php");
     check("57: $mod57/module.php baut keine OPTIONS/ColorValue/ColorActive-Darstellung (kommt eine hinzu, diesen Test bewusst gegen die Symcon-Doku prüfen)", !preg_match("/'(OPTIONS|ColorValue|ColorActive)'/", $src57));
 }
+
+echo "\n58) Archiv-Verdichtung: Standard AUS, Bestandsinstanzen bleiben AN, zurückgesetzt wird nur beim Wechsel an → aus (Store-Review-Checkliste 9k, Dietmar 27.10.2026: „bei den vorhandenen Installationen an lassen\")\n";
+$newV = new MeterHubVirtual(8200); $newV->Create();
+$newH = new MeterHub(8201); $newH->Create();
+check('58a: neue Instanz, Standard aus: MeterHubVirtual plant nichts (Archiv unangetastet)', $plan->invoke($newV, 10, 'Power') === [] && $plan->invoke($newV, 10, 'Energy') === [], json_encode($plan->invoke($newV, 10, 'Power')));
+check('58a: neue Instanz, Standard aus: MeterHub plant nichts', $planHub->invoke($newH, 10, 'Power') === [] && $planHub->invoke($newH, 10, 'Energy') === []);
+$src58 = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php') . file_get_contents(dirname(__DIR__) . '/MeterHubVirtual/module.php');
+check('58a: der Standard im Code ist „false" (Checkliste 9k), kein RegisterPropertyBoolean(AutoCompaction…, true) mehr', !preg_match("/RegisterPropertyBoolean\\('AutoCompaction' \\. \\$kind, true\\)/", $src58));
+
+meter(5400, 'Verdichtungs-Zähler', 100.0, 10.0);   // Leistung 5403
+$cIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');   // Stub: gespeichert AN (Bestand)
+obj($cIid, 1, 'Verdichtungs-Test', 10);
+IPS_SetProperty($cIid, 'Nodes', json_encode([['Name' => 'Z', 'Factor' => 100, 'PowerID' => 5403, 'EnergyImportID' => 0, 'EnergyExportID' => 0]]));
+$cv = t35_apply($cIid);
+$cPow = (int)IPS_GetObjectIDByIdent('power', $cIid);
+check('58b: Bestandsinstanz (gespeichert AN): Verdichtung wird wie bisher gesetzt', $cPow > 0 && count($GLOBALS['COMPACTION_STATE'][$cPow] ?? []) === 3, json_encode($GLOBALS['COMPACTION_STATE'][$cPow] ?? null));
+check('58b: danach ist „angewendet" vermerkt', ($GLOBALS['ATTR'][$cIid]['CompactionAppliedPower'] ?? null) === true);
+IPS_SetProperty($cIid, 'AutoCompactionPower', false);
+$cv = t35_apply($cIid);
+check('58c: bewusstes Ausschalten (an → aus) setzt die Regeln im Archiv EINMAL zurück', count($GLOBALS['COMPACTION_STATE'][$cPow] ?? []) === 0 && ($GLOBALS['ATTR'][$cIid]['CompactionAppliedPower'] ?? null) === false, json_encode($GLOBALS['COMPACTION_STATE'][$cPow] ?? null));
+// Von Hand wieder Regeln in der Konsole gesetzt, Schalter bleibt aus → weiteres Übernehmen fasst sie NICHT mehr an
+$GLOBALS['COMPACTION_STATE'][$cPow] = [3 => 2];
+$logBefore = count($GLOBALS['COMPACTION'][$cPow] ?? []);
+$cv = t35_apply($cIid);
+check('58d: Schalter bleibt aus → weiteres Übernehmen lässt von Hand gesetzte Regeln unberührt, kein AC_SetCompaction-Aufruf', $GLOBALS['COMPACTION_STATE'][$cPow] === [3 => 2] && count($GLOBALS['COMPACTION'][$cPow] ?? []) === $logBefore, json_encode($GLOBALS['COMPACTION_STATE'][$cPow]));
+// Der gefährliche Randfall: Wert fehlt/ist ohne unser Zutun auf dem neuen Standard „aus", Regeln aus früherem „an" liegen im Archiv
+$dIid = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($dIid, 1, 'Bestand ohne gespeicherten Wert', 10);
+IPS_SetProperty($dIid, 'Nodes', json_encode([['Name' => 'Z', 'Factor' => 100, 'PowerID' => 5403, 'EnergyImportID' => 0, 'EnergyExportID' => 0]]));
+unset($GLOBALS['PROP'][$dIid]['AutoCompactionPower'], $GLOBALS['PROP'][$dIid]['AutoCompactionEnergy']);   // Wert fehlt → neuer Standard aus
+t35_apply($dIid);
+$dPow = (int)IPS_GetObjectIDByIdent('power', $dIid);
+$GLOBALS['COMPACTION_STATE'][$dPow] = [-1 => 0, 1 => 1, 12 => 2];   // Regeln aus dem früheren Zustand
+t35_apply($dIid);
+check('58e: Bestandsinstanz mit fehlendem Wert (neuer Standard aus): vorhandene Verdichtungsregeln bleiben ERHALTEN, nichts wird gelöscht', $GLOBALS['COMPACTION_STATE'][$dPow] === [-1 => 0, 1 => 1, 12 => 2], json_encode($GLOBALS['COMPACTION_STATE'][$dPow]));
+
+// dieselbe Kette im Hauptmodul MeterHub (Bestand an → Ausschalten → Rest bleibt in Ruhe)
+$h58 = new MeterHub(8210); $h58->Create();
+$GLOBALS['PROP'][8210]['AutoCompactionPower'] = true;
+$rv58 = new ReflectionMethod('MeterHub', 'RegisterVar');
+$commit58 = new ReflectionMethod('MeterHub', 'CommitCompactionState');
+$def58 = ['hub58_power', 'Leistung 58', 'F', '', true, 'total'];
+$rv58->invoke($h58, $def58, 0);
+$hv58 = (new ReflectionMethod('MeterHub', 'FindVarByIdent'))->invoke($h58, 'hub58_power');
+check('58f: MeterHub, gespeichert AN: Verdichtung wird gesetzt', count($GLOBALS['COMPACTION_STATE'][$hv58] ?? []) === 3, json_encode($GLOBALS['COMPACTION_STATE'][$hv58] ?? null));
+$commit58->invoke($h58);
+check('58f: MeterHub vermerkt „angewendet"', ($GLOBALS['ATTR'][8210]['CompactionAppliedPower'] ?? null) === true);
+$GLOBALS['PROP'][8210]['AutoCompactionPower'] = false;
+$rv58->invoke($h58, $def58, 0);
+check('58f: MeterHub, bewusst ausgeschaltet: einmal zurückgesetzt', count($GLOBALS['COMPACTION_STATE'][$hv58] ?? []) === 0);
+$commit58->invoke($h58);
+$GLOBALS['COMPACTION_STATE'][$hv58] = [6 => 3];
+$rv58->invoke($h58, $def58, 0);
+check('58f: MeterHub, weiter aus: von Hand gesetzte Regel bleibt unberührt', $GLOBALS['COMPACTION_STATE'][$hv58] === [6 => 3], json_encode($GLOBALS['COMPACTION_STATE'][$hv58]));
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

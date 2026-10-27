@@ -2,6 +2,25 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.32.6 (2026-10-27)
+
+- **Archiv-Verdichtung: Standard „aus" für neue Instanzen, Bestand bleibt unverändert (Store-Review-
+  Checkliste 9k, Entscheidung Dietmar 27.10.2026: „bei den vorhandenen Installationen an lassen").**
+  `AutoCompactionPower`/`AutoCompactionEnergy` starten in `MeterHub` und `MeterHubVirtual` jetzt mit
+  „aus"; der Nutzer stimmt bewusst zu. Bestehende Instanzen haben „an" in ihrer Konfiguration
+  gespeichert und behalten es.
+  - **Sicherheitsnetz gegen stilles Löschen:** Das Archiv wird nur noch beim BEOBACHTETEN Wechsel
+    von an auf aus zurückgesetzt (neues Attribut `CompactionApplied<Power|Energy>`, gesetzt nach jedem
+    vollständigen Durchlauf). Ein von vornherein ausgeschalteter Schalter lässt Regeln im Archiv in Ruhe
+    — auch dort, wo bei einer Bestandsinstanz der gespeicherte Wert fehlen und deshalb der neue Standard
+    „aus" greifen sollte. Vorher hätte genau das bei jedem „Übernehmen" alle Verdichtungsregeln
+    gelöscht. Die Aktion „aus" bleibt für den bewussten Fall unverändert: einmaliges, aktives
+    Zurücksetzen aller drei Stufen.
+  - Formulartext am Schalter und News-Panel angepasst. Prüfstand: `test-virtual.php` Block 58
+    (neuer Standard, Bestand an, Wechsel an → aus, weiter aus lässt Handregeln unberührt, fehlender
+    Wert löscht nichts, dieselbe Kette im Hauptmodul); zwei Mutationen (Leer-Plan-Stopp, Wechselprüfung)
+    schlagen an.
+
 ## 0.32.5 (2026-10-27)
 
 - **Erste Stable-Version.** Inhaltlich identisch mit 0.32.4-beta.1; es entfällt nur das Beta-Suffix.
@@ -410,17 +429,3 @@
   prüft dafür vorab die Verbindung (`ConnectionID`) und liefert leer zurück, statt bei jedem
   Takt Symcons Warnung „Keine übergeordnete Instanz ist konfiguriert …" zu erzeugen. Status-
   text 201 nennt jetzt auch das fehlende Gateway.
-
-## 0.29.12-beta.1 (2026-09-19)
-
-- **Fix: Symbox-Gateway-Verbindung — die Reparatur aus 0.29.10 war nur die halbe
-  Kompatibilitätsangabe.** Der Beta-Tester sah nach dem Update auf 0.29.11 im Fenster
-  „Gateway ändern" weiterhin keine Auswahl, es blitzte nur kurz auf. Das native ModBus
-  Gateway hat selbst `ChildRequirements {77B31ABB-…}` (live per `IPS_GetModule()` gelesen) und
-  akzeptiert nur Kinder, die diese Schnittstelle in `implemented` führen. `module.json`
-  ergänzt: `implemented ["{77B31ABB-18FA-4B91-BB63-E5B2AB5588F4}"]`. Gegengelesen an Symcons
-  Referenzmodul (symcon/SymconBC, EM24-DIN) und am Gateway-Modul von WPModbusHub, das an
-  echter Hardware läuft — beide führen `parentRequirements` UND `implemented`.
-- Noch offen und bewusst unverifiziert: ob die Angaben am Hauptmodul den Anlege-Ablauf oder
-  bestehende Direkt-Instanzen in der Konsole beeinflussen. WPModbusHub hat den Gateway-Weg
-  deshalb als eigenes Schwestermodul gebaut; die Entscheidung dazu steht noch aus.

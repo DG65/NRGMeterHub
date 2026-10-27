@@ -3368,7 +3368,12 @@ class MeterHub extends IPSModule
         // unterscheiden" — unabhängig vom Update-Takt können beide ganz
         // andere Aufbewahrungs-Anforderungen haben).
         foreach (['Power', 'Energy'] as $kind) {
-            $this->RegisterPropertyBoolean('AutoCompaction' . $kind, true);
+            // Standard AUS (Store-Review-Checkliste 9k: archivbezogene Schalter starten aus, der Nutzer
+            // stimmt bewusst zu). Bestehende Instanzen behalten ihren gespeicherten Wert (an) — und
+            // selbst wo ein Wert fehlen sollte, fasst ein ausgeschalteter Schalter das Archiv nicht an,
+            // siehe CompactionPlan(): zurückgesetzt wird nur beim Wechsel von an auf aus.
+            $this->RegisterPropertyBoolean('AutoCompaction' . $kind, false);
+            $this->RegisterAttributeBoolean('CompactionApplied' . $kind, false);
             $this->RegisterPropertyInteger('CompactDirect' . $kind, 0);        // direkt: 1×/Minute
             $this->RegisterPropertyInteger('CompactStage2Months' . $kind, 1);
             $this->RegisterPropertyInteger('CompactStage2Type' . $kind, 1);    // nach Stufe 2: 1×/5 Min
@@ -3411,7 +3416,7 @@ class MeterHub extends IPSModule
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
     private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230'];
-    private const NEWS_VERSION = '0.32.0';
+    private const NEWS_VERSION = '0.32.6';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3456,6 +3461,7 @@ class MeterHub extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🗄️ Archiv-Verdichtung: Neue Instanzen starten mit „aus", damit du bewusst zustimmst. Bestehende Instanzen behalten ihre Einstellung (an) unverändert. Das Archiv wird nur noch beim Ausschalten (von an auf aus) zurückgesetzt, nicht mehr bei jedem „Übernehmen" eines ausgeschalteten Schalters.'],
                 ['type' => 'Label', 'caption' => '• 🗝️ Inexogy: Optionale automatische Neuanmeldung. Wird der Zugriffsschlüssel ungültig, kann MeterHub sich selbst neu anmelden — das Passwort liegt dafür in einem Tresor (Community-Modul „SymconSecrets"), nie in MeterHub. MeterHub erkennt selbst, ob ein Tresor mit dem Passwort da ist; die Zeile darunter im „Cloud-Zugang" zeigt, was gilt. Ist keiner da, ändert sich nichts. Auch „Anmelden" kommt dann ohne eingetipptes Passwort aus.'],
                 ['type' => 'Label', 'caption' => '• 🔐 Inexogy: Lehnt Inexogy den gespeicherten Zugriffsschlüssel ab (HTTP 401 — laut Inexogy kann er ungültig werden), sagt die Statuszeile im „Cloud-Zugang" das jetzt klar („⚠️ … neu anmelden") statt eines widersprüchlichen „✅ angemeldet, Abfrage fehlgeschlagen". Dann einmal E-Mail/Passwort eintragen und „Anmelden und Zähler abrufen" klicken; der Nachtrag holt die Lücke danach selbst nach. Die Zählerliste nach der Anmeldung bleibt außerdem stehen, statt beim Übernehmen wieder zu verschwinden.'],
                 ['type' => 'Label', 'caption' => '• 🧭 Richtungsprüfung vergleicht zuerst mit unabhängigen Quellen: Netzmessung des Wechselrichters, dann die PV-Erzeugung (Summe aller PV-Zähler im Verbund, egal wie herum eingestellt). Ein anderer Netzzähler dieses Moduls dient nur noch als Notlösung, mit dem Hinweis, dass eine gemeinsame Verdrehung so nicht auffällt. Die Zeilen tragen jetzt den Instanznamen.'],
@@ -7919,6 +7925,22 @@ class MeterHub extends IPSModule
                 @IPS_SetIcon($vid, $d[6]);
             }
         }
+        $this->CommitCompactionState();
+    }
+
+    /**
+     * Merkt nach einem vollständigen Registrierungsdurchlauf, ob die automatische Verdichtung je Kategorie
+     * jetzt angewendet wird. Erst damit löst ein späteres Ausschalten (an → aus) das einmalige Zurücksetzen
+     * der Regeln im Archiv aus; ein von vornherein ausgeschalteter Schalter lässt das Archiv in Ruhe.
+     */
+    private function CommitCompactionState(): void
+    {
+        foreach (['Power', 'Energy'] as $kind) {
+            $on = $this->ReadPropertyBoolean('AutoCompaction' . $kind);
+            if ($this->ReadAttributeBoolean('CompactionApplied' . $kind) !== $on) {
+                $this->WriteAttributeBoolean('CompactionApplied' . $kind, $on);
+            }
+        }
     }
 
     // Entfernt Variablen eines anderen Treibers / deaktivierter Gruppe und
@@ -8133,7 +8155,7 @@ class MeterHub extends IPSModule
         $opts = $this->CompactionTypeOptions();
         return [
             ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
-            ['type' => 'Label', 'caption' => '⚠️ Ausschalten löscht aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte) — kein „einfach nicht mehr anfassen", sondern ein echtes Zurücksetzen auf „aus" bei jedem „Übernehmen".'],
+            ['type' => 'Label', 'caption' => '⚠️ Beim Ausschalten (von an auf aus) löscht MeterHub einmalig aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte). Ist der Schalter von vornherein aus, fasst MeterHub die Verdichtung im Archiv nicht an — neue Instanzen starten deshalb mit „aus".'],
             [
                 'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen?', 'width' => '480px',
                 'popup' => [
@@ -8180,6 +8202,12 @@ class MeterHub extends IPSModule
     private function CompactionPlan(int $intervalSeconds, string $kind): array
     {
         if (!$this->ReadPropertyBoolean('AutoCompaction' . $kind)) {
+            // Nie angewendet (neue Instanz mit Standard „aus" oder ein Bestandswert, der ohne unser
+            // Zutun auf aus steht): das Archiv NICHT anfassen. Nur der beobachtete Wechsel von an auf
+            // aus setzt zurück (Attribut CompactionApplied, siehe CommitCompactionState()).
+            if (!$this->ReadAttributeBoolean('CompactionApplied' . $kind)) {
+                return [];
+            }
             // Aktiv zurücksetzen statt nur nichts mehr zu tun (Dietmars
             // Entscheidung 01.09.2026, konsistent zur Einzelstufen-Regel
             // oben): alle drei Stufen explizit auf -1, damit auch Regeln aus
@@ -8222,6 +8250,9 @@ class MeterHub extends IPSModule
             AC_SetLoggingStatus($archiveIDs[0], $vid, true);
             AC_SetAggregationType($archiveIDs[0], $vid, $counter ? 1 : 0);
             $plan = $this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power');
+            if ($plan === []) {
+                return; // Verdichtung aus und nie angewendet — Archiv unangetastet lassen
+            }
             // Verwaiste Regeln an anderen Monats-Offsets zuerst entfernen —
             // siehe MeterHubVirtual::SetArchive() für die volle Herleitung
             // (Sepps zweiter Fund 01.09.2026: "Verdichtungseinträge, die

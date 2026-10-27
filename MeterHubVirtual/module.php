@@ -106,7 +106,12 @@ class MeterHubVirtual extends IPSModule
         // andere Aufbewahrungs-Anforderungen haben, z. B. Energie-
         // Zählerstände länger roh behalten als Momentanleistung).
         foreach (['Power', 'Energy'] as $kind) {
-            $this->RegisterPropertyBoolean('AutoCompaction' . $kind, true);
+            // Standard AUS (Store-Review-Checkliste 9k: archivbezogene Schalter starten aus, der Nutzer
+            // stimmt bewusst zu). Bestehende Instanzen behalten ihren gespeicherten Wert (an) — und
+            // selbst wo ein Wert fehlen sollte, fasst ein ausgeschalteter Schalter das Archiv nicht an,
+            // siehe CompactionPlan(): zurückgesetzt wird nur beim Wechsel von an auf aus.
+            $this->RegisterPropertyBoolean('AutoCompaction' . $kind, false);
+            $this->RegisterAttributeBoolean('CompactionApplied' . $kind, false);
             $this->RegisterPropertyInteger('CompactDirect' . $kind, 0);        // direkt: 1×/Minute
             $this->RegisterPropertyInteger('CompactStage2Months' . $kind, 1);
             $this->RegisterPropertyInteger('CompactStage2Type' . $kind, 1);    // nach Stufe 2: 1×/5 Min
@@ -2185,6 +2190,22 @@ class MeterHubVirtual extends IPSModule
                 }
             }
         }
+        $this->CommitCompactionState();
+    }
+
+    /**
+     * Merkt nach einem vollständigen Registrierungsdurchlauf, ob die automatische Verdichtung je Kategorie
+     * jetzt angewendet wird. Erst damit löst ein späteres Ausschalten (an → aus) das einmalige Zurücksetzen
+     * der Regeln im Archiv aus; ein von vornherein ausgeschalteter Schalter lässt das Archiv in Ruhe.
+     */
+    private function CommitCompactionState(): void
+    {
+        foreach (['Power', 'Energy'] as $kind) {
+            $on = $this->ReadPropertyBoolean('AutoCompaction' . $kind);
+            if ($this->ReadAttributeBoolean('CompactionApplied' . $kind) !== $on) {
+                $this->WriteAttributeBoolean('CompactionApplied' . $kind, $on);
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -2506,7 +2527,7 @@ class MeterHubVirtual extends IPSModule
         $opts = $this->CompactionTypeOptions();
         return [
             ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
-            ['type' => 'Label', 'caption' => '⚠️ Ausschalten löscht aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte) — kein „einfach nicht mehr anfassen", sondern ein echtes Zurücksetzen auf „aus" bei jedem „Übernehmen".'],
+            ['type' => 'Label', 'caption' => '⚠️ Beim Ausschalten (von an auf aus) löscht MeterHub einmalig aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte). Ist der Schalter von vornherein aus, fasst MeterHub die Verdichtung im Archiv nicht an — neue Instanzen starten deshalb mit „aus".'],
             [
                 'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen?', 'width' => '480px',
                 'popup' => [
@@ -2556,6 +2577,12 @@ class MeterHubVirtual extends IPSModule
     private function CompactionPlan(int $intervalSeconds, string $kind): array
     {
         if (!$this->ReadPropertyBoolean('AutoCompaction' . $kind)) {
+            // Nie angewendet (neue Instanz mit Standard „aus" oder ein Bestandswert, der ohne unser
+            // Zutun auf aus steht): das Archiv NICHT anfassen. Nur der beobachtete Wechsel von an auf
+            // aus setzt zurück (Attribut CompactionApplied, siehe CommitCompactionState()).
+            if (!$this->ReadAttributeBoolean('CompactionApplied' . $kind)) {
+                return [];
+            }
             // Aktiv zurücksetzen statt nur nichts mehr zu tun (Dietmars
             // Entscheidung 01.09.2026, konsistent zur Einzelstufen-Regel
             // oben): alle drei Stufen explizit auf -1, damit auch Regeln aus
@@ -2601,6 +2628,9 @@ class MeterHubVirtual extends IPSModule
             AC_SetLoggingStatus($ids[0], $vid, true);
             AC_SetAggregationType($ids[0], $vid, $counter ? 1 : 0);
             $plan = $this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power');
+            if ($plan === []) {
+                return; // Verdichtung aus und nie angewendet — Archiv unangetastet lassen
+            }
             // Verwaiste Regeln an anderen Monats-Offsets zuerst entfernen —
             // Sepps zweiter Fund 01.09.2026 (Fehler "Verdichtungseinträge,
             // die näher an der Gegenwart sind, müssen lockerer als die
