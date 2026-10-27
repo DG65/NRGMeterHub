@@ -1046,6 +1046,20 @@ spätere Blöcke, die verschachtelte Instanzen gegen echte Zähler prüfen, müs
 Profile zurücksetzen, sonst meldet die Einheiten-Prüfung W vs. FREMD. Blöcke 1–34
 laufen per `LEGACY_LIST` im Tabellen-Modus.
 
+## Zweige und Veröffentlichung (seit 27.10.2026)
+
+Dietmar hat im Symcon-Store alle Betas auf Stable umgestellt (27.10.2026, ausgenommen
+SteuerboxHub/EEBUSGateway). Folgen für dieses Repo: **`ems-integration` entfällt** — gearbeitet wird
+auf `beta`, `main` wird nach Dietmars Freigabe per Fast-Forward auf `beta` gezogen (danach `main` ==
+`beta`). Der Standardzweig auf GitHub ist `beta` (gesetzt 23.10.2026; der Store vergleicht mit dem
+Standardzweig). 0.32.5 ist die erste Stable-Version. Der Zweig `ems-integration` wurde noch NICHT
+gelöscht: erst, wenn keine Symcon-Installation in der Modulverwaltung ihn mehr verfolgt (Privat,
+Solarpark, Geschäft, Paul — das Umstellen macht Dietmar von Hand). Bis dahin nicht pflegen, nur
+stehen lassen. Pushen weiterhin nur auf Dietmars ausdrückliches Go; die ältere Regel „beta und
+ems-integration immer gemeinsam" gilt nicht mehr. Der Migrationsvergleich (Checkliste 9e) läuft
+künftig `origin/main` → Kandidat. Frühere Erwähnungen von `ems-integration` in diesem Dokument sind
+Historie.
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide

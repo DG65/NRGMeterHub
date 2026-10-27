@@ -2,6 +2,19 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.32.5 (2026-10-27)
+
+- **Erste Stable-Version.** Inhaltlich identisch mit 0.32.4-beta.1; es entfällt nur das Beta-Suffix.
+  Der Symcon-Store führt MeterHub jetzt im stabilen Kanal. Vor der Freigabe gegen die
+  Store-Review-Checkliste (SUITE.md) geprüft und der Migrationsvergleich gegen den bisherigen Stand
+  von `main` gefahren (kein Bruch, nur additive Erweiterungen, neue Module `MeterHubBridge` und
+  `MeterHubVirtual`). `main` und `beta` stehen ab dieser Version auf demselben Commit; der Zweig
+  `ems-integration` entfällt (siehe CLAUDE.md).
+- **Bekannt, bewusst offen (Checkliste 9k):** Die Archiv-Verdichtung (`AutoCompactionPower`/
+  `AutoCompactionEnergy`) ist standardmäßig an. Ein Umstellen des Standards auf „aus" würde bei
+  Bestandsinstanzen ohne gespeicherten Wert auch bestehende Verdichtungsregeln im Archiv zurücksetzen —
+  deshalb nur nach Entscheidung und mit eigener Migration, nicht nebenbei.
+
 ## 0.32.4-beta.1 (2026-10-18)
 
 - **Symcon-Start: `MeterHubVirtual` löscht beim Start keine Ausgabevariablen mehr (Store-Review-
@@ -411,111 +424,3 @@
 - Noch offen und bewusst unverifiziert: ob die Angaben am Hauptmodul den Anlege-Ablauf oder
   bestehende Direkt-Instanzen in der Konsole beeinflussen. WPModbusHub hat den Gateway-Weg
   deshalb als eigenes Schwestermodul gebaut; die Entscheidung dazu steht noch aus.
-
-## 0.29.11-beta.1 (2026-09-18)
-
-- **Fix: Fehlermeldung des Verbindungstests war im Symbox-Gateway-Modus irreführend.**
-  „❌ Verbindung fehlgeschlagen — Host/Port/Unit-ID/Zählertyp prüfen" nannte Felder, die es in
-  diesem Modus gar nicht mehr gibt (Host/Port/Unit-ID sind ausgeblendet, siehe 0.29.8) — Fund
-  am selben Forum-Beta-Test wie die 0.29.10-Reparatur, derselbe Nutzer sah die Meldung nach
-  einem Verbindungsversuch ohne verbundene Gateway-Instanz. Zeigt im Gateway-Modus jetzt
-  stattdessen den Hinweis auf das 🔌-Symbol und die passende Modbus-Gateway-Instanz.
-
-## 0.29.10-beta.1 (2026-09-18)
-
-- **Fix: Symbox-Gateway-Verbindungsmodus war praktisch unbenutzbar** — kein Nutzer konnte eine
-  Instanz überhaupt mit einer nativen Modbus-Gateway-Instanz verbinden, unabhängig von Symbox
-  oder Konfiguration. Gefunden über einen echten Beta-Tester-Bericht im Forum
-  ("Allerdings will er keine Verbindung aufbauen") am Beispiel einer Symbox mit drei Zählern
-  und einem Wechselrichter am selben RS485-Bus. Ursache live gegen den Solarpark verifiziert
-  (`IPS_GetModule()` auf Symcons natives „ModBus Gateway"): dessen `Implemented`-Liste
-  enthält die Splitter-Schnittstelle `{E310B701-4AE7-458E-B618-EC13A1A6F6A8}` — dieselbe
-  GUID, die unser eigener `SendDataToParent()`-Aufruf schon als `DataID` verwendet (0.29.7).
-  `MeterHub/module.json` führte diese GUID aber nicht in `parentRequirements` — Symcons
-  Konsole bietet einer Instanz deshalb gar keine Verbindungsmöglichkeit zu einem passenden
-  Gateway an, unabhängig davon, ob eines existiert. Jetzt ergänzt; rein deklarativ, keine
-  Laufzeitänderung, keine Auswirkung auf bestehende `direct`-Instanzen (macht eine bisher
-  unmögliche Verbindung nur möglich, verbindet nichts automatisch — siehe die bewusste
-  Entscheidung gegen `ConnectParent()` in 0.29.7).
-- Denselben leeren `parentRequirements`-Eintrag haben InverterHub und ChargerHub für ihre
-  eigenen Symbox-Gateway-Implementierungen — beide Sitzungen informiert.
-- Hinweistext im Formular („Host/Port/Unit-ID entfallen …") erklärt jetzt den tatsächlichen
-  Verbindungsweg: pro Gerät am Bus eine eigene native „ModBus Gateway"-Instanz mit passender
-  `DeviceID` anlegen, dann diese Instanz über das 🔌-Symbol am Kopf der Instanzkonfiguration
-  damit verbinden — vorher stand dort nur „ist noch offen (wird nachgereicht)".
-
-## 0.29.9-beta.1 (2026-09-18)
-
-- **Fix: Symbox-Gateway-Schreibzugriff (Function 16) war strukturell kaputt** (Fund ausgelöst
-  durch ChargerHubs Nachfrage 18.09.2026). `writeHolding()` übergab die rohen gepackten
-  Registerbytes direkt als `"Data"`-Feld an `json_encode()` — die meisten Registerwerte
-  (z. B. 0xFFFF) sind kein gültiges UTF-8, `json_encode()` scheitert dabei lautlos (liefert
-  `false`), was zuvor als leerer, aber syntaktisch gültiger JSON-String verschickt worden
-  wäre. Jetzt: `"Data"` wird base64-kodiert (selbst nur eine plausible, ungetestete Annahme —
-  kein verifiziertes Schreib-Beispiel im Referenzmodul vorhanden, siehe 0.29.7), zusätzlich
-  bricht `request()` jetzt sauber mit `null` ab, falls `json_encode()` aus einem anderen
-  Grund scheitert, statt einen kaputten String an `SendDataToParent()` zu reichen.
-- Prüfstand `test-modbus-client.php` Block 6 mit bewusst nicht-UTF8-tauglichen Registerwerten
-  (0xFFFF/0x8001) ergänzt — die vorherige Testauswahl (0x1234/0x5678) hatte den Fehler nicht
-  gefangen, weil sie zufällig gültiges UTF-8 ergab.
-
-## 0.29.8-beta.1 (2026-09-18)
-
-- **Symbox-Gateway: Host/Port/Unit-ID im Formular ausgeblendet, wenn dieser Verbindungsweg
-  gewählt ist** (Fund ChargerHub 18.09.2026, SUITE.md 9j). Grund: die Unit-ID (Modbus-Slave-
-  Adresse) sitzt bei diesem Weg nicht an dieser Instanz, sondern am `DeviceID`-Property der
-  übergeordneten nativen Modbus-Gateway-Instanz, an die diese Instanz im Objektbaum gehängt
-  wird — live an einer Solarpark-Installation verifiziert (`ModBus Gateway`-Splitter,
-  {A5F663AB-C400-4FE5-B207-4D67CC030564}). Die drei bisherigen Felder wären in diesem Modus
-  irreführend gewesen. Neuer Hinweistext erklärt, wo die Unit-ID stattdessen eingestellt wird.
-
-## 0.29.7-beta.1 (2026-09-18)
-
-- **Symbox-Gateway: lesender Zugriff jetzt echt implementiert (SUITE.md 9j), nicht mehr Stub.**
-  Nutzlastformat von `SendDataToParent`/`ForwardData` gegen Symcons natives Modbus-Gateway am
-  Rohcode von Symcons eigenem Referenzmodul verifiziert (`raw.githubusercontent.com/symcon/
-  SymconBC/master/EM24-DIN/module.php`, per `curl` gegengelesen, nicht nur eine KI-Zusammen-
-  fassung): `{"DataID": "{E310B701-…}", "Function": FC, "Address": Register, "Quantity": Anzahl,
-  "Data": ""}`, Antwort roh mit 2 Byte Kopf (Function+ByteCount) davor, Rest big-endian
-  16-Bit-Register. `readHolding()`/`readInput()` (Function 3/4) folgen diesem Vorbild 1:1.
-  **Noch offen:** wie eine Instanz tatsächlich mit dem nativen Gateway verbunden wird —
-  `ConnectParent()` in `Create()` wurde bewusst NICHT ergänzt (InverterHubs Fund 18.09.2026:
-  legt laut SDK-Doku bei Bedarf selbst einen Parent an, hätte also jede bestehende
-  Direktverbindungs-Instanz ungefragt betroffen).
-- **Schreibender Zugriff (Function 16) ist dagegen eine ungetestete Ableitung**, kein
-  verifizierter Fund — Symcons Referenzmodul liest nur. Deutlich gekennzeichnet (Kommentar im
-  Code + einmaliger Protokollhinweis), bis echte Symbox-Hardware das bestätigt.
-- Prüfstand `test-modbus-client.php` Block 6 komplett erweitert: echte Anfrage-Nutzlast und
-  Antwort-Dekodierung für Lese- und Schreibzugriff geprüft, nicht nur der frühere Stub.
-
-## 0.29.6-beta.1 (2026-09-18)
-
-- **Neu: zweiter Verbindungsweg „Symbox-Gateway" (Vorbereitung, noch nicht funktionsfähig).**
-  SUITE.md 9j, Dietmars Auftrag 18.09.2026: Symcons eingebaute Symbox-Hardware bietet ihren
-  RS485-Port nicht als eigenen ansprechbaren Socket an, sondern ausschließlich über Symcons
-  native Modbus-Gateway-I/O-Instanz (Parent-Instanz + Kind-Instanzen, Datenaustausch über
-  `SendDataToParent`/`ForwardData`) — ein strukturell anderer Weg als der bisherige direkte
-  (`fsockopen`). Neues Formularfeld „Verbindungsweg" (Direkt/Symbox-Gateway) und neue Klasse
-  `MHUB_ModbusGatewayClient` (gemeinsame Schnittstelle `MHUB_ModbusClientInterface` mit der
-  bestehenden `MHUB_ModbusTcpClient`, mit InverterHub/ChargerHub für eine spätere gemeinsame
-  Klasse abgestimmt) legen die Fassade an. Das eigentliche Nutzlastformat von
-  `SendDataToParent`/`ForwardData` ist öffentlich nicht dokumentiert und ohne echte
-  Symbox-Testhardware nicht seriös zu klären — bis dahin liefert der neue Verbindungsweg
-  kontrolliert `null`/`false` (nie einen Fatal Error) plus einen einmaligen Protokollhinweis,
-  im Formular deutlich als „noch nicht funktionsfähig" gekennzeichnet. Der bisherige direkte
-  Weg bleibt unverändert und ist weiterhin die einzige produktive Option.
-- Prüfstand `test-modbus-client.php` Block 6.
-
-## 0.29.5-beta.1 (2026-09-15)
-
-- **Fix: Plausibilitätssperre gegen Fehl-Lesewerte bei hochgerechneter Energie.**
-  Live am Solarpark gefunden: `AdvanceCalculatedEnergy()` (MeterHubVirtual) prüfte bisher nur
-  `is_finite()` gegen NaN/Unendlich — ein einzelner riesiger-aber-endlicher Fehl-Lesewert (z. B.
-  eine verunglückte Modbus-Dekodierung bei einem Verbindungsaussetzer) lief ungebremst durch und
-  blieb dauerhaft in der kumulativen kWh-Variable stehen. Beobachtet: eine 24er-WR-Gruppe sprang
-  in 591 s um 998.698 kWh (≈ 6 GW). Neu: jeder Leistungswert wird vor dem Verrechnen gegen den
-  robusten Median der anderen Mitglieder DESSELBEN Durchlaufs geprüft (kein fester Watt-
-  Grenzwert — passt sich jeder Anlagengröße automatisch an), plus ein genereller Absolut-Deckel
-  (1 GW) für Gruppen mit weniger als drei Mitgliedern. Kein Verlaufsgedächtnis nötig: sobald ein
-  Mitglied wieder plausible Werte liefert, rechnet es im nächsten Durchlauf normal weiter.
-- Prüfstand `test-virtual.php` Block 45.
