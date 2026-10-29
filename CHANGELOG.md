@@ -2,6 +2,31 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.33.0 (2026-10-29)
+
+- **Neu: „🪟 Formular: Aufbau" in MeterHub, MeterHubVirtual und MeterHubDiscovery (NRG-Stack-Konvention
+  SUITE.md 3a, Auftrag Dietmar 29.10.2026, Referenz Batteriewächter).** Symcon merkt sich das Auf- und
+  Zuklappen der Bereiche nicht selbst; das Formular von MeterHub hat über ein Dutzend Bereiche. Im neuen,
+  eingeklappten Panel vor dem Forum-Hinweis legt der Nutzer je Fachpanel fest, ob es beim Öffnen
+  „aufgeklappt", „zugeklappt" oder „🙈 ausgeblendet" ist, und an welcher Position (1–99) es steht.
+  - Kein Haken = Standard (wie bisher). Bei Widerspruch gilt ausgeblendet vor zugeklappt vor aufgeklappt.
+    Bei gleicher Position bleibt die Standardreihenfolge.
+  - **Ausgeblendet heißt `visible: false`, nie weglassen:** die Felder bleiben im Formular, gespeicherte
+    Werte bleiben beim „Übernehmen" erhalten und der Bereich arbeitet weiter. Das Aufbau-Panel nennt die
+    Zahl der ausgeblendeten Bereiche und welche es sind.
+  - Fest bleiben oben Zweck, Neu, Dokumentation & Hilfe und die Grundfelder (Zählerbezeichnung, Standort,
+    Zählertyp …), unten Aufbau, Forum-Hinweis und „Über dieses Modul".
+  - Neue Property `FormLayout` (String, `'[]'`) je Modul, Liste `{Key, Panel, Opened, Closed, Hidden, Pos}`;
+    unbekannte oder fehlende Schlüssel (neues Panel nach einem Update) fallen auf Standard zurück, ein
+    unlesbarer Inhalt ebenso. Knopf „↩️ Auf Standard zurücksetzen" → `MHUB_`/`MHUBV_`/`MHUBD_ResetFormLayout()`
+    (setzt nur die Liste im offenen Formular, gespeichert wird mit „Übernehmen").
+  - MeterHub: Die Statuszeile zur Archiv-Verdichtung zog in das Panel „Archiv-Verdichtung: Leistung/
+    Momentanwerte" um, damit sie beim Verschieben beieinander bleibt.
+  - MeterHubBridge hat kein Fachpanel und bekommt das Panel nicht (Konvention: mehr als zwei Fachpanels).
+  - Prüfstand: Reihenfolge, Aufklapp-Zustand, `visible:false`, Rückfall bei unbekanntem Schlüssel und
+    ungültigem Inhalt, Reset, Vorrang bei Widerspruch (`.tools/test-virtual.php` Block 59,
+    `.tools/test-discovery-migration.php` Abschnitt 9).
+
 ## 0.32.6 (2026-10-27)
 
 - **Archiv-Verdichtung: Standard „aus" für neue Instanzen, Bestand bleibt unverändert (Store-Review-
@@ -417,15 +442,3 @@
   normaler Anstieg, Lücke sowie der Solarpark-Fund (6-GW-Ausreißer in einer Stunde 3,6 MW)
   und ein 500-MW-Ausreißer unter dem Deckel.
 
-## 0.29.13-beta.1 (2026-09-19)
-
-- **Fix: Symbox-Gateway-Instanz startete nie — `ApplyChanges()` verlangte weiterhin einen Host.**
-  Im Gateway-Modus ist das Host-Feld ausgeblendet und damit leer; die Bereitschaftsprüfung
-  (`Host !== ''`) setzte deshalb Status 104 („Bitte Verbindung vervollständigen (IP-Adresse …)")
-  und stellte beide Timer auf 0 — die Instanz las nie einen Wert, egal ob ein Gateway
-  verbunden war. Fund über den Forum-Beta-Test (Kopfzeile mit IP-Aufforderung trotz
-  Symbox-Gateway). Im Gateway-Modus gilt die Instanz jetzt als bereit; ohne verbundenes
-  Gateway endet der Lesezyklus in Status 201 statt in einem stillen Stillstand. Der Sendeweg
-  prüft dafür vorab die Verbindung (`ConnectionID`) und liefert leer zurück, statt bei jedem
-  Takt Symcons Warnung „Keine übergeordnete Instanz ist konfiguriert …" zu erzeugen. Status-
-  text 201 nennt jetzt auch das fehlende Gateway.

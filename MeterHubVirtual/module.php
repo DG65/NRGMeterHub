@@ -70,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.29.2';
+    private const NEWS_VERSION = '0.33.0';
 
     public function Create()
     {
@@ -95,6 +95,7 @@ class MeterHubVirtual extends IPSModule
         // einem anderen Repo), ein freier Raum-/Geschossname hätte dort kein
         // passendes Icon. "Location" ist reines Freitext-Label ohne Vertrag.
         $this->RegisterPropertyString('Location', '');
+        $this->RegisterPropertyString('FormLayout', '[]');   // Formular: Aufbau (SUITE.md 3a)
         $this->RegisterPropertyInteger('Interval', 10);
         // Archiv-Verdichtung, konfigurierbar statt fest im Code (Dietmars
         // Einwand 31.08.2026: "ich bin nicht der einzigste Nutzer, andere
@@ -385,6 +386,7 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🪟 Neu: Formular-Aufbau selbst wählen. Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist, und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so sieht das Formular jedes Mal so aus, wie du es brauchst. Ausgeblendete Bereiche behalten ihre Einstellungen und arbeiten weiter. Kein Haken heißt „Standard“; „Auf Standard zurücksetzen“ stellt alles zurück. Wirkt nach „Übernehmen“ beim nächsten Öffnen.'],
                 ['type' => 'Label', 'caption' => '• 📈 Bezug und Einspeisung laufen jetzt nahtlos weiter, wenn sich die Zusammensetzung ändert (Mitglied hinzu oder weg, Dublette umgestellt, „aktiv" geändert). Vorher sprang der Summen-Zählerstand um den Unterschied der Mitglieder — im Archiv und in Tagesbalken wirkte das wie ein Riesenverbrauch oder ein Zähler-Reset.'],
                 ['type' => 'Label', 'caption' => '• 👯 Doppelte Anbindung erkannt: Ist dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub UND über OCPPHub), zählt bis zu deiner Wahl nur die erste Anbindung, und „Prüfung & Vorschau" nennt beide samt Grund (gleiche Seriennummer, IP-Adresse oder fast gleiche Zählerstände). Festgelegt wird die überzählige im Modul der Anbindung selbst (z. B. ChargerHub, OCPPHub) — dann zählt sie überall nicht mehr mit. Die neue Spalte „aktiv" nimmt ein Mitglied nur aus dieser Summe.'],
                 ['type' => 'Label', 'caption' => '• 🌳 Neu: Mitglieder direkt im Objektbaum — alles, was als Verknüpfung (Link) oder direkt unter dieser Instanz hängt, wird automatisch Mitglied, in der Reihenfolge seiner Position dort. Neue Instanzen starten so; gelöschte Geräte fallen sofort als „Ziel fehlt" auf statt still als Leiche weiterzuleben.'],
@@ -4265,6 +4267,16 @@ class MeterHubVirtual extends IPSModule
 
     public function GetConfigurationForm()
     {
+        return json_encode($this->BuildForm());
+    }
+
+    /**
+     * Baut das Formular. Mit $freeOnly nur die Fachpanels (key => Panel, Standardreihenfolge) — dient auch ResetFormLayout().
+     *
+     * @return array
+     */
+    private function BuildForm(bool $freeOnly = false)
+    {
         $rawRows   = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rawRows   = is_array($rawRows) ? $rawRows : [];
         $migration = $this->NeedsMigration($rawRows);
@@ -4564,8 +4576,9 @@ class MeterHubVirtual extends IPSModule
         }
         $meterItems[] = $listDef;
 
-        $form = [
-            'elements' => array_values(array_filter([
+        // Feste Elemente oben (Migration, Zweck, Neu, Dokumentation, Grundfelder), dazwischen die wählbaren Fachpanels,
+        // unten Aufbau/Forum/Über (SUITE.md 3a).
+        $top = [
                 $migrationPanel,
                 $purposeIntro,
                 $newsBanner,
@@ -4614,18 +4627,22 @@ class MeterHubVirtual extends IPSModule
                 // Absurditäten noch bezeichnen können").
                 ['type' => 'Select', 'name' => 'LocationPreset', 'caption' => 'Standort (Vorschlag übernehmen …)', 'options' => $locationOptions, 'value' => '', 'onChange' => 'MHUBV_ApplyLocationPreset($id, $LocationPreset);'],
                 ['type' => 'ValidationTextBox', 'name' => 'Location', 'caption' => '🆕 Standort (Raum/Geschoss, frei eintragbar)'],
-                [
+            ];
+
+        // Fachpanels in Standardreihenfolge — Reihenfolge und Aufklapp-Zustand wählt der Nutzer im Panel „Formular: Aufbau“.
+        $free = [
+                'meters' => [
                     'type' => 'ExpansionPanel', 'caption' => '🔌  Zähler', 'expanded' => true,
                     'items' => $meterItems,
                 ],
-                ['type' => 'ExpansionPanel', 'caption' => '🔎  Prüfung & Vorschau', 'expanded' => true, 'items' => $check],
-                [
+                'check' => ['type' => 'ExpansionPanel', 'caption' => '🔎  Prüfung & Vorschau', 'expanded' => true, 'items' => $check],
+                'calc' => [
                     'type' => 'ExpansionPanel', 'caption' => '⏱️  Berechnung', 'expanded' => false,
                     'items' => [
                         ['type' => 'NumberSpinner', 'name' => 'Interval', 'caption' => 'Neu berechnen alle', 'minimum' => 2, 'maximum' => 3600, 'suffix' => 's'],
                     ],
                 ],
-                [
+                'archPower' => [
                     // Zwei eigene Panels statt einem gemeinsamen (Dietmars
                     // Rückmeldung 31.08.2026: Symcons Formularsprache kennt
                     // kein horizontales Nebeneinander — schon bei den
@@ -4637,16 +4654,22 @@ class MeterHubVirtual extends IPSModule
                         $this->CompactionFields('Power')
                     ),
                 ],
-                [
+                'archEnergy' => [
                     'type' => 'ExpansionPanel', 'caption' => '🗄️  Archiv-Verdichtung: Energie (Bezug/Einspeisung)', 'expanded' => false,
                     'items' => array_merge(
                         [['type' => 'Label', 'caption' => 'Unabhängig von der Leistung einstellbar — Energie-Zählerstände haben oft andere Aufbewahrungs-Anforderungen.']],
                         $this->CompactionFields('Energy')
                     ),
                 ],
-                $this->ForumHint(),
-                $this->LicenseHint(),
-            ])),
+            ];
+        if ($freeOnly) {
+            return $free;
+        }
+        $lay = $this->ApplyFormLayout($free);
+
+        $form = [
+            'elements' => array_values(array_filter(array_merge($top, $lay['panels'],
+                [$this->LayoutPanel($lay['layout'], $free), $this->ForumHint(), $this->LicenseHint()]))),
             'actions' => [
                 ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'echo MHUBV_RecalcAndRefreshForm($id);'],
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
@@ -4658,7 +4681,126 @@ class MeterHubVirtual extends IPSModule
                 ['code' => 202, 'icon' => 'error',    'caption' => 'Migration nötig — Formular öffnen und im Panel oben bestätigen.'],
             ],
         ];
-        return json_encode($form);
+        return $form;
+    }
+
+    // -----------------------------------------------------------------------
+    // Formular: Aufbau (SUITE.md 3a) — Aufklapp-Zustand, Reihenfolge und
+    // Ausblenden der Fachpanels wählbar; Referenz Batteriewächter.
+    // -----------------------------------------------------------------------
+
+    /**
+     * Reihenfolge und Aufklapp-Zustand der Fachpanels aus der Einstellung „FormLayout“.
+     * Unbekannte oder fehlende Einträge fallen auf die Standardreihenfolge und „Standard“ zurück.
+     *
+     * @param string[] $keys Schlüssel der Fachpanels in Standardreihenfolge
+     * @return array key => ['open' => 'std'|'open'|'closed'|'hidden', 'pos' => int, 'idx' => int], in der anzuwendenden Reihenfolge
+     */
+    private function formLayout(array $keys): array
+    {
+        $saved = json_decode((string)$this->ReadPropertyString('FormLayout'), true);
+        $by = [];
+        foreach (is_array($saved) ? $saved : [] as $row) {
+            if (is_array($row) && isset($row['Key'])) {
+                $by[(string)$row['Key']] = $row;
+            }
+        }
+        $out = [];
+        foreach ($keys as $i => $k) {
+            $r = $by[$k] ?? [];
+            // Kontrollkästchen; Vorrang bei Widerspruch: ausgeblendet vor zugeklappt vor aufgeklappt, keines = Standard
+            $open = !empty($r['Hidden']) ? 'hidden' : (!empty($r['Closed']) ? 'closed' : (!empty($r['Opened']) ? 'open' : 'std'));
+            $out[$k] = [
+                'open' => $open,
+                'pos'  => isset($r['Pos']) ? max(1, min(99, (int)$r['Pos'])) : $i + 1,
+                'idx'  => $i,
+            ];
+        }
+        uasort($out, function ($a, $b) { return [$a['pos'], $a['idx']] <=> [$b['pos'], $b['idx']]; });
+        return $out;
+    }
+
+    /** Name eines Fachpanels für die Liste im Aufbau-Panel (ohne Klammerzusatz). */
+    private function layoutPanelName(array $panel, string $key): string
+    {
+        return trim((string)preg_replace('/\s*\(.*$/u', '', (string)($panel['caption'] ?? $key)));
+    }
+
+    /**
+     * Wendet den gewählten Aufbau auf die Fachpanels an.
+     *
+     * @param array $free key => Panel, in Standardreihenfolge
+     * @return array ['layout' => formLayout(), 'panels' => Panels in gewählter Reihenfolge]
+     */
+    private function ApplyFormLayout(array $free): array
+    {
+        $layout = $this->formLayout(array_keys($free));
+        $panels = [];
+        foreach ($layout as $key => $l) {
+            $panel = $free[$key];
+            if ($l['open'] === 'open') {
+                $panel['expanded'] = true;
+            } elseif ($l['open'] === 'closed') {
+                $panel['expanded'] = false;
+            } elseif ($l['open'] === 'hidden') {
+                // Nicht weglassen: die Felder bleiben im Formular, gespeicherte Werte bleiben beim „Übernehmen“ erhalten
+                $panel['visible'] = false;
+            }
+            $panels[] = $panel;
+        }
+        return ['layout' => $layout, 'panels' => $panels];
+    }
+
+    /** Wählbarer Aufbau des Formulars: je Fachpanel Aufklapp-Zustand beim Öffnen und Position. */
+    private function LayoutPanel(array $layout, array $free): array
+    {
+        $rows   = [];
+        $hidden = [];
+        foreach ($layout as $key => $l) {
+            $name = $this->layoutPanelName($free[$key], $key);
+            $rows[] = ['Key' => $key, 'Panel' => $name, 'Opened' => $l['open'] === 'open', 'Closed' => $l['open'] === 'closed',
+                'Hidden' => $l['open'] === 'hidden', 'Pos' => $l['pos']];
+            if ($l['open'] === 'hidden') {
+                $hidden[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', $name));
+            }
+        }
+        $hiddenLine = $hidden
+            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            : [];
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
+            'items' => array_merge($hiddenLine, [
+                ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
+                ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard“: wie das Modul es vorsieht. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen oder „Auf Standard zurücksetzen“ klicken. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“. Die Bereiche oben (Zweck, Neu, Dokumentation) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind, und lassen sich nicht ausblenden.'],
+                [
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'loadValuesFromConfiguration' => false,
+                    'values' => $rows,
+                    'columns' => [
+                        ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
+                    ],
+                ],
+                ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo MHUBV_ResetFormLayout($id);'],
+            ]),
+        ];
+    }
+
+    /** Setzt Aufklapp-Zustand und Reihenfolge der Fachpanels im offenen Formular auf den Standard (gilt nach „Übernehmen“). */
+    public function ResetFormLayout(): string
+    {
+        $rows = [];
+        $i = 0;
+        foreach ($this->BuildForm(true) as $key => $panel) {
+            $rows[] = ['Key' => $key, 'Panel' => $this->layoutPanelName($panel, $key), 'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => ++$i];
+        }
+        $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
+        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';
     }
 
     /** Formel je Feld als Klartext (Vorschau im Formular). */

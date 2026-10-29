@@ -2768,5 +2768,118 @@ $GLOBALS['COMPACTION_STATE'][$hv58] = [6 => 3];
 $rv58->invoke($h58, $def58, 0);
 check('58f: MeterHub, weiter aus: von Hand gesetzte Regel bleibt unberührt', $GLOBALS['COMPACTION_STATE'][$hv58] === [6 => 3], json_encode($GLOBALS['COMPACTION_STATE'][$hv58]));
 
+echo "\n59) Formular: Aufbau (SUITE.md 3a, EMS 29.10.2026): Aufklapp-Zustand, Reihenfolge und Ausblenden der Fachpanels wählbar — MeterHub und MeterHubVirtual\n";
+function t59_form($obj) { return json_decode($obj->GetConfigurationForm(), true); }
+function t59_panels($form) {
+    $out = [];
+    foreach ($form['elements'] as $e) { if (($e['type'] ?? '') === 'ExpansionPanel') { $out[] = $e; } }
+    return $out;
+}
+function t59_find($form, $needle) {
+    foreach (t59_panels($form) as $e) { if (mb_strpos((string)($e['caption'] ?? ''), $needle) !== false) { return $e; } }
+    return null;
+}
+function t59_layoutRows($form) {
+    $lp = t59_find($form, 'Formular: Aufbau');
+    foreach ($lp['items'] as $it) { if (($it['name'] ?? '') === 'FormLayout') { return $it['values']; } }
+    return null;
+}
+function t59_order($form) { return array_map(function ($e) { return $e['caption']; }, t59_panels($form)); }
+$t59 = [
+    // [Klasse, Instanz-ID, Schlüssel-Präfix der Fachpanels, erwartete Schlüssel in Standardreihenfolge, Name eines Panels zum Prüfen, Präfix der PHP-Wrapper]
+    ['MeterHub', 8301, ['write', 'func', 'virtual', 'conn', 'polling', 'archPower', 'archEnergy', 'repairEnergy', 'repairDirection', 'datapoints'], 'Polling', 'MHUB'],
+    ['MeterHubVirtual', 8302, ['meters', 'check', 'calc', 'archPower', 'archEnergy'], 'Berechnung', 'MHUBV'],
+];
+foreach ($t59 as [$cls, $iid, $keys, $probe, $pfx]) {
+    obj($iid, 1, "$cls 59", 0);
+    $o = new $cls($iid); $o->Create();
+    $GLOBALS['PROP'][$iid]['FormLayout'] = '[]';
+    $f0 = t59_form($o);
+    $rows0 = t59_layoutRows($f0);
+    check("59a $cls: Panel „Formular: Aufbau“ vorhanden, eingeklappt, listet alle Fachpanels in Standardreihenfolge",
+        $rows0 !== null && array_column($rows0, 'Key') === $keys && t59_find($f0, 'Formular: Aufbau')['expanded'] === false, json_encode(array_column($rows0 ?? [], 'Key')));
+    $order0 = t59_order($f0);
+    $iAufbau = array_search(t59_find($f0, 'Formular: Aufbau')['caption'], $order0);
+    $iForum = null; $iLicense = null;
+    foreach ($order0 as $i => $c) { if (mb_strpos($c, 'Feedback im Symcon-Forum') !== false) { $iForum = $i; } if (mb_strpos($c, 'Über dieses Modul') !== false) { $iLicense = $i; } }
+    check("59b $cls: Aufbau-Panel steht NACH den Fachpanels und VOR dem Forum-Hinweis, „Über dieses Modul“ ganz unten",
+        ($iForum === null || $iAufbau < $iForum) && $iLicense === count($order0) - 1, json_encode([$iAufbau, $iForum, $iLicense]));
+    check("59c $cls: ohne Auswahl bleibt der Standard — kein Fachpanel ist ausgeblendet",
+        count(array_filter(t59_panels($f0), function ($e) { return ($e['visible'] ?? true) === false; })) === 0);
+
+    // Zustände: aufgeklappt / zugeklappt / ausgeblendet
+    $mk = function ($key, $o2, $c, $h, $pos) { return ['Key' => $key, 'Panel' => '', 'Opened' => $o2, 'Closed' => $c, 'Hidden' => $h, 'Pos' => $pos]; };
+    $rows = []; foreach ($keys as $i => $k) { $rows[] = $mk($k, false, false, false, $i + 1); }
+    $probeKey = null; foreach ($rows0 as $r) { if (mb_strpos($r['Panel'], $probe) !== false) { $probeKey = $r['Key']; } }
+    $setRow = function ($key, $o2, $c, $h, $pos) use (&$rows, $iid, $mk) {
+        foreach ($rows as $i => $r) { if ($r['Key'] === $key) { $rows[$i] = $mk($key, $o2, $c, $h, $pos); } }
+        $GLOBALS['PROP'][$iid]['FormLayout'] = json_encode($rows);
+    };
+    $setRow($probeKey, true, false, false, array_search($probeKey, $keys) + 1);
+    check("59d $cls: „Aufgeklappt“ klappt das Panel auf", t59_find(t59_form($o), $probe)['expanded'] === true);
+    $setRow($probeKey, false, true, false, array_search($probeKey, $keys) + 1);
+    check("59d $cls: „Zugeklappt“ klappt das Panel zu", t59_find(t59_form($o), $probe)['expanded'] === false);
+    $setRow($probeKey, true, true, true, array_search($probeKey, $keys) + 1);
+    $fh = t59_form($o);
+    $hp = t59_find($fh, $probe);
+    check("59e $cls: „Ausgeblendet“ heißt visible:false, das Panel samt Feldern bleibt im Formular (Werte bleiben erhalten); bei Widerspruch gewinnt Ausgeblendet",
+        $hp !== null && ($hp['visible'] ?? true) === false && count($hp['items']) > 0, json_encode($hp['visible'] ?? null));
+    check("59e $cls: Caption des Aufbau-Panels zählt die ausgeblendeten Bereiche, im Panel steht eine Zeile dazu",
+        mb_strpos(t59_find($fh, 'Formular: Aufbau')['caption'], '(1 ausgeblendet)') !== false
+        && mb_strpos(json_encode(t59_find($fh, 'Formular: Aufbau')['items'], JSON_UNESCAPED_UNICODE), 'Ausgeblendet: ') !== false);
+
+    // Reihenfolge: das letzte Fachpanel an die erste Stelle
+    $rows = []; foreach ($keys as $i => $k) { $rows[] = $mk($k, false, false, false, $i + 1); }
+    $last = end($keys);
+    $rows[count($rows) - 1]['Pos'] = 1; $rows[0]['Pos'] = 2;
+    foreach ($rows as $i => $r) { if ($i > 0 && $i < count($rows) - 1) { $rows[$i]['Pos'] = $i + 2; } }
+    $GLOBALS['PROP'][$iid]['FormLayout'] = json_encode($rows);
+    $fo = t59_form($o);
+    $capFirst = null; foreach ($rows0 as $r) { if ($r['Key'] === $last) { $capFirst = $r['Panel']; } }
+    $ordNames = array_map(function ($c) { return trim((string)preg_replace('/\s*\(.*$/u', '', $c)); }, t59_order($fo));
+    $idxLast = array_search($capFirst, $ordNames);
+    $iFirstStd = null; foreach ($rows0 as $r) { if ($r['Key'] === $keys[0]) { $iFirstStd = array_search($r['Panel'], $ordNames); } }
+    check("59f $cls: Position wirkt — das letzte Fachpanel steht jetzt vor dem früher ersten", $idxLast !== false && $iFirstStd !== false && $idxLast < $iFirstStd, json_encode([$idxLast, $iFirstStd]));
+
+    // gleiche Position → Standardreihenfolge
+    $rows = []; foreach ($keys as $i => $k) { $rows[] = $mk($k, false, false, false, 5); }
+    $GLOBALS['PROP'][$iid]['FormLayout'] = json_encode($rows);
+    check("59g $cls: bei gleicher Position bleibt die Standardreihenfolge", t59_order(t59_form($o)) === $order0);
+
+    // Rückfall: unbekannter Schlüssel, fehlender Schlüssel, kaputter JSON-Text
+    $GLOBALS['PROP'][$iid]['FormLayout'] = json_encode([$mk('gibt_es_nicht', false, false, true, 1), $mk($keys[0], false, true, false, 1)]);
+    $fb = t59_form($o);
+    $rowsFb = t59_layoutRows($fb);
+    check("59h $cls: unbekannter Schlüssel wird ignoriert, fehlende Schlüssel fallen auf Standard und Standardposition zurück (neue Panels erscheinen automatisch)",
+        array_column($rowsFb, 'Key') === $keys && count(array_filter(t59_panels($fb), function ($e) { return ($e['visible'] ?? true) === false; })) === 0);
+    foreach (['', 'kein json', '{"a":1}', 'null', '5'] as $junk) {
+        $GLOBALS['PROP'][$iid]['FormLayout'] = $junk;
+        $fj = t59_form($o);
+        check("59i $cls: ungültiger Inhalt " . var_export($junk, true) . " → Standard, kein Fehler", t59_order($fj) === $order0);
+    }
+
+    // Reset
+    $GLOBALS['PROP'][$iid]['FormLayout'] = json_encode([$mk($keys[0], false, false, true, 9)]);
+    unset($GLOBALS['FORMFIELDS']['FormLayout']);
+    $msg = $o->ResetFormLayout();
+    $resetRows = json_decode($GLOBALS['FORMFIELDS']['FormLayout']['values'] ?? 'null', true);
+    check("59j $cls: ResetFormLayout() setzt die Liste per UpdateFormField auf Standard (Reihenfolge, nichts angehakt) und gibt Klartext zurück",
+        is_array($resetRows) && array_column($resetRows, 'Key') === $keys && array_sum(array_map(function ($r) { return (int)$r['Opened'] + (int)$r['Closed'] + (int)$r['Hidden']; }, $resetRows)) === 0
+        && array_column($resetRows, 'Pos') === range(1, count($keys)) && mb_strpos($msg, 'Übernehmen') !== false, json_encode($resetRows));
+    check("59j $cls: ResetFormLayout() speichert selbst nichts (Property unverändert)", mb_strpos((string)$GLOBALS['PROP'][$iid]['FormLayout'], $keys[0]) !== false);
+    $lp = t59_find($f0, 'Formular: Aufbau');
+    $btn = null; foreach ($lp['items'] as $it) { if (($it['type'] ?? '') === 'Button') { $btn = $it; } }
+    check("59k $cls: Knopf „Auf Standard zurücksetzen“ ruft {$pfx}_ResetFormLayout", $btn !== null && mb_strpos($btn['onClick'], $pfx . '_ResetFormLayout($id)') !== false);
+    $keyCol = null; $listDef = null; foreach ($lp['items'] as $it) { if (($it['name'] ?? '') === 'FormLayout') { $listDef = $it; } }
+    foreach ($listDef['columns'] as $c) { if ($c['name'] === 'Key') { $keyCol = $c; } }
+    check("59k $cls: Schlüsselspalte ist unsichtbar, aber save:true; Liste ohne Hinzufügen/Löschen", ($keyCol['visible'] ?? true) === false && ($keyCol['save'] ?? false) === true && $listDef['add'] === false && $listDef['delete'] === false);
+}
+// Quelltext: Property registriert, Neu-Eintrag vorhanden
+foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery'] as $cls) {
+    $src = file_get_contents(dirname(__DIR__) . "/$cls/module.php");
+    check("59l $cls: Property FormLayout (String, '[]') registriert", strpos($src, "RegisterPropertyString('FormLayout', '[]')") !== false);
+    check("59l $cls: Neu-Panel erwähnt „Formular-Aufbau selbst wählen“", mb_strpos($src, 'Neu: Formular-Aufbau selbst wählen') !== false);
+}
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

@@ -1740,3 +1740,22 @@ Ausschalten überschreibt auch von Hand in der Konsole gesetzte Verdichtungsrege
 Verifiziert in `.tools/test-virtual.php` Block 20b–20d (jede Stufe liefert IMMER drei Paare,
 Leerlauf-Stufen mit `-1`), 20f (Hauptschalter aus → alle drei aktiv auf `-1`, eigene „aus"-Wahl
 bei einer Einzelstufe ebenso) und 20h (Warntext am Schalter vorhanden).
+
+## Formular: Aufbau (0.33.0, 29.10.2026, SUITE.md 3a)
+
+MeterHub, MeterHubVirtual und MeterHubDiscovery haben das Panel „🪟 Formular: Aufbau" (Auftrag Dietmar über
+die EMS-Sitzung, Referenz Batteriewächter). MeterHubBridge hat kein Fachpanel und bekommt es nicht.
+`GetConfigurationForm()` ruft nur noch `BuildForm(bool $freeOnly = false)`; der baut `$top` (feste Elemente:
+Zweck, Neu, Doku, Grundfelder), `$free` (Fachpanels als `key => Panel` in Standardreihenfolge) und danach
+Aufbau-Panel, Forum-Hinweis, „Über dieses Modul". Mit `$freeOnly` liefert er nur `$free` — das nutzt
+`ResetFormLayout()` für Schlüssel und Namen. Gemeinsame Hilfsfunktionen (je Modul dupliziert, Muster wie
+ForumHint/LicenseHint): `formLayout()`, `layoutPanelName()`, `ApplyFormLayout()`, `LayoutPanel()`,
+`ResetFormLayout()`. Property `FormLayout` (String, `'[]'`), Zeilen `{Key, Panel, Opened, Closed, Hidden,
+Pos}`. Schlüssel: MeterHub `write, func, virtual, conn, polling, archPower, archEnergy, repairEnergy,
+repairDirection, datapoints`; MeterHubVirtual `meters, check, calc, archPower, archEnergy`; Discovery
+`range, scada, create`. **Neues Fachpanel = neuer Schlüssel in `$free`**, sonst nichts (Standard greift
+automatisch); Schlüssel nie umbenennen (gespeicherte Auswahl wäre weg). Ausgeblendet ist `visible:false`,
+nie weglassen. Die Statuszeile `ArchiveStatusLine` steht im Panel `archPower`, damit sie beim Verschieben
+mitwandert. Prüfstand: `.tools/test-virtual.php` Block 59 (MeterHub + Virtual), `.tools/test-discovery-
+migration.php` Abschnitt 9. Die Sortierung nach `idx` ist unter PHP 8 ohnehin stabil — die Mutation
+„Sortierschlüssel entfällt" bleibt deshalb ungefangen (gleichwertige Mutation, kein Prüflücke).

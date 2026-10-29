@@ -272,5 +272,58 @@ $d8->Create();
 $d8->PrepareMigration();
 check('8f: PrepareMigration ruft GTAUSCH_PrefillMigration mit den richtigen IDs auf, MIGHUB_PrefillMigration nicht', count($GLOBALS['GTAUSCH_PREFILL_CALLS']) === 1 && $GLOBALS['GTAUSCH_PREFILL_CALLS'][0][1] === 555 && $GLOBALS['GTAUSCH_PREFILL_CALLS'][0][2] === $target && count($GLOBALS['MIGHUB_PREFILL_CALLS']) === 0, json_encode([$GLOBALS['GTAUSCH_PREFILL_CALLS'], $GLOBALS['MIGHUB_PREFILL_CALLS']]));
 
+// 9) Formular: Aufbau (SUITE.md 3a, EMS 29.10.2026)
+$keys9 = ['range', 'scada', 'create'];
+$GLOBALS['PROP'][1]['FormLayout'] = '[]';
+$d9 = new MeterHubDiscovery(1);
+$d9->Create();
+$f9 = function () use ($d9) { return json_decode($d9->GetConfigurationForm(), true); };
+$panels9 = function ($form) { return array_values(array_filter($form['elements'], function ($e) { return ($e['type'] ?? '') === 'ExpansionPanel'; })); };
+$find9 = function ($form, $needle) use ($panels9) {
+    foreach ($panels9($form) as $e) { if (mb_strpos((string)($e['caption'] ?? ''), $needle) !== false) { return $e; } }
+    return null;
+};
+$rows9 = function ($form) use ($find9) {
+    foreach ($find9($form, 'Formular: Aufbau')['items'] as $it) { if (($it['name'] ?? '') === 'FormLayout') { return $it['values']; } }
+    return null;
+};
+$order9 = function ($form) use ($panels9) { return array_map(function ($e) { return $e['caption']; }, $panels9($form)); };
+$std9 = $f9();
+check('9a: Panel „Formular: Aufbau“ vorhanden, eingeklappt, listet die drei Fachpanels in Standardreihenfolge', array_column($rows9($std9), 'Key') === $keys9 && $find9($std9, 'Formular: Aufbau')['expanded'] === false);
+$ord = $order9($std9);
+$iA = array_search($find9($std9, 'Formular: Aufbau')['caption'], $ord);
+$iF = null; $iL = null;
+foreach ($ord as $i => $c) { if (mb_strpos($c, 'Feedback im Symcon-Forum') !== false) { $iF = $i; } if (mb_strpos($c, 'Über dieses Modul') !== false) { $iL = $i; } }
+check('9b: Aufbau-Panel nach den Fachpanels, vor dem Forum-Hinweis; „Über dieses Modul“ ganz unten', ($iF === null || $iA < $iF) && $iL === count($ord) - 1, json_encode([$iA, $iF, $iL]));
+$mk9 = function ($k, $o, $c, $h, $pos) { return ['Key' => $k, 'Panel' => '', 'Opened' => $o, 'Closed' => $c, 'Hidden' => $h, 'Pos' => $pos]; };
+$GLOBALS['PROP'][1]['FormLayout'] = json_encode([$mk9('scada', true, false, false, 2), $mk9('create', false, true, false, 3), $mk9('range', false, false, false, 1)]);
+$f = $f9();
+check('9c: „Aufgeklappt“/„Zugeklappt“ wirken', $find9($f, 'SCADA')['expanded'] === true && $find9($f, 'Erstellen')['expanded'] === false);
+$GLOBALS['PROP'][1]['FormLayout'] = json_encode([$mk9('create', true, true, true, 1)]);
+$f = $f9();
+$hp = $find9($f, 'Erstellen');
+check('9d: „Ausgeblendet“ = visible:false, Felder bleiben im Formular, Widerspruch → ausgeblendet', ($hp['visible'] ?? true) === false && count($hp['items']) > 0 && mb_strpos($find9($f, 'Formular: Aufbau')['caption'], '(1 ausgeblendet)') !== false);
+check('9d: ausgeblendet, aber das Panel „Suchbereich“ (Rückfall auf Standard) bleibt sichtbar', ($find9($f, 'Suchbereich')['visible'] ?? true) !== false);
+$GLOBALS['PROP'][1]['FormLayout'] = json_encode([$mk9('create', false, false, false, 1), $mk9('range', false, false, false, 2), $mk9('scada', false, false, false, 3)]);
+$o = array_map(function ($c) { return preg_replace('/\s*\(.*$/u', '', $c); }, $order9($f9()));
+$pc = array_search('🛠️  Erstellen', $o); $pr = array_search('🔎  Suchbereich', $o);
+check('9e: Position wirkt — „Erstellen“ steht vor „Suchbereich“', $pc !== false && $pr !== false && $pc < $pr, json_encode($o));
+$GLOBALS['PROP'][1]['FormLayout'] = json_encode([$mk9('x', false, false, true, 1), $mk9('range', false, true, false, 1)]);
+check('9f: unbekannter Schlüssel ignoriert, fehlende fallen auf Standard zurück', array_column($rows9($f9()), 'Key') === $keys9);
+foreach (['', 'kein json', '{"a":1}', 'null', '5'] as $junk) {
+    $GLOBALS['PROP'][1]['FormLayout'] = $junk;
+    check('9g: ungültiger Inhalt ' . var_export($junk, true) . ' → Standard', $order9($f9()) === $ord);
+}
+$GLOBALS['PROP'][1]['FormLayout'] = json_encode([$mk9('range', false, false, true, 9)]);
+unset($GLOBALS['FORMFIELDS']['FormLayout']);
+$msg9 = $d9->ResetFormLayout();
+$rr = json_decode($GLOBALS['FORMFIELDS']['FormLayout']['values'] ?? 'null', true);
+check('9h: ResetFormLayout() setzt per UpdateFormField auf Standard, Klartext zurück, Property unverändert',
+    is_array($rr) && array_column($rr, 'Key') === $keys9 && array_column($rr, 'Pos') === [1, 2, 3] && array_sum(array_map(function ($r) { return (int)$r['Opened'] + (int)$r['Closed'] + (int)$r['Hidden']; }, $rr)) === 0
+    && mb_strpos($msg9, 'Übernehmen') !== false && mb_strpos((string)$GLOBALS['PROP'][1]['FormLayout'], 'range') !== false);
+$btn9 = null; foreach ($find9($std9, 'Formular: Aufbau')['items'] as $it) { if (($it['type'] ?? '') === 'Button') { $btn9 = $it; } }
+check('9i: Knopf ruft MHUBD_ResetFormLayout', $btn9 !== null && mb_strpos($btn9['onClick'], 'MHUBD_ResetFormLayout($id)') !== false);
+$GLOBALS['PROP'][1]['FormLayout'] = '[]';
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

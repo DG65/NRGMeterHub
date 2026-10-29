@@ -95,6 +95,7 @@ class MeterHubDiscovery extends IPSModule
         $this->RegisterPropertyString('RangeEnd',   $prefix !== '' ? $prefix . '.254' : '');
         $this->RegisterPropertyInteger('Port', 502);
         $this->RegisterPropertyString('NameTemplate', '');
+        $this->RegisterPropertyString('FormLayout', '[]');   // Formular: Aufbau (SUITE.md 3a)
         $this->RegisterPropertyString('IgnoreIPs', '');
         // Zweiter Suchmodus (Dietmars Auftrag „universeller blue'Log-Treiber",
         // Teil 2, 07.09.2026): EIN fest bekannter blue'Log (Solarpark-
@@ -128,7 +129,7 @@ class MeterHubDiscovery extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.29.1';
+    private const NEWS_VERSION = '0.33.0';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
@@ -171,6 +172,7 @@ class MeterHubDiscovery extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🪟 Neu: Formular-Aufbau selbst wählen. Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist, und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so sieht das Formular jedes Mal so aus, wie du es brauchst. Ausgeblendete Bereiche behalten ihre Einstellungen und arbeiten weiter. Kein Haken heißt „Standard“; „Auf Standard zurücksetzen“ stellt alles zurück. Wirkt nach „Übernehmen“ beim nächsten Öffnen.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Kernfix: blue\'Log-Erkennung fragte bisher eine Schnittstelle nach der anderen ab, mit Pause dazwischen — genau das lässt ein blue\'Log offenbar scheitern (live gemessen: 8 rasch AUFEINANDERFOLGENDE Verbindungen scheitern komplett, 8 GLEICHZEITIGE werden dagegen anstandslos beantwortet). Alle Kandidaten — SCADA-Selbstauskunft, zwei Geräte-IDs aus dem konfigurierten Bereich, Power Control, RPC — werden jetzt in einem Rutsch parallel angefragt. Dasselbe gilt für den SCADA-Adressbereich-Suchlauf: bis zu 20 Adressen gleichzeitig statt einzeln mit Pause, dadurch spürbar schneller.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Fix: automatische blue\'Log-Erkennung verwendete für SCADA/Power Control/RPC immer denselben Port wie die klassische Zählersuche (Fund aus dem Praxistest: Gesucht wurde standardmäßig auf Port 502, SCADA und Power Control/RPC liegen aber oft auf anderen Ports). Läuft ein blue\'Log auf einem abweichenden Port, probiert „🔎 Netzwerk durchsuchen" jetzt zusätzlich den im Panel „blue\'Log SCADA-Adressbereich" eingetragenen Port — beide Panels erklären das jetzt auch im Formulartext.'],
                 ['type' => 'Label', 'caption' => '• 🔧 Fix: blue\'Log-Erkennung fand in der Praxis KEINEN einzigen blue\'Log (Praxistest: 15 echte Geräte im Netz, null Treffer). Ursache laut Live-Messung: mehrere rasch aufeinanderfolgende Modbus-TCP-Verbindungen zum selben Gerät scheitern reihenweise, besonders bei parallel laufenden eigenen Regel-Skripten — jede Schnittstellen-Prüfung bekommt jetzt bis zu drei Versuche mit wachsender Pause. Reihenfolge zusätzlich an die reale Geräteflotte angepasst: SCADA zuerst (meist vorhanden), Power Control/RPC nur noch als Rückfall für Master-/EZA-Regler.'],
@@ -496,6 +498,16 @@ class MeterHubDiscovery extends IPSModule
 
     public function GetConfigurationForm()
     {
+        return json_encode($this->BuildForm());
+    }
+
+    /**
+     * Baut das Formular. Mit $freeOnly nur die Fachpanels (key => Panel, Standardreihenfolge) — dient auch ResetFormLayout().
+     *
+     * @return array
+     */
+    private function BuildForm(bool $freeOnly = false)
+    {
         $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         if (!is_array($results)) {
             $results = [];
@@ -578,8 +590,8 @@ class MeterHubDiscovery extends IPSModule
             ];
         }
 
-        $form = [
-            'elements' => array_values(array_filter(array_merge([
+        // Feste Elemente oben (Zweck, Neu, Dokumentation), dazwischen die wählbaren Fachpanels, unten Aufbau/Forum/Über (SUITE.md 3a).
+        $top = [
                 $this->PurposeIntro(),
                 $this->NewsBanner(),
                 [
@@ -596,7 +608,11 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'Label', 'caption' => '🆕 Ein Meteocontrol blue\'Log-Datenlogger wird von „🔎 Netzwerk durchsuchen" jetzt von sich aus erkannt — keine vorher bekannte IP mehr nötig. Bei einem Treffer wird direkt der SCADA-Adressbereich dahinter mitdurchsucht (Einstellung im Panel „blue\'Log SCADA-Adressbereich" unten). Das eigene Panel dort bleibt der schnellere, gezielte Weg, wenn die IP schon bekannt ist.'],
                     ],
                 ],
-                [
+            ];
+
+        // Fachpanels in Standardreihenfolge — Reihenfolge und Aufklapp-Zustand wählt der Nutzer im Panel „Formular: Aufbau“.
+        $free = [
+                'range' => [
                     'type'    => 'ExpansionPanel',
                     'caption' => '🔎  Suchbereich',
                     'expanded' => true,
@@ -635,7 +651,7 @@ class MeterHubDiscovery extends IPSModule
                         ],
                     ],
                 ],
-                [
+                'scada' => [
                     'type'    => 'ExpansionPanel',
                     'caption' => "🆕 🔎  blue'Log SCADA-Adressbereich",
                     'expanded' => false,
@@ -661,7 +677,7 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'Button', 'name' => 'BtnAbortBlueLog', 'caption' => '✖  Suche abbrechen', 'onClick' => 'MHUBD_AbortScan($id);', 'visible' => false],
                     ],
                 ],
-                [
+                'create' => [
                     'type'    => 'ExpansionPanel',
                     'caption' => '🛠️  Erstellen',
                     'expanded' => true,
@@ -726,7 +742,15 @@ class MeterHubDiscovery extends IPSModule
                         ['type' => 'OpenObjectButton', 'name' => 'BtnOpenMigration', 'caption' => '→ Zur Gerätetausch-Instanz', 'objectID' => 0, 'visible' => false],
                     ],
                 ],
-            ], [$this->ForumHint(), $this->LicenseHint()]))),
+            ];
+        if ($freeOnly) {
+            return $free;
+        }
+        $lay = $this->ApplyFormLayout($free);
+
+        $form = [
+            'elements' => array_values(array_filter(array_merge($top, $lay['panels'],
+                [$this->LayoutPanel($lay['layout'], $free), $this->ForumHint(), $this->LicenseHint()]))),
             'actions' => [
                 ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
             ],
@@ -736,7 +760,126 @@ class MeterHubDiscovery extends IPSModule
             ],
         ];
 
-        return json_encode($form);
+        return $form;
+    }
+
+    // -----------------------------------------------------------------------
+    // Formular: Aufbau (SUITE.md 3a) — Aufklapp-Zustand, Reihenfolge und
+    // Ausblenden der Fachpanels wählbar; Referenz Batteriewächter.
+    // -----------------------------------------------------------------------
+
+    /**
+     * Reihenfolge und Aufklapp-Zustand der Fachpanels aus der Einstellung „FormLayout“.
+     * Unbekannte oder fehlende Einträge fallen auf die Standardreihenfolge und „Standard“ zurück.
+     *
+     * @param string[] $keys Schlüssel der Fachpanels in Standardreihenfolge
+     * @return array key => ['open' => 'std'|'open'|'closed'|'hidden', 'pos' => int, 'idx' => int], in der anzuwendenden Reihenfolge
+     */
+    private function formLayout(array $keys): array
+    {
+        $saved = json_decode((string)$this->ReadPropertyString('FormLayout'), true);
+        $by = [];
+        foreach (is_array($saved) ? $saved : [] as $row) {
+            if (is_array($row) && isset($row['Key'])) {
+                $by[(string)$row['Key']] = $row;
+            }
+        }
+        $out = [];
+        foreach ($keys as $i => $k) {
+            $r = $by[$k] ?? [];
+            // Kontrollkästchen; Vorrang bei Widerspruch: ausgeblendet vor zugeklappt vor aufgeklappt, keines = Standard
+            $open = !empty($r['Hidden']) ? 'hidden' : (!empty($r['Closed']) ? 'closed' : (!empty($r['Opened']) ? 'open' : 'std'));
+            $out[$k] = [
+                'open' => $open,
+                'pos'  => isset($r['Pos']) ? max(1, min(99, (int)$r['Pos'])) : $i + 1,
+                'idx'  => $i,
+            ];
+        }
+        uasort($out, function ($a, $b) { return [$a['pos'], $a['idx']] <=> [$b['pos'], $b['idx']]; });
+        return $out;
+    }
+
+    /** Name eines Fachpanels für die Liste im Aufbau-Panel (ohne Klammerzusatz). */
+    private function layoutPanelName(array $panel, string $key): string
+    {
+        return trim((string)preg_replace('/\s*\(.*$/u', '', (string)($panel['caption'] ?? $key)));
+    }
+
+    /**
+     * Wendet den gewählten Aufbau auf die Fachpanels an.
+     *
+     * @param array $free key => Panel, in Standardreihenfolge
+     * @return array ['layout' => formLayout(), 'panels' => Panels in gewählter Reihenfolge]
+     */
+    private function ApplyFormLayout(array $free): array
+    {
+        $layout = $this->formLayout(array_keys($free));
+        $panels = [];
+        foreach ($layout as $key => $l) {
+            $panel = $free[$key];
+            if ($l['open'] === 'open') {
+                $panel['expanded'] = true;
+            } elseif ($l['open'] === 'closed') {
+                $panel['expanded'] = false;
+            } elseif ($l['open'] === 'hidden') {
+                // Nicht weglassen: die Felder bleiben im Formular, gespeicherte Werte bleiben beim „Übernehmen“ erhalten
+                $panel['visible'] = false;
+            }
+            $panels[] = $panel;
+        }
+        return ['layout' => $layout, 'panels' => $panels];
+    }
+
+    /** Wählbarer Aufbau des Formulars: je Fachpanel Aufklapp-Zustand beim Öffnen und Position. */
+    private function LayoutPanel(array $layout, array $free): array
+    {
+        $rows   = [];
+        $hidden = [];
+        foreach ($layout as $key => $l) {
+            $name = $this->layoutPanelName($free[$key], $key);
+            $rows[] = ['Key' => $key, 'Panel' => $name, 'Opened' => $l['open'] === 'open', 'Closed' => $l['open'] === 'closed',
+                'Hidden' => $l['open'] === 'hidden', 'Pos' => $l['pos']];
+            if ($l['open'] === 'hidden') {
+                $hidden[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', $name));
+            }
+        }
+        $hiddenLine = $hidden
+            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            : [];
+        return [
+            'type' => 'ExpansionPanel', 'expanded' => false,
+            'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
+            'items' => array_merge($hiddenLine, [
+                ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
+                ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard“: wie das Modul es vorsieht. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen oder „Auf Standard zurücksetzen“ klicken. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“. Die Bereiche oben (Zweck, Neu, Dokumentation) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind, und lassen sich nicht ausblenden.'],
+                [
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'loadValuesFromConfiguration' => false,
+                    'values' => $rows,
+                    'columns' => [
+                        ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
+                    ],
+                ],
+                ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo MHUBD_ResetFormLayout($id);'],
+            ]),
+        ];
+    }
+
+    /** Setzt Aufklapp-Zustand und Reihenfolge der Fachpanels im offenen Formular auf den Standard (gilt nach „Übernehmen“). */
+    public function ResetFormLayout(): string
+    {
+        $rows = [];
+        $i = 0;
+        foreach ($this->BuildForm(true) as $key => $panel) {
+            $rows[] = ['Key' => $key, 'Panel' => $this->layoutPanelName($panel, $key), 'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => ++$i];
+        }
+        $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
+        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';
     }
 
     // -----------------------------------------------------------------------
