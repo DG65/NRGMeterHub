@@ -2,6 +2,28 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.33.1 (2026-10-30)
+
+- **MeterHub: keine Kategorien mehr unter der Instanz (Symcon-Store-Review 30.10.2026: „Kategorien unter
+  Instanzen sind nicht vorgesehen, das wird auch von der Visualisierung gar nicht unterstützt").** Bisher
+  legte MeterHub je Variablengruppe eine Unterkategorie an (Summenwerte, Spannung, Strom, Leistung je
+  Phase, Energiezähler, Funktionen, Netzqualität, Gerät, Fehler / Verbindung, Gleichstrom). Alle Variablen
+  liegen jetzt direkt unter der Instanz — von den beiden Wegen des Reviewers (alles direkt unter die
+  Instanz oder mehrere Instanzen über einen Konfigurator) die erste, weil die zweite aus einem Zähler
+  mehrere Instanzen machen und die Auswahl der Datenpunkt-Gruppen sowie die Funktionsverträge
+  (`GetFunctions()`) umbauen würde.
+  - **Bestand wird beim nächsten „Übernehmen" von selbst aufgeräumt:** `RegisterVar()` setzt jede
+    Variable unter die Instanz, danach löscht `RemoveLegacyCategories()` die leeren `cat_*`-Kategorien.
+    Die Variablen behalten ihre **ID** — Archiv, Verknüpfungen, Ereignisse, Skripte und andere Module
+    (EMS, NRGDashboard, MeterHubVirtual) sind nicht betroffen, nur der Weg im Objektbaum wird kürzer.
+  - Hat der Nutzer selbst etwas in eine solche Kategorie gelegt, bleibt sie samt Inhalt bestehen;
+    fremde Objekte fasst das Modul nicht an.
+  - Neue Instanzen legen nie Kategorien an. Die Reihenfolge im Objektbaum bleibt die der bisherigen
+    Positionen (laufender Index über alle Gruppen).
+  - MeterHubVirtual, MeterHubDiscovery und MeterHubBridge legten schon bisher keine Kategorien an.
+  - Prüfstand: `.tools/test-virtual.php` Block 60 (neue Instanz, Altbestand mit gleicher ID, Nutzerobjekt
+    bleibt, zweiter Durchlauf stabil, kein `IPS_CreateCategory` mehr im Quelltext).
+
 ## 0.33.0 (2026-10-29)
 
 - **Neu: „🪟 Formular: Aufbau" in MeterHub, MeterHubVirtual und MeterHubDiscovery (NRG-Stack-Konvention
@@ -418,27 +440,4 @@
   „Direkt" und nicht bei Cloud-Zählern).
 - Hilfe und Doku: neuer Absatz im Doku-Panel des Formulars, Abschnitt „MeterHubBridge" in der
   README, News-Panel-Eintrag (`NEWS_VERSION` 0.30.0), Formularhinweise mit den drei Schritten.
-
-## 0.29.14-beta.1 (2026-09-19)
-
-- **Fix: „Ertrag gesamt (hochgerechnet)" des blue'Log-Datenloggers (Adresse 97) hatte keine
-  Plausibilitätssperre.** Das Gegenstück zu MeterHubVirtual 0.29.5: `CalcEnergyStep()` prüfte
-  nur `is_finite()` — ein einzelner riesiger, aber endlicher Fehl-Lesewert (verunglückte
-  Modbus-Dekodierung bei einem Verbindungsaussetzer) lief ungebremst in den kumulativen
-  Zählerstand und blieb dort dauerhaft stehen. Zwei Sperren: (1) derselbe generische
-  Absolutdeckel von 1 GW wie bei den virtuellen Zählern; (2) ein Sprungvergleich gegen den
-  letzten akzeptierten Wert derselben lückenlosen Messreihe (mehr als das 20-Fache, bei
-  Ausgangswert über 1 W). Der Median-Vergleich der virtuellen Zähler passt hier nicht — ein
-  Einzelzähler hat im selben Durchlauf keine Vergleichsgeräte. Ein Sprung, der drei Takte in
-  Folge ungefähr gleich hoch bleibt, gilt als echter Stufenwechsel und wird übernommen; eine
-  Fehlablehnung kostet damit nur die Energie von höchstens zwei Takten, eine durchgelassene
-  Fehllesung wäre dauerhaft. Faktor 20 statt 200 der virtuellen Zähler: bei 3,6 MW Grundlast
-  hätte 200 noch Werte bis 720 MW durchgelassen (vom Prüfstand aufgedeckt).
-- Bekannte Grenze: Nach einer Lücke über 300 s gibt es keinen Vergleichswert mehr, der neue
-  Ausgangspunkt wird nur gegen den Absolutdeckel geprüft. Bereits im Archiv stehende
-  Fehl-Sprünge behebt das nicht (separate Bereinigung, nicht Teil dieses Fixes).
-- Prüfstand `test-virtual.php` Block 46: Deckel, Einzelausreißer, Bestätigung eines echten
-  Stufenwechsels, wechselnder Unsinn, kleiner Ausgangswert (Balkonanlage/Sonnenaufgang),
-  normaler Anstieg, Lücke sowie der Solarpark-Fund (6-GW-Ausreißer in einer Stunde 3,6 MW)
-  und ein 500-MW-Ausreißer unter dem Deckel.
 

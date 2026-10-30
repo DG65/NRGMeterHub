@@ -104,7 +104,9 @@ function IPS_CreateVariable($t) {
 function IPS_SetVariableCustomProfile($id, $p) { $GLOBALS['VAR'][$id]['VariableCustomProfile'] = $p; }
 function IPS_DeleteVariable($id) { unset($GLOBALS['OBJ'][$id], $GLOBALS['VAR'][$id]); }
 foreach (['KL_MESSAGE' => 101, 'KL_WARNING' => 104, 'KL_ERROR' => 103, 'KL_NOTIFY' => 102, 'KL_DEBUG' => 100, 'KL_CUSTOM' => 105] as $c => $v) { if (!defined($c)) { define($c, $v); } }
-function IPS_CreateCategory() { $id = $GLOBALS['NEXTID']++; obj($id, 0, 'neu', 0); return $id; }
+function IPS_CreateCategory() { $GLOBALS['CATEGORIES_CREATED']++; $id = $GLOBALS['NEXTID']++; obj($id, 0, 'neu', 0); return $id; }
+function IPS_DeleteCategory($id) { unset($GLOBALS['OBJ'][$id]); }
+$GLOBALS['CATEGORIES_CREATED'] = 0;
 // Echte, zustandsbehaftete Profil-Registry (statt fixer Whitelist) — nötig,
 // um zu verifizieren, dass ensureSharedProfile() ein bereits vorhandenes
 // Profil NICHT überschreibt (Verbund-Konvention: kein Eigentümer-Modul).
@@ -2880,6 +2882,57 @@ foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery'] as $cls) {
     check("59l $cls: Property FormLayout (String, '[]') registriert", strpos($src, "RegisterPropertyString('FormLayout', '[]')") !== false);
     check("59l $cls: Neu-Panel erwähnt „Formular-Aufbau selbst wählen“", mb_strpos($src, 'Neu: Formular-Aufbau selbst wählen') !== false);
 }
+
+echo "\n60) Keine Kategorien unter der Instanz (Symcon-Store-Review 30.10.2026): alle Variablen direkt unter der Instanz, alte Kategorien werden aufgeräumt, IDs bleiben\n";
+$rvs = new ReflectionMethod('MeterHub', 'RegisterVariables');
+$gd  = new ReflectionMethod('MeterHub', 'GetDriver');
+// 60a: neue Instanz — keine Kategorie wird angelegt, jede Variable hängt direkt an der Instanz
+obj(8401, 1, 'Neu-Hub 60', 10);
+$h60 = new MeterHub(8401); $h60->Create();
+$GLOBALS['PROP'][8401]['Meter'] = 'siemens_pac2200';
+$cats0 = $GLOBALS['CATEGORIES_CREATED'];
+$rvs->invoke($h60);
+$kids60 = IPS_GetChildrenIDs(8401);
+$types60 = array_unique(array_map(function ($c) { return IPS_GetObject($c)['ObjectType']; }, $kids60));
+check('60a: neue Instanz legt keine Kategorie an, alle Kinder sind Variablen', $GLOBALS['CATEGORIES_CREATED'] === $cats0 && count($kids60) > 5 && $types60 === [2], json_encode([$GLOBALS['CATEGORIES_CREATED'] - $cats0, count($kids60), $types60]));
+// 60b: Altbestand — Variablen liegen in cat_*-Kategorien
+$base60 = $gd->invoke($h60)->getBaseVars();
+obj(8410, 1, 'Alt-Hub 60', 10);
+$h60b = new MeterHub(8410); $h60b->Create();
+$GLOBALS['PROP'][8410]['Meter'] = 'siemens_pac2200';
+$legacyIds = [];
+$catIds = [];
+$nid = 8420;
+foreach ($base60 as $v) {
+    $g = $v[5];
+    if (!isset($catIds[$g])) { $catIds[$g] = $nid++; obj($catIds[$g], 0, 'Kat ' . $g, 8410, 'cat_' . $g); }
+    $vid = $nid++;
+    obj($vid, 2, 'alt', $catIds[$g], $v[0]);
+    $GLOBALS['VAR'][$vid] = ['VariableType' => (new ReflectionMethod('MeterHub', 'VarTypeFor'))->invoke($h60b, $v[2]), 'VariableCustomProfile' => ''];
+    $legacyIds[$v[0]] = $vid;
+}
+// eine Kategorie mit einem vom Nutzer hineingelegten Objekt
+$userCat = array_key_first($catIds);
+$userObj = $nid++;
+obj($userObj, 2, 'Meine eigene Variable', $catIds[$userCat]);   // ohne Ident, wie von Hand angelegt
+$GLOBALS['VAR'][$userObj] = ['VariableType' => 2, 'VariableCustomProfile' => ''];
+$rvs->invoke($h60b);
+$moved = true; $sameId = true;
+foreach ($legacyIds as $ident => $vid) {
+    $moved = $moved && ((int)($GLOBALS['OBJ'][$vid]['ParentID'] ?? -1) === 8410 || false);
+    $sameId = $sameId && isset($GLOBALS['OBJ'][$vid]);
+}
+check('60b: Altbestand — alle Variablen der Kategorien hängen jetzt direkt an der Instanz, mit unveränderter ID (Archiv, Verknüpfungen bleiben)', $moved && $sameId, json_encode(array_map(function ($v) { return $GLOBALS['OBJ'][$v]['ParentID'] ?? null; }, $legacyIds)));
+$remainingCats = array_filter(IPS_GetChildrenIDs(8410), function ($c) { return IPS_GetObject($c)['ObjectType'] === 0; });
+check('60c: leere Alt-Kategorien sind entfernt; nur die Kategorie mit dem Objekt des Nutzers bleibt, samt Inhalt', array_values($remainingCats) === [$catIds[$userCat]] && ($GLOBALS['OBJ'][$userObj]['ParentID'] ?? 0) === $catIds[$userCat], json_encode(array_values($remainingCats)));
+$rvs->invoke($h60b);
+check('60d: erneuter Durchlauf ist stabil — keine neue Kategorie, Variablen bleiben direkt unter der Instanz', count(array_filter(IPS_GetChildrenIDs(8410), function ($c) { return IPS_GetObject($c)['ObjectType'] === 0; })) === 1 && $GLOBALS['CATEGORIES_CREATED'] === $cats0);
+$src60 = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
+check('60e: Quelltext legt nirgends mehr Kategorien an (kein IPS_CreateCategory in MeterHub, MeterHubVirtual, MeterHubDiscovery, MeterHubBridge)',
+    strpos($src60, 'IPS_CreateCategory') === false
+    && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubVirtual/module.php'), 'IPS_CreateCategory') === false
+    && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubDiscovery/module.php'), 'IPS_CreateCategory') === false
+    && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubBridge/module.php'), 'IPS_CreateCategory') === false);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

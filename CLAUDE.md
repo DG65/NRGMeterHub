@@ -1759,3 +1759,17 @@ nie weglassen. Die Statuszeile `ArchiveStatusLine` steht im Panel `archPower`, d
 mitwandert. Prüfstand: `.tools/test-virtual.php` Block 59 (MeterHub + Virtual), `.tools/test-discovery-
 migration.php` Abschnitt 9. Die Sortierung nach `idx` ist unter PHP 8 ohnehin stabil — die Mutation
 „Sortierschlüssel entfällt" bleibt deshalb ungefangen (gleichwertige Mutation, kein Prüflücke).
+
+## Keine Kategorien unter Instanzen (0.33.1, 30.10.2026, Store-Review)
+
+Symcon-Review: Kategorien unter Instanzen sind nicht vorgesehen, die Visualisierung unterstützt sie nicht.
+MeterHub legt deshalb **nie** `IPS_CreateCategory()` an; `RegisterVar()` setzt jede Variable direkt unter
+die Instanz (der Parent-Wechsel behält die Objekt-ID). `RemoveLegacyCategories()` räumt am Ende von
+`RegisterVariables()` die leeren `cat_*`-Kategorien alter Versionen ab; enthält eine noch ein fremdes
+Objekt (vom Nutzer hineingelegt, ohne Ident), bleibt sie. `FindVarByIdent()` sucht weiterhin rekursiv —
+gebraucht für genau diesen Umzug. Der Reviewer nannte als zweiten Weg „mehrere Instanzen über einen
+Konfigurator": verworfen (ein Zähler würde mehrere Instanzen, Datenpunkt-Gruppen und `GetFunctions()`
+müssten umgebaut werden). Neue Gruppen/Variablen also nie in Unterkategorien sortieren. Prüfstand
+`.tools/test-virtual.php` Block 60. Die Test-Fixtures mit `cat_*` in `test-powerinvert.php`/`test-virtual.php`
+bilden bewusst den Altbestand nach.
+

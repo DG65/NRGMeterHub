@@ -1,7 +1,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.33.0-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.33.1-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -213,7 +213,7 @@ Die Zuordnung bewirkt dreierlei:
 2. **Maschinenlesbar** — `MHUB_GetFunctions($id)` liefert Modus, Zuordnungen und die
    Variablen-IDs (Leistung/Bezug/Einspeisung) als JSON, sodass EMS oder Kacheln die
    Zuordnung automatisch übernehmen können.
-3. **Optionale Sammel-Variablen** je Funktion (Kategorie „Funktionen"), die den zugeordneten
+3. **Optionale Sammel-Variablen** je Funktion (direkt unter der Instanz), die den zugeordneten
    Kanal spiegeln — praktisch für Charts und Automationen.
 
 Für getrennte Energiezähler je Phase zusätzlich im Panel „Datenpunkte" die Gruppe

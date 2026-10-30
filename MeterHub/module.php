@@ -3417,7 +3417,7 @@ class MeterHub extends IPSModule
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
     private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230'];
-    private const NEWS_VERSION = '0.33.0';
+    private const NEWS_VERSION = '0.33.1';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3462,6 +3462,7 @@ class MeterHub extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🗂️ Aufgeräumt: Die Variablen liegen jetzt direkt unter der Instanz statt in Unterkategorien (Summenwerte, Energiezähler …). Kategorien unter Instanzen sind in Symcon nicht vorgesehen, die Visualisierung kennt sie nicht. Bestehende Instanzen räumt MeterHub beim nächsten „Übernehmen" von selbst auf: Die Variablen behalten ihre ID, Archiv, Verknüpfungen und Skripte sind nicht betroffen. Nur der Weg im Objektbaum ist kürzer. Hast du selbst etwas in eine dieser Kategorien gelegt, bleibt sie samt Inhalt bestehen.'],
                 ['type' => 'Label', 'caption' => '• 🪟 Neu: Formular-Aufbau selbst wählen. Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist, und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so sieht das Formular jedes Mal so aus, wie du es brauchst. Ausgeblendete Bereiche behalten ihre Einstellungen und arbeiten weiter. Kein Haken heißt „Standard“; „Auf Standard zurücksetzen“ stellt alles zurück. Wirkt nach „Übernehmen“ beim nächsten Öffnen.'],
                 ['type' => 'Label', 'caption' => '• 🗄️ Archiv-Verdichtung: Neue Instanzen starten mit „aus", damit du bewusst zustimmst. Bestehende Instanzen behalten ihre Einstellung (an) unverändert. Das Archiv wird nur noch beim Ausschalten (von an auf aus) zurückgesetzt, nicht mehr bei jedem „Übernehmen" eines ausgeschalteten Schalters.'],
                 ['type' => 'Label', 'caption' => '• 🗝️ Inexogy: Optionale automatische Neuanmeldung. Wird der Zugriffsschlüssel ungültig, kann MeterHub sich selbst neu anmelden — das Passwort liegt dafür in einem Tresor (Community-Modul „SymconSecrets"), nie in MeterHub. MeterHub erkennt selbst, ob ein Tresor mit dem Passwort da ist; die Zeile darunter im „Cloud-Zugang" zeigt, was gilt. Ist keiner da, ändert sich nichts. Auch „Anmelden" kommt dann ohne eingetipptes Passwort aus.'],
@@ -3997,7 +3998,7 @@ class MeterHub extends IPSModule
     private const GUID_VIRTUAL = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
     private const GUID_METER   = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
 
-    /** Variable eines MeterHub-Geräts anhand ihres Idents (liegt in Kategorien). */
+    /** Variable eines MeterHub-Geräts anhand ihres Idents (liegt direkt unter der Instanz, in älteren Versionen noch in Kategorien). */
     private function MeterVarID(int $instanceID, string $ident): int
     {
         $stack = [$instanceID];
@@ -4324,7 +4325,7 @@ class MeterHub extends IPSModule
                 'caption' => 'Sammel-Variablen je Funktion',
                 'items' => [
                     ['type' => 'Label', 'caption' => 'Ohne diesen Schalter stehen die zugeordneten Werte nur unter ihrem technischen Namen (z. B. „Wirkleistung gesamt") in dieser Instanz — die Funktion ist zwar zugeordnet, aber nirgends eigens sichtbar.'],
-                    ['type' => 'Label', 'caption' => 'Eingeschaltet legt das Modul zusätzlich eine eigene Kategorie „Funktionen" mit klar benannten Kopien an (z. B. „Wärmepumpe — Wirkleistung", „Wärmepumpe — Wirkarbeit Bezug") — praktisch für ein Dashboard oder eine schnelle Übersicht, ohne erst die Funktionszuordnung nachschlagen zu müssen.'],
+                    ['type' => 'Label', 'caption' => 'Eingeschaltet legt das Modul zusätzlich klar benannte Kopien direkt unter der Instanz an (z. B. „Wärmepumpe — Wirkleistung", „Wärmepumpe — Wirkarbeit Bezug") — praktisch für ein Dashboard oder eine schnelle Übersicht, ohne erst die Funktionszuordnung nachschlagen zu müssen.'],
                     ['type' => 'Label', 'caption' => 'Andere Module (EMS, Kacheln) brauchen diese Sammel-Variablen NICHT — sie lesen die Zuordnung direkt über MHUB_GetFunctions(). Der Schalter ist reiner Komfort für den eigenen Objektbaum.'],
                 ],
             ],
@@ -8068,7 +8069,25 @@ class MeterHub extends IPSModule
                 @IPS_SetIcon($vid, $d[6]);
             }
         }
+        $this->RemoveLegacyCategories();
         $this->CommitCompactionState();
+    }
+
+    /**
+     * Räumt die Kategorien (cat_*) ab, die frühere Versionen unter der Instanz angelegt haben
+     * (Store-Review 30.10.2026: Kategorien unter Instanzen sind nicht vorgesehen). Läuft nach dem
+     * Registrieren: RegisterVar() hat die eigenen Variablen schon direkt unter die Instanz gesetzt,
+     * übrig sind leere Kategorien. Eine Kategorie, in der noch etwas anderes liegt (vom Nutzer
+     * hineingelegt), bleibt samt Inhalt bestehen — fremde Objekte fasst das Modul nicht an.
+     */
+    private function RemoveLegacyCategories(): void
+    {
+        foreach (IPS_GetChildrenIDs($this->InstanceID) as $cid) {
+            $obj = IPS_GetObject($cid);
+            if ($obj['ObjectType'] === 0 && strpos($obj['ObjectIdent'], 'cat_') === 0 && count(IPS_GetChildrenIDs($cid)) === 0) {
+                @IPS_DeleteCategory($cid);
+            }
+        }
     }
 
     /**
@@ -8086,8 +8105,8 @@ class MeterHub extends IPSModule
         }
     }
 
-    // Entfernt Variablen eines anderen Treibers / deaktivierter Gruppe und
-    // räumt danach leere Modul-Kategorien (cat_*) ab. (Wie InverterHub.)
+    // Entfernt Variablen eines anderen Treibers / deaktivierter Gruppe. Variablen, die
+    // noch in einer alten Kategorie (cat_*) liegen, werden dabei mit eingesammelt.
     private function PruneForeignObjects(array $validIdents)
     {
         $all = [];
@@ -8111,18 +8130,6 @@ class MeterHub extends IPSModule
             }
             if (!isset($validIdents[$obj['ObjectIdent']])) {
                 @IPS_DeleteVariable($cid);
-            }
-        }
-
-        foreach ($all as $cid) {
-            if (!IPS_ObjectExists($cid)) {
-                continue;
-            }
-            $obj = IPS_GetObject($cid);
-            if ($obj['ObjectType'] === 0
-                && strpos($obj['ObjectIdent'], 'cat_') === 0
-                && count(IPS_GetChildrenIDs($cid)) === 0) {
-                @IPS_DeleteCategory($cid);
             }
         }
     }
@@ -8156,8 +8163,10 @@ class MeterHub extends IPSModule
             IPS_SetIdent($vid, $ident);
         }
 
-        $catID = $this->EnsureCategory($group);
-        IPS_SetParent($vid, $catID);
+        // Store-Review 30.10.2026: Kategorien unter Instanzen sind nicht vorgesehen (die Visualisierung
+        // unterstützt sie nicht) — alle Variablen liegen direkt unter der Instanz. Eine Variable, die
+        // noch in einer alten Kategorie liegt, wandert hier heraus; die IDs bleiben (Archiv, Verknüpfungen).
+        IPS_SetParent($vid, $this->InstanceID);
         // Store-Review-Fund 9m (HeishaMon-Sitzung, 28.09.2026, von InverterHub
         // identisch gefixt): Position nur beim erstmaligen Anlegen setzen, nicht
         // bei jedem ApplyChanges() — sonst wirft eine Umsortierung im Objektbaum
@@ -8217,34 +8226,6 @@ class MeterHub extends IPSModule
             return false;
         }
         return $current === '' || preg_match('/^(NRG|MHB|MHBV)\./', $current) === 1;
-    }
-
-    private const CATEGORY_LABELS = [
-        'total'   => 'Summenwerte',
-        'voltage' => 'Spannung',
-        'current' => 'Strom',
-        'power'   => 'Leistung je Phase',
-        'energy'  => 'Energiezähler',
-        'function' => 'Funktionen',
-        'quality' => 'Netzqualität',
-        'device'  => 'Gerät',
-        'errors'  => 'Fehler / Verbindung',
-        'dc'      => 'Gleichstrom (DC)',
-    ];
-
-    private function EnsureCategory($key)
-    {
-        $catIdent = 'cat_' . $key;
-        $catID = $this->FindIdentRecursive($this->InstanceID, $catIdent);
-        if (!$catID) {
-            $catID = IPS_CreateCategory();
-            IPS_SetParent($catID, $this->InstanceID);
-            IPS_SetIdent($catID, $catIdent);
-            $pos = array_search($key, array_keys(self::CATEGORY_LABELS));
-            IPS_SetPosition($catID, $pos !== false ? $pos : 99);
-        }
-        IPS_SetName($catID, self::CATEGORY_LABELS[$key] ?? $key);
-        return $catID;
     }
 
     private function FindVarByIdent($ident)
