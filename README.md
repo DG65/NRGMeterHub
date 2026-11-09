@@ -1,22 +1,26 @@
+Deutsch | [English](README.en.md)
+
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.34.1-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.35.0-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
-IP-Symcon-Modul, das Energiezähler verschiedener Hersteller direkt per **Modbus TCP**
+Symcon-Modul, das Energiezähler verschiedener Hersteller direkt per **Modbus TCP**
 ausliest — ein gemeinsames Treibergerüst statt eines Moduls pro Hersteller, analog
 zum [InverterHub](https://github.com/DG65/NRGInverterHub).
 
 **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65.
 
-**Status: Beta.** Die Register-Zuordnungen basieren auf den öffentlich verfügbaren
-Modbus-Protokolldokumenten der Hersteller (Siemens Gerätehandbuch L1V30415167A, Janitza
-Modbus-Adressenliste UMG 604-PRO). Rückmeldungen zu falschen/fehlenden Werten sind
-willkommen — bitte mit Zählertyp und betroffenem Register melden.
+**Status: stabil.** MeterHub ist seit Version 0.32.5 im stabilen Kanal des Symcon-Stores. Die
+Register-Zuordnungen basieren auf den öffentlich verfügbaren Modbus-Protokolldokumenten der
+Hersteller (Siemens Gerätehandbuch L1V30415167A, Janitza Modbus-Adressenliste UMG 604-PRO) und
+wurden teils an echten Geräten bestätigt; Zähler, die noch nicht an echter Hardware geprüft sind,
+stehen unten ausdrücklich als experimentell. Rückmeldungen zu falschen/fehlenden Werten sind
+weiter willkommen — bitte mit Zählertyp und betroffenem Register melden.
 
 ## Dank
 
@@ -89,7 +93,8 @@ freigeschaltet. Architektur:
 - **`MHUB_ModbusTcpClient`** — gemeinsame Modbus-TCP-Grundfunktionen (Read Holding/Input
   Register, Datentyp-Hilfen inkl. Float32 und 64-Bit-Double), von allen Treibern genutzt.
 - **`MHUB_MeterDriverInterface`** — Vertrag, den jeder Zähler-Treiber erfüllt (Basisvariablen,
-  optionale Gruppen, Profile, `readFast`/`readSlow`). Zähler werden nur gelesen.
+  optionale Gruppen, Profile, `readFast`/`readSlow`). Zähler werden nur gelesen (Ausnahme: die beiden
+  schreibenden blue'Log-Typen RPC/Power Control).
 - **Treiber je Registerkarte** — `MHUB_Pac2200Driver` (Siemens), `MHUB_JanitzaClassicDriver`
   (klassische Janitza-Karte, deckt UMG 604/605/509/512/806/96PA/801 ab) und `MHUB_Umg800Driver`
   (UMG 800). Jeder Treiber kapselt Registeradressen, Datentypen und Blockaufteilung.
@@ -109,12 +114,22 @@ Gesamt-Wirkleistung um.
 
 **Energie-Einheit (kWh/Wh):** Standardmäßig werden Energiewerte in kWh ausgegeben. Der
 Schalter „Energie in Wh statt kWh ausgeben" stellt sie auf die Basiseinheit Wh um —
-konsistent zur Leistung (W); die neue IP-Symcon-Darstellung skaliert dann selbst auf
+konsistent zur Leistung (W); die neue Symcon-Darstellung skaliert dann selbst auf
 Wh/kWh/MWh. Bestehende Instanzen bleiben ohne Umschalten bei kWh (kein Sprung in der
 Historie).
 
 **Abfragetakt:** Momentanwerte (Leistung, Spannung, Strom, Frequenz) werden im Schnell-
 Intervall gelesen, die Energiezähler im Langsam-Intervall.
+
+**Variablen, Anzeige und Archiv:** Alle Variablen liegen direkt unter der Instanz (keine
+Unterkategorien). Das Profil (Einheit, Nachkommastellen) kommt als Standarddarstellung der Variable,
+nicht als benutzerdefiniertes Profil — das gehört dem Nutzer. Das Archiv (Logging) schaltet MeterHub
+nicht von selbst ein: Sind eigene Variablen nicht archiviert, zeigt das Formular oben den Hinweis
+„Archivierung fehlt" mit dem Knopf „Archivierung für diese Variablen einschalten" (bereits laufendes
+Logging wird nie abgeschaltet). Archiv-Verdichtung und der Inexogy-Nachtrag wirken nur bei
+archivierten Variablen; die Verdichtung ist für neue Instanzen standardmäßig aus. Welche Bereiche
+des Formulars beim Öffnen auf-/zugeklappt, ausgeblendet und in welcher Reihenfolge sichtbar sind,
+legt das Panel „Formular: Aufbau" fest.
 
 ### MeterHubDiscovery
 
@@ -145,7 +160,8 @@ gedacht für andere Modbus-Geräte, die sonst Probe-Zeit kosten. Mehrere IPs Kom
 
 **Namens-Vorlage:** leer lassen für den Standard „Zählertyp + laufende Nummer", oder ein
 eigenes Muster mit den Platzhaltern `{zaehler}` `{ip}` `{unitid}` `{nr}` eintragen (z. B.
-`{zaehler} Keller ({ip})`).
+`{zaehler} Keller ({ip})`). Bei Funden der blue'Log-SCADA-Suche steht zusätzlich `{busaddr}`
+(RS485-Busadresse) zur Verfügung, sonst bleibt er leer.
 
 **Zweiter Suchmodus — blue'Log SCADA-Adressbereich:** für Meteocontrol-blue'Log-Solarpark-
 Datenlogger. Statt eines IP-Bereichs (ein Gerät je IP) EIN fest bekannter blue'Log, aber viele
@@ -258,27 +274,38 @@ Für Konsumenten (Prognose, Dashboard, EMS, Stromflusskachel) ist das verbindlic
 
 ### MeterHubVirtual (virtuelle Zähler)
 
-Bildet **virtuelle Zähler aus der Verdrahtung** statt aus Formeln. Statt Rechenoperationen zu
-konfigurieren, gibt man je Zähler an, **hinter welchem er sitzt**. Daraus ergibt sich je Knoten
-mit Untergeordneten automatisch:
+Bildet **virtuelle Zähler aus einer Formel**. Diese Instanz ist die oberste Ebene, jedes Mitglied
+ein Term mit einem **Anteil in Prozent**: Ergebnis = Σ (Anteil × Wert), getrennt für Leistung,
+Bezug und Einspeisung. 100 % addiert voll, −100 % zieht voll ab, jeder Wert dazwischen ist ein
+Teil-Anteil (bis zu zwei Nachkommastellen, z. B. exakt ein Drittel).
 
-- **Summe untergeordnet** — die Summe aller direkt darunter hängenden Zähler
-- **Rest** — eigener Zähler minus Summe der Untergeordneten (nur mit eigenem Zähler)
+*Beispiel:* „Hausanschluss" (+100 %), „Wärmepumpe" (−100 %) und „Wallbox" (−100 %) ergeben
+den unbekannten Rest des Hauses — alles, was weder Wärmepumpe noch Wallbox verbraucht. Weitere
+Muster: *Sammeln* (Kühlschrank + Brunnenpumpe, je +100 %), *Durchreichen* (nur eine Zeile) und
+*Aufteilen* (dieselbe Variable mit 60 % in der einen und 40 % in einer zweiten Instanz, z. B. für
+zwei Mieter).
 
-*Beispiel:* „Hausanschluss" (eigener Zähler) mit den untergeordneten „Wärmepumpe" und
-„Wallbox" ergibt automatisch „Hausanschluss: Leistung Rest" — alles, was weder Wärmepumpe noch
-Wallbox verbraucht.
+**Mitglieder:** Neue Instanzen beziehen ihre Mitglieder aus dem **Objektbaum**: Alles, was als
+Verknüpfung (Link) oder direkt unter der Instanz hängt, ist Mitglied, in der Reihenfolge seiner
+Position dort. Ein Link auf eine andere virtuelle Zähler-Instanz verschachtelt sie (z. B. mehrere
+Wallbox-Zähler unter „Fahrzeugbeladung"); Kreisverweise werden erkannt und blockiert, ein Link mit
+gelöschtem Ziel erscheint als „Ziel fehlt". Instanzen mit der früheren Zeilentabelle rechnen
+unverändert weiter und lassen sich per Knopf in Objektbaum-Mitglieder umwandeln (die alte Tabelle
+wird gesichert). Instanzen aus der Zeit des Kürzel-/„hängt hinter"-Modells (vor 0.24.0) werden nicht
+blind übernommen: Ein Migrations-Panel zeigt die bisherigen Zeilen als Vorschlag, nichts wird
+automatisch übernommen.
 
-**Warum keine freie Formel:** Weil jeder Zähler im Baum genau **einen** Platz hat, kann er
-nicht doppelt abgezogen werden — ein doppelter Abzug müsste denselben Zähler an zwei Stellen
-hängen, und das lässt die Struktur nicht zu. Was der Baum nicht verhindert, meldet die Prüfung:
-derselbe Datenpunkt in zwei Zeilen, Ringschlüsse, unbekannte Elternknoten, doppelte Kürzel und
-**gemischte Einheiten** (W neben kW ergäbe still falsche Werte). Solange etwas offen ist, wird
-bewusst **nicht gerechnet** — lieber kein Wert als ein falscher.
+**Prüfung statt Raten:** Was die Formel nicht verhindert, meldet die Prüfung: derselbe Datenpunkt
+in zwei Zeilen derselben Instanz (würde doppelt gezählt), ein Mitglied, das auf die Instanz selbst
+zeigt, Kreisverweise und **gemischte Einheiten** (W neben kW ergäbe still falsche Werte). Über
+mehrere Instanzen hinweg darf dieselbe Variable bewusst anteilig vorkommen (*Aufteilen*). Ist
+dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub **und** OCPPHub), nennt die
+Prüfung beide samt Grund; bis zur Entscheidung zählt nur die erste Anbindung. Bei blockierenden
+Fehlern wird bewusst **nicht gerechnet** — lieber kein Wert als ein falscher.
 
-Jeder Knoten kann eine **Funktion** bekommen (Netzanschluss, Hausverbrauch, Wärmepumpe …).
-Über `MHUBV_GetFunctions($id)` — denselben Vertrag wie das Hauptmodul — erscheinen virtuelle
-Zähler damit automatisch in der InverterHub-Stromflusskachel und im Sankey.
+Die Instanz kann eine **Funktion** bekommen (Netzanschluss, Hausverbrauch, Wärmepumpe …), einmal für
+die ganze Instanz. Über `MHUBV_GetFunctions($id)` — denselben Vertrag wie das Hauptmodul — erscheinen
+virtuelle Zähler damit automatisch in der InverterHub-Stromflusskachel und im Sankey.
 
 **Mitglieder nach außen (`members`, Vertrag 1.3):** Jede Zuordnung — und unabhängig von der
 Funktion auch die Instanz selbst — liefert die Liste ihrer Terme (`name`, `factor` in Prozent,
@@ -310,9 +337,8 @@ für Skripte offen.
 **Zähler automatisch finden:** Der Knopf „🔎 Zähler im System suchen" durchsucht die
 Installation nach Datenpunkten mit W-/kW- bzw. kWh-Profil — also nach den Messwerten von
 Steckdosen, Licht- und Jalousieschaltern, Zwischenzählern usw. Die Funde werden **je Gerät
-gruppiert** (Leistung und Energie desselben Geräts landen in einer Zeile), die **Bezeichnung
-kommt aus dem Gerätenamen**, und das Kürzel wird daraus abgeleitet und bei Namensgleichheit
-eindeutig gemacht.
+gruppiert** (Leistung und Energie desselben Geräts landen in einer Zeile), und die
+**Bezeichnung kommt aus dem Gerätenamen**.
 
 Dabei wird geprüft: Datenpunkte ohne verwertbare Einheit werden übersprungen, bereits
 eingetragene nicht doppelt vorgeschlagen, und **Ausgaben virtueller Zähler bleiben
@@ -332,30 +358,37 @@ Vier **Filter** engen ihn ein — Suchbereich (nur unterhalb eines Objekts), Nam
 Klick**, auch ohne vorher zu übernehmen. Das Ergebnis nennt den verwendeten Suchbereich und
 zählt auf, was woran gescheitert ist — wurde alles wegfiltriert, sagt es das ausdrücklich.
 
-Die Funde erscheinen zunächst **auf oberster Ebene und nur als Vorschlag in der geöffneten
-Maske** — gespeichert wird erst mit „Übernehmen". Die **Verdrahtung setzt man von Hand**: Welcher
-Zähler hinter welchem sitzt, weiß nur die Anlage — und genau diese Entscheidung ist es, die den
-doppelten Abzug ausschließt.
+Die Funde sind nur ein **Vorschlag**. Aufgenommen werden sie über „Fund auswählen", über „Zähler-
+Instanz oder Gerät" (Leistung, Bezug und Einspeisung werden am Gerät automatisch gefunden) oder
+über „Geräte-Familie erkennen" (mehrere gleichartige Geräte einer Kategorie auf einmal, z. B. MDT AZI
+oder bidirektionale KNX-Zähler). Im Objektbaum-Modus legt „Als Mitglied verknüpfen" sofort einen
+Link an; im Tabellen-Modus wird erst mit „Übernehmen" gespeichert. Welche Anteile gelten und was
+abgezogen wird, entscheidet die Anlage — das Modul rät nicht.
 
-Geliefert werden **Leistung (W)** und **Energie (kWh)** jeweils als Summe und Rest; die
-Variablen werden archiviert.
+Geliefert werden die Ausgaben `power` (W), `energy_import` und `energy_export` (kWh), soweit die
+Mitglieder entsprechende Datenpunkte haben. Fehlt einer Zeile der Bezug (z. B. reine
+Wirkleistungs-Aktoren), rechnet „Fehlende Energiewerte aus der Leistung hochrechnen" Leistung ×
+Berechnungs-Intervall zu einer eigenen, als hochgerechnet gekennzeichneten Variable auf — keine
+Schätzung, aber ungenauer als ein echter Zähler. Die Archivierung schaltet das Modul nicht von
+selbst ein: Fehlt sie, bietet das Formular oben den Knopf „Archivierung für diese Variablen
+einschalten".
 
 **Aus einer Zählerinstanz heraus anlegen:** Meist entsteht ein virtueller Zähler aus zwei, drei
 echten Zählern, die man ohnehin gerade vor sich hat. Deshalb hat jede MeterHub-Instanz das Panel
 „🧮 Virtueller Zähler": die weiteren beteiligten Instanzen auswählen, die Rolle festlegen —
-*übergeordnet* (die anderen hängen dahinter, ergibt Summe **und** Rest) oder *gleichrangig*
-(alle werden nur addiert) — und anlegen. Die Verdrahtung wird fertig vorbelegt, die
-Variablen-IDs muss man nicht von Hand zusammensuchen.
+*übergeordnet* (der eigene Zähler zählt +100 %, die gewählten −100 % — ergibt den Rest) oder
+*gleichrangig* (alle +100 % — ergibt die Summe) — und anlegen. Die Formel wird fertig vorbelegt,
+die Variablen-IDs muss man nicht von Hand zusammensuchen.
 
 Zwei Dinge macht der Generator bewusst *nicht*: Er legt **keinen zweiten** virtuellen Zähler an,
 wenn dieses Gerät schon in einem steckt — dann ist die richtige Stelle die vorhandene Instanz,
 sonst beginnt doppelte Buchführung. Und er überträgt **keine Funktionszuordnung**, denn belegte
 der virtuelle Knoten dieselbe Funktion wie der echte Zähler, erschiene der Verbraucher in Kachel
-und Sankey doppelt. Typisch ist, dem übergeordneten Knoten anschließend „Hausverbrauch" zu
+und Sankey doppelt. Typisch ist, der übergeordneten Instanz anschließend „Hausverbrauch" zu
 geben: der Rest ist dann alles, was nicht auf die untergeordneten Zähler entfällt.
 
 Umgekehrt zeigt das Panel bei einem bereits eingebundenen Zähler an, **in welchem virtuellen
-Zähler er steckt** — und unter welchem Kürzel.
+Zähler er steckt**.
 
 ## Verwandtes Projekt: InverterHub
 
@@ -379,7 +412,7 @@ Zuordnungen und Variablen-IDs als JSON liefert.
 
 ## Installation
 
-Über die IP-Symcon Modulverwaltung „Hinzufügen" mit der URL dieses Repositories:
+Über die Symcon-Modulverwaltung „Hinzufügen" mit der URL dieses Repositories:
 
 ```
 https://github.com/DG65/NRGMeterHub

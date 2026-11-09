@@ -1,1 +1,19 @@
-{"translations":{"de":{},"en":{}}}
+{
+    "translations": {
+        "de": {
+            "Connected to the gateway.": "Mit dem Gateway verbunden.",
+            "How to set it up: 1) Create a native \"ModBus gateway\" for the device and set its \"DeviceID\" to the device's Modbus address. 2) Create this bridge and connect it to the gateway via \"Change gateway\". 3) In the MeterHub instance choose the connection path \"Symbox gateway\" and select this bridge.": "So richtest du es ein: 1) Ein natives „ModBus Gateway\" für das Gerät anlegen und dessen „DeviceID\" auf die Modbus-Adresse des Geräts stellen. 2) Diese Brücke anlegen und über „Gateway ändern\" mit dem Gateway verbinden. 3) In der MeterHub-Instanz den Verbindungsweg „Symbox-Gateway\" wählen und diese Brücke auswählen.",
+            "Label": "Bezeichnung",
+            "No active gateway connected.": "Kein aktives Gateway verbunden.",
+            "This bridge connects a native Symcon \"ModBus gateway\" (e.g. the built-in RS485 port of the Symbox) with a MeterHub instance. It has no settings of its own.": "Diese Brücke verbindet ein natives Symcon-„ModBus Gateway\" (z. B. den eingebauten RS485-Port der Symbox) mit einer MeterHub-Instanz. Sie hat keine eigenen Einstellungen.",
+            "active": "aktiv",
+            "not readable": "nicht lesbar",
+            "ℹ️ A bridge serves exactly ONE unit ID — the \"DeviceID\" of the gateway. Several devices with different unit IDs on the same bus each need a gateway of their own and a bridge of their own.": "ℹ️ Eine Brücke bedient genau EINE Unit-ID — die „DeviceID\" des Gateways. Mehrere Geräte mit verschiedenen Unit-IDs am selben Bus brauchen je ein eigenes Gateway und je eine eigene Brücke.",
+            "⚠️ Connected to ModBus gateway %s, but it is not active (status %s) — check its connection to the device.": "⚠️ Mit ModBus Gateway %s verbunden, aber es ist nicht aktiv (Status %s) — dessen Verbindung zum Gerät prüfen.",
+            "⚠️ New connection path, not yet tried on many devices (SUITE.md 9j). Do not operate write-capable meter types (blue'Log RPC/Power Control) over it.": "⚠️ Neuer Verbindungsweg, noch nicht an vielen Geräten erprobt (SUITE.md 9j). Schreibende Zählertypen (blue'Log RPC/Power Control) nicht darüber betreiben.",
+            "⚠️ No gateway connected yet — choose this device's matching native \"ModBus gateway\" above via \"Change gateway\". Until then this bridge delivers no values to the hub.": "⚠️ Noch kein Gateway verbunden — oben über „Gateway ändern\" das passende native „ModBus Gateway\" dieses Geräts wählen. Bis dahin liefert diese Brücke dem Hub keine Werte.",
+            "✅ Connected to ModBus gateway %s — unit ID %s (source: property \"DeviceID\" at the gateway).": "✅ Verbunden mit ModBus Gateway %s — Unit-ID %s (Quelle: Property „DeviceID\" am Gateway).",
+            "📖  Documentation & help": "📖  Dokumentation & Hilfe"
+        }
+    }
+}

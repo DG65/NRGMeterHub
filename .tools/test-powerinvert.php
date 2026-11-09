@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/i18n-test-support.php';
 /**
  * Prüfstand für PowerInvert bei den Energiezählern (Fund 21.08.2026,
  * Dietmars Inexogy-Instanz): `PowerInvert` kehrte bisher nur das Vorzeichen
@@ -59,6 +60,7 @@ function AC_ReAggregateVariable($ac, $vid) {
 foreach (['KL_MESSAGE' => 101, 'KL_WARNING' => 104, 'KL_ERROR' => 103, 'KL_NOTIFY' => 102, 'KL_DEBUG' => 100, 'KL_CUSTOM' => 105] as $c => $v) { if (!defined($c)) { define($c, $v); } }
 class IPSModule
 {
+    use I18nStub;
     public $InstanceID;
     protected $defs = [];
     public function __construct($id) { $this->InstanceID = $id; }

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/i18n-test-support.php';
 /**
  * Prüfstand für den Inexogy-Cloud-Treiber.
  *
@@ -14,6 +15,7 @@ const VARIABLETYPE_FLOAT   = 2;
 
 // --- Minimal-IPS, nur so viel, dass module.php lädt -----------------------
 class IPSModule {
+    use I18nStub;
     public $InstanceID;
     public function __construct($id = 0) { $this->InstanceID = $id; }
 }

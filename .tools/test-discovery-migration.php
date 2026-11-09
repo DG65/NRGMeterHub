@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/i18n-test-support.php';
 /**
  * Prüfstand für die MigrationsHub-Kopplung in MeterHubDiscovery
  * (LegacyCandidateFor()/PrepareMigration(), Verbund-Konvention 29.07.2026).
@@ -41,6 +42,7 @@ function IPS_ApplyChanges($iid) { $GLOBALS['APPLIED'][$iid] = ($GLOBALS['APPLIED
 
 class IPSModule
 {
+    use I18nStub;
     public $InstanceID;
     protected $defs = [];
     public function __construct($id) { $this->InstanceID = $id; }
@@ -59,7 +61,7 @@ class IPSModule
     protected function RegisterAttributeBoolean($n, $v) { $this->defs['@' . $n] = $v; }
     public function ReadAttributeBoolean($n)  { return (bool)($GLOBALS['ATTR'][$this->InstanceID][$n] ?? $this->defs['@' . $n] ?? false); }
     public function WriteAttributeBoolean($n, $v) { $GLOBALS['ATTR'][$this->InstanceID][$n] = $v; }
-    public function UpdateFormField($f, $p, $v) { $GLOBALS['FORMFIELDS'][$f][$p] = $v; }
+    public function UpdateFormField($f, $p, $v) { $GLOBALS['FORMFIELDS'][$f][$p] = (in_array($p, ['caption', 'label'], true) && is_string($v)) ? i18n_tr($v) : $v; }   // die Konsole übersetzt auch nachgeschobene Texte
     protected function ReloadForm() {}
     protected function RegisterVariableBoolean($n, $c, $p, $pos) {}
     protected function SetStatus($s) {}
@@ -94,7 +96,7 @@ function findEl(array $els, string $name) {
     return null;
 }
 function migLine($d): string {
-    $f = json_decode($d->GetConfigurationForm(), true);
+    $f = json_decode(cf($d), true);
     $e = is_array($f) ? findEl($f['elements'] ?? [], 'MigrationStatusLine') : null;
     return $e === null ? '' : (string)($e['caption'] ?? '');
 }
@@ -168,7 +170,7 @@ $GLOBALS['ATTR'][1]['ResultsJSON'] = json_encode([
 ]);
 $d2 = new MeterHubDiscovery(1);
 $d2->Create();
-$form = json_decode($d2->GetConfigurationForm(), true);
+$form = json_decode(cf($d2), true);
 check('Formular ist gültiges JSON', is_array($form));
 $list = null;
 foreach ($form['elements'] ?? [] as $el) {
@@ -277,7 +279,7 @@ $keys9 = ['range', 'scada', 'create'];
 $GLOBALS['PROP'][1]['FormLayout'] = '[]';
 $d9 = new MeterHubDiscovery(1);
 $d9->Create();
-$f9 = function () use ($d9) { return json_decode($d9->GetConfigurationForm(), true); };
+$f9 = function () use ($d9) { return json_decode(cf($d9), true); };
 $panels9 = function ($form) { return array_values(array_filter($form['elements'], function ($e) { return ($e['type'] ?? '') === 'ExpansionPanel'; })); };
 $find9 = function ($form, $needle) use ($panels9) {
     foreach ($panels9($form) as $e) { if (mb_strpos((string)($e['caption'] ?? ''), $needle) !== false) { return $e; } }

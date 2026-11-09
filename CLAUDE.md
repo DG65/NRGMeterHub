@@ -1795,3 +1795,28 @@ bilden bewusst den Altbestand nach.
   `OwnCustomProfileCleared`, am Ende des ersten vollständigen `RegisterVariables()`-Durchlaufs gesetzt) — EMS-Ausnahmeregel
   zu Punkt 28 mit den drei Bedingungen: nur einmal (Merker), fremde Profile bleiben, im CHANGELOG und im „Neu"-Panel benannt.
 
+## Zweisprachigkeit Deutsch/Englisch (0.35.0, 09.11.2026, SUITE.md Konvention 9, Checkliste 25)
+
+**Regel für alles Neue:** Quelltexte im Code sind ENGLISCH, die deutsche Fassung steht in der `locale.json` des Moduls
+(`{"translations":{"de":{"<English>":"<Deutsch>"}}}`, nur `de`). Nie deutschen Text neu in den Code schreiben.
+- **Formular nicht selbst übersetzen** (Checkliste 25, Review WPModbusHub): `caption`/`label`/`title`/Optionen und
+  `UpdateFormField`-Texte bleiben englischer Klartext, die Konsole übersetzt über `locale.json`.
+- **Selbst übersetzen** (`MHUB_Text::t()`, `MHUBV_Text::t()`, `MHUBD_Text::t()`, `MHUBB_Text::t()`): Texte mit Werten
+  (`::t('… %s …', $x)`), Rückgaben/Meldungen, `confirm`-Texte, onClick-`echo`-Texte, Variablennamen, Profil-Assoziationen,
+  Werte in Listenzeilen und Konfigurator-Namen, `LogMessage`. Nicht übersetzt: `SendDebug`, Exception-Texte,
+  `trigger_error`-Diagnose (Entwicklertexte, bleiben deutsch), Dateinamen, Idents, Suchbegriffe zur Erkennung deutscher
+  Objektnamen (`.tools/test-i18n.php`, Liste `$keepGerman`).
+- **Fassade statt `$this->Translate()`:** die Modulklasse hinterlegt im Konstruktor `Xxx_Text::set(fn)`; so geht es auch in
+  Treiber-/Client-Klassen und statischen Methoden. Eingebettete Sätze nie zerstückeln — ganze Formattexte mit `%s/%d`.
+- **Texte in Konstanten/Eigenschaftsvorgaben/Parameter-Defaults** (z. B. `FUNCTIONS`, `METER_LABELS`, `BLUELOG_TYPE_LABELS`,
+  Treiber-Definitionen `getBaseVars()`/`getOptionalGroups()`/`getEnumProfiles()`) bleiben englischer Klartext und
+  werden an der Verwendung übersetzt (Konstantenausdrücke dürfen keine Aufrufe enthalten): Variablennamen in `RegisterVar()`,
+  Funktionsnamen in `FunctionsAssigned`/`GetFunctions`, Gerätetyp-Beschriftungen in der Discovery.
+- **Englische Quelltexte eindeutig halten** (zwei deutsche Texte dürfen nicht auf denselben englischen abgebildet werden).
+- **Prüfstand:** `.tools/test-i18n.php` (statisch) muss grün sein; die anderen Prüfstände simulieren Deutsch
+  (`Translate()` aus `locale.json`, `cf()` übersetzt das Formular wie die Konsole), Englisch gezielt per `putenv('I18N_LANG=en')` in einzelnen Blöcken (Block 62); die älteren Prüfungen erwarten deutsche Texte.
+- **Werkzeug zum Umstellen/Prüfen:** `.tools/i18n-extract.php` (listet alle Textliterale, `--all`). Die deutsche Erkennung ist
+  heuristisch — nach jeder größeren Textänderung zusätzlich die Beschriftungen ohne `locale.json`-Eintrag durchsehen.
+- Aliase in `module.json` bleiben genau EIN deutscher Eintrag je Modul (Test 6e: jeder Alias wäre ein eigener Eintrag im
+  Anlege-Dialog).
+

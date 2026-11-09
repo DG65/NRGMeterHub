@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/i18n-test-support.php';
 /**
  * Prüfstand für den automatischen wiederkehrenden Inexogy-Lastgang-
  * Nachtrag (MaybeAutoBackfillInexogy(), 27.08.2026, überarbeitet nach
@@ -40,6 +41,7 @@ function obj($id, $parent, $ident) {
 
 class IPSModule
 {
+    use I18nStub;
     public $InstanceID;
     protected $defs = [];
     public function __construct($id) { $this->InstanceID = $id; }

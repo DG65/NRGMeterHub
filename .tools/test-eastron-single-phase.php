@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/i18n-test-support.php';
 /**
  * Prüfstand MHUB_EastronSdmSinglePhaseDriver (Eastron SDM120 / SDM220 / SDM230, 0.31.0).
  *
@@ -15,6 +16,7 @@
 if (!class_exists('IPSModule')) {
     class IPSModule
     {
+    use I18nStub;
         public $InstanceID = 0;
         public function __construct($id = 0) { $this->InstanceID = $id; }
     }

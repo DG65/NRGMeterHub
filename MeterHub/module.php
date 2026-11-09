@@ -32,6 +32,27 @@ interface MHUB_ModbusClientInterface
     public function setWordSwap(bool $s);
 }
 
+/**
+ * Texte zur Laufzeit übersetzen (Quelltexte englisch, Deutsch in locale.json — SUITE.md Punkt 9). Die Modulklasse
+ * hinterlegt im Konstruktor ihre Translate()-Methode; auch Hilfsklassen und statische Methoden kommen so an die Übersetzung.
+ * Mit Argumenten: sprintf() auf den übersetzten Text.
+ */
+class MHUB_Text
+{
+    private static $fn = null;
+
+    public static function set(\Closure $fn): void
+    {
+        self::$fn = $fn;
+    }
+
+    public static function t(string $text, ...$args): string
+    {
+        $s = self::$fn !== null ? (string)(self::$fn)($text) : $text;
+        return $args ? sprintf($s, ...$args) : $s;
+    }
+}
+
 class MHUB_ModbusTcpClient implements MHUB_ModbusClientInterface
 {
     public $host;
@@ -424,7 +445,7 @@ class MHUB_ModbusGatewayClient implements MHUB_ModbusClientInterface
     {
         if (!self::$writeWarned) {
             self::$writeWarned = true;
-            $this->notices[] = 'Symbox-Gateway: Schreibzugriff (Function 16) ist eine ungetestete Ableitung aus dem verifizierten Lese-Schema, SUITE.md 9j — unbedingt an echter Hardware prüfen, bevor ein Sollwert-Zählertyp produktiv über diesen Verbindungsweg läuft.';
+            $this->notices[] = MHUB_Text::t('Symbox gateway: write access (function 16) is an untested derivation from the verified read scheme, SUITE.md 9j — be sure to check on real hardware before a setpoint meter type goes into production over this connection path.');
         }
         $payload = '';
         foreach ($regs as $r) {
@@ -596,57 +617,57 @@ class MHUB_Pac2200Driver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt',       'F', 'NRG.Watt',   true,  'total',  'FC3 65 (Σ P)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',          'F', 'NRG.Volt',   false, 'total',  'FC3 57'],
-            ['current_avg',   'Strom Ø',                   'F', 'NRG.Ampere',   false, 'total',  'FC3 61'],
-            ['frequency',     'Frequenz',                  'F', 'MHB.Hz',  false, 'total',  'FC3 55'],
-            ['energy_import', 'Wirkarbeit Bezug (Tarif 1)','F', 'NRG.kWh', true,  'energy', 'FC3 801 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe (Tarif 1)','F','NRG.kWh', true,  'energy', 'FC3 809 (Wh)'],
-            ['connected',     'Verbindung',                'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power',       'F', 'NRG.Watt',   true,  'total',  'FC3 65 (Σ P)'],
+            ['voltage_avg',   'Average voltage (L-N)',          'F', 'NRG.Volt',   false, 'total',  'FC3 57'],
+            ['current_avg',   'Average current',                   'F', 'NRG.Ampere',   false, 'total',  'FC3 61'],
+            ['frequency',     'Frequency',                  'F', 'MHB.Hz',  false, 'total',  'FC3 55'],
+            ['energy_import', 'Active energy import (tariff 1)','F', 'NRG.kWh', true,  'energy', 'FC3 801 (Wh)'],
+            ['energy_export', 'Active energy export (tariff 1)','F','NRG.kWh', true,  'energy', 'FC3 809 (Wh)'],
+            ['connected',     'Connection',                'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
-                ['u_l1_n',  'Spannung L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 1'],
-                ['u_l2_n',  'Spannung L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 3'],
-                ['u_l3_n',  'Spannung L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 5'],
-                ['u_l1_l2', 'Spannung L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 7'],
-                ['u_l2_l3', 'Spannung L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 9'],
-                ['u_l3_l1', 'Spannung L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 11'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (L-N, L-L)', 'vars' => [
+                ['u_l1_n',  'Voltage L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 1'],
+                ['u_l2_n',  'Voltage L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 3'],
+                ['u_l3_n',  'Voltage L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 5'],
+                ['u_l1_l2', 'Voltage L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 7'],
+                ['u_l2_l3', 'Voltage L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 9'],
+                ['u_l3_l1', 'Voltage L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 11'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ Neutralleiter)', 'vars' => [
-                ['i_l1', 'Strom L1',           'F', 'NRG.Ampere', false, 'current', 'FC3 13'],
-                ['i_l2', 'Strom L2',           'F', 'NRG.Ampere', false, 'current', 'FC3 15'],
-                ['i_l3', 'Strom L3',           'F', 'NRG.Ampere', false, 'current', 'FC3 17'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase (+ neutral)', 'vars' => [
+                ['i_l1', 'Current L1',           'F', 'NRG.Ampere', false, 'current', 'FC3 13'],
+                ['i_l2', 'Current L2',           'F', 'NRG.Ampere', false, 'current', 'FC3 15'],
+                ['i_l3', 'Current L3',           'F', 'NRG.Ampere', false, 'current', 'FC3 17'],
                 ['i_n',  'Neutralleiterstrom', 'F', 'NRG.Ampere', false, 'current', 'FC3 71'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 25'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 27'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 29'],
             ]],
-            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
-                ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC3 63'],
-                ['q_total', 'Blindleistung gesamt',  'F', 'MHB.var', false, 'power', 'FC3 67'],
-                ['s_l1', 'Scheinleistung L1', 'F', 'MHB.VA',  false, 'power', 'FC3 19'],
-                ['s_l2', 'Scheinleistung L2', 'F', 'MHB.VA',  false, 'power', 'FC3 21'],
-                ['s_l3', 'Scheinleistung L3', 'F', 'MHB.VA',  false, 'power', 'FC3 23'],
-                ['q_l1', 'Blindleistung L1',  'F', 'MHB.var', false, 'power', 'FC3 31'],
-                ['q_l2', 'Blindleistung L2',  'F', 'MHB.var', false, 'power', 'FC3 33'],
-                ['q_l3', 'Blindleistung L3',  'F', 'MHB.var', false, 'power', 'FC3 35'],
+            'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
+                ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC3 63'],
+                ['q_total', 'Total reactive power',  'F', 'MHB.var', false, 'power', 'FC3 67'],
+                ['s_l1', 'Apparent power L1', 'F', 'MHB.VA',  false, 'power', 'FC3 19'],
+                ['s_l2', 'Apparent power L2', 'F', 'MHB.VA',  false, 'power', 'FC3 21'],
+                ['s_l3', 'Apparent power L3', 'F', 'MHB.VA',  false, 'power', 'FC3 23'],
+                ['q_l1', 'Reactive power L1',  'F', 'MHB.var', false, 'power', 'FC3 31'],
+                ['q_l2', 'Reactive power L2',  'F', 'MHB.var', false, 'power', 'FC3 33'],
+                ['q_l3', 'Reactive power L3',  'F', 'MHB.var', false, 'power', 'FC3 35'],
             ]],
-            'GroupPowerFactor' => ['caption' => 'Leistungsfaktor', 'vars' => [
-                ['pf_total', 'Leistungsfaktor gesamt', 'F', 'MHB.PF', false, 'total', 'FC3 69'],
-                ['pf_l1', 'Leistungsfaktor L1', 'F', 'MHB.PF', false, 'total', 'FC3 37'],
-                ['pf_l2', 'Leistungsfaktor L2', 'F', 'MHB.PF', false, 'total', 'FC3 39'],
-                ['pf_l3', 'Leistungsfaktor L3', 'F', 'MHB.PF', false, 'total', 'FC3 41'],
+            'GroupPowerFactor' => ['caption' => 'Power factor', 'vars' => [
+                ['pf_total', 'Total power factor', 'F', 'MHB.PF', false, 'total', 'FC3 69'],
+                ['pf_l1', 'Power factor L1', 'F', 'MHB.PF', false, 'total', 'FC3 37'],
+                ['pf_l2', 'Power factor L2', 'F', 'MHB.PF', false, 'total', 'FC3 39'],
+                ['pf_l3', 'Power factor L3', 'F', 'MHB.PF', false, 'total', 'FC3 41'],
             ]],
-            'GroupTariff2' => ['caption' => 'Energie Tarif 2 (Bezug/Abgabe)', 'vars' => [
-                ['energy_import_t2', 'Wirkarbeit Bezug (Tarif 2)',  'F', 'NRG.kWh', true, 'energy', 'FC3 805 (Wh)'],
-                ['energy_export_t2', 'Wirkarbeit Abgabe (Tarif 2)', 'F', 'NRG.kWh', true, 'energy', 'FC3 813 (Wh)'],
+            'GroupTariff2' => ['caption' => 'Energy tariff 2 (import/export)', 'vars' => [
+                ['energy_import_t2', 'Active energy import (tariff 2)',  'F', 'NRG.kWh', true, 'energy', 'FC3 805 (Wh)'],
+                ['energy_export_t2', 'Active energy export (tariff 2)', 'F', 'NRG.kWh', true, 'energy', 'FC3 813 (Wh)'],
             ]],
         ];
     }
@@ -745,62 +766,62 @@ class MHUB_JanitzaClassicDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt',        'F', 'NRG.Watt',   true,  'total',  'FC3 19026 (Psum3)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',           'F', 'NRG.Volt',   false, 'total',  'FC3 19000/02/04 Ø'],
-            ['current_avg',   'Strom Ø',                    'F', 'NRG.Ampere',   false, 'total',  'FC3 19012/14/16 Ø'],
-            ['frequency',     'Frequenz',                   'F', 'MHB.Hz',  false, 'total',  'FC3 19050'],
-            ['energy_import', 'Wirkarbeit Bezug',           'F', 'NRG.kWh', true,  'energy', 'FC3 19068 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',          'F', 'NRG.kWh', true,  'energy', 'FC3 19076 (Wh)'],
-            ['connected',     'Verbindung',                 'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power',        'F', 'NRG.Watt',   true,  'total',  'FC3 19026 (Psum3)'],
+            ['voltage_avg',   'Average voltage (L-N)',           'F', 'NRG.Volt',   false, 'total',  'FC3 19000/02/04 Ø'],
+            ['current_avg',   'Average current',                    'F', 'NRG.Ampere',   false, 'total',  'FC3 19012/14/16 Ø'],
+            ['frequency',     'Frequency',                   'F', 'MHB.Hz',  false, 'total',  'FC3 19050'],
+            ['energy_import', 'Active energy import',           'F', 'NRG.kWh', true,  'energy', 'FC3 19068 (Wh)'],
+            ['energy_export', 'Active energy export',          'F', 'NRG.kWh', true,  'energy', 'FC3 19076 (Wh)'],
+            ['connected',     'Connection',                 'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
-                ['u_l1_n',  'Spannung L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19000'],
-                ['u_l2_n',  'Spannung L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19002'],
-                ['u_l3_n',  'Spannung L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19004'],
-                ['u_l1_l2', 'Spannung L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19006'],
-                ['u_l2_l3', 'Spannung L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19008'],
-                ['u_l3_l1', 'Spannung L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19010'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (L-N, L-L)', 'vars' => [
+                ['u_l1_n',  'Voltage L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19000'],
+                ['u_l2_n',  'Voltage L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19002'],
+                ['u_l3_n',  'Voltage L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19004'],
+                ['u_l1_l2', 'Voltage L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19006'],
+                ['u_l2_l3', 'Voltage L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19008'],
+                ['u_l3_l1', 'Voltage L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19010'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ Summe)', 'vars' => [
-                ['i_l1', 'Strom L1',       'F', 'NRG.Ampere', false, 'current', 'FC3 19012'],
-                ['i_l2', 'Strom L2',       'F', 'NRG.Ampere', false, 'current', 'FC3 19014'],
-                ['i_l3', 'Strom L3',       'F', 'NRG.Ampere', false, 'current', 'FC3 19016'],
-                ['i_sum', 'Strom Summe (I1+I2+I3)', 'F', 'NRG.Ampere', false, 'current', 'FC3 19018'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase (+ total)', 'vars' => [
+                ['i_l1', 'Current L1',       'F', 'NRG.Ampere', false, 'current', 'FC3 19012'],
+                ['i_l2', 'Current L2',       'F', 'NRG.Ampere', false, 'current', 'FC3 19014'],
+                ['i_l3', 'Current L3',       'F', 'NRG.Ampere', false, 'current', 'FC3 19016'],
+                ['i_sum', 'Total current (I1+I2+I3)', 'F', 'NRG.Ampere', false, 'current', 'FC3 19018'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 19020'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 19022'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 19024'],
             ]],
-            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
-                ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC3 19034'],
-                ['q_total', 'Blindleistung gesamt',  'F', 'MHB.var', false, 'power', 'FC3 19042'],
-                ['s_l1', 'Scheinleistung L1', 'F', 'MHB.VA',  false, 'power', 'FC3 19028'],
-                ['s_l2', 'Scheinleistung L2', 'F', 'MHB.VA',  false, 'power', 'FC3 19030'],
-                ['s_l3', 'Scheinleistung L3', 'F', 'MHB.VA',  false, 'power', 'FC3 19032'],
-                ['q_l1', 'Blindleistung L1',  'F', 'MHB.var', false, 'power', 'FC3 19036'],
-                ['q_l2', 'Blindleistung L2',  'F', 'MHB.var', false, 'power', 'FC3 19038'],
-                ['q_l3', 'Blindleistung L3',  'F', 'MHB.var', false, 'power', 'FC3 19040'],
+            'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
+                ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC3 19034'],
+                ['q_total', 'Total reactive power',  'F', 'MHB.var', false, 'power', 'FC3 19042'],
+                ['s_l1', 'Apparent power L1', 'F', 'MHB.VA',  false, 'power', 'FC3 19028'],
+                ['s_l2', 'Apparent power L2', 'F', 'MHB.VA',  false, 'power', 'FC3 19030'],
+                ['s_l3', 'Apparent power L3', 'F', 'MHB.VA',  false, 'power', 'FC3 19032'],
+                ['q_l1', 'Reactive power L1',  'F', 'MHB.var', false, 'power', 'FC3 19036'],
+                ['q_l2', 'Reactive power L2',  'F', 'MHB.var', false, 'power', 'FC3 19038'],
+                ['q_l3', 'Reactive power L3',  'F', 'MHB.var', false, 'power', 'FC3 19040'],
             ]],
-            'GroupPowerFactor' => ['caption' => 'Leistungsfaktor / cos φ', 'vars' => [
-                ['pf_total', 'Leistungsfaktor gesamt', 'F', 'MHB.PF', false, 'total', 'FC3 19636'],
+            'GroupPowerFactor' => ['caption' => 'Power factor / cos φ', 'vars' => [
+                ['pf_total', 'Total power factor', 'F', 'MHB.PF', false, 'total', 'FC3 19636'],
                 ['pf_l1', 'cos φ L1', 'F', 'MHB.PF', false, 'total', 'FC3 19044'],
                 ['pf_l2', 'cos φ L2', 'F', 'MHB.PF', false, 'total', 'FC3 19046'],
                 ['pf_l3', 'cos φ L3', 'F', 'MHB.PF', false, 'total', 'FC3 19048'],
             ]],
-            'GroupQuality' => ['caption' => 'Netzqualität (THD, Drehfeld)', 'vars' => [
-                ['thd_u_l1', 'THD Spannung L1', 'F', 'NRG.Percent', false, 'quality', 'FC3 19110'],
-                ['thd_u_l2', 'THD Spannung L2', 'F', 'NRG.Percent', false, 'quality', 'FC3 19112'],
-                ['thd_u_l3', 'THD Spannung L3', 'F', 'NRG.Percent', false, 'quality', 'FC3 19114'],
-                ['thd_i_l1', 'THD Strom L1',    'F', 'NRG.Percent', false, 'quality', 'FC3 19116'],
-                ['thd_i_l2', 'THD Strom L2',    'F', 'NRG.Percent', false, 'quality', 'FC3 19118'],
-                ['thd_i_l3', 'THD Strom L3',    'F', 'NRG.Percent', false, 'quality', 'FC3 19120'],
-                ['phase_seq', 'Drehfeld', 'I', 'MHB.PhaseSeq', false, 'quality', 'FC3 19052'],
+            'GroupQuality' => ['caption' => 'Power quality (THD, rotating field)', 'vars' => [
+                ['thd_u_l1', 'THD voltage L1', 'F', 'NRG.Percent', false, 'quality', 'FC3 19110'],
+                ['thd_u_l2', 'THD voltage L2', 'F', 'NRG.Percent', false, 'quality', 'FC3 19112'],
+                ['thd_u_l3', 'THD voltage L3', 'F', 'NRG.Percent', false, 'quality', 'FC3 19114'],
+                ['thd_i_l1', 'THD current L1',    'F', 'NRG.Percent', false, 'quality', 'FC3 19116'],
+                ['thd_i_l2', 'THD current L2',    'F', 'NRG.Percent', false, 'quality', 'FC3 19118'],
+                ['thd_i_l3', 'THD current L3',    'F', 'NRG.Percent', false, 'quality', 'FC3 19120'],
+                ['phase_seq', 'Rotating field', 'I', 'MHB.PhaseSeq', false, 'quality', 'FC3 19052'],
             ]],
         ];
     }
@@ -811,9 +832,9 @@ class MHUB_JanitzaClassicDriver implements MHUB_MeterDriverInterface
     {
         return [
             'MHB.PhaseSeq' => [
-                -1 => ['Linksdrehfeld', 0xFF8000],
-                 0 => ['kein Drehfeld',  0x808080],
-                 1 => ['Rechtsdrehfeld', 0x00A000],
+                -1 => ['Counter-clockwise rotating field', 0xFF8000],
+                 0 => ['no rotating field',  0x808080],
+                 1 => ['Clockwise rotating field', 0x00A000],
             ],
         ];
     }
@@ -927,61 +948,61 @@ class MHUB_Umg800Driver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC3 19030 (Σ P)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC3 19000/02/04 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC3 19012/14/16 Ø'],
-            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 19054'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC3 19072 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC3 19080 (Wh)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'FC3 19030 (Σ P)'],
+            ['voltage_avg',   'Average voltage (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC3 19000/02/04 Ø'],
+            ['current_avg',   'Average current',             'F', 'NRG.Ampere',   false, 'total',  'FC3 19012/14/16 Ø'],
+            ['frequency',     'Frequency',            'F', 'MHB.Hz',  false, 'total',  'FC3 19054'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'FC3 19072 (Wh)'],
+            ['energy_export', 'Active energy export',   'F', 'NRG.kWh', true,  'energy', 'FC3 19080 (Wh)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
-                ['u_l1_n',  'Spannung L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19000'],
-                ['u_l2_n',  'Spannung L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19002'],
-                ['u_l3_n',  'Spannung L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19004'],
-                ['u_l1_l2', 'Spannung L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19006'],
-                ['u_l2_l3', 'Spannung L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19008'],
-                ['u_l3_l1', 'Spannung L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19010'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (L-N, L-L)', 'vars' => [
+                ['u_l1_n',  'Voltage L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19000'],
+                ['u_l2_n',  'Voltage L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19002'],
+                ['u_l3_n',  'Voltage L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC3 19004'],
+                ['u_l1_l2', 'Voltage L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19006'],
+                ['u_l2_l3', 'Voltage L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19008'],
+                ['u_l3_l1', 'Voltage L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 19010'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ I4)', 'vars' => [
-                ['i_l1',  'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 19012'],
-                ['i_l2',  'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 19014'],
-                ['i_l3',  'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 19016'],
-                ['i_sum', 'Strom I4', 'F', 'NRG.Ampere', false, 'current', 'FC3 19018'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase (+ I4)', 'vars' => [
+                ['i_l1',  'Current L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 19012'],
+                ['i_l2',  'Current L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 19014'],
+                ['i_l3',  'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 19016'],
+                ['i_sum', 'Current I4', 'F', 'NRG.Ampere', false, 'current', 'FC3 19018'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 19024'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 19026'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 19028'],
             ]],
-            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
-                ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC3 19038'],
-                ['q_total', 'Blindleistung gesamt',  'F', 'MHB.var', false, 'power', 'FC3 19046'],
-                ['s_l1', 'Scheinleistung L1', 'F', 'MHB.VA',  false, 'power', 'FC3 19032'],
-                ['s_l2', 'Scheinleistung L2', 'F', 'MHB.VA',  false, 'power', 'FC3 19034'],
-                ['s_l3', 'Scheinleistung L3', 'F', 'MHB.VA',  false, 'power', 'FC3 19036'],
-                ['q_l1', 'Blindleistung L1',  'F', 'MHB.var', false, 'power', 'FC3 19040'],
-                ['q_l2', 'Blindleistung L2',  'F', 'MHB.var', false, 'power', 'FC3 19042'],
-                ['q_l3', 'Blindleistung L3',  'F', 'MHB.var', false, 'power', 'FC3 19044'],
+            'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
+                ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC3 19038'],
+                ['q_total', 'Total reactive power',  'F', 'MHB.var', false, 'power', 'FC3 19046'],
+                ['s_l1', 'Apparent power L1', 'F', 'MHB.VA',  false, 'power', 'FC3 19032'],
+                ['s_l2', 'Apparent power L2', 'F', 'MHB.VA',  false, 'power', 'FC3 19034'],
+                ['s_l3', 'Apparent power L3', 'F', 'MHB.VA',  false, 'power', 'FC3 19036'],
+                ['q_l1', 'Reactive power L1',  'F', 'MHB.var', false, 'power', 'FC3 19040'],
+                ['q_l2', 'Reactive power L2',  'F', 'MHB.var', false, 'power', 'FC3 19042'],
+                ['q_l3', 'Reactive power L3',  'F', 'MHB.var', false, 'power', 'FC3 19044'],
             ]],
-            'GroupPowerFactor' => ['caption' => 'Leistungsfaktor / cos φ', 'vars' => [
+            'GroupPowerFactor' => ['caption' => 'Power factor / cos φ', 'vars' => [
                 ['pf_l1', 'cos φ L1', 'F', 'MHB.PF', false, 'total', 'FC3 19048'],
                 ['pf_l2', 'cos φ L2', 'F', 'MHB.PF', false, 'total', 'FC3 19050'],
                 ['pf_l3', 'cos φ L3', 'F', 'MHB.PF', false, 'total', 'FC3 19052'],
             ]],
-            'GroupQuality' => ['caption' => 'Netzqualität (THD, Drehfeld)', 'vars' => [
-                ['thd_u_l1', 'THD Spannung L1', 'F', 'NRG.Percent', false, 'quality', 'FC3 19114'],
-                ['thd_u_l2', 'THD Spannung L2', 'F', 'NRG.Percent', false, 'quality', 'FC3 19116'],
-                ['thd_u_l3', 'THD Spannung L3', 'F', 'NRG.Percent', false, 'quality', 'FC3 19118'],
-                ['thd_i_l1', 'THD Strom L1',    'F', 'NRG.Percent', false, 'quality', 'FC3 19120'],
-                ['thd_i_l2', 'THD Strom L2',    'F', 'NRG.Percent', false, 'quality', 'FC3 19122'],
-                ['thd_i_l3', 'THD Strom L3',    'F', 'NRG.Percent', false, 'quality', 'FC3 19124'],
-                ['phase_seq', 'Drehfeld', 'I', 'MHB.PhaseSeq', false, 'quality', 'FC3 19056'],
+            'GroupQuality' => ['caption' => 'Power quality (THD, rotating field)', 'vars' => [
+                ['thd_u_l1', 'THD voltage L1', 'F', 'NRG.Percent', false, 'quality', 'FC3 19114'],
+                ['thd_u_l2', 'THD voltage L2', 'F', 'NRG.Percent', false, 'quality', 'FC3 19116'],
+                ['thd_u_l3', 'THD voltage L3', 'F', 'NRG.Percent', false, 'quality', 'FC3 19118'],
+                ['thd_i_l1', 'THD current L1',    'F', 'NRG.Percent', false, 'quality', 'FC3 19120'],
+                ['thd_i_l2', 'THD current L2',    'F', 'NRG.Percent', false, 'quality', 'FC3 19122'],
+                ['thd_i_l3', 'THD current L3',    'F', 'NRG.Percent', false, 'quality', 'FC3 19124'],
+                ['phase_seq', 'Rotating field', 'I', 'MHB.PhaseSeq', false, 'quality', 'FC3 19056'],
             ]],
         ];
     }
@@ -992,9 +1013,9 @@ class MHUB_Umg800Driver implements MHUB_MeterDriverInterface
     {
         return [
             'MHB.PhaseSeq' => [
-                -1 => ['Linksdrehfeld', 0xFF8000],
-                 0 => ['kein Drehfeld',  0x808080],
-                 1 => ['Rechtsdrehfeld', 0x00A000],
+                -1 => ['Counter-clockwise rotating field', 0xFF8000],
+                 0 => ['no rotating field',  0x808080],
+                 1 => ['Clockwise rotating field', 0x00A000],
             ],
         ];
     }
@@ -1094,53 +1115,53 @@ class MHUB_EastronSdmDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 52'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 42'],
-            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 46'],
-            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC4 70'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 72 (kWh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC4 74 (kWh)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'FC4 52'],
+            ['voltage_avg',   'Average voltage (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 42'],
+            ['current_avg',   'Average current',             'F', 'NRG.Ampere',   false, 'total',  'FC4 46'],
+            ['frequency',     'Frequency',            'F', 'MHB.Hz',  false, 'total',  'FC4 70'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'FC4 72 (kWh)'],
+            ['energy_export', 'Active energy export',   'F', 'NRG.kWh', true,  'energy', 'FC4 74 (kWh)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N, L-L)', 'vars' => [
-                ['u_l1_n',  'Spannung L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 0'],
-                ['u_l2_n',  'Spannung L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 2'],
-                ['u_l3_n',  'Spannung L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 4'],
-                ['u_l1_l2', 'Spannung L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 200'],
-                ['u_l2_l3', 'Spannung L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 202'],
-                ['u_l3_l1', 'Spannung L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 204'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (L-N, L-L)', 'vars' => [
+                ['u_l1_n',  'Voltage L1-N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 0'],
+                ['u_l2_n',  'Voltage L2-N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 2'],
+                ['u_l3_n',  'Voltage L3-N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 4'],
+                ['u_l1_l2', 'Voltage L1-L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 200'],
+                ['u_l2_l3', 'Voltage L2-L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 202'],
+                ['u_l3_l1', 'Voltage L3-L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 204'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase (+ Neutralleiter)', 'vars' => [
-                ['i_l1', 'Strom L1',           'F', 'NRG.Ampere', false, 'current', 'FC4 6'],
-                ['i_l2', 'Strom L2',           'F', 'NRG.Ampere', false, 'current', 'FC4 8'],
-                ['i_l3', 'Strom L3',           'F', 'NRG.Ampere', false, 'current', 'FC4 10'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase (+ neutral)', 'vars' => [
+                ['i_l1', 'Current L1',           'F', 'NRG.Ampere', false, 'current', 'FC4 6'],
+                ['i_l2', 'Current L2',           'F', 'NRG.Ampere', false, 'current', 'FC4 8'],
+                ['i_l3', 'Current L3',           'F', 'NRG.Ampere', false, 'current', 'FC4 10'],
                 ['i_n',  'Neutralleiterstrom', 'F', 'NRG.Ampere', false, 'current', 'FC4 224'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 12'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 14'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 16'],
             ]],
-            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
-                ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC4 56'],
-                ['q_total', 'Blindleistung gesamt',  'F', 'MHB.var', false, 'power', 'FC4 60'],
-                ['s_l1', 'Scheinleistung L1', 'F', 'MHB.VA',  false, 'power', 'FC4 18'],
-                ['s_l2', 'Scheinleistung L2', 'F', 'MHB.VA',  false, 'power', 'FC4 20'],
-                ['s_l3', 'Scheinleistung L3', 'F', 'MHB.VA',  false, 'power', 'FC4 22'],
-                ['q_l1', 'Blindleistung L1',  'F', 'MHB.var', false, 'power', 'FC4 24'],
-                ['q_l2', 'Blindleistung L2',  'F', 'MHB.var', false, 'power', 'FC4 26'],
-                ['q_l3', 'Blindleistung L3',  'F', 'MHB.var', false, 'power', 'FC4 28'],
+            'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
+                ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC4 56'],
+                ['q_total', 'Total reactive power',  'F', 'MHB.var', false, 'power', 'FC4 60'],
+                ['s_l1', 'Apparent power L1', 'F', 'MHB.VA',  false, 'power', 'FC4 18'],
+                ['s_l2', 'Apparent power L2', 'F', 'MHB.VA',  false, 'power', 'FC4 20'],
+                ['s_l3', 'Apparent power L3', 'F', 'MHB.VA',  false, 'power', 'FC4 22'],
+                ['q_l1', 'Reactive power L1',  'F', 'MHB.var', false, 'power', 'FC4 24'],
+                ['q_l2', 'Reactive power L2',  'F', 'MHB.var', false, 'power', 'FC4 26'],
+                ['q_l3', 'Reactive power L3',  'F', 'MHB.var', false, 'power', 'FC4 28'],
             ]],
-            'GroupPowerFactor' => ['caption' => 'Leistungsfaktor', 'vars' => [
-                ['pf_total', 'Leistungsfaktor gesamt', 'F', 'MHB.PF', false, 'total', 'FC4 62'],
-                ['pf_l1', 'Leistungsfaktor L1', 'F', 'MHB.PF', false, 'total', 'FC4 30'],
-                ['pf_l2', 'Leistungsfaktor L2', 'F', 'MHB.PF', false, 'total', 'FC4 32'],
-                ['pf_l3', 'Leistungsfaktor L3', 'F', 'MHB.PF', false, 'total', 'FC4 34'],
+            'GroupPowerFactor' => ['caption' => 'Power factor', 'vars' => [
+                ['pf_total', 'Total power factor', 'F', 'MHB.PF', false, 'total', 'FC4 62'],
+                ['pf_l1', 'Power factor L1', 'F', 'MHB.PF', false, 'total', 'FC4 30'],
+                ['pf_l2', 'Power factor L2', 'F', 'MHB.PF', false, 'total', 'FC4 32'],
+                ['pf_l3', 'Power factor L3', 'F', 'MHB.PF', false, 'total', 'FC4 34'],
             ]],
         ];
     }
@@ -1247,24 +1268,24 @@ class MHUB_EastronSdmSinglePhaseDriver implements MHUB_MeterDriverInterface
     {
         return [
             ['power_total',   'Wirkleistung',        'F', 'NRG.Watt',   true,  'total',  'FC4 12'],
-            ['voltage_avg',   'Spannung (L-N)',      'F', 'NRG.Volt',   false, 'total',  'FC4 0'],
-            ['current_avg',   'Strom',               'F', 'NRG.Ampere', false, 'total',  'FC4 6'],
-            ['frequency',     'Frequenz',            'F', 'MHB.Hz',     false, 'total',  'FC4 70'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh',    true,  'energy', 'FC4 72 (kWh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh',    true,  'energy', 'FC4 74 (kWh)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['voltage_avg',   'Voltage (L-N)',      'F', 'NRG.Volt',   false, 'total',  'FC4 0'],
+            ['current_avg',   'Current',               'F', 'NRG.Ampere', false, 'total',  'FC4 6'],
+            ['frequency',     'Frequency',            'F', 'MHB.Hz',     false, 'total',  'FC4 70'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh',    true,  'energy', 'FC4 72 (kWh)'],
+            ['energy_export', 'Active energy export',   'F', 'NRG.kWh',    true,  'energy', 'FC4 74 (kWh)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung', 'vars' => [
-                ['s_total', 'Scheinleistung', 'F', 'MHB.VA',  false, 'power', 'FC4 18'],
-                ['q_total', 'Blindleistung',  'F', 'MHB.var', false, 'power', 'FC4 24'],
+            'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power', 'vars' => [
+                ['s_total', 'Apparent power', 'F', 'MHB.VA',  false, 'power', 'FC4 18'],
+                ['q_total', 'Reactive power',  'F', 'MHB.var', false, 'power', 'FC4 24'],
             ]],
-            'GroupPowerFactor' => ['caption' => 'Leistungsfaktor', 'vars' => [
-                ['pf_total', 'Leistungsfaktor', 'F', 'MHB.PF', false, 'total', 'FC4 30'],
+            'GroupPowerFactor' => ['caption' => 'Power factor', 'vars' => [
+                ['pf_total', 'Power factor', 'F', 'MHB.PF', false, 'total', 'FC4 30'],
             ]],
         ];
     }
@@ -1328,38 +1349,38 @@ class MHUB_WhatWattDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 501−505'],
-            ['voltage_avg',   'Spannung Ø',          'F', 'NRG.Volt',   false, 'total',  'FC4 1/3/5 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 13/15/17 Ø'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 549 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC4 553 (Wh)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'FC4 501−505'],
+            ['voltage_avg',   'Average voltage',          'F', 'NRG.Volt',   false, 'total',  'FC4 1/3/5 Ø'],
+            ['current_avg',   'Average current',             'F', 'NRG.Ampere',   false, 'total',  'FC4 13/15/17 Ø'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'FC4 549 (Wh)'],
+            ['energy_export', 'Active energy export',   'F', 'NRG.kWh', true,  'energy', 'FC4 553 (Wh)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1'],
-                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 3'],
-                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 5'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase', 'vars' => [
+                ['u_l1_n', 'Voltage L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1'],
+                ['u_l2_n', 'Voltage L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 3'],
+                ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 5'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 13'],
-                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 15'],
-                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 17'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase', 'vars' => [
+                ['i_l1', 'Current L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 13'],
+                ['i_l2', 'Current L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 15'],
+                ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 17'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 25'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 27'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 29'],
             ]],
-            'GroupTariff2' => ['caption' => 'Energie nach Tarif (T1/T2)', 'vars' => [
-                ['energy_import_t1', 'Bezug Tarif 1',  'F', 'NRG.kWh', true, 'energy', 'FC4 801 (Wh)'],
-                ['energy_import_t2', 'Bezug Tarif 2',  'F', 'NRG.kWh', true, 'energy', 'FC4 805 (Wh)'],
-                ['energy_export_t1', 'Abgabe Tarif 1', 'F', 'NRG.kWh', true, 'energy', 'FC4 809 (Wh)'],
-                ['energy_export_t2', 'Abgabe Tarif 2', 'F', 'NRG.kWh', true, 'energy', 'FC4 813 (Wh)'],
+            'GroupTariff2' => ['caption' => 'Energy by tariff (T1/T2)', 'vars' => [
+                ['energy_import_t1', 'Import tariff 1',  'F', 'NRG.kWh', true, 'energy', 'FC4 801 (Wh)'],
+                ['energy_import_t2', 'Import tariff 2',  'F', 'NRG.kWh', true, 'energy', 'FC4 805 (Wh)'],
+                ['energy_export_t1', 'Export tariff 1', 'F', 'NRG.kWh', true, 'energy', 'FC4 809 (Wh)'],
+                ['energy_export_t2', 'Export tariff 2', 'F', 'NRG.kWh', true, 'energy', 'FC4 813 (Wh)'],
             ]],
         ];
     }
@@ -1432,28 +1453,28 @@ class MHUB_PhoenixEem375Driver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 4134'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 4096/98/100 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 4110/12/14 Ø'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 4358 (Wh)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'FC4 4134'],
+            ['voltage_avg',   'Average voltage (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 4096/98/100 Ø'],
+            ['current_avg',   'Average current',             'F', 'NRG.Ampere',   false, 'total',  'FC4 4110/12/14 Ø'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'FC4 4358 (Wh)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4096'],
-                ['u_l2_n', 'Spannung L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4098'],
-                ['u_l3_n', 'Spannung L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4100'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (L-N)', 'vars' => [
+                ['u_l1_n', 'Voltage L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4096'],
+                ['u_l2_n', 'Voltage L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4098'],
+                ['u_l3_n', 'Voltage L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4100'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom I1', 'F', 'NRG.Ampere', false, 'current', 'FC4 4110'],
-                ['i_l2', 'Strom I2', 'F', 'NRG.Ampere', false, 'current', 'FC4 4112'],
-                ['i_l3', 'Strom I3', 'F', 'NRG.Ampere', false, 'current', 'FC4 4114'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase', 'vars' => [
+                ['i_l1', 'Current I1', 'F', 'NRG.Ampere', false, 'current', 'FC4 4110'],
+                ['i_l2', 'Current I2', 'F', 'NRG.Ampere', false, 'current', 'FC4 4112'],
+                ['i_l3', 'Current I3', 'F', 'NRG.Ampere', false, 'current', 'FC4 4114'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 4128'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 4130'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 4132'],
@@ -1517,28 +1538,28 @@ class MHUB_PhoenixEemXmDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 32790'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 32774/76/78 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 32782/84/86 Ø'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 37630 (Wh)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'FC4 32790'],
+            ['voltage_avg',   'Average voltage (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 32774/76/78 Ø'],
+            ['current_avg',   'Average current',             'F', 'NRG.Ampere',   false, 'total',  'FC4 32782/84/86 Ø'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'FC4 37630 (Wh)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 32774'],
-                ['u_l2_n', 'Spannung L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 32776'],
-                ['u_l3_n', 'Spannung L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 32778'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (L-N)', 'vars' => [
+                ['u_l1_n', 'Voltage L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 32774'],
+                ['u_l2_n', 'Voltage L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 32776'],
+                ['u_l3_n', 'Voltage L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 32778'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom I1', 'F', 'NRG.Ampere', false, 'current', 'FC4 32782'],
-                ['i_l2', 'Strom I2', 'F', 'NRG.Ampere', false, 'current', 'FC4 32784'],
-                ['i_l3', 'Strom I3', 'F', 'NRG.Ampere', false, 'current', 'FC4 32786'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase', 'vars' => [
+                ['i_l1', 'Current I1', 'F', 'NRG.Ampere', false, 'current', 'FC4 32782'],
+                ['i_l2', 'Current I2', 'F', 'NRG.Ampere', false, 'current', 'FC4 32784'],
+                ['i_l3', 'Current I3', 'F', 'NRG.Ampere', false, 'current', 'FC4 32786'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 32798'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 32800'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 32802'],
@@ -1603,43 +1624,43 @@ class MHUB_CarloGavazziDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 40 (×0,1)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 0/2/4 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 12/14/16 Ø'],
-            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC4 51 (×0,1)'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 52 (×0,1 kWh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC4 78 (×0,1 kWh)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'FC4 40 (×0,1)'],
+            ['voltage_avg',   'Average voltage (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC4 0/2/4 Ø'],
+            ['current_avg',   'Average current',             'F', 'NRG.Ampere',   false, 'total',  'FC4 12/14/16 Ø'],
+            ['frequency',     'Frequency',            'F', 'MHB.Hz',  false, 'total',  'FC4 51 (×0,1)'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'FC4 52 (×0,1 kWh)'],
+            ['energy_export', 'Active energy export',   'F', 'NRG.kWh', true,  'energy', 'FC4 78 (×0,1 kWh)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 0'],
-                ['u_l2_n', 'Spannung L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 2'],
-                ['u_l3_n', 'Spannung L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (L-N)', 'vars' => [
+                ['u_l1_n', 'Voltage L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 0'],
+                ['u_l2_n', 'Voltage L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 2'],
+                ['u_l3_n', 'Voltage L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC4 4'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 12'],
-                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 14'],
-                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 16'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase', 'vars' => [
+                ['i_l1', 'Current L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 12'],
+                ['i_l2', 'Current L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 14'],
+                ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 16'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 18'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 20'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 22'],
             ]],
-            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung (Summe + je Phase)', 'vars' => [
-                ['s_total', 'Scheinleistung gesamt', 'F', 'MHB.VA',  false, 'power', 'FC4 42'],
-                ['q_total', 'Blindleistung gesamt',  'F', 'MHB.var', false, 'power', 'FC4 44'],
-                ['s_l1', 'Scheinleistung L1', 'F', 'MHB.VA',  false, 'power', 'FC4 24'],
-                ['s_l2', 'Scheinleistung L2', 'F', 'MHB.VA',  false, 'power', 'FC4 26'],
-                ['s_l3', 'Scheinleistung L3', 'F', 'MHB.VA',  false, 'power', 'FC4 28'],
-                ['q_l1', 'Blindleistung L1',  'F', 'MHB.var', false, 'power', 'FC4 30'],
-                ['q_l2', 'Blindleistung L2',  'F', 'MHB.var', false, 'power', 'FC4 32'],
-                ['q_l3', 'Blindleistung L3',  'F', 'MHB.var', false, 'power', 'FC4 34'],
+            'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
+                ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC4 42'],
+                ['q_total', 'Total reactive power',  'F', 'MHB.var', false, 'power', 'FC4 44'],
+                ['s_l1', 'Apparent power L1', 'F', 'MHB.VA',  false, 'power', 'FC4 24'],
+                ['s_l2', 'Apparent power L2', 'F', 'MHB.VA',  false, 'power', 'FC4 26'],
+                ['s_l3', 'Apparent power L3', 'F', 'MHB.VA',  false, 'power', 'FC4 28'],
+                ['q_l1', 'Reactive power L1',  'F', 'MHB.var', false, 'power', 'FC4 30'],
+                ['q_l2', 'Reactive power L2',  'F', 'MHB.var', false, 'power', 'FC4 32'],
+                ['q_l3', 'Reactive power L3',  'F', 'MHB.var', false, 'power', 'FC4 34'],
             ]],
         ];
     }
@@ -1728,30 +1749,30 @@ class MHUB_SocomecCountisDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC3 0xC568 (×10)'],
-            ['voltage_avg',   'Spannung Ø (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC3 0xC558/5A/5C Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC3 0xC560/62/64 Ø'],
-            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 0xC55E'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC3 0xC702 (×0,01)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC3 0xC708 (×0,01)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'FC3 0xC568 (×10)'],
+            ['voltage_avg',   'Average voltage (L-N)',    'F', 'NRG.Volt',   false, 'total',  'FC3 0xC558/5A/5C Ø'],
+            ['current_avg',   'Average current',             'F', 'NRG.Ampere',   false, 'total',  'FC3 0xC560/62/64 Ø'],
+            ['frequency',     'Frequency',            'F', 'MHB.Hz',  false, 'total',  'FC3 0xC55E'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'FC3 0xC702 (×0,01)'],
+            ['energy_export', 'Active energy export',   'F', 'NRG.kWh', true,  'energy', 'FC3 0xC708 (×0,01)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (L-N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC3 0xC558'],
-                ['u_l2_n', 'Spannung L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC3 0xC55A'],
-                ['u_l3_n', 'Spannung L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC3 0xC55C'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (L-N)', 'vars' => [
+                ['u_l1_n', 'Voltage L1-N', 'F', 'NRG.Volt', false, 'voltage', 'FC3 0xC558'],
+                ['u_l2_n', 'Voltage L2-N', 'F', 'NRG.Volt', false, 'voltage', 'FC3 0xC55A'],
+                ['u_l3_n', 'Voltage L3-N', 'F', 'NRG.Volt', false, 'voltage', 'FC3 0xC55C'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC560'],
-                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC562'],
-                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC564'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase', 'vars' => [
+                ['i_l1', 'Current L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC560'],
+                ['i_l2', 'Current L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC562'],
+                ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC564'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC570'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC572'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC574'],
@@ -1821,22 +1842,22 @@ class MHUB_MbsProfessionalDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC3 4527'],
-            ['voltage_avg',   'Spannung Ø',          'F', 'NRG.Volt',   false, 'total',  'FC3 4567/68/69 Ø'],
-            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC3 4626 (×0,1)'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC3 4201 (×0,001)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC3 4281 (×0,001)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'FC3 4527'],
+            ['voltage_avg',   'Average voltage',          'F', 'NRG.Volt',   false, 'total',  'FC3 4567/68/69 Ø'],
+            ['frequency',     'Frequency',            'F', 'MHB.Hz',  false, 'total',  'FC3 4626 (×0,1)'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'FC3 4201 (×0,001)'],
+            ['energy_export', 'Active energy export',   'F', 'NRG.kWh', true,  'energy', 'FC3 4281 (×0,001)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 4567 (×0,1)'],
-                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 4568 (×0,1)'],
-                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 4569 (×0,1)'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase', 'vars' => [
+                ['u_l1_n', 'Voltage L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 4567 (×0,1)'],
+                ['u_l2_n', 'Voltage L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 4568 (×0,1)'],
+                ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 4569 (×0,1)'],
             ]],
         ];
     }
@@ -1896,43 +1917,43 @@ class MHUB_ShellyPro3emDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'FC4 1013'],
-            ['voltage_avg',   'Spannung Ø',          'F', 'NRG.Volt',   false, 'total',  'FC4 1020/40/60 Ø'],
-            ['current_avg',   'Strom Ø',             'F', 'NRG.Ampere',   false, 'total',  'FC4 1022/42/62 Ø'],
-            ['frequency',     'Frequenz',            'F', 'MHB.Hz',  false, 'total',  'FC4 1033'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'FC4 1162 (Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'FC4 1164 (Wh)'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'FC4 1013'],
+            ['voltage_avg',   'Average voltage',          'F', 'NRG.Volt',   false, 'total',  'FC4 1020/40/60 Ø'],
+            ['current_avg',   'Average current',             'F', 'NRG.Ampere',   false, 'total',  'FC4 1022/42/62 Ø'],
+            ['frequency',     'Frequency',            'F', 'MHB.Hz',  false, 'total',  'FC4 1033'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'FC4 1162 (Wh)'],
+            ['energy_export', 'Active energy export',   'F', 'NRG.kWh', true,  'energy', 'FC4 1164 (Wh)'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1020'],
-                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1040'],
-                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1060'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase', 'vars' => [
+                ['u_l1_n', 'Voltage L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1020'],
+                ['u_l2_n', 'Voltage L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1040'],
+                ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1060'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 1022'],
-                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 1042'],
-                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 1062'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase', 'vars' => [
+                ['i_l1', 'Current L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 1022'],
+                ['i_l2', 'Current L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 1042'],
+                ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 1062'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 1024'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 1044'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 1064'],
             ]],
             // Eigene Energiezähler je Phase — damit lässt sich jede Phase als
             // eigenständiger Verbraucher führen (Summe der drei = Gesamtzähler).
-            'GroupEnergyPhase' => ['caption' => 'Energie je Phase (Bezug/Abgabe)', 'vars' => [
-                ['energy_import_l1', 'Wirkarbeit Bezug L1',  'F', 'NRG.kWh', true, 'energy', 'FC4 1182 (Wh)'],
-                ['energy_export_l1', 'Wirkarbeit Abgabe L1', 'F', 'NRG.kWh', true, 'energy', 'FC4 1184 (Wh)'],
-                ['energy_import_l2', 'Wirkarbeit Bezug L2',  'F', 'NRG.kWh', true, 'energy', 'FC4 1202 (Wh)'],
-                ['energy_export_l2', 'Wirkarbeit Abgabe L2', 'F', 'NRG.kWh', true, 'energy', 'FC4 1204 (Wh)'],
-                ['energy_import_l3', 'Wirkarbeit Bezug L3',  'F', 'NRG.kWh', true, 'energy', 'FC4 1222 (Wh)'],
-                ['energy_export_l3', 'Wirkarbeit Abgabe L3', 'F', 'NRG.kWh', true, 'energy', 'FC4 1224 (Wh)'],
+            'GroupEnergyPhase' => ['caption' => 'Energy per phase (import/export)', 'vars' => [
+                ['energy_import_l1', 'Active energy import L1',  'F', 'NRG.kWh', true, 'energy', 'FC4 1182 (Wh)'],
+                ['energy_export_l1', 'Active energy export L1', 'F', 'NRG.kWh', true, 'energy', 'FC4 1184 (Wh)'],
+                ['energy_import_l2', 'Active energy import L2',  'F', 'NRG.kWh', true, 'energy', 'FC4 1202 (Wh)'],
+                ['energy_export_l2', 'Active energy export L2', 'F', 'NRG.kWh', true, 'energy', 'FC4 1204 (Wh)'],
+                ['energy_import_l3', 'Active energy import L3',  'F', 'NRG.kWh', true, 'energy', 'FC4 1222 (Wh)'],
+                ['energy_export_l3', 'Active energy export L3', 'F', 'NRG.kWh', true, 'energy', 'FC4 1224 (Wh)'],
             ]],
         ];
     }
@@ -2032,12 +2053,12 @@ class MHUB_GoeControllerDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt (Grid)', 'F', 'NRG.Watt',   true,  'total',  'FC4 1080 (Kategorie Grid)'],
-            ['voltage_avg',   'Spannung Ø',                 'F', 'NRG.Volt',   false, 'total',  'FC4 1000/1002/1004 Ø'],
-            ['current_avg',   'Strom Ø (Grid)',             'F', 'NRG.Ampere',   false, 'total',  'FC4 1072/1074/1076 Ø'],
-            ['energy_import', 'Wirkarbeit Bezug',           'F', 'NRG.kWh', true,  'energy', 'FC4 1082 (Grid Ein, F64 Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',          'F', 'NRG.kWh', true,  'energy', 'FC4 1086 (Grid Aus, F64 Wh)'],
-            ['connected',     'Verbindung',                 'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power (Grid)', 'F', 'NRG.Watt',   true,  'total',  'FC4 1080 (category Grid)'],
+            ['voltage_avg',   'Average voltage',                 'F', 'NRG.Volt',   false, 'total',  'FC4 1000/1002/1004 Ø'],
+            ['current_avg',   'Average current (Grid)',             'F', 'NRG.Ampere',   false, 'total',  'FC4 1072/1074/1076 Ø'],
+            ['energy_import', 'Active energy import',           'F', 'NRG.kWh', true,  'energy', 'FC4 1082 (Grid Ein, F64 Wh)'],
+            ['energy_export', 'Active energy export',          'F', 'NRG.kWh', true,  'energy', 'FC4 1086 (Grid Aus, F64 Wh)'],
+            ['connected',     'Connection',                 'B', '~Alert.Reversed', false, 'errors', ''],
         ];
         // Bewusst KEINE Frequenz: Register 1008 ist laut Doku „nicht
         // implementiert" und liefert am echten Gerät NaN.
@@ -2048,31 +2069,31 @@ class MHUB_GoeControllerDriver implements MHUB_MeterDriverInterface
         $sensors = [];
         for ($i = 1; $i <= 6; $i++) {
             $b = 1010 + ($i - 1) * 2;
-            $sensors[] = ['sens' . $i . '_i',  'Sensor ' . $i . ' Strom',           'F', 'NRG.Ampere',  false, 'current', 'FC4 ' . $b];
-            $sensors[] = ['sens' . $i . '_p',  'Sensor ' . $i . ' Leistung',        'F', 'NRG.Watt',  false, 'power',   'FC4 ' . ($b + 12)];
-            $sensors[] = ['sens' . $i . '_pf', 'Sensor ' . $i . ' Leistungsfaktor', 'F', 'MHB.PF', false, 'total',   'FC4 ' . ($b + 24)];
+            $sensors[] = ['sens' . $i . '_i',  MHUB_Text::t('Sensor %d current', $i),           'F', 'NRG.Ampere',  false, 'current', 'FC4 ' . $b];
+            $sensors[] = ['sens' . $i . '_p',  MHUB_Text::t('Sensor %d power', $i),        'F', 'NRG.Watt',  false, 'power',   'FC4 ' . ($b + 12)];
+            $sensors[] = ['sens' . $i . '_pf', MHUB_Text::t('Sensor %d power factor', $i), 'F', 'MHB.PF', false, 'total',   'FC4 ' . ($b + 24)];
         }
         $cats = [];
-        foreach ([['home', 'Home', 1046], ['car', 'Car', 1098], ['relais', 'Relais', 1124], ['solar', 'Solar', 1150], ['akku', 'Akku', 1176]] as [$key, $lbl, $base]) {
-            $cats[] = [$key . '_power',         $lbl . ' Leistung',    'F', 'NRG.Watt',   false, 'power',  'FC4 ' . ($base + 8)];
-            $cats[] = [$key . '_energy_import', $lbl . ' Energie Ein', 'F', 'NRG.kWh', true,  'energy', 'FC4 ' . ($base + 10) . ' (F64 Wh)'];
-            $cats[] = [$key . '_energy_export', $lbl . ' Energie Aus', 'F', 'NRG.kWh', true,  'energy', 'FC4 ' . ($base + 14) . ' (F64 Wh)'];
+        foreach ([['home', 'Home', 1046], ['car', 'Car', 1098], ['relais', MHUB_Text::t('Relay'), 1124], ['solar', 'Solar', 1150], ['akku', MHUB_Text::t('Battery storage'), 1176]] as [$key, $lbl, $base]) {
+            $cats[] = [$key . '_power',         MHUB_Text::t('%s power', $lbl),    'F', 'NRG.Watt',   false, 'power',  'FC4 ' . ($base + 8)];
+            $cats[] = [$key . '_energy_import', MHUB_Text::t('%s energy in', $lbl), 'F', 'NRG.kWh', true,  'energy', 'FC4 ' . ($base + 10) . ' (F64 Wh)'];
+            $cats[] = [$key . '_energy_export', MHUB_Text::t('%s energy out', $lbl), 'F', 'NRG.kWh', true,  'energy', 'FC4 ' . ($base + 14) . ' (F64 Wh)'];
         }
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (inkl. N)', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1000'],
-                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1002'],
-                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1004'],
-                ['u_n',    'Spannung N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 1006'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (incl. N)', 'vars' => [
+                ['u_l1_n', 'Voltage L1', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1000'],
+                ['u_l2_n', 'Voltage L2', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1002'],
+                ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'FC4 1004'],
+                ['u_n',    'Voltage N',  'F', 'NRG.Volt', false, 'voltage', 'FC4 1006'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase (Kategorie Grid, inkl. N)', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 1072'],
-                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 1074'],
-                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 1076'],
-                ['i_n',  'Strom N',  'F', 'NRG.Ampere', false, 'current', 'FC4 1078'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase (category Grid, incl. N)', 'vars' => [
+                ['i_l1', 'Current L1', 'F', 'NRG.Ampere', false, 'current', 'FC4 1072'],
+                ['i_l2', 'Current L2', 'F', 'NRG.Ampere', false, 'current', 'FC4 1074'],
+                ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 1076'],
+                ['i_n',  'Current N',  'F', 'NRG.Ampere', false, 'current', 'FC4 1078'],
             ]],
-            'GroupGoeSensors'    => ['caption' => 'Stromsensoren 1-6 (Strom/Leistung/Leistungsfaktor)', 'vars' => $sensors],
-            'GroupGoeCategories' => ['caption' => 'Kategorien Home/Car/Relais/Solar/Akku (Leistung + Energie)', 'vars' => $cats],
+            'GroupGoeSensors'    => ['caption' => 'Current sensors 1-6 (current/power/power factor)', 'vars' => $sensors],
+            'GroupGoeCategories' => ['caption' => 'Categories Home/Car/Relays/Solar/Battery (power + energy)', 'vars' => $cats],
         ];
     }
 
@@ -2305,8 +2326,8 @@ class MHUB_InexogyClient
         // unterscheidbar, sobald ein Schritt fehlschlägt.
         $this->lastHttpCode = $err !== '' ? 0 : $code;
         $this->lastError = $err !== ''
-            ? 'Netzwerkfehler: ' . $err
-            : 'HTTP ' . $code . ($body !== false && $body !== '' ? ' – ' . substr($body, 0, 200) : ' (leere Antwort)');
+            ? MHUB_Text::t('Network error: %s', $err)
+            : ($body !== false && $body !== '' ? MHUB_Text::t('HTTP %s – %s', $code, substr($body, 0, 200)) : MHUB_Text::t('HTTP %s (empty response)', $code));
         return [$code, $body === false ? '' : $body];
     }
 
@@ -2462,22 +2483,22 @@ class MHUB_InexogyDriver implements MHUB_MeterDriverInterface
     {
         // KEINE Frequenz — die API liefert keine.
         return [
-            ['power_total',   'Wirkleistung gesamt', 'F', 'NRG.Watt',   true,  'total',  'Inexogy values.power /1000'],
-            ['energy_import', 'Wirkarbeit Bezug',    'F', 'NRG.kWh', true,  'energy', 'Inexogy values.energy /1e10'],
-            ['energy_export', 'Wirkarbeit Abgabe',   'F', 'NRG.kWh', true,  'energy', 'Inexogy values.energyOut /1e10'],
-            ['connected',     'Verbindung',          'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power', 'F', 'NRG.Watt',   true,  'total',  'Inexogy values.power /1000'],
+            ['energy_import', 'Active energy import',    'F', 'NRG.kWh', true,  'energy', 'Inexogy values.energy /1e10'],
+            ['energy_export', 'Active energy export',   'F', 'NRG.kWh', true,  'energy', 'Inexogy values.energyOut /1e10'],
+            ['connected',     'Connection',          'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage1 /1000'],
-                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage2 /1000'],
-                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage3 /1000'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase', 'vars' => [
+                ['u_l1_n', 'Voltage L1', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage1 /1000'],
+                ['u_l2_n', 'Voltage L2', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage2 /1000'],
+                ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage3 /1000'],
             ]],
-            'GroupPowerPhase' => ['caption' => 'Wirkleistung je Phase', 'vars' => [
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
                 ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'Inexogy power1 /1000'],
                 ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'Inexogy power2 /1000'],
                 ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'Inexogy power3 /1000'],
@@ -2587,15 +2608,15 @@ class MHUB_BlueLogScadaInverterDriver implements MHUB_MeterDriverInterface
 {
     /** Register 40000, Gerätetyp-Meldung — von beiden SCADA-Treibern geteilt. */
     public const DEVICE_TYPE_ENUM = [
-        0 => ["Datenlogger (blue'Log)", 0x808080],
-        1 => ['Wechselrichter',         0x00A000],
+        0 => ['Data logger (blue\'Log)', 0x808080],
+        1 => ['Inverter',         0x00A000],
         2 => ['Sensor',                 0x0080C0],
-        3 => ['Zähler',                 0x0080C0],
+        3 => ['Meter',                 0x0080C0],
         4 => ['String',                 0x808000],
         5 => ['Tracker',                0x808000],
-        6 => ['Status DI extern',       0x808080],
+        6 => ['Status DI external',       0x808080],
         7 => ['Genset',                 0xC08000],
-        8 => ['Batterie',               0x8000C0],
+        8 => ['Battery',               0x8000C0],
         9 => ['Kraftwerksregler',       0x808080],
     ];
 
@@ -2603,30 +2624,30 @@ class MHUB_BlueLogScadaInverterDriver implements MHUB_MeterDriverInterface
     {
         return [
             ['power_total',   'Wirkleistung AC',           'F', 'NRG.Watt',   true,  'total',  'FC3 41000 (P_AC)'],
-            ['energy_export', 'Ertrag gesamt',             'F', 'NRG.kWh', true,  'energy', 'FC3 41066 (E_TOTAL, Wh)'],
-            ['frequency',     'Netzfrequenz',              'F', 'MHB.Hz',  false, 'total',  'FC3 41012 (F_AC)'],
-            ['device_type',   'Gerätetyp (SCADA-Meldung)', 'I', 'MHB.BlueLogDeviceType', false, 'total', 'FC3 40000'],
-            ['connected',     'Verbindung',                'B', '~Alert.Reversed', false, 'errors', ''],
+            ['energy_export', 'Total yield',             'F', 'NRG.kWh', true,  'energy', 'FC3 41066 (E_TOTAL, Wh)'],
+            ['frequency',     'Grid frequency',              'F', 'MHB.Hz',  false, 'total',  'FC3 41012 (F_AC)'],
+            ['device_type',   'Device type (SCADA message)', 'I', 'MHB.BlueLogDeviceType', false, 'total', 'FC3 40000'],
+            ['connected',     'Connection',                'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase (AC)', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 41040 (U_AC1)'],
-                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 41042 (U_AC2)'],
-                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 41044 (U_AC3)'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase (AC)', 'vars' => [
+                ['u_l1_n', 'Voltage L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 41040 (U_AC1)'],
+                ['u_l2_n', 'Voltage L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 41042 (U_AC2)'],
+                ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 41044 (U_AC3)'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase (AC)', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 41052 (I_AC1)'],
-                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 41054 (I_AC2)'],
-                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 41056 (I_AC3)'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase (AC)', 'vars' => [
+                ['i_l1', 'Current L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 41052 (I_AC1)'],
+                ['i_l2', 'Current L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 41054 (I_AC2)'],
+                ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 41056 (I_AC3)'],
             ]],
-            'GroupDc' => ['caption' => 'Gleichstromseite (Summe aller Strings)', 'vars' => [
-                ['p_dc', 'Leistung DC', 'F', 'NRG.Watt',   false, 'dc', 'FC3 41080 (P_DC)'],
-                ['u_dc', 'Spannung DC', 'F', 'NRG.Volt',   false, 'dc', 'FC3 41082 (U_DC)'],
-                ['i_dc', 'Strom DC',    'F', 'NRG.Ampere', false, 'dc', 'FC3 41084 (I_DC)'],
+            'GroupDc' => ['caption' => 'DC side (total of all strings)', 'vars' => [
+                ['p_dc', 'DC power', 'F', 'NRG.Watt',   false, 'dc', 'FC3 41080 (P_DC)'],
+                ['u_dc', 'DC voltage', 'F', 'NRG.Volt',   false, 'dc', 'FC3 41082 (U_DC)'],
+                ['i_dc', 'DC current',    'F', 'NRG.Ampere', false, 'dc', 'FC3 41084 (I_DC)'],
             ]],
         ];
     }
@@ -2719,32 +2740,32 @@ class MHUB_BlueLogScadaMeterDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung gesamt',       'F', 'NRG.Watt',   true,  'total',  'FC3 43000 (M_AC_P)'],
-            ['energy_import', 'Wirkarbeit Bezug',          'F', 'NRG.kWh', true,  'energy', 'FC3 43066 (M_AC_E_IMP, Wh)'],
-            ['energy_export', 'Wirkarbeit Abgabe',         'F', 'NRG.kWh', true,  'energy', 'FC3 43064 (M_AC_E_EXP, Wh)'],
-            ['frequency',     'Netzfrequenz',              'F', 'MHB.Hz',  false, 'total',  'FC3 43014 (M_AC_F)'],
-            ['device_type',   'Gerätetyp (SCADA-Meldung)', 'I', 'MHB.BlueLogDeviceType', false, 'total', 'FC3 40000'],
-            ['connected',     'Verbindung',                'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',   'Total active power',       'F', 'NRG.Watt',   true,  'total',  'FC3 43000 (M_AC_P)'],
+            ['energy_import', 'Active energy import',          'F', 'NRG.kWh', true,  'energy', 'FC3 43066 (M_AC_E_IMP, Wh)'],
+            ['energy_export', 'Active energy export',         'F', 'NRG.kWh', true,  'energy', 'FC3 43064 (M_AC_E_EXP, Wh)'],
+            ['frequency',     'Grid frequency',              'F', 'MHB.Hz',  false, 'total',  'FC3 43014 (M_AC_F)'],
+            ['device_type',   'Device type (SCADA message)', 'I', 'MHB.BlueLogDeviceType', false, 'total', 'FC3 40000'],
+            ['connected',     'Connection',                'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupVoltagePhase' => ['caption' => 'Spannung je Phase', 'vars' => [
-                ['u_l1_n', 'Spannung L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 43040 (M_AC_U1)'],
-                ['u_l2_n', 'Spannung L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 43042 (M_AC_U2)'],
-                ['u_l3_n', 'Spannung L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 43044 (M_AC_U3)'],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase', 'vars' => [
+                ['u_l1_n', 'Voltage L1', 'F', 'NRG.Volt', false, 'voltage', 'FC3 43040 (M_AC_U1)'],
+                ['u_l2_n', 'Voltage L2', 'F', 'NRG.Volt', false, 'voltage', 'FC3 43042 (M_AC_U2)'],
+                ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'FC3 43044 (M_AC_U3)'],
             ]],
-            'GroupCurrentPhase' => ['caption' => 'Strom je Phase', 'vars' => [
-                ['i_l1', 'Strom L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 43052 (M_AC_I1)'],
-                ['i_l2', 'Strom L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 43054 (M_AC_I2)'],
-                ['i_l3', 'Strom L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 43056 (M_AC_I3)'],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase', 'vars' => [
+                ['i_l1', 'Current L1', 'F', 'NRG.Ampere', false, 'current', 'FC3 43052 (M_AC_I1)'],
+                ['i_l2', 'Current L2', 'F', 'NRG.Ampere', false, 'current', 'FC3 43054 (M_AC_I2)'],
+                ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 43056 (M_AC_I3)'],
             ]],
-            'GroupReactiveApparent' => ['caption' => 'Blind-/Scheinleistung / Leistungsfaktor', 'vars' => [
-                ['q_total',  'Blindleistung gesamt',   'F', 'MHB.var', false, 'power', 'FC3 43002 (M_AC_Q)'],
-                ['s_total',  'Scheinleistung gesamt',  'F', 'MHB.VA',  false, 'power', 'FC3 43004 (M_AC_S)'],
-                ['pf_total', 'Leistungsfaktor gesamt', 'F', 'MHB.PF',  false, 'total', 'FC3 43006 (M_AC_PF_COSPHI)'],
+            'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power / power factor', 'vars' => [
+                ['q_total',  'Total reactive power',   'F', 'MHB.var', false, 'power', 'FC3 43002 (M_AC_Q)'],
+                ['s_total',  'Total apparent power',  'F', 'MHB.VA',  false, 'power', 'FC3 43004 (M_AC_S)'],
+                ['pf_total', 'Total power factor', 'F', 'MHB.PF',  false, 'total', 'FC3 43006 (M_AC_PF_COSPHI)'],
             ]],
         ];
     }
@@ -2853,14 +2874,14 @@ class MHUB_BlueLogScadaLoggerDriver implements MHUB_MeterDriverInterface, MHUB_C
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung AC (Summe aller Wechselrichter)', 'F', 'NRG.Watt', true,  'total', 'FC3 10000 (P_AC_INV_SUM, Adresse 97)'],
+            ['power_total',   'AC active power (total of all inverters)', 'F', 'NRG.Watt', true,  'total', 'FC3 10000 (P_AC_INV_SUM, address 97)'],
             // Ab SCADA 2.25 (Doku V2.27.0). Als Ganzzahl ohne Profil — der
             // Unterschied installiert/aktiv zeigt ausgefallene Wechselrichter.
-            ['energy_export', 'Ertrag gesamt (hochgerechnet)', 'F', 'NRG.kWh', true, 'energy', 'hochgerechnet: Leistung × Zeit aus FC3 10000 (kein Zählerstand im Gerät)'],
-            ['inv_installed', 'Wechselrichter installiert',  'I', '', true,  'total', 'FC3 10004 (PPC_INV_INST)'],
-            ['inv_active',    'Wechselrichter aktiv',        'I', '', true,  'total', 'FC3 10006 (PPC_INV_AVAIL)'],
-            ['device_type',   'Gerätetyp (SCADA-Meldung)',   'I', 'MHB.BlueLogDeviceType', false, 'total', 'FC3 40000'],
-            ['connected',     'Verbindung',                  'B', '~Alert.Reversed', false, 'errors', ''],
+            ['energy_export', 'Total yield (extrapolated)', 'F', 'NRG.kWh', true, 'energy', 'extrapolated: power × time from FC3 10000 (no meter reading in the device)'],
+            ['inv_installed', 'Inverters installed',  'I', '', true,  'total', 'FC3 10004 (PPC_INV_INST)'],
+            ['inv_active',    'Inverter active',        'I', '', true,  'total', 'FC3 10006 (PPC_INV_AVAIL)'],
+            ['device_type',   'Device type (SCADA message)',   'I', 'MHB.BlueLogDeviceType', false, 'total', 'FC3 40000'],
+            ['connected',     'Connection',                  'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
@@ -2870,10 +2891,10 @@ class MHUB_BlueLogScadaLoggerDriver implements MHUB_MeterDriverInterface, MHUB_C
         // an Dietmars XM-3000 NaN, an den XC-Reglern .212/.217 gefüllt.
         // Rein lesend: die Doku sieht unter 97 keinen Schreibzugriff vor.
         return [
-            'GroupPpc' => ['caption' => 'Leistungsregelung (blue\'Log mit Power Control)', 'vars' => [
-                ['p_available',    'Verfügbare Wirkleistung',    'F', 'NRG.Watt',    true, 'power', 'FC3 10008 (PPC_P_AC_AVAIL)'],
-                ['q_available',    'Verfügbare Blindleistung',   'F', 'MHB.var',     true, 'power', 'FC3 10010 (PPC_Q_AC_AVAIL)'],
-                ['p_setpoint_rel', 'Wirkleistungs-Sollwert',     'F', 'NRG.Percent', true, 'power', 'FC3 10100 (PPC_P_SET_REL)'],
+            'GroupPpc' => ['caption' => 'Power control (blue\'Log with Power Control)', 'vars' => [
+                ['p_available',    'Available active power',    'F', 'NRG.Watt',    true, 'power', 'FC3 10008 (PPC_P_AC_AVAIL)'],
+                ['q_available',    'Available reactive power',   'F', 'MHB.var',     true, 'power', 'FC3 10010 (PPC_Q_AC_AVAIL)'],
+                ['p_setpoint_rel', 'Active power setpoint',     'F', 'NRG.Percent', true, 'power', 'FC3 10100 (PPC_P_SET_REL)'],
             ]],
         ];
     }
@@ -2968,10 +2989,10 @@ class MHUB_BlueLogRpcDriver implements MHUB_MeterDriverInterface, MHUB_WritableM
     public function getBaseVars()
     {
         return [
-            ['power_total',        'Einspeiseleistung (Ist)',        'F', 'NRG.Watt', true,  'total', 'FC3 2 (PPC_P_AC_FEED_IN)'],
-            ['active_setpoint_rel', 'Wirksamer Sollwert (Ist, %)',    'F', 'NRG.Percent', false, 'total', 'FC3 8 (PPC_P_SET_RPC_REL)'],
-            ['frequency',          'Netzfrequenz',                   'F', 'MHB.Hz',   false, 'total', 'FC3 42 (PPC_F_AC)'],
-            ['connected',          'Verbindung',                     'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total',        'Feed-in power (actual)',        'F', 'NRG.Watt', true,  'total', 'FC3 2 (PPC_P_AC_FEED_IN)'],
+            ['active_setpoint_rel', 'Effective setpoint (actual, %)',    'F', 'NRG.Percent', false, 'total', 'FC3 8 (PPC_P_SET_RPC_REL)'],
+            ['frequency',          'Grid frequency',                   'F', 'MHB.Hz',   false, 'total', 'FC3 42 (PPC_F_AC)'],
+            ['connected',          'Connection',                     'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
@@ -3039,9 +3060,9 @@ class MHUB_BlueLogPowerControlDriver implements MHUB_MeterDriverInterface, MHUB_
     public function getBaseVars()
     {
         return [
-            ['power_total', 'Wirkleistung (Ist, Netzübergabepunkt)', 'F', 'NRG.Watt', true,  'total', 'FC3 90 (PPC_P_AC)'],
-            ['frequency',   'Netzfrequenz',                          'F', 'MHB.Hz',   false, 'total', 'FC3 98 (PPC_F_AC)'],
-            ['connected',   'Verbindung',                            'B', '~Alert.Reversed', false, 'errors', ''],
+            ['power_total', 'Active power (actual, grid connection point)', 'F', 'NRG.Watt', true,  'total', 'FC3 90 (PPC_P_AC)'],
+            ['frequency',   'Grid frequency',                          'F', 'MHB.Hz',   false, 'total', 'FC3 98 (PPC_F_AC)'],
+            ['connected',   'Connection',                            'B', '~Alert.Reversed', false, 'errors', ''],
         ];
     }
 
@@ -3087,6 +3108,14 @@ class MHUB_BlueLogPowerControlDriver implements MHUB_MeterDriverInterface, MHUB_
 
 class MeterHub extends IPSModule
 {
+    public function __construct($InstanceID)
+    {
+        parent::__construct($InstanceID);
+        MHUB_Text::set(function (string $text): string {
+            return $this->Translate($text);
+        });
+    }
+
     private const DRIVERS = [
         'siemens_pac2200' => 'MHUB_Pac2200Driver',
         'janitza_umg604'  => 'MHUB_JanitzaClassicDriver',
@@ -3142,11 +3171,11 @@ class MeterHub extends IPSModule
         'shelly_pro3em'    => 'Shelly Pro 3EM',
         'goe_controller'   => 'go-e Controller',
         'inexogy'          => 'Inexogy / Discovergy (Cloud)',
-        'bluelog_scada_inverter' => "Meteocontrol blue'Log SCADA – Wechselrichter",
-        'bluelog_scada_meter'    => "Meteocontrol blue'Log SCADA – Zähler",
-        'bluelog_scada_logger'   => "Meteocontrol blue'Log SCADA – Datenlogger (Summe, Adresse 97)",
-        'bluelog_rpc'            => "Meteocontrol blue'Log RPC (Direktvermarkter, ⚠️ schreibend)",
-        'bluelog_powercontrol'   => "Meteocontrol blue'Log Power Control (Netzbetreiber, ⚠️ schreibend)",
+        'bluelog_scada_inverter' => 'Meteocontrol blue\'Log SCADA – inverter',
+        'bluelog_scada_meter'    => 'Meteocontrol blue\'Log SCADA – meter',
+        'bluelog_scada_logger'   => 'Meteocontrol blue\'Log SCADA – data logger (total, address 97)',
+        'bluelog_rpc'            => 'Meteocontrol blue\'Log RPC (direct marketer, ⚠️ write access)',
+        'bluelog_powercontrol'   => 'Meteocontrol blue\'Log Power Control (grid operator, ⚠️ write access)',
     ];
 
     // Funktions-Vokabular für die Zuordnung „welcher Verbraucher hängt hier?".
@@ -3154,18 +3183,18 @@ class MeterHub extends IPSModule
     // der InverterHubTile-Kachel orientiert, damit andere Module die Zuordnung
     // direkt übernehmen können.
     private const FUNCTIONS = [
-        'none'       => ['— keine Zuordnung —',      ''],
+        'none'       => ['— no assignment —',      ''],
         // Anlage / Infrastruktur
-        'grid'       => ['Netzanschluss',            'Electricity'],
-        'house'      => ['Hausverbrauch',            'HollowHouse'],
-        'pv'         => ['PV-Erzeugung',             'Sun'],
-        'battery'    => ['Batterie',                 'Battery'],
+        'grid'       => ['Grid connection',            'Electricity'],
+        'house'      => ['House consumption',            'HollowHouse'],
+        'pv'         => ['PV generation',             'Sun'],
+        'battery'    => ['Battery',                 'Battery'],
         // Wärme / Klima
-        'heatpump'   => ['Wärmepumpe',               'Temperature'],
-        'heater'     => ['Heizung / Heizstab',       'Temperature'],
-        'hotwater'   => ['Warmwasser',               'Drops'],
-        'aircon'     => ['Klimaanlage',              'Snowflake'],
-        'ventilation'=> ['Lüftung',                  'Ventilation'],
+        'heatpump'   => ['Heat pump',               'Temperature'],
+        'heater'     => ['Heating / heating element',       'Temperature'],
+        'hotwater'   => ['Hot water',               'Drops'],
+        'aircon'     => ['Air conditioning',              'Snowflake'],
+        'ventilation'=> ['Ventilation',                  'Ventilation'],
         // Mobilität
         'wallbox1'   => ['Wallbox 1',                'Car'],
         'wallbox2'   => ['Wallbox 2',                'Car'],
@@ -3174,22 +3203,22 @@ class MeterHub extends IPSModule
         'wallbox5'   => ['Wallbox 5',                'Car'],
         'garage'     => ['Garage',                   'Car'],
         // Haushaltsgeräte
-        'washer'     => ['Waschmaschine',            'Drops'],
-        'dryer'      => ['Trockner',                 'Wind'],
-        'dishwasher' => ['Spülmaschine',             'Drops'],
+        'washer'     => ['Washing machine',            'Drops'],
+        'dryer'      => ['Dryer',                 'Wind'],
+        'dishwasher' => ['Dishwasher',             'Drops'],
         'oven'       => ['Backofen',                 'Flame'],
-        'stove'      => ['Herd',                     'Flame'],
-        'fridge'     => ['Kühl-/Gefriergerät',       'Snowflake'],
-        'kitchen'    => ['Küche (gesamt)',           'Gear'],
-        'appliances' => ['Haushaltsgeräte (allgemein)', 'Plug'],
+        'stove'      => ['Stove',                     'Flame'],
+        'fridge'     => ['Refrigerator/freezer',       'Snowflake'],
+        'kitchen'    => ['Kitchen (total)',           'Gear'],
+        'appliances' => ['Household appliances (general)', 'Plug'],
         // Sonstige Bereiche
         'pool'       => ['Pool',                     'Waves'],
         'sauna'      => ['Sauna',                    'Flame'],
-        'light'      => ['Beleuchtung',              'Bulb'],
-        'it'         => ['Server / Netzwerk',        'Gear'],
+        'light'      => ['Lighting',              'Bulb'],
+        'it'         => ['Server / network',        'Gear'],
         'entertainment' => ['Unterhaltungsmedien',   'TV'],
         'workshop'   => ['Werkstatt',                'Gear'],
-        'other'      => ['Sonstiger Verbraucher',    'Electricity'],
+        'other'      => ['Other consumer',    'Electricity'],
     ];
 
     private $driver = null;
@@ -3419,7 +3448,7 @@ class MeterHub extends IPSModule
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
     private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230'];
-    private const NEWS_VERSION = '0.34.0';
+    private const NEWS_VERSION = '0.35.0';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3437,12 +3466,12 @@ class MeterHub extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
-            'caption' => '👋  Wozu dieses Modul?',
+            'caption' => '👋  What is this module for?',
             'items' => [
-                ['type' => 'Label', 'caption' => 'MeterHub liest echte Energiezähler verschiedener Hersteller direkt aus — per Modbus TCP oder Cloud-API — und macht Leistung, Bezug und Einspeisung als normale IP-Symcon-Variablen verfügbar.'],
-                ['type' => 'Label', 'caption' => 'Der Nutzen: reale Messwerte statt Schätzung — als Grundlage für Dashboards, Lastmanagement, ein Energiemanagement-System (EMS) oder einfach, um zu sehen, was ein Gerät wirklich verbraucht.'],
-                ['type' => 'Label', 'caption' => 'Fehlt dir noch der richtige Zähler in der Liste, oder möchtest du mehrere auf einmal einrichten? MeterHubDiscovery durchsucht dafür das lokale Netz. Willst du stattdessen aus vorhandenen Werten eine neue Zahl berechnen (z. B. den Rest eines Hausanschlusses), ist MeterHubVirtual das passende Modul.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckPurposeIntro($id);'],
+                ['type' => 'Label', 'caption' => 'MeterHub reads real energy meters from various manufacturers directly — via Modbus TCP or cloud API — and makes power, import and feed-in available as normal Symcon variables.'],
+                ['type' => 'Label', 'caption' => 'The benefit: real measurements instead of estimates — as a basis for dashboards, load management, an energy management system (EMS), or simply to see what a device really consumes.'],
+                ['type' => 'Label', 'caption' => 'Is the right meter missing from the list, or do you want to set up several at once? MeterHubDiscovery searches the local network for them. If you would rather calculate a new number from existing values (e.g. the remainder of a house connection), MeterHubVirtual is the right module.'],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUB_AckPurposeIntro($id);'],
             ],
         ];
     }
@@ -3462,39 +3491,17 @@ class MeterHub extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
-            'caption' => '🆕  Neu in dieser Version',
+            'caption' => '🆕  New in this version',
             'items' => [
-                ['type' => 'Label', 'caption' => '• 📈 Wichtig: MeterHub schaltet die Archivierung (Logging) nicht mehr von selbst ein. Archivierung und Verlauf gehören dir. Sind Variablen nicht archiviert, erscheint oben im Formular ein Hinweis mit einem Knopf „Archivierung für diese Variablen einschalten“. Bereits laufende Archivierung bleibt, wie sie ist, und wird nie abgeschaltet. Neue Instanzen archivieren erst nach deinem Klick; Archiv-Verdichtung und der Inexogy-Nachtrag wirken nur bei archivierten Variablen.'],
-                ['type' => 'Label', 'caption' => '• 🎛️ Anzeige: Das Profil (Einheit, Nachkommastellen) kommt jetzt als Standarddarstellung der Variable, nicht mehr als benutzerdefiniertes Profil — das gehört dir. Ein früher von MeterHub gesetztes eigenes Profil (NRG.*, MHB.*) entfernt MeterHub genau einmal je Instanz (Merker), die Standarddarstellung zeigt dasselbe; trägst du später selbst wieder eines ein, bleibt es. Ein von dir gewähltes anderes Profil bleibt. „Energie in Wh“ stellt das Standardprofil um.'],
-                ['type' => 'Label', 'caption' => '• 🗂️ Aufgeräumt: Die Variablen liegen jetzt direkt unter der Instanz statt in Unterkategorien (Summenwerte, Energiezähler …). Kategorien unter Instanzen sind in Symcon nicht vorgesehen, die Visualisierung kennt sie nicht. Bestehende Instanzen räumt MeterHub beim nächsten „Übernehmen" von selbst auf: Die Variablen behalten ihre ID, Archiv, Verknüpfungen und Skripte sind nicht betroffen. Nur der Weg im Objektbaum ist kürzer. Hast du selbst etwas in eine dieser Kategorien gelegt, bleibt sie samt Inhalt bestehen.'],
-                ['type' => 'Label', 'caption' => '• 🪟 Neu: Formular-Aufbau selbst wählen. Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist, und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so sieht das Formular jedes Mal so aus, wie du es brauchst. Ausgeblendete Bereiche behalten ihre Einstellungen und arbeiten weiter. Kein Haken heißt „Standard“; „Auf Standard zurücksetzen“ stellt alles zurück. Wirkt nach „Übernehmen“ beim nächsten Öffnen.'],
-                ['type' => 'Label', 'caption' => '• 🗄️ Archiv-Verdichtung: Neue Instanzen starten mit „aus", damit du bewusst zustimmst. Bestehende Instanzen behalten ihre Einstellung (an) unverändert. Das Archiv wird nur noch beim Ausschalten (von an auf aus) zurückgesetzt, nicht mehr bei jedem „Übernehmen" eines ausgeschalteten Schalters.'],
-                ['type' => 'Label', 'caption' => '• 🗝️ Inexogy: Optionale automatische Neuanmeldung. Wird der Zugriffsschlüssel ungültig, kann MeterHub sich selbst neu anmelden — das Passwort liegt dafür in einem Tresor (Community-Modul „SymconSecrets"), nie in MeterHub. MeterHub erkennt selbst, ob ein Tresor mit dem Passwort da ist; die Zeile darunter im „Cloud-Zugang" zeigt, was gilt. Ist keiner da, ändert sich nichts. Auch „Anmelden" kommt dann ohne eingetipptes Passwort aus.'],
-                ['type' => 'Label', 'caption' => '• 🔐 Inexogy: Lehnt Inexogy den gespeicherten Zugriffsschlüssel ab (HTTP 401 — laut Inexogy kann er ungültig werden), sagt die Statuszeile im „Cloud-Zugang" das jetzt klar („⚠️ … neu anmelden") statt eines widersprüchlichen „✅ angemeldet, Abfrage fehlgeschlagen". Dann einmal E-Mail/Passwort eintragen und „Anmelden und Zähler abrufen" klicken; der Nachtrag holt die Lücke danach selbst nach. Die Zählerliste nach der Anmeldung bleibt außerdem stehen, statt beim Übernehmen wieder zu verschwinden.'],
-                ['type' => 'Label', 'caption' => '• 🧭 Richtungsprüfung vergleicht zuerst mit unabhängigen Quellen: Netzmessung des Wechselrichters, dann die PV-Erzeugung (Summe aller PV-Zähler im Verbund, egal wie herum eingestellt). Ein anderer Netzzähler dieses Moduls dient nur noch als Notlösung, mit dem Hinweis, dass eine gemeinsame Verdrehung so nicht auffällt. Die Zeilen tragen jetzt den Instanznamen.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Richtung im Archiv: Nächte mit zu wenig Leistung für eine Aussage (bis 12 h) werden zwischen zwei gegenläufigen Abschnitten mitgedreht, statt stehen zu bleiben. Bei Cloud-Zählern (Inexogy) entfallen Leistungsabgleich und Richtungsprüfung — Leistung und Zählerstände kommen dort zeitversetzt an und ergaben Fehlalarme.'],
-                ['type' => 'Label', 'caption' => '• ↔️ „Bezug/Einspeisung vertauscht" umschalten ohne Sprung: Die beiden Energiezähler-Variablen tauschen dabei ihre Rolle, jede zählt mit ihrem Verlauf weiter. Vorher sprangen Bezug und Einspeisung aufeinander — Tages- und Monatswerte zeigten riesige Scheinverbräuche.'],
-                ['type' => 'Label', 'caption' => '• 🧭 Richtungsprüfung beim Schalter (Netzanschluss): Vergleich mit einem zweiten Netzzähler oder der Netzmessung des Wechselrichters, hilfsweise mit der PV-Erzeugung. Misst der Zähler offenbar verkehrt herum, steht das dort und einmal im Meldungsprotokoll; das Dashboard kann es über MHUB_GetDiagnostics anzeigen.'],
-                ['type' => 'Label', 'caption' => '• 🛠️ Neues Panel „Richtung im Archiv prüfen / korrigieren" für frühere Umschaltungen: macht vertauschte Energie-Abschnitte wieder durchgehend und dreht gegenläufig gespeicherte Leistung — mit Probelauf und Sicherung vorab.'],
-                ['type' => 'Label', 'caption' => '• 🧹 Inexogy: Ins Zähler-Archiv kommen nur noch die offiziellen Viertelstundenwerte. Der nachhinkende Live-Wert erzeugte vorher viele kleine Rückschritte, die Symcons Verdichtung doppelt zählte — Tageswerte waren dadurch zu hoch. Die Vergangenheit lässt sich im Inexogy-Bereich mit Probelauf bereinigen.'],
-                ['type' => 'Label', 'caption' => '• 🛡️ Zählerschutz: Energie-Zählerstände werden nur noch übernommen, wenn sie größer als 0 sind und nicht rückwärts laufen — auch beim Inexogy-Archivnachtrag. Anlass: Inexogy füllte eine Übertragungslücke mit Zählerstand 0, im Archiv entstanden Scheinverbräuche von über 10 000 kWh je Viertelstunde. Ein echter Zählertausch wird erkannt (niedrigerer Stand über 30 Lesungen stabil) und protokolliert.'],
-                ['type' => 'Label', 'caption' => '• 🩺 Neues Panel „Energie-Archiv prüfen / reparieren": findet Nullwerte und Rückschritte im Archiv, zeigt sie im Probelauf und füllt Lücken auf Wunsch nach dem Verlauf eines Referenzzählers auf.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Schonender für die Geräte: eine Modbus-Verbindung je Abfragezyklus statt einer je einzelner Anfrage. Viele Instanzen am selben Gerät (z. B. Dutzende Wechselrichter hinter einem blue\'Log) erzeugten vorher Tausende kurzlebige Verbindungen — manche Geräte verkraften das schlecht.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Neuer Zählertyp „Meteocontrol blue\'Log SCADA – Datenlogger (Summe, Adresse 97)": Park-Leistung aller Wechselrichter, installierte/aktive Wechselrichter, optional die Leistungsregelung (verfügbare Wirk-/Blindleistung, Sollwert %). Die Gerätesuche bietet Adresse 97 bei jedem blue\'Log mit an. Rein lesend.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Weil das blue\'Log unter 97 keinen Zählerstand liefert, rechnet MeterHub den „Ertrag gesamt (hochgerechnet)" selbst aus der Leistung hoch — Leistung × Zeit, archiviert wie ein echter Zähler. Lücken (Gerät nicht erreichbar, Neustart) werden nicht mit veralteten Werten überbrückt.'],
-                ['type' => 'Label', 'caption' => '• ⚠️🆕 Zwei neue, SCHREIBENDE Zählertypen: „Meteocontrol blue\'Log RPC" (Direktvermarkter) und „… Power Control" (Netzbetreiber). MeterHub kann jetzt einen Sollwert kontinuierlich auf einem blue\'Log-Kontrollkanal halten (relativ % oder absolut W, umschaltbar) — das erste Mal, dass dieses Modul nicht nur liest, sondern auch schreibt. Vor dem Aktivieren unbedingt sicherstellen, dass kein zweites System denselben Kanal bedient.'],
-                ['type' => 'Label', 'caption' => '• Ausfallverhalten beim Deaktivieren wählbar: „Default-Sollwert schreiben" (sofort zurück in den Normalbetrieb) oder „letzten Sollwert halten" (blue\'Log-eigene Gültigkeitszeit läuft von selbst ab). Neue Funktion `MHUB_SetBlueLogTarget($id, $wert)` für Skripte/EMS.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Zwei neue, rein lesende Zählertypen: „Meteocontrol blue\'Log SCADA – Wechselrichter/Zähler". Ein blue\'Log-Solarpark-Datenlogger kann jedes angeschlossene Gerät unter einer eigenen „SCADA-Adresse" anbieten (steht am blue\'Log selbst: Geräteliste → Spalte „SCADA Adresse") — diese Adresse ist die Unit-ID der Instanz, NICHT 1.'],
-                ['type' => 'Label', 'caption' => '• Der Wechselrichter-Lesetreiber ist live an einer echten Solarpark-Anlage gegen die dortige, unabhängig konfigurierte Symcon-Verdrahtung verifiziert (Registeradressen, Byte-Reihenfolge, Momentanwert).'],
-                ['type' => 'Label', 'caption' => '• Damit lässt sich eine „Kette" aus vielen einzelnen, per SCADA-Adresse adressierten Geräten hinter einem blue\'Log über mehrere MeterHub-Instanzen abbilden und in MeterHubVirtual zu einer Feld-/NAP-Summe verketten.'],
-                ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen (z. B. viele Zähler am selben Solarpark): „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Zähler ohne eigenes Anzeige-Label heißen jetzt wie ihre Instanz statt pauschal nach der Funktion (z. B. „WR 4.1.01.02" statt für alle Wechselrichter gleich „PV-Erzeugung") — sofern die Instanz umbenannt wurde, sonst bleibt der Funktionsname der Rückfall.'],
-                ['type' => 'Label', 'caption' => '• 🆕 „Rolle des Zählers" hat jetzt eine dritte Option „Unterzähler / Erzeuger" und wirkt sich erstmals wirklich aus: Für Unterzähler (Verbraucher oder Erzeuger, nicht „Netz-/NAP-Zähler") prüft eine neue Plausibilitätsprüfung, ob der Zähler über die Zeit überwiegend nur in eine Richtung misst — zeigt er dauerhaft beide Richtungen deutlich, passt vermutlich eher „Netz-/NAP-Zähler", oder die Verkabelung ist falsch gepolt. Ergebnis direkt unter der Rollen-Auswahl im Formular.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Drei neue, einphasige Zählertypen: Eastron SDM120, SDM220 und SDM230 (Wirkleistung, Spannung, Strom, Frequenz, Energie Bezug/Abgabe, optional Blind-/Scheinleistung und Leistungsfaktor). Reine RS485-Geräte — passend zum Verbindungsweg „Symbox-Gateway". Die Registerkarte ist gegen drei unabhängige Quellen gegengelesen und von einem Tester an echter Hardware bestätigt.'],
-                ['type' => 'Label', 'caption' => '• 🔎 Neue Statuszeilen im Formular: Zu jeder automatischen Verbindung steht jetzt eine Zeile, die beim Öffnen live berechnet wird und sagt, ob es geklappt hat und welche Werte woher kommen — zur Brücke (Symbox-Weg: Brücke, Gateway, Unit-ID), zur Inexogy-Anmeldung und zum Archiv. Bei den virtuellen Zählern nennt die Formelvorschau je Term die gelesene Variable, in der Suche steht der Zustand der Gerätetausch-Kopplung. Ein Wechsel der Brücken-Auswahl aktualisiert die Zeile sofort.'],
-                ['type' => 'Label', 'caption' => '• 🚧 Neues Feld „Verbindungsweg" (Direkt/Symbox-Gateway) für Symcons eingebaute Symbox-Hardware: Der Weg läuft über das neue Modul „MeterHub Brücke" — pro Gerät ein natives „ModBus Gateway" (mit der Unit-ID als DeviceID), daran eine Brücke, und hier die Brücke wählen. Lesend am Rohcode von Symcons Referenzmodul verifiziert, aber noch nicht an echter Symbox-Hardware bestätigt. Schreibende Zählertypen dort nicht produktiv einsetzen. Für den normalen Betrieb bleibt „Direkt" die richtige Wahl und ändert sich nicht.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Frühere Beta-Stände (0.29.10–0.29.14) hängten das Gateway direkt an MeterHub — das ist zurückgenommen, weil es bei jeder Direkt-Instanz einen Balken „benötigt eine übergeordnete Instanz" zeigte. Wer den Gateway-Weg schon eingerichtet hatte: Brücke anlegen, mit dem Gateway verbinden und in dieser Instanz die Brücke wählen; die Instanz und ihre Messhistorie bleiben.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckNews($id);'],
+                ['type' => 'Label', 'caption' => '• 🌐 New: MeterHub is now available in German and English. Texts follow the Symcon language setting: the form is translated by the console, messages are shown in the set language, and variable names are set in the language that is active when you click "Apply". Identifiers, properties and functions are unchanged — nothing is lost on existing instances.'],
+                ['type' => 'Label', 'caption' => '• 📈 Important: MeterHub no longer switches archiving (logging) on by itself. Archiving and history are yours. If variables are not archived, a notice with a button "Enable archiving for these variables" appears at the top of the form. Archiving that is already running stays as it is and is never switched off. New instances only archive after you click; archive compaction and the Inexogy backfill only work on archived variables.'],
+                ['type' => 'Label', 'caption' => '• 🎛️ Display: the profile (unit, decimal places) now comes as the variable\'s default presentation, no longer as a custom profile — that belongs to you. A custom profile of its own (NRG.*, MHB.*) that MeterHub set earlier is removed by MeterHub exactly once per instance (marker); the default presentation shows the same thing, and if you enter one yourself later, it stays. A different profile you chose stays as well. "Energy in Wh" switches the default profile.'],
+                ['type' => 'Label', 'caption' => '• 🗂️ Tidied up: the variables now sit directly under the instance instead of in subcategories (totals, energy meters …). Categories under instances are not intended in Symcon, and the visualization does not know them. MeterHub tidies existing instances up by itself on the next "Apply": the variables keep their ID, so archive, links and scripts are not affected. Only the path in the object tree is shorter. If you put something into one of these categories yourself, it stays together with its contents.'],
+                ['type' => 'Label', 'caption' => '• 🪟 New: choose the form layout yourself. In the new panel "Form: layout" (at the bottom, before the forum notice) you decide per section whether it is expanded, collapsed or hidden when opened, and at which position it sits. Symcon does not remember expanding and collapsing by itself, so the form looks the way you need it every time. Hidden sections keep their settings and keep working. No tick means "default"; "Reset to default" restores everything. Takes effect after "Apply" the next time the form is opened.'],
+                ['type' => 'Label', 'caption' => '• 🗄️ Archive compaction: new instances start with "off" so you consent deliberately. Existing instances keep their setting (on) unchanged. The archive is now only reset when switching off (from on to off), no longer on every "Apply" of a switched-off setting.'],
+                ['type' => 'Label', 'caption' => '• 🗝️ Inexogy: optional automatic re-login. If the access token becomes invalid, MeterHub can log in again by itself — the password is kept in a vault for this (community module "SymconSecrets"), never in MeterHub. MeterHub detects by itself whether a vault with the password is present; the line below it in "Cloud access" shows what applies. If there is none, nothing changes. "Log in" then also works without a typed-in password.'],
+                ['type' => 'Label', 'caption' => '• 🔐 Inexogy: if Inexogy rejects the stored access token (HTTP 401 — according to Inexogy it can become invalid), the status line in "Cloud access" now says so clearly ("⚠️ … log in again") instead of a contradictory "✅ logged in, query failed". Then enter e-mail/password once and click "Log in and fetch meters"; the backfill fills the gap by itself afterwards. The meter list after login also stays in place instead of disappearing again on apply.'],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUB_AckNews($id);'],
             ],
         ];
     }
@@ -3514,11 +3521,11 @@ class MeterHub extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
-            'caption' => '💬  Feedback im Symcon-Forum',
+            'caption' => '💬  Feedback in the Symcon forum',
             'items' => [
-                ['type' => 'Label', 'caption' => 'MeterHub ist Beta — Rückmeldungen, gerade zu den 🔧/🧪 markierten Zählertypen, sind ausdrücklich willkommen im Community-Thread.'],
-                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUB_AckForumHint($id);'],
+                ['type' => 'Label', 'caption' => 'Feedback, especially on the 🔧/🧪 marked meter types, is explicitly welcome in the community thread.'],
+                ['type' => 'Button', 'caption' => 'Go to the forum thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUB_AckForumHint($id);'],
             ],
         ];
     }
@@ -3641,14 +3648,14 @@ class MeterHub extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🧡  Über dieses Modul',
+            'caption' => '🧡  About this module',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
-                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
-                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
-                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
-                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Born out of real enthusiasm for my own energy system — and a few evenings spent typing. Still: hobby or not, this is intellectual property and real work went into it.'],
+                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private, non-commercial use; commercial use requires a separate license from the rights holder.'],
+                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Commercial use or license questions? Just get in touch: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Like the module and want to leave something anyway? A small donation is appreciated — entirely voluntary, nothing expected in return.'],
+                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
@@ -3950,11 +3957,11 @@ class MeterHub extends IPSModule
         }
         $this->UpdateMirrors();
         if ($ok) {
-            return '✅ Verbindung erfolgreich, Werte aktualisiert (' . date('H:i:s') . ' Uhr).';
+            return MHUB_Text::t('✅ Connection successful, values updated (%s).', date('H:i:s'));
         }
         return $this->ReadPropertyString('ConnectionMode') === 'gateway'
-            ? '❌ Verbindung fehlgeschlagen — ' . $this->BridgeErrorText()
-            : '❌ Verbindung fehlgeschlagen — Host/Port/Unit-ID/Zählertyp prüfen.';
+            ? MHUB_Text::t('❌ Connection failed — %s', $this->BridgeErrorText())
+            : MHUB_Text::t('❌ Connection failed — check host/port/unit ID/meter type.');
     }
 
     /**
@@ -3972,17 +3979,17 @@ class MeterHub extends IPSModule
     {
         $driver = $this->GetDriver();
         if (!($driver instanceof MHUB_WritableMeterDriverInterface)) {
-            return '❌ Dieser Zählertyp unterstützt keinen Sollwert-Schreibzugriff.';
+            return MHUB_Text::t('❌ This meter type does not support setpoint write access.');
         }
         IPS_SetProperty($this->InstanceID, 'TargetSetpoint', $value);
         IPS_ApplyChanges($this->InstanceID);
         if (!$this->ReadPropertyBoolean('Active')) {
-            return '⚠️ Zielwert gespeichert, Instanz ist aber inaktiv — es wird nicht geschrieben.';
+            return MHUB_Text::t('⚠️ Target value saved, but the instance is inactive — nothing is written.');
         }
         $mb = $this->GetTransport();
         $driver->writeSetpoint($mb, $this);
         $this->FlushTransportNotices($mb);
-        return '✅ Zielwert ' . $value . ' (' . ($this->SetpointMode() === 'abs' ? 'W' : '%') . ') gesetzt und sofort geschrieben.';
+        return MHUB_Text::t('✅ Target value %s (%s) set and written immediately.', $value, $this->SetpointMode() === 'abs' ? 'W' : '%');
     }
 
     // -----------------------------------------------------------------------
@@ -4079,12 +4086,12 @@ class MeterHub extends IPSModule
         $ids = array_values($ids);
 
         if (!$ids) {
-            $say('❌ Es ist kein weiterer Zähler ausgewählt. Ein virtueller Zähler ergibt sich erst aus dem Verhältnis mehrerer Zähler zueinander — bitte oben mindestens eine zweite Instanz eintragen.');
+            $say(MHUB_Text::t('❌ No further meter is selected. A virtual meter only makes sense for several meters combined — please enter at least a second instance above.'));
             return 0;
         }
         foreach ($ids as $iid) {
             if (!IPS_InstanceExists($iid)) {
-                $say("❌ Instanz #$iid existiert nicht (mehr).");
+                $say(MHUB_Text::t('❌ Instance #%d does not exist (any more).', $iid));
                 return 0;
             }
         }
@@ -4096,9 +4103,9 @@ class MeterHub extends IPSModule
         if ($member) {
             $list = [];
             foreach ($member as $iid => $labels) {
-                $list[] = '„' . IPS_GetName($iid) . '" (#' . $iid . ', als ' . implode('/', $labels) . ')';
+                $list[] = MHUB_Text::t('"%s" (#%d, as %s)', IPS_GetName($iid), $iid, implode('/', $labels));
             }
-            $say('⚠️ Dieser Zähler ist bereits Teil von ' . implode(', ', $list) . '. Ein zweiter virtueller Zähler mit demselben Gerät führt leicht zu doppelter Buchführung — bitte die Zeile dort ergänzen statt hier neu anzulegen. Es wurde nichts angelegt.');
+            $say(MHUB_Text::t('⚠️ This meter is already part of %s. A second virtual meter with the same device easily leads to double bookkeeping — please add the row there instead of creating a new one here. Nothing was created.', implode(', ', $list)));
             return 0;
         }
 
@@ -4112,10 +4119,10 @@ class MeterHub extends IPSModule
             $i = $this->MeterVarID($iid, 'energy_import');
             $e = $this->MeterVarID($iid, 'energy_export');
             if ($p === 0 && $i === 0) {
-                $warn[] = '„' . IPS_GetName($iid) . '" liefert weder Gesamtleistung noch Bezug — die Zeile bleibt ohne Datenpunkt.';
+                $warn[] = MHUB_Text::t('"%s" delivers neither total power nor import — the row stays without a data point.', IPS_GetName($iid));
             }
             if ((string)@IPS_GetProperty($iid, 'MeasureMode') === 'perphase' && !in_array((string)@IPS_GetProperty($iid, 'Meter'), self::SINGLE_PHASE_METERS, true)) {
-                $warn[] = '„' . IPS_GetName($iid) . '" misst je Phase drei getrennte Verbraucher; übernommen wird die Summe über alle Phasen.';
+                $warn[] = MHUB_Text::t('"%s" measures three separate consumers per phase; the sum over all phases is taken.', IPS_GetName($iid));
             }
             return ['Name' => IPS_GetName($iid), 'Factor' => $factor, 'PowerID' => $p, 'EnergyImportID' => $i, 'EnergyExportID' => $e];
         };
@@ -4127,16 +4134,17 @@ class MeterHub extends IPSModule
         }
 
         $iid = IPS_CreateInstance(self::GUID_VIRTUAL);
-        IPS_SetName($iid, 'Virtueller Zähler ' . IPS_GetName($this->InstanceID));
+        IPS_SetName($iid, MHUB_Text::t('Virtual meter %s', IPS_GetName($this->InstanceID)));
         IPS_SetParent($iid, IPS_GetObject($this->InstanceID)['ParentID']);
         IPS_SetProperty($iid, 'Active', true);
         IPS_SetProperty($iid, 'Nodes', json_encode($nodes));
         IPS_ApplyChanges($iid);
 
         $msg = $role === 'sibling'
-            ? "✅ Virtueller Zähler #$iid angelegt: alle " . count($nodes) . ' Zähler gleichrangig addiert.'
-            : "✅ Virtueller Zähler #$iid angelegt: „" . IPS_GetName($this->InstanceID) . '" minus ' . count($ids) . ' untergeordnete(r) Zähler — ausgegeben wird der Rest.';
-        $msg .= "\nDie Funktion steht dort noch auf „keine“ — bewusst, denn sonst erschiene derselbe Verbraucher in Kachel und Sankey doppelt. Typisch ist, „Hausverbrauch“ zu setzen: der Rest ist dann alles, was nicht auf die abgezogenen Zähler entfällt.";
+            ? MHUB_Text::t('✅ Virtual meter #%d created: all %d meters added at equal rank.', $iid, count($nodes))
+            : MHUB_Text::t('✅ Virtual meter #%d created: "%s" minus %d subordinate meter(s) — the remainder is output.', $iid, IPS_GetName($this->InstanceID), count($ids));
+        $msg .= MHUB_Text::t('
+The function is still set to "none" there — deliberately, because otherwise the same consumer would appear twice in the tile and in the Sankey diagram. Typically you set "House consumption": the remainder is then everything not accounted for by the subtracted meters.');
         if ($warn) {
             $msg .= "\n⚠️ " . implode("\n⚠️ ", $warn);
         }
@@ -4168,7 +4176,7 @@ class MeterHub extends IPSModule
         // Vorschlagsliste für "Standort": geteilter Pool über MeterHub UND
         // MeterHubVirtual (Dietmars Auftrag 01.09.2026) — siehe
         // MeterHubVirtual::GetConfigurationForm() für dieselbe Logik.
-        $locationOptions = [['caption' => '— Vorschlag wählen —', 'value' => '']];
+        $locationOptions = [['caption' => '— choose a suggestion —', 'value' => '']];
         $seenLocations = [];
         foreach (array_merge(IPS_GetInstanceListByModuleID(self::GUID_METER), IPS_GetInstanceListByModuleID(self::GUID_VIRTUAL)) as $iid) {
             $loc = trim((string)@IPS_GetProperty($iid, 'Location'));
@@ -4205,13 +4213,13 @@ class MeterHub extends IPSModule
         $cachedMeterOpts = json_decode((string)$this->ReadAttributeString('InexogyMeterOptions'), true);
         $cachedMeterOpts = is_array($cachedMeterOpts) ? $cachedMeterOpts : [];
         if ($cachedMeterOpts) {
-            $meterOpts = $curUID === '' ? [['caption' => '— bitte wählen —', 'value' => '']] : [];
+            $meterOpts = $curUID === '' ? [['caption' => '— please select —', 'value' => '']] : [];
             $meterOpts = array_merge($meterOpts, $cachedMeterOpts);
             if ($curUID !== '' && !in_array($curUID, array_column($cachedMeterOpts, 'value'), true)) {
                 $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];
             }
         } else {
-            $meterOpts = [['caption' => '— bitte zuerst anmelden —', 'value' => '']];
+            $meterOpts = [['caption' => '— please log in first —', 'value' => '']];
             if ($curUID !== '') {
                 $meterOpts[] = ['caption' => $curUID, 'value' => $curUID];
             }
@@ -4227,60 +4235,60 @@ class MeterHub extends IPSModule
             [$watermark, $watermarkErr] = $this->InexogyArchiveWatermark();
             if ($watermarkErr === null && $watermark > 0) {
                 $ageMin = (int) round((time() - $watermark) / 60);
-                $archiveStatusCaption = '📊 Archiv-Lastgang vollständig bis ' . date('d.m.Y H:i', $watermark) . " Uhr (vor $ageMin Min.).";
+                $archiveStatusCaption = MHUB_Text::t('📊 Archive load profile complete up to %s (%d min ago).', date('d.m.Y H:i', $watermark), $ageMin);
                 $archiveStatusVisible = true;
             }
         }
         $connectionItems = [
-            ['type' => 'Label', 'name' => 'InexogyIntro', 'visible' => $isCloud, 'caption' => '🔐 Anmeldung bei Inexogy (ehem. Discovergy). E-Mail und Passwort deines my.inexogy.com-Kontos eintragen, übernehmen, dann „Anmelden". Das Passwort wird nur einmal für die Anmeldung benutzt, danach automatisch gelöscht — gespeichert werden ausschließlich Zugriffs-Token (nicht im Klartext).'],
+            ['type' => 'Label', 'name' => 'InexogyIntro', 'visible' => $isCloud, 'caption' => '🔐 Login to Inexogy (formerly Discovergy). Enter the e-mail and password of your my.inexogy.com account, apply, then "Log in". The password is used only once for the login and is deleted automatically afterwards — only access tokens are stored (not in plain text).'],
             ['type' => 'Label', 'name' => 'InexogyStatusLine', 'visible' => $isCloud, 'caption' => $isCloud ? $this->InexogyStatusLine() : ''],
-            ['type' => 'ValidationTextBox', 'name' => 'InexogyEmail', 'visible' => $isCloud, 'caption' => 'E-Mail (Inexogy-Konto)'],
-            ['type' => 'PasswordTextBox', 'name' => 'InexogyPassword', 'visible' => $isCloud, 'caption' => 'Passwort (wird nach der Anmeldung gelöscht)'],
-            ['type' => 'Button', 'name' => 'InexogyLoginButton', 'visible' => $isCloud, 'caption' => '🔑  Anmelden und Zähler abrufen', 'onClick' => 'MHUB_InexogyLogin($id);'],
+            ['type' => 'ValidationTextBox', 'name' => 'InexogyEmail', 'visible' => $isCloud, 'caption' => 'E-mail (Inexogy account)'],
+            ['type' => 'PasswordTextBox', 'name' => 'InexogyPassword', 'visible' => $isCloud, 'caption' => 'Password (deleted after login)'],
+            ['type' => 'Button', 'name' => 'InexogyLoginButton', 'visible' => $isCloud, 'caption' => '🔑  Log in and fetch meters', 'onClick' => 'MHUB_InexogyLogin($id);'],
             ['type' => 'Label', 'name' => 'InexogyResult', 'caption' => '', 'visible' => false],
-            ['type' => 'Label', 'name' => 'SecretsIntro', 'visible' => $isCloud, 'caption' => '🗝️ Automatische Neuanmeldung (optional): Wird der Inexogy-Zugriffsschlüssel ungültig, kann MeterHub sich selbst neu anmelden. Das Passwort dafür bleibt NICHT in MeterHub, sondern liegt in einem Tresor (Community-Modul „SymconSecrets", Eintrag mit Feldern für E-Mail und Passwort). MeterHub erkennt selbst, ob ein solcher Tresor mit dem Passwort da ist — wenn nicht, gilt der normale Weg: von Hand neu anmelden. Die Zeile darunter zeigt, was gerade gilt.'],
-            ['type' => 'CheckBox', 'name' => 'SecretsEnabled', 'visible' => $isCloud, 'caption' => 'Tresor für die automatische Neuanmeldung nutzen, wenn vorhanden', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsEnabled, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
-            ['type' => 'SelectInstance', 'name' => 'SecretsInstanceID', 'visible' => $isCloud, 'caption' => 'Tresor (SymconSecrets) — leer = automatisch erkennen', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsEnabled, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
-            ['type' => 'ValidationTextBox', 'name' => 'SecretsRecord', 'visible' => $isCloud, 'caption' => 'Eintrag im Tresor', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsEnabled, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
-            ['type' => 'ValidationTextBox', 'name' => 'SecretsPassField', 'visible' => $isCloud, 'caption' => 'Feld mit dem Passwort', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsEnabled, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
-            ['type' => 'ValidationTextBox', 'name' => 'SecretsUserField', 'visible' => $isCloud, 'caption' => 'Feld mit der E-Mail (nur genutzt, wenn oben keine eingetragen ist)'],
+            ['type' => 'Label', 'name' => 'SecretsIntro', 'visible' => $isCloud, 'caption' => '🗝️ Automatic re-login (optional): if the Inexogy access token becomes invalid, MeterHub can log in again by itself. The password for this is NOT kept in MeterHub but in a vault (community module "SymconSecrets", entry with fields for e-mail and password). MeterHub detects by itself whether such a vault with the password is present — if not, the normal way applies: log in again by hand. The line below shows what currently applies.'],
+            ['type' => 'CheckBox', 'name' => 'SecretsEnabled', 'visible' => $isCloud, 'caption' => 'Use the vault for automatic re-login if present', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsEnabled, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
+            ['type' => 'SelectInstance', 'name' => 'SecretsInstanceID', 'visible' => $isCloud, 'caption' => 'Vault (SymconSecrets) — empty = detect automatically', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsEnabled, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
+            ['type' => 'ValidationTextBox', 'name' => 'SecretsRecord', 'visible' => $isCloud, 'caption' => 'Entry in the vault', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsEnabled, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
+            ['type' => 'ValidationTextBox', 'name' => 'SecretsPassField', 'visible' => $isCloud, 'caption' => 'Field with the password', 'onChange' => 'MHUB_OnChangeSecrets($id, $SecretsEnabled, $SecretsInstanceID, $SecretsRecord, $SecretsPassField);'],
+            ['type' => 'ValidationTextBox', 'name' => 'SecretsUserField', 'visible' => $isCloud, 'caption' => 'Field with the e-mail (only used if none is entered above)'],
             ['type' => 'Label', 'name' => 'SecretsStatusLine', 'visible' => $isCloud, 'caption' => $isCloud ? $this->SecretsStatusLine() : ''],
-            ['type' => 'Select', 'name' => 'InexogyMeterID', 'visible' => $isCloud, 'caption' => 'Zähler-UID', 'options' => $meterOpts],
-            ['type' => 'Label', 'name' => 'InexogyHintPoll', 'visible' => $isCloud, 'caption' => 'ℹ️ Cloud-Zähler: sinnvoller Abfragetakt 60 s oder mehr (unten im Panel „Abfragetakt"). Als abrechnungsverbindlich empfiehlt sich die Checkbox oben, damit ein EMS ihn vom Echtzeit-Zähler unterscheidet.'],
-            ['type' => 'Label', 'name' => 'InexogyHintMigration', 'visible' => $isCloud, 'caption' => '→ Umstieg von einem anderen Discovergy-/Inexogy-Modul mit Übernahme der Messhistorie? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und anmelden, dann mit Gerätetausch (vormals MigrationsHub) adoptieren, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene Historie.'],
-            ['type' => 'Label', 'name' => 'InexogyHintBackfill', 'visible' => $isCloud, 'caption' => '📊 Lastgang (15-Minuten-Werte) nachtragen: füllt das Archiv von „Wirkarbeit Bezug/Abgabe" (und „Wirkleistung gesamt") rückwirkend mit den echten Zählerständen aus dem Inexogy-Lastgang — genauer als der laufende Abfragetakt, z. B. zur Kontrolle einer Abrechnung. Auch für größere Rückstände (mehrere Monate) geeignet — läuft dann intern in Blöcken, kann etwas dauern. Erneutes Klicken (z. B. wöchentlich) trägt nur die inzwischen neu hinzugekommenen Werte nach.'],
-            ['type' => 'NumberSpinner', 'name' => 'InexogyBackfillDays', 'visible' => $isCloud, 'caption' => 'Lastgang der letzten … Tage nachtragen', 'minimum' => 1, 'maximum' => 730],
-            ['type' => 'Button', 'name' => 'InexogyBackfillButton', 'visible' => $isCloud, 'caption' => '📊  Lastgang jetzt ins Archiv nachtragen', 'onClick' => 'MHUB_BackfillInexogyArchive($id);'],
+            ['type' => 'Select', 'name' => 'InexogyMeterID', 'visible' => $isCloud, 'caption' => 'Meter UID', 'options' => $meterOpts],
+            ['type' => 'Label', 'name' => 'InexogyHintPoll', 'visible' => $isCloud, 'caption' => 'ℹ️ Cloud meters: a sensible polling interval is 60 s or more (at the bottom of the "Polling" panel). The checkbox above is recommended for billing-grade meters, so that an EMS can tell it apart from the real-time meter.'],
+            ['type' => 'Label', 'name' => 'InexogyHintMigration', 'visible' => $isCloud, 'caption' => '→ Switching from another Discovergy/Inexogy module while keeping the measurement history? Create this instance with "Communication active = OFF" first and log in, then adopt it with Device swap (formerly MigrationsHub), then set "Communication active = ON". That way the target variable stays without its own history until the takeover.'],
+            ['type' => 'Label', 'name' => 'InexogyHintBackfill', 'visible' => $isCloud, 'caption' => '📊 Backfill load profile (15-minute values): fills the archive of "Active energy import/export" (and "Total active power") retroactively with the real meter readings from the Inexogy load profile — more precise than the running polling interval, e.g. to check a bill. Also suitable for larger backlogs (several months) — it then runs internally in blocks and may take a while. Clicking again (e.g. weekly) only backfills the values that have arrived in the meantime.'],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyBackfillDays', 'visible' => $isCloud, 'caption' => 'Backfill the load profile of the last … days', 'minimum' => 1, 'maximum' => 730],
+            ['type' => 'Button', 'name' => 'InexogyBackfillButton', 'visible' => $isCloud, 'caption' => '📊  Backfill load profile into the archive now', 'onClick' => 'MHUB_BackfillInexogyArchive($id);'],
             ['type' => 'Label', 'name' => 'InexogyBackfillResult', 'caption' => '', 'visible' => false],
             ['type' => 'Label', 'name' => 'InexogyArchiveStatus', 'caption' => $archiveStatusCaption, 'visible' => $archiveStatusVisible],
-            ['type' => 'Label', 'name' => 'InexogyHintAutoBackfill', 'visible' => $isCloud, 'caption' => '🆕 Der obige Nachtrag lässt sich auch automatisch wiederkehrend ausführen — praktisch, damit die Kontrolle nicht vom manuellen Klicken abhängt. 15 Minuten reichen: Inexogy liefert den Lastgang ohnehin nur in 15-Minuten-Werten, öfter fragen bringt keine frischeren Daten. Jeder Lauf sieht vorher im Archiv nach, was schon da ist, und holt gezielt nur das Fehlende — meist nur die letzten 15 Minuten, nicht mehr.'],
-            ['type' => 'CheckBox', 'name' => 'InexogyAutoBackfillEnabled', 'visible' => $isCloud, 'caption' => 'Lastgang automatisch wiederkehrend nachtragen'],
-            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillIntervalMin', 'visible' => $isCloud, 'caption' => 'alle … Minuten', 'minimum' => 15, 'maximum' => 1440],
-            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillDays', 'visible' => $isCloud, 'caption' => 'Obergrenze bei größerer Lücke (z. B. nach einem Ausfall): höchstens … Tage zurück', 'minimum' => 1, 'maximum' => 30],
-            ['type' => 'Label', 'name' => 'InexogyHintCleanup', 'visible' => $isCloud, 'caption' => '🧹 Live-Zwischenwerte: Der Live-Zählerstand von Inexogy hinkt 15–20 min hinterher, landete aber mit dem Ankunftszeitpunkt zwischen den offiziellen Viertelstundenwerten im Archiv. Jeder so entstandene kleine Rückschritt wird von Symcons Zähler-Verdichtung doppelt gezählt (Tageswerte zu hoch). Seit 0.26.9 passiert das nicht mehr; hier lässt sich die Vergangenheit bereinigen — nur überholte Live-Werte, offizielle Werte bleiben unangetastet.'],
-            ['type' => 'NumberSpinner', 'name' => 'InexogyCleanupDays', 'visible' => $isCloud, 'caption' => 'Zeitraum der Bereinigung (höchstens 45 Tage)', 'minimum' => 1, 'maximum' => 45, 'suffix' => ' Tage'],
-            ['type' => 'Button', 'name' => 'InexogyCleanupCheck', 'visible' => $isCloud, 'caption' => '🔎  Live-Zwischenwerte prüfen (Probelauf, ändert nichts)', 'onClick' => 'echo MHUB_CheckInexogyArchiveCleanup($id, $InexogyCleanupDays);'],
-            ['type' => 'Button', 'name' => 'InexogyCleanupRun', 'visible' => $isCloud, 'caption' => '🧹  Live-Zwischenwerte bereinigen', 'confirm' => 'Überholte Live-Zwischenwerte aus dem Archiv löschen? Vorher den Probelauf ansehen — das Löschen lässt sich nicht rückgängig machen.', 'onClick' => 'echo MHUB_CleanInexogyArchive($id, $InexogyCleanupDays);'],
+            ['type' => 'Label', 'name' => 'InexogyHintAutoBackfill', 'visible' => $isCloud, 'caption' => '🆕 The backfill above can also be run automatically and repeatedly — handy so that the check does not depend on manual clicking. 15 minutes is enough: Inexogy delivers the load profile in 15-minute values only anyway, asking more often brings no fresher data. Each run first looks in the archive for what is already there and fetches only what is missing — usually just the last 15 minutes, no more.'],
+            ['type' => 'CheckBox', 'name' => 'InexogyAutoBackfillEnabled', 'visible' => $isCloud, 'caption' => 'Backfill load profile automatically and repeatedly'],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillIntervalMin', 'visible' => $isCloud, 'caption' => 'every … minutes', 'minimum' => 15, 'maximum' => 1440],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyAutoBackfillDays', 'visible' => $isCloud, 'caption' => 'Upper limit for a larger gap (e.g. after an outage): at most … days back', 'minimum' => 1, 'maximum' => 30],
+            ['type' => 'Label', 'name' => 'InexogyHintCleanup', 'visible' => $isCloud, 'caption' => '🧹 Live intermediate values: the live meter reading from Inexogy lags 15–20 min behind, but ended up in the archive with its arrival time between the official quarter-hour values. Every small step backwards created this way is counted twice by Symcon\'s counter compaction (daily values too high). Since 0.26.9 this no longer happens; here the past can be cleaned up — only outdated live values, official values are left untouched.'],
+            ['type' => 'NumberSpinner', 'name' => 'InexogyCleanupDays', 'visible' => $isCloud, 'caption' => 'Period of the cleanup (at most 45 days)', 'minimum' => 1, 'maximum' => 45, 'suffix' => MHUB_Text::t(' days')],
+            ['type' => 'Button', 'name' => 'InexogyCleanupCheck', 'visible' => $isCloud, 'caption' => '🔎  Check live intermediate values (dry run, changes nothing)', 'onClick' => 'echo MHUB_CheckInexogyArchiveCleanup($id, $InexogyCleanupDays);'],
+            ['type' => 'Button', 'name' => 'InexogyCleanupRun', 'visible' => $isCloud, 'caption' => '🧹  Clean up live intermediate values', 'confirm' => MHUB_Text::t('Delete outdated live intermediate values from the archive? Look at the dry run first — deleting cannot be undone.'), 'onClick' => 'echo MHUB_CleanInexogyArchive($id, $InexogyCleanupDays);'],
             [
                 'type'     => 'Select',
                 'name'     => 'ConnectionMode',
                 'visible'  => !$isCloud,
-                'caption'  => 'Verbindungsweg',
+                'caption'  => 'Connection path',
                 'options'  => [
-                    ['caption' => 'Direkt (eigene Verbindung)', 'value' => 'direct'],
-                    ['caption' => 'Symbox-Gateway (eingebauter RS485-Port)', 'value' => 'gateway'],
+                    ['caption' => 'Direct (own connection)', 'value' => 'direct'],
+                    ['caption' => 'Symbox gateway (built-in RS485 port)', 'value' => 'gateway'],
                 ],
                 'onChange' => 'MHUB_OnChangeConnectionMode($id, $ConnectionMode);',
             ],
-            ['type' => 'Label', 'name' => 'ConnectionModeGatewayWarning', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '⚠️ Dieser Verbindungsweg ist neu und noch nicht an vielen Geräten erprobt (SUITE.md 9j) — lesend am Rohcode von Symcons eigenem Referenzmodul verifiziert. Schreibende Zählertypen (blue\'Log RPC/Power Control) NICHT über diesen Weg produktiv einsetzen — deren Sollwert-Schreibzugriff ist hier nur eine ungetestete Ableitung. Ohne gewählte und verbundene Brücke liefert dieser Modus keine Werte.'],
-            ['type' => 'Label', 'name' => 'ConnectionModeGatewayUnitIdHint', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ℹ️ Host/Port/Unit-ID entfallen in diesem Modus. Ablauf: Für das Gerät ein natives „ModBus Gateway" anlegen und dessen „DeviceID" (= Unit-ID) auf die Modbus-Adresse des Geräts stellen — dieses Gateway unten wählen und „Brücke anlegen und verbinden" klicken, dann „Änderungen übernehmen". Von Hand geht es auch: eine „NRG-Stack MeterHub Brücke" anlegen, über „Gateway ändern" mit dem Gateway verbinden und unten wählen. Eine Brücke bedient genau eine Unit-ID.'],
-            ['type' => 'SelectInstance', 'name' => 'GatewayPick', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ModBus Gateway zum Gerät', 'moduleID' => MHUB_ModbusGatewayClient::GATEWAY_GUID],
-            ['type' => 'Button', 'name' => 'BtnCreateBridge', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Brücke anlegen und verbinden', 'onClick' => 'echo MHUB_CreateBridge($id, $GatewayPick);'],
-            ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'NRG-Stack Brücke zum ModBus Gateway', 'moduleID' => self::BRIDGE_GUID, 'onChange' => 'MHUB_OnChangeBridge($id, $BridgeInstanceID);'],
+            ['type' => 'Label', 'name' => 'ConnectionModeGatewayWarning', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => '⚠️ This connection path is new and has not been tried on many devices yet (SUITE.md 9j) — read access verified against the raw code of Symcon\'s own reference module. Do NOT use write-capable meter types (blue\'Log RPC/Power Control) productively over this path — their setpoint write access is only an untested derivation here. Without a selected and connected bridge this mode delivers no values.'],
+            ['type' => 'Label', 'name' => 'ConnectionModeGatewayUnitIdHint', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ℹ️ Host/port/unit ID are not needed in this mode. Procedure: create a native "ModBus gateway" for the device and set its "DeviceID" (= unit ID) to the device\'s Modbus address — select this gateway below and click "Create bridge and connect", then "Apply changes". It also works by hand: create an "NRG-Stack MeterHub bridge", connect it to the gateway via "Change gateway" and select it below. A bridge serves exactly one unit ID.'],
+            ['type' => 'SelectInstance', 'name' => 'GatewayPick', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'ModBus gateway to the device', 'moduleID' => MHUB_ModbusGatewayClient::GATEWAY_GUID],
+            ['type' => 'Button', 'name' => 'BtnCreateBridge', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'Create bridge and connect', 'onClick' => 'echo MHUB_CreateBridge($id, $GatewayPick);'],
+            ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'NRG-Stack bridge to the ModBus gateway', 'moduleID' => self::BRIDGE_GUID, 'onChange' => 'MHUB_OnChangeBridge($id, $BridgeInstanceID);'],
             ['type' => 'Label', 'name' => 'BridgeStatusLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->BridgeStatusLine($this->ReadPropertyInteger('BridgeInstanceID'))],
             ['type' => 'Label', 'name' => 'UnitIdAutoLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID')), 'color' => self::AutoLineColor($this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID')))],
-            ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP-Adresse', 'validate' => ($isCloud || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-            ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+            ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP address', 'validate' => ($isCloud || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+            ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'TCP port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
         ];
 
@@ -4299,117 +4307,117 @@ class MeterHub extends IPSModule
             $funcOptions[] = ['caption' => $def[0], 'value' => $key];
         }
         $funcItems = [
-            ['type' => 'Label', 'name' => 'MeasureModeSingle', 'visible' => $this->IsSinglePhaseMeter(), 'caption' => 'ℹ️ Dieser Zähler misst nur eine Phase — die Funktion gilt für das ganze Gerät.'],
-            ['type' => 'Label', 'name' => 'MeasureModeIntro', 'visible' => !$this->IsSinglePhaseMeter(), 'caption' => 'Zuerst festlegen, WIE dieser Zähler misst — daraus ergibt sich, ob eine Funktion für das ganze Gerät oder je Phase eine eigene zugeordnet wird.'],
+            ['type' => 'Label', 'name' => 'MeasureModeSingle', 'visible' => $this->IsSinglePhaseMeter(), 'caption' => 'ℹ️ This meter measures only one phase — the function applies to the whole device.'],
+            ['type' => 'Label', 'name' => 'MeasureModeIntro', 'visible' => !$this->IsSinglePhaseMeter(), 'caption' => 'First decide HOW this meter measures — this determines whether one function is assigned to the whole device or one per phase.'],
             [
                 'type'    => 'Select',
                 'name'    => 'MeasureMode',
                 'visible' => !$this->IsSinglePhaseMeter(),
-                'caption' => 'Messmodus',
+                'caption' => 'Measurement mode',
                 'options' => [
-                    ['caption' => 'Dreiphasig — ein Verbraucher über alle 3 Phasen (z. B. Netzanschluss, Wärmepumpe)', 'value' => 'combined'],
-                    ['caption' => 'Einphasig getrennt — 3 unabhängige Verbraucher (je Phase einer)',                    'value' => 'perphase'],
+                    ['caption' => 'Three-phase — one consumer across all 3 phases (e.g. grid connection, heat pump)', 'value' => 'combined'],
+                    ['caption' => 'Single-phase separately — 3 independent consumers (one per phase)',                    'value' => 'perphase'],
                 ],
             ],
-            ['type' => 'Label', 'name' => 'MeasureModeHint', 'visible' => !$this->IsSinglePhaseMeter(), 'caption' => 'Nach dem Umschalten einmal „Übernehmen" — danach erscheinen hier die passenden Zuordnungsfelder.'],
+            ['type' => 'Label', 'name' => 'MeasureModeHint', 'visible' => !$this->IsSinglePhaseMeter(), 'caption' => 'Click "Apply" once after switching — the matching assignment fields then appear here.'],
         ];
         if ($this->IsPerPhaseMode()) {
-            $funcItems[] = ['type' => 'Label', 'caption' => '⚡ Je Phase einen Verbraucher zuordnen. Für getrennte Energiezähler zusätzlich im Panel „Datenpunkte" die Gruppe „Energie je Phase" aktivieren (sofern der Zähler sie unterstützt).'];
+            $funcItems[] = ['type' => 'Label', 'caption' => '⚡ Assign one consumer per phase. For separate energy meters, also enable the group "Energy per phase" in the "Data points" panel (if the meter supports it).'];
             foreach (['L1', 'L2', 'L3'] as $ph) {
-                $funcItems[] = ['type' => 'Select', 'name' => 'Func' . $ph, 'caption' => 'Phase ' . $ph . ' — Funktion', 'options' => $funcOptions];
-                $funcItems[] = ['type' => 'ValidationTextBox', 'name' => 'FuncLabel' . $ph, 'caption' => 'Phase ' . $ph . ' — eigene Bezeichnung (optional, z. B. „Garage hinten")'];
+                $funcItems[] = ['type' => 'Select', 'name' => 'Func' . $ph, 'caption' => MHUB_Text::t('Phase %d — function', $ph), 'options' => $funcOptions];
+                $funcItems[] = ['type' => 'ValidationTextBox', 'name' => 'FuncLabel' . $ph, 'caption' => MHUB_Text::t('Phase %d — custom label (optional, e.g. "Garage rear")', $ph)];
             }
         } else {
-            $funcItems[] = ['type' => 'Select', 'name' => 'FuncTotal', 'caption' => 'Funktion dieses Zählers', 'options' => $funcOptions];
-            $funcItems[] = ['type' => 'ValidationTextBox', 'name' => 'FuncTotalLabel', 'caption' => 'Eigene Bezeichnung (optional, ersetzt den Namen der Funktion)'];
+            $funcItems[] = ['type' => 'Select', 'name' => 'FuncTotal', 'caption' => 'Function of this meter', 'options' => $funcOptions];
+            $funcItems[] = ['type' => 'ValidationTextBox', 'name' => 'FuncTotalLabel', 'caption' => 'Custom label (optional, replaces the name of the function)'];
         }
-        $funcItems[] = ['type' => 'CheckBox', 'name' => 'FuncMirrors', 'caption' => 'Zusätzliche Sammel-Variablen je Funktion anlegen (Leistung/Bezug/Einspeisung unter „Funktionen")'];
+        $funcItems[] = ['type' => 'CheckBox', 'name' => 'FuncMirrors', 'caption' => 'Create additional collective variables per function (power/import/feed-in under "Functions")'];
         $funcItems[] = [
-            'type' => 'PopupButton', 'caption' => 'Was legt das genau an, und wozu?', 'width' => '460px',
+            'type' => 'PopupButton', 'caption' => 'What exactly does this create, and what for?', 'width' => '460px',
             'popup' => [
-                'caption' => 'Sammel-Variablen je Funktion',
+                'caption' => 'Collective variables per function',
                 'items' => [
-                    ['type' => 'Label', 'caption' => 'Ohne diesen Schalter stehen die zugeordneten Werte nur unter ihrem technischen Namen (z. B. „Wirkleistung gesamt") in dieser Instanz — die Funktion ist zwar zugeordnet, aber nirgends eigens sichtbar.'],
-                    ['type' => 'Label', 'caption' => 'Eingeschaltet legt das Modul zusätzlich klar benannte Kopien direkt unter der Instanz an (z. B. „Wärmepumpe — Wirkleistung", „Wärmepumpe — Wirkarbeit Bezug") — praktisch für ein Dashboard oder eine schnelle Übersicht, ohne erst die Funktionszuordnung nachschlagen zu müssen.'],
-                    ['type' => 'Label', 'caption' => 'Andere Module (EMS, Kacheln) brauchen diese Sammel-Variablen NICHT — sie lesen die Zuordnung direkt über MHUB_GetFunctions(). Der Schalter ist reiner Komfort für den eigenen Objektbaum.'],
+                    ['type' => 'Label', 'caption' => 'Without this switch the assigned values are only found under their technical name (e.g. "Total active power") in this instance — the function is assigned, but nowhere separately visible.'],
+                    ['type' => 'Label', 'caption' => 'When switched on, the module additionally creates clearly named copies directly under the instance (e.g. "Heat pump — Active power", "Heat pump — Active energy import") — handy for a dashboard or a quick overview, without having to look up the function assignment first.'],
+                    ['type' => 'Label', 'caption' => 'Other modules (EMS, tiles) do NOT need these collective variables — they read the assignment directly via MHUB_GetFunctions(). The switch is purely a convenience for your own object tree.'],
                 ],
             ],
         ];
-        $funcItems[] = ['type' => 'Label', 'caption' => 'Die Zuordnung benennt die betroffenen Variablen um (z. B. „Wärmepumpe — Wirkarbeit Bezug") und setzt ein passendes Icon. Andere Module (EMS, Kacheln) können die Zuordnung per MHUB_GetFunctions(' . $this->InstanceID . ') auslesen.'];
+        $funcItems[] = ['type' => 'Label', 'caption' => MHUB_Text::t('The assignment renames the affected variables (e.g. "Heat pump — Active energy import") and sets a matching icon. Other modules (EMS, tiles) can read the assignment via MHUB_GetFunctions(%d).', $this->InstanceID)];
 
         // --- Virtueller Zähler: Hinweis und Generator ------------------------
-        $meterOptions = [['caption' => '— bitte wählen —', 'value' => 0]];
+        $meterOptions = [['caption' => '— please select —', 'value' => 0]];
         foreach (IPS_GetInstanceListByModuleID(self::GUID_METER) as $iid) {
             if ($iid !== $this->InstanceID) {
                 $meterOptions[] = ['caption' => IPS_GetName($iid) . '  (#' . $iid . ')', 'value' => $iid];
             }
         }
         $virtualItems = [
-            ['type' => 'Label', 'caption' => 'Ein virtueller Zähler rechnet mehrere echte Zähler zusammen — typischerweise „Hauptzähler minus Unterzähler = Rest". Beschrieben wird dabei nicht eine Formel, sondern die Verdrahtung: welcher Zähler hinter welchem sitzt. Weil jeder Zähler darin genau einen Platz hat, kann er nicht versehentlich doppelt abgezogen werden.'],
+            ['type' => 'Label', 'caption' => 'A virtual meter adds up several real meters — typically "main meter minus sub-meters = remainder". Each meter is a row with a share in percent (100 % = add, −100 % = subtract); the result is the sum of all shares.'],
         ];
         $member = $this->VirtualMemberships();
         if ($member) {
             foreach ($member as $iid => $keys) {
-                $virtualItems[] = ['type' => 'Label', 'caption' => '🔗 Dieser Zähler ist eingebunden in „' . IPS_GetName($iid) . '" (#' . $iid . ') als „' . implode('", „', $keys) . '".'];
+                $virtualItems[] = ['type' => 'Label', 'caption' => MHUB_Text::t('🔗 This meter is included in "%s" (#%d) as "%s".', IPS_GetName($iid), $iid, implode(MHUB_Text::t('", "'), $keys))];
             }
-            $virtualItems[] = ['type' => 'Label', 'caption' => 'Weitere Zähler werden am besten dort ergänzt — ein zweiter virtueller Zähler mit demselben Gerät führt leicht zu doppelter Buchführung.'];
+            $virtualItems[] = ['type' => 'Label', 'caption' => 'Further meters are best added there — a second virtual meter with the same device easily leads to double bookkeeping.'];
         } else {
-            $virtualItems[] = ['type' => 'Label', 'caption' => 'Dieser Zähler ist bisher in keinem virtuellen Zähler eingebunden. Hier lässt sich direkt einer anlegen: die weiteren beteiligten Zähler auswählen, Rolle festlegen, Knopf drücken. Angelegt wird eine eigene Instanz „MeterHubVirtual" — an dieser Konfiguration ändert sich nichts.'];
+            $virtualItems[] = ['type' => 'Label', 'caption' => 'This meter is not yet part of any virtual meter. You can create one right here: select the other meters involved, set the role, press the button. A separate "MeterHubVirtual" instance is created — nothing changes in this configuration.'];
             $virtualItems[] = [
-                'type' => 'Select', 'name' => 'VirtualRole', 'caption' => 'Rolle dieses Zählers',
+                'type' => 'Select', 'name' => 'VirtualRole', 'caption' => 'Role of this meter',
                 'options' => [
-                    ['caption' => 'Übergeordnet — die gewählten Zähler hängen dahinter (ergibt Summe + Rest)', 'value' => 'parent'],
-                    ['caption' => 'Gleichrangig — alle Zähler werden nur addiert (ergibt Summe)',              'value' => 'sibling'],
+                    ['caption' => 'Superordinate — the selected meters are subtracted from this one (gives the remainder)', 'value' => 'parent'],
+                    ['caption' => 'Equal rank — all meters are simply added (gives the total)',              'value' => 'sibling'],
                 ],
             ];
             $virtualItems[] = [
-                'type' => 'List', 'name' => 'VirtualPartners', 'caption' => 'Weitere beteiligte Zähler',
+                'type' => 'List', 'name' => 'VirtualPartners', 'caption' => 'Other meters involved',
                 'rowCount' => 4, 'add' => true, 'delete' => true,
                 'columns' => [
-                    ['caption' => 'MeterHub-Instanz', 'name' => 'InstanceID', 'width' => 'auto', 'add' => 0,
+                    ['caption' => 'MeterHub instance', 'name' => 'InstanceID', 'width' => 'auto', 'add' => 0,
                      'edit' => ['type' => 'Select', 'options' => $meterOptions]],
                 ],
             ];
-            $virtualItems[] = ['type' => 'Button', 'caption' => '🧮  Virtuellen Zähler anlegen', 'onClick' => 'MHUB_CreateVirtual($id, $VirtualPartners, $VirtualRole);'];
+            $virtualItems[] = ['type' => 'Button', 'caption' => '🧮  Create virtual meter', 'onClick' => 'MHUB_CreateVirtual($id, $VirtualPartners, $VirtualRole);'];
             $virtualItems[] = ['type' => 'Label', 'name' => 'VirtualResult', 'caption' => '', 'visible' => false];
-            $virtualItems[] = ['type' => 'Label', 'caption' => 'Die neue Instanz kann anschließend beliebig erweitert werden — auch um Zähler, die gar nicht von MeterHub kommen (Steckdosen, Licht- und Jalousieschalter). Dafür hat sie einen eigenen Suchlauf.'];
+            $virtualItems[] = ['type' => 'Label', 'caption' => 'The new instance can then be extended freely — also with meters that do not come from MeterHub at all (sockets, light and blind switches). It has its own search for that.'];
         }
 
         // Feste Elemente oben (Zweck, Neu, Dokumentation, Grundfelder), dazwischen die wählbaren Fachpanels, unten Aufbau/Forum/Über.
         $top = [
                 [
                     'type'     => 'ExpansionPanel',
-                    'caption'  => '📖  Dokumentation & Hilfe',
+                    'caption'  => '📖  Documentation & help',
                     'expanded' => false,
                     'items'    => [
-                        ['type' => 'Label', 'caption' => 'MeterHub ' . self::NEWS_VERSION . ' — Stand dieser Anleitung.'],
-                        ['type' => 'Label', 'caption' => 'MeterHub liest Energiezähler verschiedener Hersteller direkt per Modbus TCP aus. Zählertyp wählen, IP-Adresse (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Bedarf aktivieren.'],
-                        ['type' => 'Label', 'caption' => '🔀 Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie geplant? Diese Instanz erst mit „Kommunikation aktiv = AUS" anlegen und konfigurieren, dann mit Gerätetausch (vormals MigrationsHub) die alte Historie übernehmen, danach „Kommunikation aktiv = AN". So bleibt die Zielvariable bis zur Übernahme ohne eigene, sich mit der Alt-Historie überlappende Werte.'],
-                        ['type' => 'Label', 'caption' => 'Unterstützte Zähler: Siemens SENTRON PAC2200 (FC 0x03); Janitza-UMG-Reihe (UMG 604/605/509/512/806/96PA/801 klassische Karte, UMG 800 Werkskarte, FC 0x03); Eastron SDM72D-M v2, WhatWatt und Phoenix Contact EEM-EM375/EEM-XM (FC 0x04, Input-Register).'],
-                        ['type' => 'Label', 'caption' => 'Hinweis Eastron/Phoenix: Diese sprechen meist Modbus RTU und hängen über einen RTU/TCP-Gateway (dessen IP eintragen). Eastron-Geräteadresse ab Werk 1; Phoenix EEM-EM375 nutzt oft Unit-ID 255, EEM-XM meist 1. WhatWatt spricht Modbus TCP direkt.'],
-                        ['type' => 'Label', 'caption' => '🔌 Eastron SDM120/SDM220/SDM230 (einphasig): von einem Tester an echter Hardware bestätigt. Reine RS485-Geräte (Modbus-Adresse ab Werk 1) — über den Verbindungsweg „Symbox-Gateway" oder ein RTU/TCP-Gateway. Keine Summenregister wie beim SDM630: die Wirkleistung steht auf Register 12.'],
-                        ['type' => 'Label', 'caption' => '🧪 Experimentell: Socomec Countis und MBS Professional 3-75 sind aus Vorlagen abgeleitet und noch nicht an echter Hardware geprüft — bitte die Messwerte gegen die Geräteanzeige abgleichen. Bei unplausiblen Werten helfen der WordSwap- bzw. Invers-Schalter.'],
-                        ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP muss am Gerät erst aktiviert werden (Einstellungen → Modbus, Port 502). Gelesen über FC 0x04, Float wortgetauscht (CDAB); Wire-Adressen = Doku − 30000 (Messwerte ab 1011, Energie 1162/1164). An echtem Gerät verifiziert.'],
-                        ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP muss am Gerät erst aktiviert werden (go-e-App: Internet → Erweiterte Einstellungen → Modbus, oder HTTP-API men=true) — sonst bleibt Port 502 geschlossen; nach dem Aktivieren die Einstellung ggf. einmal aus-/einschalten. Kernwerte kommen aus der Kategorie Grid; Sensoren 1-6 und die Kategorien Home/Car/Relais/Solar/Akku sind zuschaltbar. An echtem Gerät verifiziert. (Die go-e-Wallboxen selbst bedient das Modul ChargerHub.)'],
-                        ['type' => 'Label', 'caption' => '⚠️ go-e Controller + Überschussladen: Der Controller kann die go-e-Wallboxen SELBST regeln (PV-Überschussladen, Lastbegrenzung — geräteinterne Regelschleife). Soll stattdessen ein EMS die Wallboxen steuern, muss diese interne Regelung an den Wallboxen deaktiviert sein — sonst arbeiten zwei Regler gegeneinander. Dieses Modul liest nur und ist davon nicht betroffen; der Regelzustand ist per Modbus nicht sichtbar, sondern nur an den Wallboxen selbst (go-e-API: usePvSurplus, Lastmanagement, modelStatus).'],
-                        ['type' => 'Label', 'caption' => '🆕 Meteocontrol blue\'Log SCADA: Ein blue\'Log kann JEDES angeschlossene Gerät (Wechselrichter, Zähler …) unter einer eigenen „SCADA-Adresse" anbieten — diese Adresse ist die Unit-ID unten, NICHT 1. Die Zuordnung steht auf dem blue\'Log selbst (Geräteliste → Spalte „SCADA Adresse"); Adresse 97 ist das blue\'Log selbst (Summenwerte). FC 0x03, Float wortgetauscht (CDAB) — an einer realen Solarpark-Anlage verifiziert.'],
-                        ['type' => 'Label', 'caption' => 'ℹ️ Vorzeichen-Konvention: + = Bezug aus dem Netz, − = Einspeisung. Stimmt die Richtung an der eigenen Anlage nicht, hilft der Invers-Schalter unten.'],
-                        ['type' => 'Label', 'caption' => '🔧 Anschluss: Die Zähler nutzen Modbus-TCP-Port 502. Die Unit-/Geräteadresse ist ab Werk meist 1 (der PAC2200 antwortet oft auch unabhängig von der Unit-ID).'],
-                        ['type' => 'Label', 'caption' => '🔌 Symbox / ModBus-Gateway: Unter „Verbindung" den Weg „Symbox-Gateway" wählen — nur dann erscheinen die zugehörigen Felder. Für das Gerät ein natives „ModBus Gateway" anlegen (dessen „DeviceID" = Modbus-Adresse des Geräts), es hier wählen und „Brücke anlegen und verbinden" klicken, dann „Änderungen übernehmen". Eine Brücke bedient genau eine Unit-ID; mehrere Geräte brauchen je ein Gateway und eine Brücke. Neuer Weg, noch nicht an vielen Geräten erprobt.'],
-                        ['type' => 'Label', 'caption' => '⚠️ UMG 800: Dessen Modbus-Zuordnung ist frei konfigurierbar — dieser Treiber folgt der ausgelieferten Werksvorgabe. Wurde sie im Gerät (GridVis) geändert, stimmen die Adressen ggf. nicht.'],
-                        ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
+                        ['type' => 'Label', 'caption' => MHUB_Text::t('MeterHub %s — version of this guide.', self::NEWS_VERSION)],
+                        ['type' => 'Label', 'caption' => 'MeterHub reads energy meters from various manufacturers directly via Modbus TCP. Choose the meter type, enter the IP address (and port/unit ID if needed), and enable data point groups as required.'],
+                        ['type' => 'Label', 'caption' => '🔀 Planning to switch from another meter/hub module while keeping the measurement history? Create and configure this instance with "Communication active = OFF" first, then take over the old history with Device swap (formerly MigrationsHub), then set "Communication active = ON". That way the target variable stays without values of its own that would overlap with the old history until the takeover.'],
+                        ['type' => 'Label', 'caption' => 'Supported meters: Siemens SENTRON PAC2200 (FC 0x03); Janitza UMG series (UMG 604/605/509/512/806/96PA/801 classic map, UMG 800 factory map, FC 0x03); Eastron SDM72D-M v2, WhatWatt and Phoenix Contact EEM-EM375/EEM-XM (FC 0x04, input registers).'],
+                        ['type' => 'Label', 'caption' => 'Note on Eastron/Phoenix: these mostly speak Modbus RTU and connect through an RTU/TCP gateway (enter its IP). The Eastron factory default device address is 1; Phoenix EEM-EM375 often uses unit ID 255, EEM-XM mostly 1. WhatWatt speaks Modbus TCP directly.'],
+                        ['type' => 'Label', 'caption' => '🔌 Eastron SDM120/SDM220/SDM230 (single-phase): confirmed on real hardware by a tester. Pure RS485 devices (Modbus address 1 by factory default) — via the connection path "Symbox gateway" or an RTU/TCP gateway. No total registers as on the SDM630: the active power is at register 12.'],
+                        ['type' => 'Label', 'caption' => '🧪 Experimental: Socomec Countis and MBS Professional 3-75 are derived from templates and not yet tested on real hardware — please compare the measured values with the device display. If values look implausible, the WordSwap or invert switch helps.'],
+                        ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP must be enabled on the device first (Settings → Modbus, port 502). Read via FC 0x04, float word-swapped (CDAB); wire addresses = documentation − 30000 (measurements from 1011, energy 1162/1164). Verified on a real device.'],
+                        ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP must be enabled on the device first (go-e app: Internet → Advanced settings → Modbus, or HTTP API men=true) — otherwise port 502 stays closed; after enabling, switch the setting off and on once if necessary. Core values come from the Grid category; sensors 1-6 and the categories Home/Car/Relays/Solar/Battery can be enabled. Verified on a real device. (The go-e wallboxes themselves are handled by the ChargerHub module.)'],
+                        ['type' => 'Label', 'caption' => '⚠️ go-e Controller + surplus charging: the controller can regulate the go-e wallboxes BY ITSELF (PV surplus charging, load limiting — an on-device control loop). If an EMS is to control the wallboxes instead, this internal control must be disabled on the wallboxes — otherwise two controllers work against each other. This module only reads and is not affected; the control state is not visible via Modbus, only on the wallboxes themselves (go-e API: usePvSurplus, load management, modelStatus).'],
+                        ['type' => 'Label', 'caption' => '🆕 Meteocontrol blue\'Log SCADA: a blue\'Log can offer EVERY connected device (inverter, meter …) under its own "SCADA address" — this address is the unit ID below, NOT 1. The assignment is on the blue\'Log itself (device list → column "SCADA address"); address 97 is the blue\'Log itself (total values). FC 0x03, float word-swapped (CDAB) — verified on a real solar park.'],
+                        ['type' => 'Label', 'caption' => 'ℹ️ Sign convention: + = import from the grid, − = feed-in. If the direction does not match your own installation, the invert switch below helps.'],
+                        ['type' => 'Label', 'caption' => '🔧 Connection: the meters use Modbus TCP port 502. The unit/device address is usually 1 by factory default (the PAC2200 often answers independently of the unit ID, too).'],
+                        ['type' => 'Label', 'caption' => '🔌 Symbox / ModBus gateway: under "Connection" choose the path "Symbox gateway" — only then do the related fields appear. Create a native "ModBus gateway" for the device (its "DeviceID" = the device\'s Modbus address), select it here and click "Create bridge and connect", then "Apply changes". A bridge serves exactly one unit ID; several devices each need a gateway and a bridge. New path, not yet tried on many devices.'],
+                        ['type' => 'Label', 'caption' => '⚠️ UMG 800: its Modbus mapping is freely configurable — this driver follows the delivered factory default. If it was changed in the device (GridVis), the addresses may not match.'],
+                        ['type' => 'Label', 'caption' => 'Register addresses are in the description field of each variable (object manager, column "Description").'],
                     ],
                 ],
                 // Zählerbezeichnung + Standort (Dietmars Auftrag 01.09.2026,
                 // aus MeterHubVirtual übernommen — identisches Muster,
                 // geteilter Standort-Vorschlagspool über beide Modultypen).
-                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => '🆕 Zählerbezeichnung', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUB_RenameInstance($id, $InstanceName);'],
-                ['type' => 'Select', 'name' => 'LocationPreset', 'caption' => 'Standort (Vorschlag übernehmen …)', 'options' => $locationOptions, 'value' => '', 'onChange' => 'MHUB_ApplyLocationPreset($id, $LocationPreset);'],
-                ['type' => 'ValidationTextBox', 'name' => 'Location', 'caption' => '🆕 Standort (Raum/Geschoss, frei eintragbar)'],
+                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => '🆕 Meter name', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUB_RenameInstance($id, $InstanceName);'],
+                ['type' => 'Select', 'name' => 'LocationPreset', 'caption' => 'Location (apply a suggestion …)', 'options' => $locationOptions, 'value' => '', 'onChange' => 'MHUB_ApplyLocationPreset($id, $LocationPreset);'],
+                ['type' => 'ValidationTextBox', 'name' => 'Location', 'caption' => '🆕 Location (room/floor, free text)'],
                 [
                     'type'    => 'CheckBox',
                     'name'    => 'Active',
-                    'caption' => 'Kommunikation aktiv',
+                    'caption' => 'Communication active',
                 ],
                 // Immer sichtbar (nicht im eingeklappten Doku-Panel versteckt):
                 // Wer eine Instanz von Hand anlegt statt über MeterHubDiscovery,
@@ -4420,11 +4428,11 @@ class MeterHub extends IPSModule
                 // davon ausgezeichnet). Verbund-Erkenntnis 27.07.2026 (EMS,
                 // GoodWe-Netzmesspunkt-Formular): implizit ein Hersteller als
                 // „der" Weg dargestellt, obwohl nur einer von mehreren.
-                ['type' => 'Label', 'caption' => '👉 Zuerst den tatsächlichen Zählertyp wählen — die Vorauswahl unten ist nur ein technischer Platzhalter, keine Empfehlung. Kein eigener Modbus-Zähler? „Inexogy / Discovergy" nutzt stattdessen die Cloud-API. Die Verbindungsfelder darunter passen sich automatisch an die Auswahl an.'],
+                ['type' => 'Label', 'caption' => '👉 First choose the actual meter type — the preselection below is only a technical placeholder, not a recommendation. No Modbus meter of your own? "Inexogy / Discovergy" uses the cloud API instead. The connection fields below adapt automatically to the selection.'],
                 [
                     'type'     => 'Select',
                     'name'     => 'Meter',
-                    'caption'  => 'Zählertyp',
+                    'caption'  => 'Meter type',
                     'onChange' => 'MHUB_OnChangeMeter($id, $Meter);',
                     'options' => [
                         ['caption' => 'Siemens SENTRON PAC2200', 'value' => 'siemens_pac2200'],
@@ -4435,41 +4443,41 @@ class MeterHub extends IPSModule
                         ['caption' => 'Janitza UMG 806',         'value' => 'janitza_umg806'],
                         ['caption' => 'Janitza UMG 96PA',        'value' => 'janitza_umg96pa'],
                         ['caption' => 'Janitza UMG 801',         'value' => 'janitza_umg801'],
-                        ['caption' => 'Janitza UMG 800 (konfigurierbare Map — Werksvorgabe)', 'value' => 'janitza_umg800'],
+                        ['caption' => 'Janitza UMG 800 (configurable register map — factory default)', 'value' => 'janitza_umg800'],
                         ['caption' => 'Eastron SDM72D-M v2',     'value' => 'eastron_sdm72d'],
                         ['caption' => 'Eastron SDM630 v2',       'value' => 'eastron_sdm630'],
-                        ['caption' => 'Eastron SDM120 (einphasig)', 'value' => 'eastron_sdm120'],
-                        ['caption' => 'Eastron SDM220 (einphasig)', 'value' => 'eastron_sdm220'],
-                        ['caption' => 'Eastron SDM230 (einphasig)', 'value' => 'eastron_sdm230'],
+                        ['caption' => 'Eastron SDM120 (single-phase)', 'value' => 'eastron_sdm120'],
+                        ['caption' => 'Eastron SDM220 (single-phase)', 'value' => 'eastron_sdm220'],
+                        ['caption' => 'Eastron SDM230 (single-phase)', 'value' => 'eastron_sdm230'],
                         ['caption' => 'WhatWatt',                'value' => 'whatwatt'],
                         ['caption' => 'Phoenix Contact EEM-EM375', 'value' => 'phoenix_eem375'],
                         ['caption' => 'Phoenix Contact EEM-XM',  'value' => 'phoenix_eemxm'],
                         ['caption' => 'Carlo Gavazzi EM24 / EM300 / ET340', 'value' => 'carlo_gavazzi_em'],
-                        ['caption' => 'Socomec Countis (experimentell)', 'value' => 'socomec_countis'],
-                        ['caption' => 'MBS Professional 3-75 (experimentell)', 'value' => 'mbs_professional'],
+                        ['caption' => 'Socomec Countis (experimental)', 'value' => 'socomec_countis'],
+                        ['caption' => 'MBS Professional 3-75 (experimental)', 'value' => 'mbs_professional'],
                         ['caption' => 'Shelly Pro 3EM', 'value' => 'shelly_pro3em'],
                         ['caption' => 'go-e Controller', 'value' => 'goe_controller'],
-                        ['caption' => 'Inexogy / Discovergy (Cloud-API, kein Modbus)', 'value' => 'inexogy'],
-                        ['caption' => 'Meteocontrol blue\'Log SCADA – Wechselrichter (SCADA-Adresse = Unit-ID)', 'value' => 'bluelog_scada_inverter'],
-                        ['caption' => 'Meteocontrol blue\'Log SCADA – Zähler (SCADA-Adresse = Unit-ID)', 'value' => 'bluelog_scada_meter'],
-                        ['caption' => 'Meteocontrol blue\'Log SCADA – Datenlogger, Summe aller Wechselrichter (Unit-ID 97)', 'value' => 'bluelog_scada_logger'],
+                        ['caption' => 'Inexogy / Discovergy (cloud API, no Modbus)', 'value' => 'inexogy'],
+                        ['caption' => 'Meteocontrol blue\'Log SCADA – inverter (SCADA address = unit ID)', 'value' => 'bluelog_scada_inverter'],
+                        ['caption' => 'Meteocontrol blue\'Log SCADA – meter (SCADA address = unit ID)', 'value' => 'bluelog_scada_meter'],
+                        ['caption' => 'Meteocontrol blue\'Log SCADA – data logger, total of all inverters (unit ID 97)', 'value' => 'bluelog_scada_logger'],
                     ],
                 ],
                 [
                     'type'    => 'Select',
                     'name'    => 'Role',
-                    'caption' => 'Rolle des Zählers',
+                    'caption' => 'Role of the meter',
                     'options' => [
-                        ['caption' => 'Netz-/NAP-Zähler (+ Bezug / − Einspeisung)', 'value' => 'grid'],
-                        ['caption' => 'Unterzähler / Verbraucher (misst in eine Richtung)', 'value' => 'consumption'],
-                        ['caption' => 'Unterzähler / Erzeuger (misst in eine Richtung)', 'value' => 'production'],
+                        ['caption' => 'Grid/connection-point meter (+ import / − feed-in)', 'value' => 'grid'],
+                        ['caption' => 'Sub-meter / consumer (measures in one direction)', 'value' => 'consumption'],
+                        ['caption' => 'Sub-meter / generator (measures in one direction)', 'value' => 'production'],
                     ],
                 ],
                 ['type' => 'Label', 'caption' => $this->RolePlausibilityFormText()],
                 [
                     'type'    => 'CheckBox',
                     'name'    => 'BillingGrade',
-                    'caption' => 'Abrechnungsverbindlicher Zähler am Netzübergabepunkt (geeichtes iMSys/mMSD) — der Wert, der auf der Stromrechnung steht',
+                    'caption' => 'Billing-grade meter at the grid connection point (calibration-law-compliant smart metering system, iMSys/mMSD) — the value that appears on the electricity bill',
                 ],
             ];
 
@@ -4477,57 +4485,57 @@ class MeterHub extends IPSModule
         $free = [
                 'write' => [
                     'type'     => 'ExpansionPanel',
-                    'caption'  => "⚡  Sollwert-Schreibzugriff (blue'Log RPC/Power Control)",
+                    'caption'  => '⚡  Setpoint write access (blue\'Log RPC/Power Control)',
                     'expanded' => true,
                     'items'    => [
                         [
                             'type' => 'Label', 'name' => 'WriteWarningPanel',
-                            'caption' => '⚠️ Diese Instanz SCHREIBT einen Sollwert auf ein reales Kontrollinterface. Kollidiert mit jedem anderen System, das denselben Kanal bereits bedient — vor dem Aktivieren sicherstellen, dass kein zweiter Schreiber (Skript, EMS, Fremdsystem) auf dieselbe Slave-ID desselben blue\'Log zugreift.',
+                            'caption' => '⚠️ This instance WRITES a setpoint to a real control interface. It collides with any other system already serving the same channel — before enabling, make sure no second writer (script, EMS, third-party system) accesses the same slave ID of the same blue\'Log.',
                             'visible' => false,
                         ],
                         [
                             'type' => 'Label', 'name' => 'WriteWarningGridop',
-                            'caption' => '⚠️ Power-Control-Rolle: Diese Instanz gibt sich gegenüber dem blue\'Log als NETZBETREIBER aus. Nur aktivieren, wenn diese Rolle tatsächlich zutrifft. Kein Watchdog/Gültigkeitszeit-Mechanismus — ein gesetzter Wert bleibt stehen, bis er aktiv überschrieben wird.',
+                            'caption' => '⚠️ Power Control role: this instance presents itself to the blue\'Log as GRID OPERATOR. Enable only if this role actually applies. No watchdog/validity-time mechanism — a value that has been set stays until it is actively overwritten.',
                             'visible' => false,
                         ],
                         [
-                            'type' => 'Select', 'name' => 'SetpointMode', 'caption' => 'Sollwert-Modus',
+                            'type' => 'Select', 'name' => 'SetpointMode', 'caption' => 'Setpoint mode',
                             'options' => [
-                                ['caption' => 'Relativ (% der Anschlussleistung)', 'value' => 'rel'],
-                                ['caption' => 'Absolut (Watt)',                    'value' => 'abs'],
+                                ['caption' => 'Relative (% of connected load)', 'value' => 'rel'],
+                                ['caption' => 'Absolute (watts)',                    'value' => 'abs'],
                             ],
                             'onChange' => 'MHUB_OnChangeSetpointMode($id, $SetpointMode);',
                             'visible' => false,
                         ],
-                        ['type' => 'NumberSpinner', 'name' => 'TargetSetpoint', 'caption' => 'Zielwert (%, relativ)', 'digits' => 3, 'visible' => false],
+                        ['type' => 'NumberSpinner', 'name' => 'TargetSetpoint', 'caption' => MHUB_Text::t('Target value (%, relative)'), 'digits' => 3, 'visible' => false],
                         [
-                            'type' => 'Select', 'name' => 'FailsafeMode', 'caption' => 'Ausfallverhalten (bei Deaktivieren)',
+                            'type' => 'Select', 'name' => 'FailsafeMode', 'caption' => 'Failure behavior (on deactivation)',
                             'options' => [
-                                ['caption' => 'Default-Sollwert schreiben', 'value' => 'default'],
-                                ['caption' => 'Letzten Sollwert halten',    'value' => 'hold'],
+                                ['caption' => 'Write default setpoint', 'value' => 'default'],
+                                ['caption' => 'Hold last setpoint',    'value' => 'hold'],
                             ],
                             'visible' => false,
                         ],
-                        ['type' => 'NumberSpinner', 'name' => 'FailsafeDefaultPercent', 'caption' => 'Default-Sollwert (%, immer relativ)', 'digits' => 1, 'minimum' => 0, 'maximum' => 125, 'visible' => false],
-                        ['type' => 'NumberSpinner', 'name' => 'RpcValidTimeMin', 'caption' => 'Gültigkeitszeit (Minuten, nur RPC)', 'minimum' => 1, 'maximum' => 255, 'visible' => false],
-                        ['type' => 'Button', 'name' => 'BtnWriteNow', 'caption' => '▶  Zielwert jetzt schreiben', 'onClick' => 'echo MHUB_SetBlueLogTarget($id, $TargetSetpoint);', 'visible' => false],
+                        ['type' => 'NumberSpinner', 'name' => 'FailsafeDefaultPercent', 'caption' => 'Default setpoint (%, always relative)', 'digits' => 1, 'minimum' => 0, 'maximum' => 125, 'visible' => false],
+                        ['type' => 'NumberSpinner', 'name' => 'RpcValidTimeMin', 'caption' => 'Validity time (minutes, RPC only)', 'minimum' => 1, 'maximum' => 255, 'visible' => false],
+                        ['type' => 'Button', 'name' => 'BtnWriteNow', 'caption' => '▶  Write target value now', 'onClick' => 'echo MHUB_SetBlueLogTarget($id, $TargetSetpoint);', 'visible' => false],
                     ],
                 ],
                 'func' => [
                     'type'     => 'ExpansionPanel',
-                    'caption'  => '🏷️  Funktionszuordnung',
+                    'caption'  => '🏷️  Function assignment',
                     'expanded' => false,
                     'items'    => $funcItems,
                 ],
                 'virtual' => [
                     'type'     => 'ExpansionPanel',
-                    'caption'  => '🧮  Virtueller Zähler (Summe / Rest aus mehreren Zählern)',
+                    'caption'  => '🧮  Virtual meter (total / remainder from several meters)',
                     'expanded' => false,
                     'items'    => $virtualItems,
                 ],
                 'conn' => [
                     'type'    => 'ExpansionPanel',
-                    'caption' => $isCloud ? '🔐  Cloud-Zugang' : '🔌  Verbindung',
+                    'caption' => $isCloud ? '🔐  Cloud access' : MHUB_Text::t('🔌  Connection'),
                     'expanded' => true,
                     'items' => $connectionItems,
                 ],
@@ -4536,8 +4544,8 @@ class MeterHub extends IPSModule
                     'caption' => '⏱️  Polling',
                     'expanded' => false,
                     'items' => [
-                        ['type' => 'NumberSpinner', 'name' => 'IntervalFast', 'caption' => 'Schnell-Intervall (Momentanwerte, Sekunden)', 'minimum' => 2, 'maximum' => 60, 'suffix' => 's'],
-                        ['type' => 'NumberSpinner', 'name' => 'IntervalSlow', 'caption' => 'Langsam-Intervall (Energiezähler, Sekunden)', 'minimum' => 10, 'maximum' => 3600, 'suffix' => 's'],
+                        ['type' => 'NumberSpinner', 'name' => 'IntervalFast', 'caption' => 'Fast interval (instantaneous values, seconds)', 'minimum' => 2, 'maximum' => 60, 'suffix' => 's'],
+                        ['type' => 'NumberSpinner', 'name' => 'IntervalSlow', 'caption' => 'Slow interval (energy meters, seconds)', 'minimum' => 10, 'maximum' => 3600, 'suffix' => 's'],
                     ],
                 ],
                 'archPower' => [
@@ -4547,20 +4555,20 @@ class MeterHub extends IPSModule
                     // PopupButtons geprüft. Zwei einzeln auf-/zuklappbare
                     // Panels halten wenigstens die sichtbare Feldzahl klein.
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🗄️  Archiv-Verdichtung: Leistung/Momentanwerte',
+                    'caption' => '🗄️  Archive compaction: power/instantaneous values',
                     'expanded' => false,
                     'items' => array_merge(
                         [['type' => 'Label', 'name' => 'ArchiveStatusLine', 'caption' => $this->ArchiveStatusLine()]],
-                        [['type' => 'Label', 'caption' => 'Reduziert automatisch den Detailgrad älterer Archivwerte (spart Speicher), bei jedem „Übernehmen" neu gesetzt — nur für Variablen, die archiviert werden (die Archivierung schaltest du selbst ein, siehe Hinweis oben im Formular). Jede Stufe greift nur, wenn ihre Auflösung tatsächlich gröber ist als das jeweilige Polling-Intervall oben — sonst gäbe es nichts zu verdichten.']],
+                        [['type' => 'Label', 'caption' => 'Automatically reduces the level of detail of older archive values (saves memory), set anew on every "Apply" — only for variables that are archived (you switch archiving on yourself, see the notice at the top of the form). Each stage only takes effect if its resolution is actually coarser than the respective polling interval above — otherwise there would be nothing to compact.']],
                         $this->CompactionFields('Power')
                     ),
                 ],
                 'archEnergy' => [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🗄️  Archiv-Verdichtung: Energiezähler (Wirkarbeit)',
+                    'caption' => '🗄️  Archive compaction: energy meters (active energy)',
                     'expanded' => false,
                     'items' => array_merge(
-                        [['type' => 'Label', 'caption' => 'Unabhängig von der Leistung einstellbar — Energie-Zählerstände haben oft andere Aufbewahrungs-Anforderungen.']],
+                        [['type' => 'Label', 'caption' => 'Can be set independently of power — energy meter readings often have different retention requirements.']],
                         $this->CompactionFields('Energy')
                     ),
                 ],
@@ -4570,68 +4578,68 @@ class MeterHub extends IPSModule
                     // Übertragungslücke). Zuerst immer Probelauf, geändert wird
                     // nur über den zweiten Knopf mit Rückfrage.
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🩺  Energie-Archiv prüfen / reparieren',
+                    'caption' => '🩺  Check / repair energy archive',
                     'expanded' => false,
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'Sucht in den archivierten Zählerständen (Bezug/Einspeisung) nach Nullwerten und Rückschritten — z. B. wenn ein Cloud-Zähler eine Übertragungslücke mit 0 füllt. Solche Punkte ergeben in Tages-/Monatswerten riesige Scheinverbräuche.'],
-                        ['type' => 'Label', 'caption' => 'Reparatur: ungültige Punkte löschen, die bekannte Menge zwischen dem letzten gültigen Stand davor und dem ersten danach verteilen — nach dem Verlauf eines Referenzzählers am selben Anschluss (welcher seiner Zähler passt, erkennt das Modul selbst an den 24 h davor), sonst gleichmäßig. Die Leistung in solchen Lücken wird aus der aufgefüllten Energie neu berechnet. Lücken ohne gültigen Stand danach (evtl. Zählertausch) bleiben unangetastet.'],
-                        ['type' => 'SelectInstance', 'name' => 'RepairReference', 'caption' => 'Referenzzähler für die Form der Lücke (leer = gleichmäßig)'],
-                        ['type' => 'NumberSpinner', 'name' => 'RepairDays', 'caption' => 'Zeitraum (höchstens 45 Tage)', 'minimum' => 1, 'maximum' => 45, 'suffix' => ' Tage'],
-                        ['type' => 'CheckBox', 'name' => 'RepairBackward', 'caption' => 'Einzelne Rückschritte mitreparieren (bei Cloud-Zählern mit gemischten Live- und Viertelstundenwerten besser aus — der tiefere Punkt kann dort der offizielle Wert sein)'],
-                        ['type' => 'Button', 'caption' => '🔎  Prüfen (Probelauf, ändert nichts)', 'onClick' => 'echo MHUB_CheckEnergyArchive($id, $RepairReference, $RepairDays, $RepairBackward);'],
-                        ['type' => 'Button', 'caption' => '🛠️  Reparieren', 'confirm' => 'Ungültige Archivwerte löschen und die Lücken auffüllen? Vorher den Probelauf ansehen — das Löschen lässt sich nicht rückgängig machen.', 'onClick' => 'echo MHUB_RepairEnergyArchive($id, $RepairReference, $RepairDays, $RepairBackward);'],
+                        ['type' => 'Label', 'caption' => 'Searches the archived meter readings (import/feed-in) for zero values and steps backwards — e.g. when a cloud meter fills a transmission gap with 0. Such points produce huge phantom consumption in daily/monthly values.'],
+                        ['type' => 'Label', 'caption' => 'Repair: delete invalid points and distribute the known quantity between the last valid reading before and the first one after — following the curve of a reference meter on the same connection (which of its meters fits, the module detects by itself from the 24 h before), otherwise evenly. The power in such gaps is recalculated from the filled-in energy. Gaps without a valid reading afterwards (possibly a meter replacement) are left untouched.'],
+                        ['type' => 'SelectInstance', 'name' => 'RepairReference', 'caption' => 'Reference meter for the shape of the gap (empty = evenly)'],
+                        ['type' => 'NumberSpinner', 'name' => 'RepairDays', 'caption' => 'Period (at most 45 days)', 'minimum' => 1, 'maximum' => 45, 'suffix' => MHUB_Text::t(' days')],
+                        ['type' => 'CheckBox', 'name' => 'RepairBackward', 'caption' => 'Also repair individual steps backwards (better switched off for cloud meters with mixed live and quarter-hour values — the lower point there can be the official value)'],
+                        ['type' => 'Button', 'caption' => '🔎  Check (dry run, changes nothing)', 'onClick' => 'echo MHUB_CheckEnergyArchive($id, $RepairReference, $RepairDays, $RepairBackward);'],
+                        ['type' => 'Button', 'caption' => '🛠️  Repair', 'confirm' => MHUB_Text::t('Delete invalid archive values and fill the gaps? Look at the dry run first — deleting cannot be undone.'), 'onClick' => 'echo MHUB_RepairEnergyArchive($id, $RepairReference, $RepairDays, $RepairBackward);'],
                     ],
                 ],
                 'repairDirection' => [
                     // Richtung im Archiv (0.27.0): Altfälle früherer
                     // PowerInvert-Umschaltungen. Zuerst immer Probelauf.
                     'type'    => 'ExpansionPanel',
-                    'caption' => '↔️  Richtung im Archiv prüfen / korrigieren',
+                    'caption' => '↔️  Check / correct direction in the archive',
                     'expanded' => false,
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'Für frühere Umschaltungen von „Bezug/Einspeisung vertauscht" (vor Version 0.27.0): Damals sprangen Bezug und Einspeisung aufeinander, und die gespeicherte Leistung behielt vor dem Umschalten ihr altes Vorzeichen. Seit 0.27.0 passiert beim Umschalten nichts mehr davon.'],
-                        ['type' => 'Label', 'caption' => 'Energie: Jede Zählervariable wird wieder eine durchgehende Reihe. Vertauschte Abschnitte erkennt das Modul daran, dass ein Stand auf den des anderen Zählers springt. Ein Einheitenwechsel oder ein Zählertausch ist kein solcher Sprung und bleibt unberührt.'],
-                        ['type' => 'Label', 'caption' => 'Leistung: Je Viertelstunde wird die Richtung aus den Zählerständen (Bezug − Einspeisung) mit dem Vorzeichen der gespeicherten Leistung verglichen. Gegenläufige Abschnitte werden gedreht, die Kanten minutengenau bestimmt. Das geht erst, wenn die Energie stimmt — bei Bedarf also zweimal prüfen.'],
-                        ['type' => 'Label', 'caption' => 'Ob die Richtung heute stimmt, zeigt die Richtungsprüfung unter „Datenpunkte" beim Schalter. Diese Korrektur macht das Archiv nur in sich stimmig. Vor jeder Änderung wird als JSON-Datei ins Symcon-Verzeichnis gesichert.'],
-                        ['type' => 'NumberSpinner', 'name' => 'DirectionRepairDays', 'caption' => 'Zeitraum (höchstens 120 Tage)', 'minimum' => 1, 'maximum' => 120, 'suffix' => ' Tage'],
-                        ['type' => 'Button', 'caption' => '🔎  Prüfen (Probelauf, ändert nichts)', 'onClick' => 'echo MHUB_CheckDirectionArchive($id, $DirectionRepairDays);'],
-                        ['type' => 'Button', 'caption' => '🛠️  Korrigieren', 'confirm' => 'Die im Probelauf gezeigten Abschnitte jetzt im Archiv korrigieren? Vorher wird gesichert.', 'onClick' => 'echo MHUB_RepairDirectionArchive($id, $DirectionRepairDays);'],
+                        ['type' => 'Label', 'caption' => 'For earlier switches of "Import/feed-in swapped" (before version 0.27.0): back then import and feed-in jumped onto each other, and the stored power kept its old sign from before the switch. Since 0.27.0 none of this happens when switching.'],
+                        ['type' => 'Label', 'caption' => 'Energy: each meter variable becomes a continuous series again. The module recognizes swapped sections by a reading jumping to that of the other meter. A change of unit or a meter replacement is not such a jump and stays untouched.'],
+                        ['type' => 'Label', 'caption' => 'Power: for each quarter hour the direction from the meter readings (import − feed-in) is compared with the sign of the stored power. Opposing sections are flipped, the edges determined to the minute. This only works once the energy is right — so check twice if necessary.'],
+                        ['type' => 'Label', 'caption' => 'Whether the direction is right today is shown by the direction check under "Data points" at the switch. This correction only makes the archive consistent in itself. Before every change a backup is saved as a JSON file in the Symcon directory.'],
+                        ['type' => 'NumberSpinner', 'name' => 'DirectionRepairDays', 'caption' => 'Period (at most 120 days)', 'minimum' => 1, 'maximum' => 120, 'suffix' => MHUB_Text::t(' days')],
+                        ['type' => 'Button', 'caption' => '🔎  Check (dry run, changes nothing)', 'onClick' => 'echo MHUB_CheckDirectionArchive($id, $DirectionRepairDays);'],
+                        ['type' => 'Button', 'caption' => '🛠️  Correct', 'confirm' => MHUB_Text::t('Correct the sections shown in the dry run in the archive now? A backup is made first.'), 'onClick' => 'echo MHUB_RepairDirectionArchive($id, $DirectionRepairDays);'],
                     ],
                 ],
                 'datapoints' => [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '📊  Datenpunkte',
+                    'caption' => '📊  Data points',
                     'expanded' => true,
                     'items' => array_merge($groupItems, [
                         [
                             'type'    => 'CheckBox',
                             'name'    => 'PowerInvert',
-                            'caption' => 'Bezug/Einspeisung vertauscht — invertiert Wirkleistung und tauscht die Energiezähler',
+                            'caption' => 'Import/feed-in swapped — inverts active power and swaps the energy meters',
                         ],
                         ['type' => 'Label', 'caption' => $this->DirectionFormText()],
                         [
-                            'type' => 'PopupButton', 'caption' => 'Wann brauche ich das, und was macht es genau?', 'width' => '480px',
+                            'type' => 'PopupButton', 'caption' => 'When do I need this, and what exactly does it do?', 'width' => '480px',
                             'popup' => [
-                                'caption' => 'Bezug/Einspeisung vertauscht',
+                                'caption' => 'Import/feed-in swapped',
                                 'items' => [
-                                    ['type' => 'Label', 'caption' => 'Typischer Anlass: der Zähler ist verkehrt herum angeschlossen (Stromwandler falsch gepolt) — was eigentlich Bezug ist, meldet er als Einspeisung und umgekehrt.'],
-                                    ['type' => 'Label', 'caption' => 'Bei der Wirkleistung reicht ein Vorzeichenwechsel (+/−), das macht dieser Schalter automatisch.'],
-                                    ['type' => 'Label', 'caption' => 'Bei den Energiezählern reicht das NICHT: „Bezug" und „Abgabe" sind zwei getrennte, immer positive Zählerstände. Ein Vorzeichenwechsel würde daraus negative Zählerstände machen. Richtig ist stattdessen, die beiden Zielvariablen zu VERTAUSCHEN — ein Wert, der eigentlich zum Bezugszähler gehört, landet dann korrekt in der Abgabe-Variable und umgekehrt. Genau das macht dieser Schalter zusätzlich zum Vorzeichenwechsel.'],
-                                    ['type' => 'Label', 'caption' => 'Hat dieser Zähler nur eine Richtung (z. B. reine Verbraucher ohne Einspeisung), bleibt der vorhandene Wert einfach auf seiner Variable liegen — kein Datenverlust.'],
-                                    ['type' => 'Label', 'caption' => 'Umschalten ohne Sprung (seit 0.27.0): Beim Umschalten tauschen die beiden Energiezähler-Variablen ihre Rolle (Name und Ident). Jede behält ihren Zählerstand und ihren Verlauf — keine Sprünge, keine Scheinverbräuche in Tages- und Monatswerten. Zurückschalten macht es rückgängig. Dashboard und virtuelle Zähler übernehmen das von selbst; eigene Skripte mit fest eingetragenen Variablen-IDs bitte prüfen.'],
-                                    ['type' => 'Label', 'caption' => 'Ob der Schalter richtig steht, zeigt die Richtungsprüfung darunter: Sie vergleicht die Leistung mit einem zweiten Netzzähler oder der Netzmessung des Wechselrichters, hilfsweise mit der PV-Erzeugung. Frühere Umschaltungen (vor 0.27.0) korrigiert das Panel „Richtung im Archiv prüfen / korrigieren".'],
+                                    ['type' => 'Label', 'caption' => 'Typical reason: the meter is connected the wrong way round (current transformer reversed) — what is actually import it reports as feed-in and vice versa.'],
+                                    ['type' => 'Label', 'caption' => 'For active power a sign change (+/−) is enough; this switch does that automatically.'],
+                                    ['type' => 'Label', 'caption' => 'For the energy meters that is NOT enough: "import" and "export" are two separate, always positive meter readings. A sign change would turn them into negative readings. The right approach instead is to SWAP the two target variables — a value that actually belongs to the import meter then correctly lands in the export variable and vice versa. This switch does exactly that in addition to the sign change.'],
+                                    ['type' => 'Label', 'caption' => 'If this meter has only one direction (e.g. pure consumers without feed-in), the existing value simply stays on its variable — no data loss.'],
+                                    ['type' => 'Label', 'caption' => 'Switching without a jump (since 0.27.0): when switching, the two energy meter variables swap their role (name and ident). Each keeps its meter reading and its history — no jumps, no phantom consumption in daily and monthly values. Switching back undoes it. Dashboard and virtual meters adopt this by themselves; please check your own scripts with hard-coded variable IDs.'],
+                                    ['type' => 'Label', 'caption' => 'Whether the switch is set correctly is shown by the direction check below: it compares the power with a second grid meter or the inverter\'s grid measurement, alternatively with the PV generation. Earlier switches (before 0.27.0) are corrected by the panel "Check / correct direction in the archive".'],
                                 ],
                             ],
                         ],
                         [
                             'type'    => 'CheckBox',
                             'name'    => 'EnergyUnitWh',
-                            'caption' => 'Energie in Wh statt kWh ausgeben (Basiseinheit; die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh)',
+                            'caption' => 'Output energy in Wh instead of kWh (base unit; the new Symcon presentation then scales itself to Wh/kWh/MWh)',
                         ],
                         [
                             'type'    => 'CheckBox',
                             'name'    => 'WordSwap',
-                            'caption' => 'Float-Wortreihenfolge tauschen (CDAB) — falls Messwerte unplausibel groß/klein sind (z. B. manche Phoenix EEM-XM)',
+                            'caption' => 'Swap float word order (CDAB) — if measured values are implausibly large/small (e.g. some Phoenix EEM-XM)',
                         ],
                     ]),
                 ],
@@ -4645,17 +4653,17 @@ class MeterHub extends IPSModule
             'elements' => array_values(array_filter(array_merge([$this->PurposeIntro(), $this->NewsBanner(), $this->ArchivingPanel()], $top, $lay['panels'],
                 [$this->LayoutPanel($lay['layout'], $free), $this->ForumHint(), $this->LicenseHint()]))),
             'actions' => [
-                ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'echo MHUB_TestConnection($id);'],
-                ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
+                ['type' => 'Button', 'caption' => 'Test connection / read data now', 'onClick' => 'echo MHUB_TestConnection($id);'],
+                ['type' => 'Button', 'caption' => '🔄  Force apply (without a form change)', 'onClick' => MHUB_Text::t('IPS_ApplyChanges($id); echo \'✅ ApplyChanges() executed.\';'), 'confirm' => MHUB_Text::t('Apply the instance now (ApplyChanges)?')],
             ],
             // 104 bewusst neutral und in jedem Verbindungsweg gleich: die Statuszeile folgt dem GESPEICHERTEN
             // Stand, ein Wechsel des Verbindungswegs im offenen Formular ändert sie nicht (Forum-Feedback 20.09.2026).
             'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Verbindung einstellen.'],
-                ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Please set up the connection.'],
+                ['code' => 102, 'icon' => 'active',   'caption' => 'Connection active.'],
                 ['code' => 201, 'icon' => 'error',    'caption' => ($connectionMode === 'gateway' && !$isCloud)
-                    ? 'Verbindungsfehler – keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit-ID = DeviceID am Gateway).'
-                    : 'Verbindungsfehler – Zähler nicht erreichbar.'],
+                    ? MHUB_Text::t('Connection error – no response via the bridge: check the bridge and the ModBus gateway (unit ID = DeviceID at the gateway).')
+                    : MHUB_Text::t('Connection error – meter not reachable.')],
             ],
         ];
 
@@ -4701,7 +4709,8 @@ class MeterHub extends IPSModule
     /** Name eines Fachpanels für die Liste im Aufbau-Panel (ohne Klammerzusatz). */
     private function layoutPanelName(array $panel, string $key): string
     {
-        return trim((string)preg_replace('/\s*\(.*$/u', '', (string)($panel['caption'] ?? $key)));
+        // Der Name steht als Wert in einer Liste (nicht als Beschriftung) — die Konsole übersetzt ihn nicht, deshalb hier.
+        return trim((string)preg_replace('/\s*\(.*$/u', '', MHUB_Text::t((string)($panel['caption'] ?? $key))));
     }
 
     /**
@@ -4743,28 +4752,28 @@ class MeterHub extends IPSModule
             }
         }
         $hiddenLine = $hidden
-            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            ? [['type' => 'Label', 'caption' => MHUB_Text::t('🙈 Hidden: %s — to show again, clear the "Hidden" checkbox. Hidden sections keep working, only the display is missing.', implode(', ', $hidden))]]
             : [];
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
+            'caption' => MHUB_Text::t('🪟  Form: layout%s', $hidden ? MHUB_Text::t(' (%s hidden)', count($hidden)) : ''),
             'items' => array_merge($hiddenLine, [
-                ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
-                ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard“: wie das Modul es vorsieht. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen oder „Auf Standard zurücksetzen“ klicken. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“. Die Bereiche oben (Zweck, Neu, Dokumentation) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind, und lassen sich nicht ausblenden.'],
+                ['type' => 'Label', 'caption' => 'Here you decide which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing by itself, so this setting applies every time the form opens. It takes effect after “Apply” the next time the form is opened.'],
+                ['type' => 'Label', 'caption' => 'No tick means "default": as the module intends. The position is a number; with the same number the default order stays. "Hidden" takes a section out of the display without it losing anything: its settings are kept and keep working (meant for sections you rarely need). To show it again, remove the tick at "Hidden" or click "Reset to default". If several ticks are set, "Hidden" wins over "Collapsed" over "Expanded". The sections at the top (purpose, news, documentation) and at the bottom (feedback, About this module) stay where they are and cannot be hidden.'],
                 [
-                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Areas', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
                     'loadValuesFromConfiguration' => false,
                     'values' => $rows,
                     'columns' => [
-                        ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
-                        ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                        ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Area', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Key', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Expanded', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Collapsed', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Hidden', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
                     ],
                 ],
-                ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo MHUB_ResetFormLayout($id);'],
+                ['type' => 'Button', 'caption' => '↩️ Reset to default', 'onClick' => 'echo MHUB_ResetFormLayout($id);'],
             ]),
         ];
     }
@@ -4778,7 +4787,7 @@ class MeterHub extends IPSModule
             $rows[] = ['Key' => $key, 'Panel' => $this->layoutPanelName($panel, $key), 'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => ++$i];
         }
         $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
-        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';
+        return MHUB_Text::t('ℹ️ Reset to default. Click "Apply" below to save.');
     }
 
     /**
@@ -4859,7 +4868,7 @@ class MeterHub extends IPSModule
     public function OnChangeSetpointMode(string $mode)
     {
         $isAbs = $mode === 'abs';
-        $this->UpdateFormField('TargetSetpoint', 'caption', $isAbs ? 'Zielwert (W, absolut)' : 'Zielwert (%, relativ)');
+        $this->UpdateFormField('TargetSetpoint', 'caption', $isAbs ? MHUB_Text::t('Target value (W, absolute)') : MHUB_Text::t('Target value (%, relative)'));
         $this->UpdateFormField('TargetSetpoint', 'suffix', $isAbs ? 'W' : '%');
     }
 
@@ -4880,7 +4889,7 @@ class MeterHub extends IPSModule
 
     /**
      * Legt die Brücke (MeterHubBridge) an, verbindet sie mit dem gewählten
-     * nativen ModBus Gateway und trägt sie in das (noch ungespeicherte)
+     * nativen ModBus gateway und trägt sie in das (noch ungespeicherte)
      * Formular ein — Knopf statt automatischer Anlage: GetConfigurationForm()
      * und ApplyChanges() dürfen keine Instanzen erzeugen, ein Klick darf es.
      * Ist am Gateway schon eine Brücke, wird sie wiederverwendet.
@@ -4889,7 +4898,7 @@ class MeterHub extends IPSModule
     {
         if ($gatewayId <= 0 || !IPS_InstanceExists($gatewayId)
             || (IPS_GetInstance($gatewayId)['ModuleInfo']['ModuleID'] ?? '') !== MHUB_ModbusGatewayClient::GATEWAY_GUID) {
-            return '❌ Bitte zuerst das native „ModBus Gateway" dieses Geräts auswählen.';
+            return MHUB_Text::t('❌ Please select this device\'s native "ModBus gateway" first.');
         }
         $bridgeId = 0;
         foreach (IPS_GetInstanceListByModuleID(self::BRIDGE_GUID) as $b) {
@@ -4901,7 +4910,7 @@ class MeterHub extends IPSModule
         $created = $bridgeId === 0;
         if ($created) {
             $bridgeId = IPS_CreateInstance(self::BRIDGE_GUID);
-            IPS_SetName($bridgeId, 'MeterHub Brücke ' . IPS_GetName($gatewayId));
+            IPS_SetName($bridgeId, MHUB_Text::t('MeterHub bridge %s', IPS_GetName($gatewayId)));
             IPS_SetParent($bridgeId, IPS_GetObject($this->InstanceID)['ParentID']);
             IPS_ConnectInstance($bridgeId, $gatewayId);
             IPS_ApplyChanges($bridgeId);
@@ -4909,8 +4918,9 @@ class MeterHub extends IPSModule
         $this->UpdateFormField('BridgeInstanceID', 'value', $bridgeId);
         $this->UpdateFormField('BridgeStatusLine', 'caption', $this->BridgeStatusLine($bridgeId));
         $this->RefreshUnitIdAutoLine($bridgeId);
-        return ($created ? '✅ Brücke #' . $bridgeId . ' angelegt' : '✅ Vorhandene Brücke #' . $bridgeId . ' wiederverwendet')
-            . ' und mit „' . IPS_GetName($gatewayId) . '" verbunden. Unten ist sie eingetragen — jetzt „Änderungen übernehmen" klicken.';
+        return $created
+            ? MHUB_Text::t('✅ Bridge #%d created and connected to "%s". It is entered below — now click "Apply changes".', $bridgeId, IPS_GetName($gatewayId))
+            : MHUB_Text::t('✅ Existing bridge #%d reused and connected to "%s". It is entered below — now click "Apply changes".', $bridgeId, IPS_GetName($gatewayId));
     }
 
     // -----------------------------------------------------------------------
@@ -4925,14 +4935,14 @@ class MeterHub extends IPSModule
     private function BridgeStatusLine(int $bridgeId): string
     {
         if ($bridgeId <= 0) {
-            return '⛔ Keine Brücke gewählt — ModBus Gateway wählen und „Brücke anlegen und verbinden" klicken. Ohne Brücke liest diese Instanz nichts.';
+            return MHUB_Text::t('⛔ No bridge selected — select a ModBus gateway and click "Create bridge and connect". Without a bridge this instance reads nothing.');
         }
         if (!IPS_InstanceExists($bridgeId)) {
-            return '⛔ Die gewählte Brücke #' . $bridgeId . ' gibt es nicht mehr — neu anlegen oder eine andere wählen. Bis dahin liest diese Instanz nichts.';
+            return MHUB_Text::t('⛔ The selected bridge #%d no longer exists — create a new one or choose another. Until then this instance reads nothing.', $bridgeId);
         }
-        $bridge = '#' . $bridgeId . ' „' . IPS_GetName($bridgeId) . '"';
+        $bridge = MHUB_Text::t('#%d "%s"', $bridgeId, IPS_GetName($bridgeId));
         if (!function_exists('MHUBB_GetState')) {
-            return '⚠️ Brücke ' . $bridge . ' gewählt, aber das Brücken-Modul ist nicht geladen — Bibliothek in der Modulverwaltung neu laden.';
+            return MHUB_Text::t('⚠️ Bridge %s selected, but the bridge module is not loaded — reload the library in the module management.', $bridge);
         }
         try {
             $st = json_decode((string)MHUBB_GetState($bridgeId), true);
@@ -4940,18 +4950,18 @@ class MeterHub extends IPSModule
             $st = null;
         }
         if (!is_array($st)) {
-            return '⚠️ Brücke ' . $bridge . ': Zustand nicht lesbar — die Brücke öffnen und prüfen.';
+            return MHUB_Text::t('⚠️ Bridge %s: state not readable — open the bridge and check it.', $bridge);
         }
         $gid = (int)(IPS_GetInstance($bridgeId)['ConnectionID'] ?? 0);
-        $gateway = ($gid > 0 && IPS_InstanceExists($gid)) ? '#' . $gid . ' „' . IPS_GetName($gid) . '"' : '';
+        $gateway = ($gid > 0 && IPS_InstanceExists($gid)) ? MHUB_Text::t('#%d "%s"', $gid, IPS_GetName($gid)) : '';
         if (empty($st['connected'])) {
-            return '⚠️ Brücke ' . $bridge . ' ist mit keinem ModBus Gateway verbunden — an der Brücke über „Gateway ändern" das Gateway des Geräts wählen. Bis dahin liest diese Instanz nichts.';
+            return MHUB_Text::t('⚠️ Bridge %s is not connected to any ModBus gateway — choose the device\'s gateway on the bridge via "Change gateway". Until then this instance reads nothing.', $bridge);
         }
         if (empty($st['parentActive'])) {
-            return '⚠️ Brücke ' . $bridge . ' → ModBus Gateway ' . $gateway . ' ist nicht aktiv (Status ' . (int)($st['parentStatus'] ?? 0) . ') — dessen Verbindung zum Gerät prüfen.';
+            return MHUB_Text::t('⚠️ Bridge %s → ModBus gateway %s is not active (status %d) — check its connection to the device.', $bridge, $gateway, (int)($st['parentStatus'] ?? 0));
         }
-        $unit = isset($st['unitId']) && $st['unitId'] !== null ? (string)(int)$st['unitId'] : 'nicht lesbar';
-        return '✅ Brücke ' . $bridge . ' → ModBus Gateway ' . $gateway . ' aktiv, Unit-ID ' . $unit . ' (Quelle: Property „DeviceID" am Gateway).';
+        $unit = isset($st['unitId']) && $st['unitId'] !== null ? (string)(int)$st['unitId'] : MHUB_Text::t('not readable');
+        return MHUB_Text::t('✅ Bridge %s → ModBus gateway %s active, unit ID %s (source: property "DeviceID" at the gateway).', $bridge, $gateway, $unit);
     }
 
     /** Wird beim Ändern der Brücken-Auswahl im offenen Formular aufgerufen — die Zeile folgt der Auswahl, nicht erst dem Speicherstand. */
@@ -4962,7 +4972,7 @@ class MeterHub extends IPSModule
     }
 
     /**
-     * Unit-ID im Gateway-Weg: kommt automatisch vom ModBus Gateway hinter der Brücke und
+     * Unit-ID im Gateway-Weg: kommt automatisch vom ModBus gateway hinter der Brücke und
      * ersetzt dort das Eingabefeld „Unit ID" (SUITE.md „Wert kommt automatisch: Eingabefeld
      * ersetzen", 21.09.2026): das Feld ist ausgeblendet, statt seiner steht diese
      * schreibgeschützte Zeile. Der Wert wird bewusst NICHT in die Property „UnitId"
@@ -4997,11 +5007,13 @@ class MeterHub extends IPSModule
             }
         }
         if ($unit === null) {
-            return 'ℹ️ Unit-ID: noch nicht verfügbar — sie kommt automatisch vom ModBus Gateway, sobald eine mit einem Gateway verbundene Brücke gewählt ist.';
+            return MHUB_Text::t('ℹ️ Unit ID: not available yet — it comes automatically from the ModBus gateway as soon as a bridge connected to a gateway is selected.');
         }
         $gid = (int)(IPS_GetInstance($bridgeId)['ConnectionID'] ?? 0);
-        $gateway = ($gid > 0 && IPS_InstanceExists($gid)) ? ' #' . $gid . ' „' . IPS_GetName($gid) . '"' : '';
-        return '🔗 Unit-ID: ' . $unit . ' (automatisch vom ModBus Gateway' . $gateway . ', Property „DeviceID").';
+        if ($gid > 0 && IPS_InstanceExists($gid)) {
+            return MHUB_Text::t('🔗 Unit ID: %s (automatically from ModBus gateway %s, property "DeviceID").', $unit, MHUB_Text::t('#%d "%s"', $gid, IPS_GetName($gid)));
+        }
+        return MHUB_Text::t('🔗 Unit ID: %s (automatically from the ModBus gateway, property "DeviceID").', $unit);
     }
 
     /**
@@ -5015,8 +5027,9 @@ class MeterHub extends IPSModule
         if ($this->ReadAttributeBoolean('InexogyAuthRejected') !== $rejected) {
             $this->WriteAttributeBoolean('InexogyAuthRejected', $rejected);
             if ($rejected) {
-                $this->LogMessage('Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — '
-                    . ($this->SecretsConfigured() ? 'automatische Neuanmeldung aus dem Tresor wird versucht.' : 'im Instanzformular unter „Cloud-Zugang" neu anmelden.' . $this->SecretsTip()), KL_WARNING);
+                $this->LogMessage($this->SecretsConfigured()
+                    ? MHUB_Text::t('Inexogy rejects the stored access token (HTTP 401) — automatic re-login from the vault will be attempted.')
+                    : MHUB_Text::t('Inexogy rejects the stored access token (HTTP 401) — log in again in the instance form under "Cloud access".') . $this->SecretsTip(), KL_WARNING);
             }
             $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
         }
@@ -5051,7 +5064,7 @@ class MeterHub extends IPSModule
             return [0, '', 'off', ''];
         }
         if ($explicit > 0) {
-            return [$explicit, 'gewählt', '', ''];
+            return [$explicit, MHUB_Text::t('selected'), '', ''];
         }
         if (!function_exists('SEC_GetSecret')) {
             return [0, '', 'nomodule', ''];
@@ -5070,7 +5083,7 @@ class MeterHub extends IPSModule
             }
         }
         if (count($ok) === 1) {
-            return [(int)array_key_first($ok), 'automatisch', '', ''];
+            return [(int)array_key_first($ok), 'automatic', '', ''];
         }
         $list = function (array $m): string {
             $o = [];
@@ -5121,37 +5134,37 @@ class MeterHub extends IPSModule
     {
         $id = $id ?? $this->ResolveSecrets()[0];
         if ($id <= 0) {
-            return [null, 'kein Tresor gewählt'];
+            return [null, MHUB_Text::t('no vault selected')];
         }
         if (!function_exists('SEC_GetSecret')) {
-            return [null, 'das Tresor-Modul (SymconSecrets) ist nicht geladen'];
+            return [null, MHUB_Text::t('the vault module (SymconSecrets) is not loaded')];
         }
         if (!IPS_InstanceExists($id)) {
-            return [null, 'die gewählte Tresor-Instanz #' . $id . ' gibt es nicht mehr'];
+            return [null, MHUB_Text::t('the selected vault instance #%d no longer exists', $id)];
         }
         if (!$this->IsSecretsInstance($id)) {
-            return [null, 'die gewählte Instanz #' . $id . ' ist kein Tresor (SymconSecrets)'];
+            return [null, MHUB_Text::t('the selected instance #%d is not a vault (SymconSecrets)', $id)];
         }
         $record = trim($record ?? $this->ReadPropertyString('SecretsRecord'));
         if ($record === '' || $field === '') {
-            return [null, 'Eintrag oder Feldname nicht angegeben'];
+            return [null, MHUB_Text::t('entry or field name not specified')];
         }
         try {
             $raw = @SEC_GetSecret($id, $record);
         } catch (\Throwable $e) {
-            return [null, 'Tresor nicht lesbar'];
+            return [null, MHUB_Text::t('vault not readable')];
         }
         if ($raw === false || $raw === null || $raw === '') {
-            return [null, 'Eintrag „' . $record . '" im Tresor nicht gefunden'];
+            return [null, MHUB_Text::t('entry "%s" not found in the vault', $record)];
         }
         $j = json_decode((string)$raw, true);
         if (is_array($j)) {
             $v = $j[$field] ?? null;
             if (!is_string($v) && !is_numeric($v)) {
-                return [null, 'Feld „' . $field . '" fehlt im Eintrag „' . $record . '" (vorhanden: ' . implode(', ', array_map('strval', array_keys($j))) . ')'];
+                return [null, MHUB_Text::t('field "%s" is missing in entry "%s" (available: %s)', $field, $record, implode(', ', array_map('strval', array_keys($j))))];
             }
             $v = (string)$v;
-            return $v === '' ? [null, 'Feld „' . $field . '" ist leer'] : [$v, ''];
+            return $v === '' ? [null, MHUB_Text::t('field "%s" is empty', $field)] : [$v, ''];
         }
         return [(string)$raw, ''];
     }
@@ -5190,13 +5203,13 @@ class MeterHub extends IPSModule
         $stamp = date('d.m.Y H:i');
         $fail = function (string $why) use ($stamp): void {
             $this->WriteAttributeInteger('InexogyAutoReloginFails', $this->ReadAttributeInteger('InexogyAutoReloginFails') + 1);
-            $this->WriteAttributeString('InexogyAutoReloginInfo', $stamp . ' — fehlgeschlagen: ' . $why);
-            $this->LogMessage('Automatische Inexogy-Neuanmeldung fehlgeschlagen — ' . $why, KL_WARNING);
+            $this->WriteAttributeString('InexogyAutoReloginInfo', MHUB_Text::t('%s — failed: %s', $stamp, $why));
+            $this->LogMessage(MHUB_Text::t('Automatic Inexogy re-login failed — %s', $why), KL_WARNING);
             $this->UpdateFormField('SecretsStatusLine', 'caption', $this->SecretsStatusLine());
         };
         [$pass, $err] = $this->ReadSecretField(trim($this->ReadPropertyString('SecretsPassField')));
         if ($pass === null) {
-            $fail('Passwort nicht lesbar (' . $err . ')');
+            $fail(MHUB_Text::t('password not readable (%s)', $err));
             return;
         }
         $email = trim($this->ReadPropertyString('InexogyEmail'));
@@ -5205,7 +5218,7 @@ class MeterHub extends IPSModule
             $email = (string)$mail;
         }
         if ($email === '') {
-            $fail('keine E-Mail-Adresse (weder in der Instanz noch im Tresor)');
+            $fail(MHUB_Text::t('no e-mail address (neither in the instance nor in the vault)'));
             return;
         }
         $c = $this->InexogyHandshake($email, $pass, $why);
@@ -5216,8 +5229,8 @@ class MeterHub extends IPSModule
         }
         $this->StoreInexogyTokens($c);
         $this->WriteAttributeInteger('InexogyAutoReloginFails', 0);
-        $this->WriteAttributeString('InexogyAutoReloginInfo', $stamp . ' — erfolgreich neu angemeldet');
-        $this->LogMessage('Automatisch bei Inexogy neu angemeldet (Zugriffsschlüssel aus dem Tresor erneuert).', KL_MESSAGE);
+        $this->WriteAttributeString('InexogyAutoReloginInfo', MHUB_Text::t('%s — logged in again successfully', $stamp));
+        $this->LogMessage(MHUB_Text::t('Automatically logged in to Inexogy again (access token renewed from the vault).'), KL_MESSAGE);
         $this->UpdateFormField('InexogyStatusLine', 'caption', $this->InexogyStatusLine());
         $this->UpdateFormField('SecretsStatusLine', 'caption', $this->SecretsStatusLine());
     }
@@ -5232,14 +5245,14 @@ class MeterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('SecretsEnabled')) {
             return '';
         }
-        return ' Tipp: Mit einem Tresor (Community-Modul „SymconSecrets") meldet sich MeterHub künftig selbst neu an — das Passwort bleibt dabei außerhalb von MeterHub; Einrichtung unter „Automatische Neuanmeldung" weiter unten.';
+        return MHUB_Text::t(' Tip: with a vault (community module "SymconSecrets") MeterHub will log in again by itself in future — the password stays outside MeterHub; setup under "Automatic re-login" further below.');
     }
 
     /** Stand der automatischen Neuanmeldung für die 401-Zeile, wenn ein Tresor in Benutzung ist. */
     private function AutoReloginHint(): string
     {
         $info = $this->ReadAttributeString('InexogyAutoReloginInfo');
-        return ' Die automatische Neuanmeldung aus dem Tresor läuft (frühestens alle 15 Minuten)' . ($info !== '' ? ' — letzter Versuch: ' . $info : '') . '.';
+        return MHUB_Text::t(' The automatic re-login from the vault is running (no more often than every 15 minutes)') . ($info !== '' ? MHUB_Text::t(' — last attempt: %s', $info) : '') . '.';
     }
 
     /** Statuszeile zur Tresor-Anbindung (SUITE.md: je Verbindung eine live berechnete Zeile). */
@@ -5249,56 +5262,58 @@ class MeterHub extends IPSModule
         $rec = trim($record ?? $this->ReadPropertyString('SecretsRecord'));
         $fld = trim($passField ?? $this->ReadPropertyString('SecretsPassField'));
         [$id, $how, $why, $detail] = $this->ResolveSecrets($enabled, $instanceId, $rec, $fld);
-        $normal = ' — es gilt der normale Weg: bei abgelehntem Zugriffsschlüssel von Hand neu anmelden („Anmelden und Zähler abrufen").';
+        $normal = MHUB_Text::t(' — the normal way applies: if the access token is rejected, log in again by hand ("Log in and fetch meters").');
         if ($id <= 0) {
             switch ($why) {
                 case 'off':
-                    return 'ℹ️ Tresor-Nutzung abgeschaltet' . $normal;
+                    return MHUB_Text::t('ℹ️ Vault use switched off') . $normal;
                 case 'nomodule':
-                    return 'ℹ️ Kein Tresor gefunden: das Tresor-Modul „SymconSecrets" ist nicht installiert (Module Store)' . $normal . ' Es wird nur gebraucht, wenn MeterHub sich bei ungültigem Schlüssel selbst neu anmelden soll.';
+                    return MHUB_Text::t('ℹ️ No vault found: the vault module "SymconSecrets" is not installed (Module Store)') . $normal . MHUB_Text::t(' It is only needed if MeterHub is to log in again by itself when the key becomes invalid.');
                 case 'noinstance':
-                    return 'ℹ️ Kein Tresor gefunden: das Tresor-Modul „SymconSecrets" ist installiert, aber es gibt noch keine Instanz davon' . $normal . ' Zum Nutzen eine Instanz anlegen und darin ein Passwort hinterlegen — MeterHub erkennt es dann selbst.';
+                    return MHUB_Text::t('ℹ️ No vault found: the vault module "SymconSecrets" is installed, but there is no instance of it yet') . $normal . MHUB_Text::t(' To use it, create an instance and store a password in it — MeterHub then detects it by itself.');
                 case 'noentry':
-                    return 'ℹ️ Tresor vorhanden (' . $detail . '), aber ohne Eintrag „' . $rec . '" mit gefülltem Feld „' . $fld . '"' . $normal . ' Legt man den Eintrag an, erkennt MeterHub ihn selbst.';
+                    return MHUB_Text::t('ℹ️ Vault present (%s), but without entry "%s" with a filled field "%s"', $detail, $rec, $fld) . $normal . MHUB_Text::t(' If you create the entry, MeterHub detects it by itself.');
                 case 'multiple':
-                    return '⚠️ Mehrere Tresore enthalten Eintrag „' . $rec . '" mit Feld „' . $fld . '" (' . $detail . ') — MeterHub rät nicht, bitte oben den gewünschten wählen' . $normal;
+                    return MHUB_Text::t('⚠️ Several vaults contain entry "%s" with field "%s" (%s) — MeterHub does not guess, please choose the one you want above', $rec, $fld, $detail) . $normal;
             }
-            return 'ℹ️ Kein Tresor in Benutzung' . $normal;
+            return MHUB_Text::t('ℹ️ No vault in use') . $normal;
         }
         if (!function_exists('SEC_GetSecret')) {
-            return '⚠️ Tresor #' . $id . ' gewählt, aber das Tresor-Modul (SymconSecrets) ist nicht geladen — in der Modulverwaltung installieren' . $normal;
+            return MHUB_Text::t('⚠️ Vault #%d selected, but the vault module (SymconSecrets) is not loaded — install it in the module management', $id) . $normal;
         }
         if (!IPS_InstanceExists($id)) {
-            return '⚠️ Die gewählte Tresor-Instanz #' . $id . ' gibt es nicht mehr — neu wählen' . $normal;
+            return MHUB_Text::t('⚠️ The selected vault instance #%d no longer exists — choose again', $id) . $normal;
         }
         if (!$this->IsSecretsInstance($id)) {
-            return '⚠️ Die gewählte Instanz #' . $id . ' „' . IPS_GetName($id) . '" ist kein Tresor (SymconSecrets) — die Instanz des Tresor-Moduls wählen' . $normal;
+            return MHUB_Text::t('⚠️ The selected instance #%d "%s" is not a vault (SymconSecrets) — choose the instance of the vault module', $id, IPS_GetName($id)) . $normal;
         }
-        $name = '#' . $id . ' „' . IPS_GetName($id) . '"';
+        $name = MHUB_Text::t('#%d "%s"', $id, IPS_GetName($id));
         try {
             $raw = @SEC_GetSecret($id, $rec);
         } catch (\Throwable $e) {
             $raw = null;
         }
         if ($raw === false || $raw === null || $raw === '') {
-            return '⚠️ Tresor ' . $name . ': Eintrag „' . $rec . '" nicht gefunden — Name im Tresor prüfen' . $normal;
+            return MHUB_Text::t('⚠️ Vault %s: entry "%s" not found — check the name in the vault', $name, $rec) . $normal;
         }
         $j = json_decode((string)$raw, true);
         if (is_array($j)) {
             $v = $j[$fld] ?? null;
             if (!is_string($v) && !is_numeric($v)) {
-                return '⚠️ Tresor ' . $name . ': Eintrag „' . $rec . '" hat kein Feld „' . $fld . '" (vorhanden: ' . implode(', ', array_map('strval', array_keys($j))) . ')' . $normal;
+                return MHUB_Text::t('⚠️ Vault %s: entry "%s" has no field "%s" (available: %s)', $name, $rec, $fld, implode(', ', array_map('strval', array_keys($j)))) . $normal;
             }
             $len = strlen((string)$v);
         } else {
             $len = strlen((string)$raw);
         }
         if ($len === 0) {
-            return '⚠️ Tresor ' . $name . ': Feld „' . $fld . '" im Eintrag „' . $rec . '" ist leer' . $normal;
+            return MHUB_Text::t('⚠️ Vault %s: field "%s" in entry "%s" is empty', $name, $fld, $rec) . $normal;
         }
         $info = $this->ReadAttributeString('InexogyAutoReloginInfo');
-        return '✅ Tresor ' . ($how === 'automatisch' ? 'automatisch erkannt: ' : '') . $name . ': Passwort gefunden (Eintrag „' . $rec . '", Feld „' . $fld . '", ' . $len . ' Zeichen, nur die Länge wird gezeigt) — bei abgelehntem Zugriffsschlüssel meldet sich MeterHub automatisch neu an (frühestens alle 15 Minuten).'
-            . ($info !== '' ? ' Letzter Versuch: ' . $info . '.' : '');
+        return ($how === 'automatic'
+                ? MHUB_Text::t('✅ Vault detected automatically: %s: password found (entry "%s", field "%s", %d characters, only the length is shown) — if the access token is rejected, MeterHub logs in again automatically (no more often than every 15 minutes).', $name, $rec, $fld, $len)
+                : MHUB_Text::t('✅ Vault %s: password found (entry "%s", field "%s", %d characters, only the length is shown) — if the access token is rejected, MeterHub logs in again automatically (no more often than every 15 minutes).', $name, $rec, $fld, $len))
+            . ($info !== '' ? MHUB_Text::t(' Last attempt: %s.', $info) : '');
     }
 
     /** Wird beim Ändern der Tresor-Felder im offenen Formular aufgerufen — die Zeile folgt der Eingabe, nicht dem Speicherstand. */
@@ -5323,20 +5338,20 @@ class MeterHub extends IPSModule
         $why = null;
         $c = $this->NewInexogyClient();
         if (!$c->registerConsumer('IP-Symcon MeterHub ' . $this->InstanceID)) {
-            $why = 'Anmeldung fehlgeschlagen bei der Registrierung (Schritt 1/4). Ist die Inexogy-API erreichbar? (' . $c->getLastError() . ')';
+            $why = MHUB_Text::t('Login failed during registration (step 1/4). Is the Inexogy API reachable? (%s)', $c->getLastError());
             return null;
         }
         if (!$c->fetchRequestToken()) {
-            $why = 'Anmeldung fehlgeschlagen beim Anforderungs-Token (Schritt 2/4). (' . $c->getLastError() . ')';
+            $why = MHUB_Text::t('Login failed while requesting the request token (step 2/4). (%s)', $c->getLastError());
             return null;
         }
         $verifier = $c->authorize($email, $pass);
         if ($verifier === '') {
-            $why = 'Anmeldung fehlgeschlagen bei der Autorisierung (Schritt 3/4). E-Mail oder Passwort falsch? (' . $c->getLastError() . ')';
+            $why = MHUB_Text::t('Login failed during authorization (step 3/4). Wrong e-mail or password? (%s)', $c->getLastError());
             return null;
         }
         if (!$c->fetchAccessToken($verifier)) {
-            $why = 'Anmeldung fehlgeschlagen beim Zugriffs-Token (Schritt 4/4). (' . $c->getLastError() . ')';
+            $why = MHUB_Text::t('Login failed while requesting the access token (step 4/4). (%s)', $c->getLastError());
             return null;
         }
         return $c;
@@ -5356,23 +5371,23 @@ class MeterHub extends IPSModule
     private function InexogyStatusLine(): string
     {
         if ($this->ReadAttributeString('InexogyToken') === '') {
-            return '⛔ Noch nicht angemeldet — E-Mail und Passwort des Inexogy-Kontos eintragen und „Anmelden und Zähler abrufen" klicken. Ohne Anmeldung liest diese Instanz nichts.';
+            return MHUB_Text::t('⛔ Not logged in yet — enter the e-mail and password of the Inexogy account and click "Log in and fetch meters". Without a login this instance reads nothing.');
         }
         $uid = $this->ReadPropertyString('InexogyMeterID');
         if ($uid === '') {
-            return '⚠️ Bei Inexogy angemeldet (Zugriffsschlüssel gespeichert), aber noch keine Zähler-UID gewählt — Zähler unten auswählen und übernehmen.';
+            return MHUB_Text::t('⚠️ Logged in to Inexogy (access token stored), but no meter UID selected yet — select a meter below and apply.');
         }
         if ($this->ReadAttributeBoolean('InexogyAuthRejected')) {
-            return '⚠️ Inexogy lehnt den gespeicherten Zugriffsschlüssel ab (HTTP 401) — laut Inexogy-Dokumentation kann er ungültig werden, dann muss die Anmeldung wiederholt werden. E-Mail und Passwort unten eintragen, „Änderungen übernehmen", dann „Anmelden und Zähler abrufen". Bis dahin liest diese Instanz nichts (Zähler-UID ' . $uid . ' bleibt gespeichert).' . ($this->SecretsConfigured() ? $this->AutoReloginHint() : $this->SecretsTip());
+            return MHUB_Text::t('⚠️ Inexogy rejects the stored access token (HTTP 401) — according to the Inexogy documentation it can become invalid, and the login must then be repeated. Enter e-mail and password below, "Apply changes", then "Log in and fetch meters". Until then this instance reads nothing (meter UID %s stays stored).', $uid) . ($this->SecretsConfigured() ? $this->AutoReloginHint() : $this->SecretsTip());
         }
         $inst = function_exists('IPS_GetInstance') ? @IPS_GetInstance($this->InstanceID) : [];
         $status = (int)($inst['InstanceStatus'] ?? 0);
         $tail = $status === 201
-            ? ' Die letzte Abfrage ist fehlgeschlagen — Zugang, Zähler-UID und Internetverbindung prüfen.'
-            : ($status === 102 ? ' Die letzte Abfrage war erfolgreich.' : ' Noch keine Abfrage ausgewertet.');
+            ? MHUB_Text::t(' The last query failed — check access, meter UID and internet connection.')
+            : ($status === 102 ? MHUB_Text::t(' The last query was successful.') : MHUB_Text::t(' No query evaluated yet.'));
         $pid = $this->FindVarByIdent('power_total');
-        $value = $pid ? ' Aktuelle Leistung: ' . round((float)GetValue($pid)) . ' W (Quelle: Inexogy-Zähler ' . $uid . ').' : '';
-        return ($status === 201 ? '⚠️' : '✅') . ' Bei Inexogy angemeldet (Zugriffsschlüssel gespeichert), Zähler-UID ' . $uid . ' (Quelle: Auswahl unten).' . $value . $tail;
+        $value = $pid ? MHUB_Text::t(' Current power: %d W (source: Inexogy meter %s).', round((float)GetValue($pid)), $uid) : '';
+        return ($status === 201 ? '⚠️' : '✅') . MHUB_Text::t(' Logged in to Inexogy (access token stored), meter UID %s (source: selection below).', $uid) . $value . $tail;
     }
 
     /** Archiv (Archive Control): findet MeterHub eines, und was gilt sonst? */
@@ -5380,11 +5395,11 @@ class MeterHub extends IPSModule
     {
         $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (!$acs) {
-            return 'ℹ️ Kein Archiv (Archive Control) gefunden — die Werte dieser Instanz werden nicht aufgezeichnet, die Verdichtung unten entfällt. Archiv-Instanz anlegen, dann „Übernehmen".';
+            return MHUB_Text::t('ℹ️ No archive (Archive Control) found — the values of this instance are not recorded, the compaction below does not apply. Create an archive instance, then "Apply".');
         }
         $ac = (int)$acs[0];
-        $more = count($acs) > 1 ? ' (verwendet wird das erste von ' . count($acs) . ' Archiven)' : '';
-        return ($more !== '' ? '⚠️' : '✅') . ' Archiv #' . $ac . ' „' . IPS_GetName($ac) . '" gefunden' . $more . ' — Leistungs- und Energiewerte dieser Instanz werden dort aufgezeichnet und nach den Einstellungen unten verdichtet.';
+        $more = count($acs) > 1 ? MHUB_Text::t(' (the first of %d archives is used)', count($acs)) : '';
+        return ($more !== '' ? '⚠️' : '✅') . MHUB_Text::t(' Archive #%d "%s" found%s — power and energy values of this instance are recorded there and compacted according to the settings below.', $ac, IPS_GetName($ac), $more);
     }
 
     /** Grund des letzten Fehlschlags über die Brücke (no_bridge/not_connected/parent_inactive/no_response), für die Statustexte. */
@@ -5423,13 +5438,13 @@ class MeterHub extends IPSModule
     {
         switch ($this->lastBridgeError) {
             case 'no_bridge':
-                return 'Keine Brücke gewählt oder die gewählte Instanz gibt es nicht mehr — unter „Verbindung" die MeterHub-Brücke auswählen.';
+                return MHUB_Text::t('No bridge selected or the selected instance no longer exists — select the MeterHub bridge under "Connection".');
             case 'not_connected':
-                return 'Die gewählte Brücke ist mit keinem Modbus-Gateway verbunden — an der Brücke über „Gateway ändern" das passende Gateway wählen.';
+                return MHUB_Text::t('The selected bridge is not connected to any ModBus gateway — choose the matching gateway on the bridge via "Change gateway".');
             case 'parent_inactive':
-                return 'Das Gateway der Brücke ist nicht aktiv — dessen Verbindung zum Gerät prüfen.';
+                return MHUB_Text::t('The bridge\'s gateway is not active — check its connection to the device.');
             default:
-                return 'Das Gateway antwortet nicht — stimmt die Unit-ID (Property „DeviceID" am Gateway) mit der Adresse des Geräts überein?';
+                return MHUB_Text::t('The gateway does not answer — does the unit ID (property "DeviceID" at the gateway) match the device\'s address?');
         }
     }
 
@@ -5534,7 +5549,7 @@ class MeterHub extends IPSModule
             $email = (string)$vm;
         }
         if ($email === '' || $pass === '') {
-            $say('❌ Bitte zuerst E-Mail und Passwort eintragen und übernehmen, dann anmelden — oder ein Passwort im Tresor hinterlegen und den Tresor unten wählen.');
+            $say(MHUB_Text::t('❌ Please enter e-mail and password first and apply, then log in — or store a password in the vault and select the vault below.'));
             return;
         }
 
@@ -5553,9 +5568,9 @@ class MeterHub extends IPSModule
         $meters = $c->getMeters();
         $opts = [];
         if (!$meters) {
-            $say('✅ Angemeldet, Tokens gespeichert, Passwort verworfen. Es wurden aber keine Zähler gefunden.');
+            $say(MHUB_Text::t('✅ Logged in, tokens stored, password discarded. However, no meters were found.'));
         } else {
-            $lines = ['✅ Angemeldet, Tokens gespeichert, Passwort verworfen. Gefundene Zähler:'];
+            $lines = [MHUB_Text::t('✅ Logged in, tokens stored, password discarded. Meters found:')];
             foreach ($meters as $m) {
                 $uid  = (string)($m['meterId'] ?? '');
                 $sn   = (string)($m['serialNumber'] ?? ($m['fullSerialNumber'] ?? ''));
@@ -5564,7 +5579,7 @@ class MeterHub extends IPSModule
                 $lines[] = '   • ' . ($sn !== '' ? $sn : $uid) . ($type !== '' ? " ($type)" : '');
                 $opts[]  = ['caption' => ($sn !== '' ? $sn : $uid) . ($type !== '' ? " — $type" : ''), 'value' => $uid];
             }
-            $lines[] = 'Bitte unten die Zähler-UID wählen und übernehmen.';
+            $lines[] = MHUB_Text::t('Please select the meter UID below and apply.');
             $this->WriteAttributeString('InexogyMeterOptions', (string)json_encode($opts));
             $this->UpdateFormField('InexogyMeterID', 'options', json_encode($opts));
             $say(implode("\n", $lines));
@@ -5593,7 +5608,7 @@ class MeterHub extends IPSModule
     public function DiagnoseInexogyReadings()
     {
         if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
-            trigger_error('DiagnoseInexogyReadings: keine Inexogy-Instanz.', E_USER_WARNING);
+            trigger_error(MHUB_Text::t('DiagnoseInexogyReadings: no Inexogy instance.'), E_USER_WARNING);
             return;
         }
         $c = $this->GetTransport();
@@ -5744,7 +5759,7 @@ class MeterHub extends IPSModule
         $capFrom = $now - $capDays * 86400;
         $from    = max($capFrom, $watermark - 1800);
         if ($from >= $now) {
-            return [0, 0, 'ℹ️ Archiv bereits auf dem neuesten Stand.'];
+            return [0, 0, MHUB_Text::t('ℹ️ Archive is already up to date.')];
         }
         return [$from, $now, null];
     }
@@ -5768,7 +5783,7 @@ class MeterHub extends IPSModule
     {
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) === 0) {
-            return [0, '❌ Kein Archiv-Modul (Archive Control) auf dieser Installation gefunden.'];
+            return [0, MHUB_Text::t('❌ No archive module (Archive Control) found on this installation.')];
         }
         $archiveID = $archiveIDs[0];
         $now       = time();
@@ -5786,7 +5801,7 @@ class MeterHub extends IPSModule
             }
         }
         if ($watermark === null) {
-            return [0, '❌ Keine Zielvariable (energy_import/energy_export/power_total) vorhanden.'];
+            return [0, MHUB_Text::t('❌ No target variable (energy_import/energy_export/power_total) present.')];
         }
         return [$watermark, null];
     }
@@ -5810,7 +5825,7 @@ class MeterHub extends IPSModule
         $this->UpdateFormField(
             'InexogyArchiveStatus',
             'caption',
-            '📊 Archiv-Lastgang vollständig bis ' . date('d.m.Y H:i', $watermark) . " Uhr (vor $ageMin Min.)."
+            MHUB_Text::t('📊 Archive load profile complete up to %s (%d min ago).', date('d.m.Y H:i', $watermark), $ageMin)
         );
         $this->UpdateFormField('InexogyArchiveStatus', 'visible', true);
     }
@@ -5831,11 +5846,11 @@ class MeterHub extends IPSModule
     private function DoBackfillInexogyArchive(int $fromOverall, int $toOverall): string
     {
         if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
-            return '❌ Keine Inexogy-Instanz.';
+            return MHUB_Text::t('❌ No Inexogy instance.');
         }
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) === 0) {
-            return '❌ Kein Archiv-Modul (Archive Control) auf dieser Installation gefunden.';
+            return MHUB_Text::t('❌ No archive module (Archive Control) found on this installation.');
         }
         $archiveID = $archiveIDs[0];
 
@@ -5855,7 +5870,7 @@ class MeterHub extends IPSModule
             }
         }
         if (count($vids) === 0) {
-            return '❌ Keine Zielvariable (energy_import/energy_export/power_total) vorhanden.';
+            return MHUB_Text::t('❌ No target variable (energy_import/energy_export/power_total) present.');
         }
         // Nur in Variablen nachtragen, die der Benutzer archiviert (Store-Checkliste 19: MeterHub schaltet die Archivierung
         // nie von selbst ein) — sonst gäbe es nichts, wohin der Nachtrag schreiben könnte.
@@ -5867,7 +5882,7 @@ class MeterHub extends IPSModule
             }
         }
         if (count($vids) === 0) {
-            return '❌ Die Zielvariablen werden noch nicht archiviert. Bitte oben im Formular „Archivierung für diese Variablen einschalten“ klicken und den Nachtrag danach erneut starten.';
+            return MHUB_Text::t('❌ The target variables are not archived yet. Please click "Enable archiving for these variables" at the top of the form and then start the backfill again.');
         }
 
         $chunkDays  = self::INEXOGY_BACKFILL_CHUNK_DAYS;
@@ -5890,7 +5905,7 @@ class MeterHub extends IPSModule
                 if ($rejectedAuth) {
                     $this->NoteInexogyAuth(true);
                 }
-                $emptyChunks[] = date('d.m.Y', $chunkFrom) . '–' . date('d.m.Y', $chunkTo) . ' (' . $c->getLastError() . ($rejectedAuth ? ' — Zugriffsschlüssel abgelehnt, bitte unter „Cloud-Zugang" neu anmelden' : '') . ')';
+                $emptyChunks[] = date('d.m.Y', $chunkFrom) . '–' . date('d.m.Y', $chunkTo) . ' (' . $c->getLastError() . ($rejectedAuth ? MHUB_Text::t(' — access token rejected, please log in again under "Cloud access"') : '') . ')';
                 $chunkFrom = $chunkTo;
                 continue;
             }
@@ -5985,23 +6000,22 @@ class MeterHub extends IPSModule
         $range = $spanH < 48
             ? date('d.m.Y H:i', $fromOverall) . ' – ' . date('d.m.Y H:i', $toOverall) . " ({$spanH} h)"
             : date('d.m.Y', $fromOverall) . ' – ' . date('d.m.Y', $toOverall);
-        $out = ["Zeitraum: $range, in {$chunkDays}-Tage-Blöcken verarbeitet"];
+        $out = [MHUB_Text::t('Period: %s, processed in blocks of %d days', $range, $chunkDays)];
         if ($cleaned > 0) {
-            $out[] = '🧹 ' . $cleaned . ' Live-Zwischenwert(e) entfernt, die jetzt von offiziellen Viertelstundenwerten abgedeckt sind.';
+            $out[] = MHUB_Text::t('🧹 %d live intermediate value(s) removed that are now covered by official quarter-hour values.', $cleaned);
         }
         if ($rejected > 0) {
-            $out[] = '⚠️ ' . $rejected . ' Datensatz/-sätze von Inexogy verworfen (Zählerstand 0 oder rückwärts — Inexogy füllt Übertragungslücken mit 0). Die Lücke bleibt offen; „Energie-Archiv prüfen" kann sie auffüllen.';
+            $out[] = MHUB_Text::t('⚠️ %d record(s) from Inexogy discarded (meter reading 0 or backwards — Inexogy fills transmission gaps with 0). The gap stays open; "Check / repair energy archive" can fill it.', $rejected);
         }
         foreach ($fields as $field => $t) {
             if (!isset($vids[$field])) {
-                $out[] = $t['ident'] . ': Variable nicht vorhanden, übersprungen.';
+                $out[] = MHUB_Text::t('%s: variable not present, skipped.', $t['ident']);
                 continue;
             }
-            $out[] = $t['ident'] . ' (#' . $vids[$field] . '): ' . $totals[$field]['new'] . ' neue Werte nachgetragen (' .
-                $totals[$field]['existing'] . ' schon vorhanden, übersprungen)';
+            $out[] = MHUB_Text::t('%s (#%d): %d new values backfilled (%d already present, skipped)', $t['ident'], $vids[$field], $totals[$field]['new'], $totals[$field]['existing']);
         }
         if ($emptyChunks) {
-            $out[] = 'Ohne Daten von Inexogy: ' . implode('; ', $emptyChunks);
+            $out[] = MHUB_Text::t('Without data from Inexogy: %s', implode('; ', $emptyChunks));
         }
         return implode("\n", $out);
     }
@@ -6041,6 +6055,7 @@ class MeterHub extends IPSModule
                 return;
             }
             [$name, $icon] = self::FUNCTIONS[$key];
+            $name = MHUB_Text::t($name);   // Funktionsname aus der Konstante, übersetzt an der Verwendung
             $custom = trim($custom);
             if ($custom !== '') {
                 $label = $custom;
@@ -6107,9 +6122,9 @@ class MeterHub extends IPSModule
         $defs = [];
         foreach ($this->FunctionAssignments() as $a) {
             $slug = preg_replace('/[^a-z0-9]+/', '_', strtolower($a['key']));
-            $defs[] = ['fn_' . $slug . '_power',  $a['label'] . ' — Leistung',       'F', 'NRG.Watt',   true, 'function', $a['icon'], $a['power']];
-            $defs[] = ['fn_' . $slug . '_import', $a['label'] . ' — Bezug',          'F', 'NRG.kWh', true, 'function', $a['icon'], $a['import']];
-            $defs[] = ['fn_' . $slug . '_export', $a['label'] . ' — Einspeisung',    'F', 'NRG.kWh', true, 'function', $a['icon'], $a['export']];
+            $defs[] = ['fn_' . $slug . '_power',  MHUB_Text::t('%s — Power', $a['label']),       'F', 'NRG.Watt',   true, 'function', $a['icon'], $a['power']];
+            $defs[] = ['fn_' . $slug . '_import', MHUB_Text::t('%s — Import', $a['label']),          'F', 'NRG.kWh', true, 'function', $a['icon'], $a['import']];
+            $defs[] = ['fn_' . $slug . '_export', MHUB_Text::t('%s — Feed-in', $a['label']),    'F', 'NRG.kWh', true, 'function', $a['icon'], $a['export']];
         }
         return $defs;
     }
@@ -6199,7 +6214,7 @@ class MeterHub extends IPSModule
             $this->WriteAttributeString('CounterGuard', (string)json_encode($state));
         }
         if ($why === 'reset') {
-            $this->LogMessage(IPS_GetName($vid) . ': Zählerstand dauerhaft niedriger (' . $current . ' → ' . $new . ') — als Zählertausch übernommen.', KL_WARNING);
+            $this->LogMessage(MHUB_Text::t('%s: meter reading permanently lower (%s → %s) — accepted as a meter replacement.', IPS_GetName($vid), $current, $new), KL_WARNING);
         } elseif (!$ok) {
             $this->SendDebug('Zählerschutz', IPS_GetName($vid) . ': ' . ($why === 'null' ? 'Wert 0/ungültig' : 'rückwärts') . " verworfen ($new, Stand $current)", 0);
         }
@@ -6358,7 +6373,7 @@ class MeterHub extends IPSModule
     {
         $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($acs) === 0) {
-            return '❌ Kein Archiv-Modul (Archive Control) gefunden.';
+            return MHUB_Text::t('❌ No archive module (Archive Control) found.');
         }
         $ac = $acs[0];
         // Höchstens 45 Tage: bei Minutenwerten ~65 000 Punkte je Reihe, sicher
@@ -6367,14 +6382,14 @@ class MeterHub extends IPSModule
         $to = time();
         $from = $to - $days * 86400;
         $energy = [];
-        foreach (['energy_import' => 'Bezug', 'energy_export' => 'Einspeisung'] as $ident => $label) {
+        foreach (['energy_import' => MHUB_Text::t('Import'), 'energy_export' => MHUB_Text::t('Feed-in')] as $ident => $label) {
             $vid = $this->FindVarByIdent($ident);
             if ($vid && AC_GetLoggingStatus($ac, $vid)) {
                 $energy[$ident] = [$vid, $label];
             }
         }
         if (!$energy) {
-            return 'ℹ️ Keine archivierten Energiezähler (Bezug/Einspeisung) an dieser Instanz.';
+            return MHUB_Text::t('ℹ️ No archived energy meters (import/feed-in) on this instance.');
         }
         $refCands = [];
         if ($refId > 0 && $refId !== $this->InstanceID && IPS_InstanceExists($refId)) {
@@ -6386,7 +6401,7 @@ class MeterHub extends IPSModule
             }
         }
         $fmt = fn($t) => date('d.m.Y H:i', $t);
-        $lines = [$apply ? '✅ Energie-Archiv repariert (' . $days . ' Tage):' : '🔎 Probelauf, nichts geändert (' . $days . ' Tage):'];
+        $lines = [$apply ? MHUB_Text::t('✅ Energy archive repaired (%d days):', $days) : MHUB_Text::t('🔎 Dry run, nothing changed (%d days):', $days)];
         $plan = [];
         $repaired = [];
         $zeroSpans = [];
@@ -6407,14 +6422,16 @@ class MeterHub extends IPSModule
             $notes = [];
             foreach ($spans as $s) {
                 $n = count($s['bad']);
-                $range = $fmt($s['bad'][0]) . ($n > 1 ? ' – ' . $fmt(end($s['bad'])) : '') . " ($n Punkt" . ($n > 1 ? 'e' : '') . ')';
+                $range = $fmt($s['bad'][0]) . ($n > 1 ? ' – ' . $fmt(end($s['bad'])) : '') . ' (' . ($n > 1 ? MHUB_Text::t('%d points', $n) : MHUB_Text::t('%d point', $n)) . ')';
                 if ($s['zero']) {
                     $nZero += $n;
                 } else {
                     $nBack += $n;
                 }
                 if ($s['before'] === null || $s['after'] === null) {
-                    $notes[] = "   • $range: ohne gültigen Stand " . ($s['before'] === null ? 'davor' : 'danach') . ' — nicht repariert (evtl. Zählertausch).';
+                    $notes[] = $s['before'] === null
+                        ? MHUB_Text::t('   • %s: no valid reading before it — not repaired (possibly a meter replacement).', $range)
+                        : MHUB_Text::t('   • %s: no valid reading after it — not repaired (possibly a meter replacement).', $range);
                     continue;
                 }
                 if (!$s['zero'] && !$withBackward) {
@@ -6422,18 +6439,18 @@ class MeterHub extends IPSModule
                     continue;
                 }
                 if (!$s['zero'] && $n > 3) {
-                    $notes[] = "   • $range: längere Rückschritt-Folge ohne Nullwerte — unklar, welcher Wert der Ausreißer ist, nicht repariert.";
+                    $notes[] = MHUB_Text::t('   • %s: longer series of steps backwards without zero values — unclear which value is the outlier, not repaired.', $range);
                     continue;
                 }
                 $refPts = null;
-                $how = 'gleichmäßig verteilt';
+                $how = MHUB_Text::t('evenly distributed');
                 if ($s['zero'] && $refCands) {
                     [$rv, $ratio] = $this->PickReference($ac, $refCands, $pts, $s['before'][0]);
                     if ($rv) {
                         $refPts = $this->LoadArchivePoints($ac, $rv, $s['before'][0] - 3600, $s['after'][0] + 3600);
-                        $how = 'verteilt nach #' . $rv . ' ' . IPS_GetName($rv) . ' (Übereinstimmung der 24 h davor: ' . round($ratio * 100) . ' %)';
+                        $how = MHUB_Text::t('distributed following #%d %s (agreement of the 24 h before: %d %%)', $rv, IPS_GetName($rv), round($ratio * 100));
                     } else {
-                        $how = 'gleichmäßig verteilt (Referenz passt nicht eindeutig)';
+                        $how = MHUB_Text::t('evenly distributed (reference does not fit clearly)');
                     }
                 }
                 foreach (self::ShapeFill($s['before'], $s['after'], $s['bad'], $refPts) as $p) {
@@ -6443,16 +6460,16 @@ class MeterHub extends IPSModule
                     $del[] = $ts;
                 }
                 if ($s['zero']) {
-                    $notes[] = "   • $range: " . number_format($s['after'][1] - $s['before'][1], 3, ',', '.') . " kWh, $how.";
+                    $notes[] = MHUB_Text::t('   • %s: %s kWh, %s.', $range, number_format($s['after'][1] - $s['before'][1], 3, ',', '.'), $how);
                     if ($ident === 'energy_import') {
                         $zeroSpans[] = [$s['before'][0], $s['after'][0], array_merge($s['bad'], [$s['after'][0]])];
                     }
                 } elseif ($n <= 3 && count($notes) < 12) {
-                    $notes[] = "   • $range: Rückschritt, interpoliert.";
+                    $notes[] = MHUB_Text::t('   • %s: step backwards, interpolated.', $range);
                 }
             }
-            $lines[] = "$label (#$vid): $nZero Nullwert(e), $nBack Rückschritt(e)" . ($spans ? '' : ' — in Ordnung.')
-                . ($skipBack > 0 ? ' — davon ' . $skipBack . ' Rückschritt(e) bewusst nicht angefasst (Schalter „Rückschritte mitreparieren“ aus).' : '');
+            $lines[] = MHUB_Text::t('%s (#%d): %d zero value(s), %d step(s) backwards', $label, $vid, $nZero, $nBack) . ($spans ? '' : MHUB_Text::t(' — all fine.'))
+                . ($skipBack > 0 ? MHUB_Text::t(' — of which %d step(s) backwards deliberately left alone (switch "Also repair individual steps backwards" is off).', $skipBack) : '');
             $lines = array_merge($lines, $notes);
             $plan[$ident] = [$vid, $del, $add];
             // Reparierte Reihe nur rund um Nullwert-Lücken behalten (dafür
@@ -6515,12 +6532,12 @@ class MeterHub extends IPSModule
             }
             $nOld = array_sum(array_column($powerPlan, 3));
             $nNew = array_sum(array_map(fn($p) => count($p[2]), $powerPlan));
-            $lines[] = "Leistung (#$pvid): $nOld Wert(e) in den Nullwert-Lücken, ersetzt durch $nNew aus der aufgefüllten Energie berechnete.";
+            $lines[] = MHUB_Text::t('Power (#%d): %d value(s) in the zero-value gaps, replaced by %d calculated from the filled-in energy.', $pvid, $nOld, $nNew);
         }
 
         if (!$apply) {
             $total = array_sum(array_map(fn($p) => count($p[1]), $plan));
-            $lines[] = $total > 0 ? '→ „Reparieren" führt genau das aus.' : '→ Nichts zu reparieren.';
+            $lines[] = $total > 0 ? MHUB_Text::t('→ "Repair" does exactly this.') : MHUB_Text::t('→ Nothing to repair.');
             return implode("\n", $lines);
         }
         foreach ($plan as $ident => [$vid, $del, $add]) {
@@ -6543,7 +6560,7 @@ class MeterHub extends IPSModule
             }
             $this->ReAggregate($ac, $pvid);
         }
-        $this->LogMessage('Energie-Archiv repariert — ' . str_replace("\n", ' | ', implode("\n", $lines)), KL_MESSAGE);
+        $this->LogMessage(MHUB_Text::t('Energy archive repaired — %s', str_replace("\n", ' | ', implode("\n", $lines))), KL_MESSAGE);
         return implode("\n", $lines);
     }
 
@@ -6665,8 +6682,9 @@ class MeterHub extends IPSModule
             $done[] = '#' . $imp . ' ↔ #' . $exp;
         }
         if ($done) {
-            $this->LogMessage('„Bezug/Einspeisung vertauscht" ' . ($want === 'on' ? 'eingeschaltet' : 'ausgeschaltet')
-                . ' — die Energiezähler-Variablen haben ihre Rolle getauscht (' . implode(', ', $done) . '). Jede zählt ohne Sprung weiter, die Bezeichnungen passen zur neuen Richtung. Skripte mit fest eingetragenen Variablen-IDs bitte prüfen.', KL_MESSAGE);
+            $this->LogMessage($want === 'on'
+                ? MHUB_Text::t('"Import/feed-in swapped" switched on — the energy meter variables have swapped their role (%s). Each keeps counting without a jump, the labels match the new direction. Please check scripts with hard-coded variable IDs.', implode(', ', $done))
+                : MHUB_Text::t('"Import/feed-in swapped" switched off — the energy meter variables have swapped their role (%s). Each keeps counting without a jump, the labels match the new direction. Please check scripts with hard-coded variable IDs.', implode(', ', $done)), KL_MESSAGE);
         }
     }
 
@@ -6696,7 +6714,7 @@ class MeterHub extends IPSModule
     {
         $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($acs) === 0) {
-            return '❌ Kein Archiv-Modul (Archive Control) gefunden.';
+            return MHUB_Text::t('❌ No archive module (Archive Control) found.');
         }
         $ac = $acs[0];
         $days = max(1, min(120, $days));
@@ -6706,7 +6724,7 @@ class MeterHub extends IPSModule
         $to = intdiv(time() - 600, 900) * 900;
         $from = $to - $days * 86400;
         $fmt = fn($t) => date('d.m.Y H:i', $t);
-        $lines = [$apply ? '✅ Richtung im Archiv korrigiert (' . $days . ' Tage):' : '🔎 Probelauf, nichts geändert (' . $days . ' Tage):'];
+        $lines = [$apply ? MHUB_Text::t('✅ Direction in the archive corrected (%d days):', $days) : MHUB_Text::t('🔎 Dry run, nothing changed (%d days):', $days)];
         $energyMoved = 0;
         $todo = false;
         $changed = false;
@@ -6717,26 +6735,26 @@ class MeterHub extends IPSModule
             $head = IPS_GetName($a) . ' (#' . $a . ') / ' . IPS_GetName($b) . ' (#' . $b . ')';
             $dry = $this->RetrackPair($ac, $a, $b, $from, $to, false);
             if ($dry['moved'] === 0) {
-                $lines[] = $head . ': durchgehend, nichts vertauscht.';
+                $lines[] = MHUB_Text::t('%s: continuous, nothing swapped.', $head);
                 continue;
             }
             $lines[] = $head . ':';
             foreach (self::CrossWindows($dry['toggles'], $to) as [$wa, $wb, $open]) {
-                $lines[] = '   • vertauscht ' . $fmt($wa) . ' – ' . ($open ? 'heute' : $fmt($wb));
+                $lines[] = $open ? MHUB_Text::t('   • swapped %s – today', $fmt($wa)) : MHUB_Text::t('   • swapped %s – %s', $fmt($wa), $fmt($wb));
             }
             // Auch ein unklares Paar hält den Leistungsabgleich an — der
             // braucht Zählerstände ohne Kreuzsprünge.
             $energyMoved += $dry['moved'];
             if ($dry['on'][0] === $dry['on'][1]) {
-                $lines[] = '   ⚠️ Nur eine der beiden Variablen hat die Seite gewechselt — unklar, wird nicht korrigiert.';
+                $lines[] = MHUB_Text::t('   ⚠️ Only one of the two variables changed sides — unclear, not corrected.');
                 continue;
             }
             $swapEnd = $dry['on'][0] === 1;
             if (!$apply) {
                 $todo = true;
-                $lines[] = '   • ' . number_format($dry['moved'], 0, ',', '.') . ' Werte würden zwischen den beiden Variablen getauscht.';
+                $lines[] = MHUB_Text::t('   • %s values would be swapped between the two variables.', number_format($dry['moved'], 0, ',', '.'));
                 if ($swapEnd) {
-                    $lines[] = '   • Der Abschnitt reicht bis heute — zusätzlich tauschen die beiden Variablen ihre Rolle (Name/Ident), damit beide ohne Sprung weiterzählen. Wurde der Schalter zuletzt NICHT umgestellt, liegt der Anfang vermutlich vor dem Prüfzeitraum: Zeitraum vergrößern und erneut prüfen.';
+                    $lines[] = MHUB_Text::t('   • The section extends to today — in addition the two variables swap their role (name/ident) so that both keep counting without a jump. If the switch was NOT changed last, the start is probably before the checked period: enlarge the period and check again.');
                 }
                 continue;
             }
@@ -6744,7 +6762,7 @@ class MeterHub extends IPSModule
             foreach ([$a, $b] as $vid) {
                 $f = $this->BackupSeries($ac, $vid, $from, time(), 'energie');
                 if ($f === null) {
-                    $lines[] = '   ❌ Sicherung fehlgeschlagen — nichts geändert.';
+                    $lines[] = MHUB_Text::t('   ❌ Backup failed — nothing changed.');
                     continue 2;
                 }
                 $files[] = $f;
@@ -6762,51 +6780,55 @@ class MeterHub extends IPSModule
             }
             $res = $this->RetrackPair($ac, $a, $b, $from, $end, true);
             if ($res['error'] !== null) {
-                $lines[] = '   ❌ ' . $res['error'] . ' Sicherung: ' . implode(', ', $files);
+                $lines[] = MHUB_Text::t('   ❌ %s Backup: %s', $res['error'], implode(', ', $files));
                 continue;
             }
             $this->ReAggregate($ac, $a);
             $this->ReAggregate($ac, $b);
             $changed = true;
-            $lines[] = '   • ' . number_format($res['moved'], 0, ',', '.') . ' Werte zwischen den beiden Variablen getauscht' . ($swapEnd ? ', Rolle (Name/Ident) getauscht' : '') . '.';
-            $lines[] = '   • Sicherung im Symcon-Verzeichnis: ' . implode(', ', $files);
+            $lines[] = $swapEnd
+                ? MHUB_Text::t('   • %s values swapped between the two variables, role (name/ident) swapped.', number_format($res['moved'], 0, ',', '.'))
+                : MHUB_Text::t('   • %s values swapped between the two variables.', number_format($res['moved'], 0, ',', '.'));
+            $lines[] = MHUB_Text::t('   • Backup in the Symcon directory: %s', implode(', ', $files));
         }
 
         $pvid = $this->FindVarByIdent('power_total');
         $ivid = $this->FindVarByIdent('energy_import');
         $evid = $this->FindVarByIdent('energy_export');
         if (!$pvid || !$ivid || !$evid || !AC_GetLoggingStatus($ac, $pvid) || !AC_GetLoggingStatus($ac, $ivid) || !AC_GetLoggingStatus($ac, $evid)) {
-            $lines[] = 'Leistung: kein Abgleich möglich (braucht die archivierte Gesamtleistung und beide Energiezähler).';
+            $lines[] = MHUB_Text::t('Power: no comparison possible (needs the archived total power and both energy meters).');
         } elseif (in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
             // Live an Dietmars Inexogy (12.09.2026): 14 „Abschnitte" aus je
             // 2–5 Werten, alles Zeitversatz zwischen Leistung und Zählerstand.
-            $lines[] = 'Leistung (#' . $pvid . '): kein Abgleich — bei Cloud-Zählern kommen Leistung und Zählerstände zeitversetzt an, eine Richtung je Viertelstunde ist daraus nicht verlässlich.';
+            $lines[] = MHUB_Text::t('Power (#%d): no comparison — with cloud meters, power and meter readings arrive with a time offset, so a direction per quarter hour is not reliable.', $pvid);
         } elseif ($energyMoved > 0) {
-            $lines[] = 'Leistung (#' . $pvid . '): wird abgeglichen, sobald die Energie stimmt — ' . ($apply ? 'bitte jetzt noch einmal „Prüfen" drücken.' : 'erst „Korrigieren", dann erneut „Prüfen".');
+            $lines[] = $apply
+                ? MHUB_Text::t('Power (#%d): will be compared as soon as the energy is right — please press "Check" once more now.', $pvid)
+                : MHUB_Text::t('Power (#%d): will be compared as soon as the energy is right — first "Correct", then "Check" again.', $pvid);
         } else {
             $pw = $this->PowerMismatch($ac, $pvid, $ivid, $evid, $from, $to);
             if (!$pw['windows']) {
-                $lines[] = 'Leistung (#' . $pvid . '): passt durchgehend zur Richtung der Energiezähler (' . $pw['judged'] . ' auswertbare Viertelstunden).';
+                $lines[] = MHUB_Text::t('Power (#%d): fits the direction of the energy meters throughout (%d evaluable quarter hours).', $pvid, $pw['judged']);
             } else {
-                $lines[] = 'Leistung (#' . $pvid . '): gegenläufig zur Energie —';
+                $lines[] = MHUB_Text::t('Power (#%d): opposite to the energy —', $pvid);
                 foreach ($pw['windows'] as $k => [$wa, $wb, $n, $open]) {
-                    $line = '   • ' . $fmt($wa) . ' – ' . ($open ? 'heute' : $fmt($wb)) . ' (' . number_format($n, 0, ',', '.') . ' Werte)';
+                    $line = '   • ' . $fmt($wa) . ' – ' . ($open ? MHUB_Text::t('today') : $fmt($wb)) . ' (' . MHUB_Text::t('%s values', number_format($n, 0, ',', '.')) . ')';
                     if ($open) {
-                        $lines[] = $line . ' — reicht bis heute und bleibt: zuerst die Richtungsprüfung beim Schalter „Bezug/Einspeisung vertauscht" ansehen.';
+                        $lines[] = $line . MHUB_Text::t(' — extends to today and stays: first look at the direction check at the switch "Import/feed-in swapped".');
                         continue;
                     }
                     if (!$apply) {
                         $todo = true;
-                        $lines[] = $line . ' würde gedreht.';
+                        $lines[] = $line . MHUB_Text::t(' would be flipped.');
                         continue;
                     }
                     $f = $this->BackupSeries($ac, $pvid, $wa, $wb, 'leistung' . $k);
                     if ($f === null) {
-                        $lines[] = $line . ' — ❌ Sicherung fehlgeschlagen, nicht gedreht.';
+                        $lines[] = $line . MHUB_Text::t(' — ❌ Backup failed, not flipped.');
                         continue;
                     }
                     $err = $this->FlipPowerWindow($ac, $pvid, $wa, $wb);
-                    $lines[] = $line . ($err === null ? ' gedreht. Sicherung: ' . $f : ' — ❌ ' . $err . ' Sicherung: ' . $f);
+                    $lines[] = $err === null ? $line . MHUB_Text::t(' flipped. Backup: %s', $f) : $line . MHUB_Text::t(' — ❌ %s Backup: %s', $err, $f);
                     $changed = $changed || $err === null;
                 }
                 if ($apply) {
@@ -6815,9 +6837,9 @@ class MeterHub extends IPSModule
             }
         }
         if (!$apply) {
-            $lines[] = $todo ? '→ „Korrigieren" führt genau das aus und sichert vorher (JSON-Datei im Symcon-Verzeichnis).' : '→ Nichts zu korrigieren.';
+            $lines[] = $todo ? MHUB_Text::t('→ "Correct" does exactly this and makes a backup first (JSON file in the Symcon directory).') : MHUB_Text::t('→ Nothing to correct.');
         } elseif ($changed) {
-            $this->LogMessage('Richtung im Archiv korrigiert — ' . str_replace("\n", ' | ', implode("\n", $lines)), KL_MESSAGE);
+            $this->LogMessage(MHUB_Text::t('Direction in the archive corrected — %s', str_replace("\n", ' | ', implode("\n", $lines))), KL_MESSAGE);
         }
         return implode("\n", $lines);
     }
@@ -7121,8 +7143,9 @@ class MeterHub extends IPSModule
             foreach ($vids as $k2 => $vid2) {
                 $ok = $this->AddRowsRetry($ac, $vid2, $orig[$k2]) && $ok;
             }
-            return 'Das Archiv hat das Nachtragen für den ' . date('d.m.Y', $t) . ' abgelehnt'
-                . ($ok ? ' — dieser Tag ist unverändert wiederhergestellt, spätere Tage sind nicht bearbeitet.' : ' — auch die Wiederherstellung schlug fehl, bitte die Sicherungsdatei verwenden.');
+            return $ok
+                ? MHUB_Text::t('The archive rejected the backfill for %s — this day was restored unchanged, later days were not processed.', date('d.m.Y', $t))
+                : MHUB_Text::t('The archive rejected the backfill for %s — the restore failed as well, please use the backup file.', date('d.m.Y', $t));
         }
         return null;
     }
@@ -7375,18 +7398,18 @@ class MeterHub extends IPSModule
                 // Instanzname statt Funktionsname — sonst stehen im Dashboard
                 // mehrere gleiche Zeilen „Richtung Netzanschluss" (Einwand 12.09.2026).
                 'type' => 'meter_direction', 'slot' => $a['slot'],
-                'label' => 'Richtung ' . IPS_GetName($this->InstanceID) . ($a['slot'] === 'total' ? '' : ' ' . $a['slot']),
+                'label' => MHUB_Text::t('Direction %s', IPS_GetName($this->InstanceID)) . ($a['slot'] === 'total' ? '' : ' ' . $a['slot']),
                 'level' => null, 'threshold' => null, 'reason' => '', 'independent' => null, 'referenceIDs' => [],
                 'powerID' => $pid, 'referencePowerID' => 0, 'referenceLabel' => '', 'relation' => '',
                 'correlation' => null, 'samples' => 0, 'checkedAt' => $now,
             ];
             if (in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
-                $entry['reason'] = 'Cloud-Zähler: Leistung kommt zeitversetzt an — keine Richtungsprüfung.';
+                $entry['reason'] = MHUB_Text::t('Cloud meter: power arrives with a time offset — no direction check.');
                 $out['entries'][] = $entry;
                 continue;
             }
             if (!AC_GetLoggingStatus($ac, $pid)) {
-                $entry['reason'] = 'Die Leistung wird nicht archiviert — keine Richtungsprüfung möglich.';
+                $entry['reason'] = MHUB_Text::t('The power is not archived — no direction check possible.');
                 $out['entries'][] = $entry;
                 continue;
             }
@@ -7414,18 +7437,26 @@ class MeterHub extends IPSModule
                 $pct = (int)round($rel * 100);
                 if ($relation === 'pv') {
                     // $rlabel beginnt schon mit „PV-Erzeugung" (live 12.09.2026: „PV-Erzeugung (PV-Erzeugung (20 Zähler))").
-                    $reason = $level === 'normal' ? 'Die Netzleistung sinkt, wenn die ' . $rlabel . ' steigt — Richtung passt (Übereinstimmung ' . $pct . ' % über ' . $n . ' Fünf-Minuten-Werte der letzten 48 h).'
-                        : ($level === null ? 'Keine eindeutige Aussage aus dem Vergleich mit der ' . $rlabel . ' (Übereinstimmung ' . $pct . ' %).'
-                        : 'Die Netzleistung steigt mit der ' . $rlabel . ' (Übereinstimmung ' . $pct . ' %) — ' . ($level === 'kritisch'
-                            ? 'der Zähler scheint verkehrt herum zu messen. Schalter „Bezug/Einspeisung vertauscht" prüfen.'
-                            : 'das deutet auf eine verkehrte Richtung hin. Schalter „Bezug/Einspeisung vertauscht" prüfen. Nur ein Hinweis: auch Verbraucher, die sich nach der PV richten, können so wirken.'));
+                    if ($level === 'normal') {
+                        $reason = MHUB_Text::t('The grid power falls when the %s rises — direction fits (agreement %d %% over %d five-minute values of the last 48 h).', $rlabel, $pct, $n);
+                    } elseif ($level === null) {
+                        $reason = MHUB_Text::t('No clear statement from the comparison with the %s (agreement %d %%).', $rlabel, $pct);
+                    } elseif ($level === 'kritisch') {
+                        $reason = MHUB_Text::t('The grid power rises with the %s (agreement %d %%) — the meter seems to measure the wrong way round. Check the switch "Import/feed-in swapped".', $rlabel, $pct);
+                    } else {
+                        $reason = MHUB_Text::t('The grid power rises with the %s (agreement %d %%) — this points to a wrong direction. Check the switch "Import/feed-in swapped". Only a hint: consumers that follow the PV can look like this, too.', $rlabel, $pct);
+                    }
                 } else {
-                    $reason = $level === 'normal' ? 'Richtung passt zu ' . $rlabel . ' (Übereinstimmung ' . $pct . ' % über ' . $n . ' Fünf-Minuten-Werte der letzten 48 h).'
-                        : ($level === null ? 'Keine eindeutige Aussage im Vergleich mit ' . $rlabel . ' (Übereinstimmung ' . $pct . ' %).'
-                        : 'Die Leistung läuft gegenläufig zu ' . $rlabel . ' (Übereinstimmung ' . $pct . ' %) — der Zähler scheint verkehrt herum zu messen. Schalter „Bezug/Einspeisung vertauscht" prüfen; möglich ist auch, dass die Vergleichsquelle verkehrt ist.');
+                    if ($level === 'normal') {
+                        $reason = MHUB_Text::t('Direction fits %s (agreement %d %% over %d five-minute values of the last 48 h).', $rlabel, $pct, $n);
+                    } elseif ($level === null) {
+                        $reason = MHUB_Text::t('No clear statement in the comparison with %s (agreement %d %%).', $rlabel, $pct);
+                    } else {
+                        $reason = MHUB_Text::t('The power runs opposite to %s (agreement %d %%) — the meter seems to measure the wrong way round. Check the switch "Import/feed-in swapped"; it is also possible that the comparison source is wrong.', $rlabel, $pct);
+                    }
                 }
                 if (!$r['independent']) {
-                    $reason .= ' Hinweis: Vergleich mit einem Zähler desselben Moduls — stehen beide gleich verkehrt herum, ist das so nicht erkennbar.';
+                    $reason .= MHUB_Text::t(' Note: comparison with a meter of the same module — if both are reversed the same way, this cannot be detected.');
                 }
                 $entry = array_merge($entry, [
                     'level' => $level, 'threshold' => $th, 'reason' => $reason, 'independent' => $r['independent'], 'referenceIDs' => $ids,
@@ -7435,7 +7466,7 @@ class MeterHub extends IPSModule
                 break;
             }
             if ($entry['reason'] === '') {
-                $entry['reason'] = 'Keine Vergleichsquelle mit genug Messwerten in den letzten 48 h (anderer Netzzähler, Wechselrichter mit Netzmessung oder PV-Erzeugung im Verbund).';
+                $entry['reason'] = MHUB_Text::t('No comparison source with enough measured values in the last 48 h (another grid meter, an inverter with grid measurement, or PV generation in the group).');
             }
             $out['entries'][] = $entry;
         }
@@ -7503,7 +7534,7 @@ class MeterHub extends IPSModule
         }
         foreach ($ihub as [$iid, $f]) {
             if ((int)($f['gridPowerID'] ?? 0) > 0) {
-                $refs[] = ['ids' => [(int)$f['gridPowerID']], 'label' => IPS_GetName($iid) . ' (Netzmessung)', 'relation' => 'opposite', 'independent' => true];
+                $refs[] = ['ids' => [(int)$f['gridPowerID']], 'label' => MHUB_Text::t('%s (grid measurement)', IPS_GetName($iid)), 'relation' => 'opposite', 'independent' => true];
             }
         }
         foreach ($ihub as [$iid, $f]) {
@@ -7516,7 +7547,7 @@ class MeterHub extends IPSModule
         // ist — damit ist diese Quelle auch aus demselben Modul unabhängig.
         $pv = array_slice(array_values(array_unique($pv)), 0, 20);
         if ($pv) {
-            $refs[] = ['ids' => $pv, 'label' => count($pv) === 1 ? 'PV-Erzeugung ' . $pvNames[0] : 'PV-Erzeugung (' . count($pv) . ' Zähler)', 'relation' => 'pv', 'independent' => true];
+            $refs[] = ['ids' => $pv, 'label' => count($pv) === 1 ? MHUB_Text::t('PV generation %s', $pvNames[0]) : MHUB_Text::t('PV generation (%d meters)', count($pv)), 'relation' => 'pv', 'independent' => true];
         }
         return array_merge($refs, $sameGrid);
     }
@@ -7601,7 +7632,7 @@ class MeterHub extends IPSModule
         try {
             $d = $this->GetDiagnostics();
         } catch (\Throwable $e) {
-            return '🧭 Richtungsprüfung: gerade nicht möglich (' . $e->getMessage() . ').';
+            return MHUB_Text::t('🧭 Direction check: not possible right now (%s).', $e->getMessage());
         }
         $parts = [];
         foreach ($d['entries'] ?? [] as $e) {
@@ -7611,7 +7642,7 @@ class MeterHub extends IPSModule
             $icon = ['normal' => '✅', 'auffaellig' => '⚠️', 'kritisch' => '❌'][$e['level'] ?? ''] ?? 'ℹ️';
             $parts[] = '🧭 ' . $e['label'] . ': ' . $icon . ' ' . $e['reason'];
         }
-        return $parts ? implode("\n", $parts) : '🧭 Richtungsprüfung: nur bei Zählern mit der Funktion „Netzanschluss".';
+        return $parts ? implode("\n", $parts) : MHUB_Text::t('🧭 Direction check: only for meters with the function "Grid connection".');
     }
 
     /** Zeile unter der Rollen-Auswahl (Feld „Role"). */
@@ -7651,26 +7682,26 @@ class MeterHub extends IPSModule
         $now = time();
         $entry = [
             'type' => 'role_plausibility', 'slot' => 'total',
-            'label' => 'Rolle ' . IPS_GetName($this->InstanceID),
+            'label' => MHUB_Text::t('Role %s', IPS_GetName($this->InstanceID)),
             'level' => null, 'threshold' => self::ROLE_SHARE_AUFFAELLIG, 'reason' => '',
             'role' => $role, 'powerID' => $pid,
             'positiveShare' => null, 'negativeShare' => null, 'samples' => 0, 'checkedAt' => $now,
         ];
         $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($acs) === 0) {
-            $entry['reason'] = 'Kein Archiv-Modul gefunden — keine Prüfung möglich.';
+            $entry['reason'] = MHUB_Text::t('No archive module found — no check possible.');
             return $entry;
         }
         $ac = $acs[0];
         if (!AC_GetLoggingStatus($ac, $pid)) {
-            $entry['reason'] = 'Die Leistung wird nicht archiviert — keine Prüfung möglich.';
+            $entry['reason'] = MHUB_Text::t('The power is not archived — no check possible.');
             return $entry;
         }
         $from = intdiv($now - 172800, 300) * 300;
         $means = self::SegmentMeans($this->LoadArchivePoints($ac, $pid, $from, $now), $this->LastValueBefore($ac, $pid, $from), $from, $now, 300);
         $n = count($means);
         if ($n < 24) {
-            $entry['reason'] = 'Noch zu wenig Messwerte für eine Aussage (mindestens 2 h nötig).';
+            $entry['reason'] = MHUB_Text::t('Still too few measured values for a statement (at least 2 h needed).');
             return $entry;
         }
         $pos = 0;
@@ -7687,14 +7718,12 @@ class MeterHub extends IPSModule
         $entry['positiveShare'] = round($posShare, 2);
         $entry['negativeShare'] = round($negShare, 2);
         $entry['samples'] = $n;
-        $roleLabel = $role === 'production' ? 'Erzeuger' : 'Verbraucher';
+        $roleLabel = $role === 'production' ? MHUB_Text::t('generator') : MHUB_Text::t('consumer');
         $entry['level'] = self::RoleShareLevel($posShare, $negShare);
         if ($entry['level'] !== 'normal') {
-            $entry['reason'] = 'Als „Unterzähler / ' . $roleLabel . '" markiert, misst aber über die letzten 48 h sowohl deutlich positive ('
-                . round($posShare * 100) . ' % der Zeit) als auch deutlich negative Leistung (' . round($negShare * 100)
-                . ' % der Zeit) — für einen reinen ' . $roleLabel . ' untypisch. Passt eher „Netz-/NAP-Zähler", oder der Zähler misst falsch gepolt.';
+            $entry['reason'] = MHUB_Text::t('Marked as "Sub-meter / %s", but over the last 48 h it measures both clearly positive (%d %% of the time) and clearly negative power (%d %% of the time) — atypical for a pure %s. "Grid/connection-point meter" probably fits better, or the meter is wired with the wrong polarity.', $roleLabel, round($posShare * 100), round($negShare * 100), $roleLabel);
         } else {
-            $entry['reason'] = 'Misst über die letzten 48 h überwiegend in eine Richtung, passt zu „Unterzähler / ' . $roleLabel . '".';
+            $entry['reason'] = MHUB_Text::t('Over the last 48 h it measures predominantly in one direction, which fits "Sub-meter / %s".', $roleLabel);
         }
         return $entry;
     }
@@ -7840,33 +7869,34 @@ class MeterHub extends IPSModule
     private function InexogyCleanup(int $days, bool $apply): string
     {
         if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
-            return 'ℹ️ Nur für Inexogy-Zähler.';
+            return MHUB_Text::t('ℹ️ Only for Inexogy meters.');
         }
         $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($acs) === 0) {
-            return '❌ Kein Archiv-Modul (Archive Control) gefunden.';
+            return MHUB_Text::t('❌ No archive module (Archive Control) found.');
         }
         $ac = $acs[0];
         $days = max(1, min(45, $days));
         $to = time();
         $from = $to - $days * 86400;
         $kwh = fn(float $x) => number_format($x, 3, ',', '.');
-        $lines = [$apply ? '✅ Live-Zwischenwerte bereinigt (' . $days . ' Tage):' : '🔎 Probelauf, nichts geändert (' . $days . ' Tage):'];
+        $lines = [$apply ? MHUB_Text::t('✅ Live intermediate values cleaned up (%d days):', $days) : MHUB_Text::t('🔎 Dry run, nothing changed (%d days):', $days)];
         $total = 0;
-        foreach (['energy_import' => 'Bezug', 'energy_export' => 'Einspeisung'] as $ident => $label) {
+        foreach (['energy_import' => MHUB_Text::t('Import'), 'energy_export' => MHUB_Text::t('Feed-in')] as $ident => $label) {
             $vid = $this->FindVarByIdent($ident);
             if (!$vid || !AC_GetLoggingStatus($ac, $vid)) {
                 continue;
             }
             [$n, $ob, $oa, $bb, $ba] = $this->CleanStaleLivePoints($ac, $vid, $from, $to, $apply);
             $total += $n;
-            $lines[] = "$label (#$vid): $n Live-Zwischenwert(e) " . ($apply ? 'entfernt' : 'würden entfernt')
-                . " — Rückschritte $bb → $ba, doppelt gezählte Energie " . $kwh($ob) . ' → ' . $kwh($oa) . ' kWh.';
+            $lines[] = $apply
+                ? MHUB_Text::t('%s (#%d): %d live intermediate value(s) removed — steps backwards %s → %s, doubly counted energy %s → %s kWh.', $label, $vid, $n, $bb, $ba, $kwh($ob), $kwh($oa))
+                : MHUB_Text::t('%s (#%d): %d live intermediate value(s) would be removed — steps backwards %s → %s, doubly counted energy %s → %s kWh.', $label, $vid, $n, $bb, $ba, $kwh($ob), $kwh($oa));
         }
         if (!$apply) {
             $lines[] = $total > 0
-                ? '→ „Bereinigen" führt genau das aus. Offizielle Viertelstundenwerte bleiben unangetastet, Live-Werte ohne offizielle Daten in der Nähe ebenso.'
-                : '→ Nichts zu bereinigen.';
+                ? MHUB_Text::t('→ "Clean up" does exactly this. Official quarter-hour values stay untouched, as do live values with no official data nearby.')
+                : MHUB_Text::t('→ Nothing to clean up.');
         } elseif ($total > 0) {
             $this->LogMessage(str_replace("\n", ' | ', implode("\n", $lines)), KL_MESSAGE);
         }
@@ -8192,7 +8222,9 @@ class MeterHub extends IPSModule
     private function RegisterVar(array $def, int $pos)
     {
         [$ident, $caption, $type, $profile, $archive, $group] = $def;
-        $reg = isset($def[6]) ? $def[6] : '';
+        // Namen und Registerhinweise stehen im Treiber auf Englisch; einmal je Variable und Übernehmen übersetzen (nicht je Abfrage).
+        $caption = MHUB_Text::t($caption);
+        $reg = MHUB_Text::t(isset($def[6]) ? $def[6] : '');
 
         $vtype = $this->VarTypeFor($type);
 
@@ -8305,15 +8337,15 @@ class MeterHub extends IPSModule
     private function CompactionTypeOptions(): array
     {
         return [
-            ['caption' => '— aus —', 'value' => -1],
-            ['caption' => '1× pro Minute', 'value' => 0],
-            ['caption' => '1× pro 5 Minuten', 'value' => 1],
-            ['caption' => '1× pro Stunde', 'value' => 2],
-            ['caption' => '1× pro Tag', 'value' => 3],
-            ['caption' => '1× pro Woche', 'value' => 4],
-            ['caption' => '1× pro Monat', 'value' => 5],
-            ['caption' => '1× pro Jahr', 'value' => 6],
-            ['caption' => 'Werte löschen', 'value' => 7],
+            ['caption' => '— off —', 'value' => -1],
+            ['caption' => '1× per minute', 'value' => 0],
+            ['caption' => '1× per 5 minutes', 'value' => 1],
+            ['caption' => '1× per hour', 'value' => 2],
+            ['caption' => '1× per day', 'value' => 3],
+            ['caption' => '1× per week', 'value' => 4],
+            ['caption' => '1× per month', 'value' => 5],
+            ['caption' => '1× per year', 'value' => 6],
+            ['caption' => 'Delete values', 'value' => 7],
         ];
     }
 
@@ -8322,27 +8354,27 @@ class MeterHub extends IPSModule
     {
         $opts = $this->CompactionTypeOptions();
         return [
-            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
-            ['type' => 'Label', 'caption' => '⚠️ Beim Ausschalten (von an auf aus) löscht MeterHub einmalig aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte). Ist der Schalter von vornherein aus, fasst MeterHub die Verdichtung im Archiv nicht an — neue Instanzen starten deshalb mit „aus".'],
+            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Enable automatic compaction'],
+            ['type' => 'Label', 'caption' => '⚠️ When switching off (from on to off), MeterHub actively deletes all three compaction stages of this category in the archive once (including ones set by hand in the console). If the switch is off from the start, MeterHub does not touch the compaction in the archive — new instances therefore start with "off".'],
             [
-                'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen?', 'width' => '480px',
+                'type' => 'PopupButton', 'caption' => 'What do the three compaction stages mean?', 'width' => '480px',
                 'popup' => [
-                    'caption' => 'Archiv-Verdichtung in drei Stufen',
+                    'caption' => 'Archive compaction in three stages',
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'Verdichtung reduziert nachträglich den Detailgrad geloggter Werte, damit das Archiv nicht unbegrenzt wächst — je älter ein Wert, desto gröber genügt er meist. Drei Stufen, jede mit eigenem Zeitpunkt und eigener Ziel-Auflösung:'],
-                        ['type' => 'Label', 'caption' => '„Direkt verdichten auf" — gilt sofort, ab dem ersten geloggten Wert.'],
-                        ['type' => 'Label', 'caption' => '„Nach so vielen Monaten … verdichten auf" (zwei Stufen) — greift erst, sobald ein Wert das angegebene Alter erreicht hat.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel (Standardvorbelegung): direkt 1×/Minute, nach 1 Monat 1×/5 Minuten, nach 12 Monaten 1×/Stunde — Werte werden also mit der Zeit automatisch gröber, nie feiner.'],
-                        ['type' => 'Label', 'caption' => 'Eine Stufe greift nur, wenn ihre Ziel-Auflösung tatsächlich GRÖBER ist als das Polling-Intervall oben — sonst gäbe es dort nichts zu verdichten, die Stufe bleibt dann wirkungslos, auch wenn sie eingestellt ist.'],
-                        ['type' => 'Label', 'caption' => '„— aus —" bei einer einzelnen Stufe LÖSCHT eine dort zuvor gesetzte Regel aktiv, genau wie der Hauptschalter oben — kein „einfach nicht mehr anfassen".'],
+                        ['type' => 'Label', 'caption' => 'Compaction subsequently reduces the level of detail of logged values so the archive does not grow without limit — the older a value, the coarser it usually can be. Three stages, each with its own point in time and its own target resolution:'],
+                        ['type' => 'Label', 'caption' => '"Compact directly to" — applies immediately, from the first logged value.'],
+                        ['type' => 'Label', 'caption' => '"After this many months … compact to" (two stages) — only takes effect once a value has reached the given age.'],
+                        ['type' => 'Label', 'caption' => 'Example (default presets): directly 1×/minute, after 1 month 1×/5 minutes, after 12 months 1×/hour — values thus automatically become coarser over time, never finer.'],
+                        ['type' => 'Label', 'caption' => 'A stage only takes effect if its target resolution is actually COARSER than the polling interval above — otherwise there would be nothing to compact there; the stage then has no effect, even if it is set.'],
+                        ['type' => 'Label', 'caption' => '"— off —" on a single stage actively DELETES a rule set there before, exactly like the main switch above — not just "stop touching it".'],
                     ],
                 ],
             ],
-            ['type' => 'Select', 'name' => 'CompactDirect' . $kind, 'caption' => 'Direkt verdichten auf', 'options' => $opts],
-            ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
-            ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'caption' => '… verdichten auf', 'options' => $opts],
-            ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
-            ['type' => 'Select', 'name' => 'CompactStage3Type' . $kind, 'caption' => '… verdichten auf', 'options' => $opts],
+            ['type' => 'Select', 'name' => 'CompactDirect' . $kind, 'caption' => 'Compact directly to', 'options' => $opts],
+            ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'caption' => 'After this many months', 'minimum' => 0, 'maximum' => 120, 'suffix' => MHUB_Text::t(' month(s)')],
+            ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'caption' => '… compact to', 'options' => $opts],
+            ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months' . $kind, 'caption' => 'After this many months', 'minimum' => 0, 'maximum' => 120, 'suffix' => MHUB_Text::t(' month(s)')],
+            ['type' => 'Select', 'name' => 'CompactStage3Type' . $kind, 'caption' => '… compact to', 'options' => $opts],
         ];
     }
 
@@ -8462,11 +8494,11 @@ class MeterHub extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PanelLogging', 'expanded' => true,
-            'caption' => count($missing) === 1 ? '📈  Archivierung fehlt (1 Variable)' : sprintf('📈  Archivierung fehlt (%d Variablen)', count($missing)),
+            'caption' => count($missing) === 1 ? MHUB_Text::t('📈  Archiving missing (1 variable)') : sprintf(MHUB_Text::t('📈  Archiving missing (%d variables)'), count($missing)),
             'items' => array_merge(
-                [['type' => 'Label', 'caption' => 'Diese Variablen werden nicht archiviert. Ohne Archiv gibt es keinen Verlauf, keine Verbrauchsauswertung und keine Archiv-Verdichtung. MeterHub schaltet die Archivierung nicht von selbst ein — das entscheidest du. Mit dem Knopf wird sie für diese Variablen eingeschaltet (Aggregationstyp und Verdichtung stellt MeterHub dabei passend ein). Bereits laufende Archivierung wird nie abgeschaltet.']],
+                [['type' => 'Label', 'caption' => 'These variables are not archived. Without an archive there is no history, no consumption analysis and no archive compaction. MeterHub does not switch archiving on by itself — that is your decision. The button switches it on for these variables (MeterHub sets the aggregation type and compaction appropriately). Archiving that is already running is never switched off.']],
                 $lines,
-                [['type' => 'Button', 'caption' => '📈  Archivierung für diese Variablen einschalten', 'onClick' => 'echo MHUB_EnableArchiving($id);']]
+                [['type' => 'Button', 'caption' => '📈  Enable archiving for these variables', 'onClick' => 'echo MHUB_EnableArchiving($id);']]
             ),
         ];
     }
@@ -8476,7 +8508,7 @@ class MeterHub extends IPSModule
     {
         $ac = $this->ArchiveInstanceID();
         if ($ac <= 0) {
-            return '❌ Keine Archiv-Instanz gefunden.';
+            return MHUB_Text::t('❌ No archive instance found.');
         }
         $n = 0;
         foreach ($this->ArchivingMissing() as $vid => [$counter, $interval]) {
@@ -8485,7 +8517,7 @@ class MeterHub extends IPSModule
             $n++;
         }
         $this->UpdateFormField('PanelLogging', 'visible', false);
-        return $n === 0 ? 'ℹ️ Es fehlte nichts — alle Variablen werden schon archiviert.' : sprintf('✅ Archivierung für %d Variable(n) eingeschaltet.', $n);
+        return $n === 0 ? MHUB_Text::t('ℹ️ Nothing was missing — all variables are already archived.') : sprintf(MHUB_Text::t('✅ Archiving enabled for %d variable(s).'), $n);
     }
 
     private function SetArchive($vid, bool $counter = false, int $intervalSeconds = 5)
@@ -8675,7 +8707,7 @@ class MeterHub extends IPSModule
             }
             foreach ($assocs as $value => $def) {
                 [$label, $color] = $def;
-                IPS_SetVariableProfileAssociation($name, $value, $label, '', $color);
+                IPS_SetVariableProfileAssociation($name, $value, MHUB_Text::t($label), '', $color);
             }
         }
     }

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/i18n-test-support.php';
 /**
  * Prüfstand für die Brücke MeterHub → MeterHubVirtual.
  * Bildet so viel IP-Symcon nach, dass CreateVirtual() und ScanMeters() wirklich
@@ -202,6 +203,7 @@ function AC_GetLoggingStatus($a, $vid) { return isset($GLOBALS['ARCHIVED'][$vid]
 
 class IPSModule
 {
+    use I18nStub;
     public $InstanceID;
     protected $defs = [];
     public function __construct($id) {
@@ -255,7 +257,7 @@ class IPSModule
     protected function UnregisterMessage($senderID, $message) { unset($GLOBALS['MSGS'][$this->InstanceID][$senderID . ':' . $message]); }
     protected function EnableAction($ident) { $GLOBALS['ENABLED_ACTIONS'][$this->InstanceID][$ident] = true; }
     protected function SendDebug($sender, $msg, $format) {}
-    public function UpdateFormField($f, $p, $v) { $GLOBALS['FORMFIELDS'][$f][$p] = $v; }
+    public function UpdateFormField($f, $p, $v) { $GLOBALS['FORMFIELDS'][$f][$p] = (in_array($p, ['caption', 'label'], true) && is_string($v)) ? i18n_tr($v) : $v; }   // die Konsole übersetzt auch nachgeschobene Texte
     public function LogMessage($m, $type) { $GLOBALS['LOGMSG'][] = $m; }
     protected function ReloadForm() {}
     protected function RegisterAttributeString($n, $v) { $this->defs['@' . $n] = $v; }
@@ -615,7 +617,7 @@ check('10c: Ausgaben nach Reparatur weiter vorhanden', isset($after10c['power'])
 
 echo "\n11) Formular-Konvention: News-Panel + Doku-Panel (aktualisiert für das flache Modell, 31.08.2026)\n";
 $newsVersion = (new ReflectionClass('MeterHubVirtual'))->getConstant('NEWS_VERSION');
-$form11 = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+$form11 = json_decode(cf($GLOBALS['MODOBJ'][$new]), true);
 check('Formular bleibt gültiges JSON', is_array($form11));
 $panelCaptions = array_column($form11['elements'] ?? [], 'caption');
 check('News-Panel erscheint vor ungesehener Bestätigung', in_array('🆕  Neu in dieser Version', $panelCaptions, true), implode(' | ', $panelCaptions));
@@ -643,7 +645,7 @@ check('Funktion jetzt ein Instanz-Feld im Formular (nicht mehr Zeilen-Spalte)', 
 $GLOBALS['MODOBJ'][$new]->AckNews();
 check('AckNews() merkt die Version dauerhaft', ($GLOBALS['ATTR'][$new]['SeenNews'] ?? null) === $newsVersion, 'ist ' . ($GLOBALS['ATTR'][$new]['SeenNews'] ?? '(leer)'));
 check('AckNews() blendet das Panel im offenen Formular sofort aus', ($GLOBALS['FORMFIELDS']['NewsPanel']['visible'] ?? null) === false);
-$form11b = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+$form11b = json_decode(cf($GLOBALS['MODOBJ'][$new]), true);
 $panelCaptions2 = array_column($form11b['elements'] ?? [], 'caption');
 check('News-Panel bleibt nach Bestätigung auch bei einem Neuaufbau weg', !in_array('🆕  Neu in dieser Version', $panelCaptions2, true), implode(' | ', $panelCaptions2));
 
@@ -665,7 +667,7 @@ IPS_ApplyChanges($legIid);
 check('12a: Status = Migration nötig (202), nichts wird berechnet', ($GLOBALS['STATUS'][$legIid] ?? 0) === 202, 'Status=' . ($GLOBALS['STATUS'][$legIid] ?? '-'));
 check('12a: keine Ausgabevariablen angelegt, solange Migration offen ist', IPS_GetChildrenIDs($legIid) === [], implode(',', IPS_GetChildrenIDs($legIid)));
 
-$legForm = json_decode($GLOBALS['MODOBJ'][$legIid]->GetConfigurationForm(), true);
+$legForm = json_decode(cf($GLOBALS['MODOBJ'][$legIid]), true);
 $migPanel = null;
 foreach ($legForm['elements'] ?? [] as $el) { if (($el['name'] ?? '') === 'MigrationPanel') { $migPanel = $el; } }
 check('12b: Migrations-Panel erscheint im Formular', $migPanel !== null);
@@ -696,7 +698,7 @@ check('12c: Summe (beide "+") = 5000 + 1200', abs(GetValue($legOuts['power']) - 
 
 echo "\n13) Standort — freies Label, getrennt vom Dashboard-Vertrag \"Function\" (Dietmars Auftrag 31.08.2026)\n";
 // $new hat aus Block 8 bereits Function='house'; Location ist bislang leer.
-$form13 = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+$form13 = json_decode(cf($GLOBALS['MODOBJ'][$new]), true);
 $locPreset = null;
 $locField = null;
 foreach ($form13['elements'] ?? [] as $el) {
@@ -708,7 +710,7 @@ check('13a: Standort-Vorschlagsliste vorhanden (noch ohne Einträge, frisches Sy
 
 IPS_SetProperty($new, 'Location', 'Keller');
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
-$form13b = json_decode($GLOBALS['MODOBJ'][$sib]->GetConfigurationForm(), true);
+$form13b = json_decode(cf($GLOBALS['MODOBJ'][$sib]), true);
 $locPreset2 = null;
 foreach ($form13b['elements'] ?? [] as $el) { if (($el['name'] ?? '') === 'LocationPreset') { $locPreset2 = $el; } }
 check('13b: Vorschlag "Keller" taucht bei einer ANDEREN Instanz auf (wächst mit echter Nutzung)', in_array('Keller', array_column($locPreset2['options'] ?? [], 'value'), true), json_encode($locPreset2['options'] ?? null));
@@ -723,7 +725,7 @@ $GLOBALS['MODOBJ'][$sib]->ApplyLocationPreset('');
 check('13d: leerer Vorschlag (Platzhalter "— Vorschlag wählen —") tut nichts', !array_key_exists('value', $GLOBALS['FORMFIELDS']['Location'] ?? []));
 
 echo "\n14) Prüfung & Vorschau zeigt die aktuellen Live-Werte, nicht nur die Struktur (Dietmars Anregung 31.08.2026)\n";
-$form14 = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+$form14 = json_decode(cf($GLOBALS['MODOBJ'][$new]), true);
 $checkPanel14 = null;
 foreach ($form14['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🔎  Prüfung & Vorschau') { $checkPanel14 = $el; } }
 check('14: Prüfung-Panel vorhanden', $checkPanel14 !== null);
@@ -773,7 +775,7 @@ IPS_SetProperty($mieterA, 'Nodes', json_encode([
 IPS_ApplyChanges($mieterA);
 
 echo "\n  15d) \"Prüfung & Vorschau\" zeigt den Anteil UND den anteiligen Beitrag, nicht nur +/−\n";
-$formA = json_decode($GLOBALS['MODOBJ'][$mieterA]->GetConfigurationForm(), true);
+$formA = json_decode(cf($GLOBALS['MODOBJ'][$mieterA]), true);
 $checkPanelA = null;
 foreach ($formA['elements'] ?? [] as $el) { if (($el['caption'] ?? '') === '🔎  Prüfung & Vorschau') { $checkPanelA = $el; } }
 $checkTextA = implode(' ', array_column($checkPanelA['items'] ?? [], 'caption'));
@@ -786,7 +788,7 @@ check('16: Zeilen haben Factor-Feld', array_key_exists('Factor', $bridgeNodes[0]
 check('16: kein Sign-Feld mehr in frisch erzeugten Zeilen', !array_key_exists('Sign', $bridgeNodes[0] ?? []), json_encode($bridgeNodes[0] ?? null));
 
 echo "\n17) Name der Instanz direkt im Formular (Dietmar fand kein natives Feld, 31.08.2026)\n";
-$form17 = json_decode($GLOBALS['MODOBJ'][$new]->GetConfigurationForm(), true);
+$form17 = json_decode(cf($GLOBALS['MODOBJ'][$new]), true);
 $nameField = null;
 foreach ($form17['elements'] ?? [] as $el) { if (($el['name'] ?? '') === 'InstanceName') { $nameField = $el; } }
 check('17a: Namensfeld vorhanden', $nameField !== null);
@@ -907,7 +909,7 @@ IPS_SetProperty(8100, 'CompactStage3TypePower', 2);
 // Zwei eigene Panels statt einem gemeinsamen (Dietmars Rückmeldung
 // 31.08.2026: kein horizontales Nebeneinander in Symcons Formularsprache
 // möglich, also wenigstens einzeln auf-/zuklappbar).
-$form20 = json_decode($fresh2->GetConfigurationForm(), true);
+$form20 = json_decode(cf($fresh2), true);
 $compactPanelPower = null;
 $compactPanelEnergy = null;
 foreach ($form20['elements'] ?? [] as $el) {
@@ -938,7 +940,7 @@ IPS_ApplyChanges($fracIid);
 $GLOBALS['MODOBJ'][$fracIid]->Recalc();
 $fracOut = (int)@IPS_GetObjectIDByIdent('power', $fracIid);
 check('21a: 33,33 % von 900 W = 299,97 W (nicht auf ganze Prozent gerundet)', abs(GetValue($fracOut) - 299.97) < 0.01, 'ist ' . GetValue($fracOut));
-$formFrac = json_decode($GLOBALS['MODOBJ'][$fracIid]->GetConfigurationForm(), true);
+$formFrac = json_decode(cf($GLOBALS['MODOBJ'][$fracIid]), true);
 $fracListField = null;
 foreach ($formFrac['elements'] ?? [] as $el) {
     if (($el['caption'] ?? '') === '🔌  Zähler') {
@@ -988,7 +990,7 @@ $virtRefresh = $GLOBALS['MODOBJ'][$new];
 $msgOld = $virtRefresh->Recalc();
 $msgNew = $virtRefresh->RecalcAndRefreshForm();
 check('22c: RecalcAndRefreshForm() liefert dieselbe Erfolgsmeldung wie Recalc()', str_starts_with($msgNew, '✅ Neu berechnet') && str_starts_with($msgOld, '✅ Neu berechnet'), $msgNew);
-$formRefresh = json_decode($virtRefresh->GetConfigurationForm(), true);
+$formRefresh = json_decode(cf($virtRefresh), true);
 $actionCaptions = array_column($formRefresh['actions'] ?? [], 'onClick', 'caption');
 check('22c: Formular-Knopf ruft die refreshende Variante auf, nicht mehr das bloße Recalc()', str_contains($actionCaptions['Jetzt neu berechnen'] ?? '', 'MHUBV_RecalcAndRefreshForm'), json_encode($actionCaptions));
 
@@ -1153,7 +1155,7 @@ IPS_SetProperty($warnIid, 'Nodes', json_encode([
 IPS_ApplyChanges($warnIid);
 
 function checkPanelText($iid) {
-    $form = json_decode($GLOBALS['MODOBJ'][$iid]->GetConfigurationForm(), true);
+    $form = json_decode(cf($GLOBALS['MODOBJ'][$iid]), true);
     foreach ($form['elements'] ?? [] as $el) {
         if (($el['caption'] ?? '') === '🔎  Prüfung & Vorschau') {
             return implode(' | ', array_column($el['items'] ?? [], 'caption'));
@@ -1191,7 +1193,7 @@ $checkTextWarn3 = checkPanelText($warnIid);
 check('25c: Warnung verschwindet nach Hochrechnen + Übernehmen', !str_contains($checkTextWarn3, '⚠️'), $checkTextWarn3);
 
 echo "\n26) Lizenz-/Unterstützungs-Hinweis — verbundweite Konvention \"Variante A\" (Dietmars Auftrag 01.09.2026), nicht wegklickbar\n";
-$formLic = json_decode($GLOBALS['MODOBJ'][$warnIid]->GetConfigurationForm(), true);
+$formLic = json_decode(cf($GLOBALS['MODOBJ'][$warnIid]), true);
 $licPanel = null;
 foreach ($formLic['elements'] ?? [] as $el) {
     if (($el['caption'] ?? '') === '🧡  Über dieses Modul') { $licPanel = $el; }
@@ -1226,7 +1228,7 @@ check('27c: Reihenfolge stimmt — Sucher-Überschrift kommt vor Quick-Pick-Übe
 
 echo "\n28) PurposeIntro() — Zweck-Einführung \"Wozu dieses Modul?\" (Dietmars Auftrag 01.09.2026, ausgelöst durch Sepps Rückmeldung)\n";
 $purposeInst = $GLOBALS['MODOBJ'][$warnIid];
-$formPurpose = json_decode($purposeInst->GetConfigurationForm(), true);
+$formPurpose = json_decode(cf($purposeInst), true);
 $elementCaptions = array_map(fn($el) => $el['caption'] ?? '', $formPurpose['elements'] ?? []);
 $purposeIdx = array_search('👋  Wozu dieses Modul?', $elementCaptions, true);
 $newsIdx = null;
@@ -1237,7 +1239,7 @@ check('28a: Panel vorhanden, aufgeklappt by default', $purposeIdx !== false && $
 check('28b: steht VOR dem News-Panel (Zweck vor "was ist neu")', $newsIdx === null || $purposeIdx < $newsIdx, "purposeIdx=$purposeIdx newsIdx=" . json_encode($newsIdx));
 $purposeInst->AckPurposeIntro();
 check('28c: nach Bestätigen dauerhaft weg (Attribut, nicht pro Version)', $GLOBALS['ATTR'][$warnIid]['PurposeIntroGone'] === true, json_encode($GLOBALS['ATTR'][$warnIid] ?? null));
-$formPurpose2 = json_decode($purposeInst->GetConfigurationForm(), true);
+$formPurpose2 = json_decode(cf($purposeInst), true);
 $captions2 = array_map(fn($el) => $el['caption'] ?? '', $formPurpose2['elements'] ?? []);
 check('28c: taucht im Formular nicht mehr auf', !in_array('👋  Wozu dieses Modul?', $captions2, true), json_encode($captions2));
 
@@ -1323,7 +1325,7 @@ check('31b: alle drei IDs korrekt über den eigenen "power"-Ident gefunden (nich
 echo "\n32) Neue Sammelfunktionen \"Haushaltsgeräte (allgemein)\" und \"Unterhaltungsmedien\" (Dietmars Anregung 02.09.2026, in Absprache mit der Dashboard-Sitzung)\n";
 $funcRefl = new ReflectionClass('MeterHubVirtual');
 $funcVocab = $funcRefl->getConstant('FUNCTIONS');
-check('32a: "appliances" im Vokabular, mit Label und gültigem Icon', ($funcVocab['appliances'][0] ?? null) === 'Haushaltsgeräte (allgemein)' && ($funcVocab['appliances'][1] ?? '') !== '', json_encode($funcVocab['appliances'] ?? null));
+check('32a: "appliances" im Vokabular, mit Label und gültigem Icon', i18n_tr((string)($funcVocab['appliances'][0] ?? '')) === 'Haushaltsgeräte (allgemein)' && ($funcVocab['appliances'][1] ?? '') !== '', json_encode($funcVocab['appliances'] ?? null));
 check('32b: "entertainment" im Vokabular, mit Label und gültigem Icon', ($funcVocab['entertainment'][0] ?? null) === 'Unterhaltungsmedien' && ($funcVocab['entertainment'][1] ?? '') !== '', json_encode($funcVocab['entertainment'] ?? null));
 
 $funcVocabHub = (new ReflectionClass('MeterHub'))->getConstant('FUNCTIONS');
@@ -1333,7 +1335,7 @@ check('32c: Vokabular in MeterHub und MeterHubVirtual synchron (gleiche Schlüss
 // keine Sonderbehandlung nötig, da ScanOnlyFunction die Optionen direkt aus
 // self::FUNCTIONS aufbaut (siehe GetConfigurationForm()).
 $GLOBALS['FORMFIELDS'] = [];
-$formFunc = json_decode($fresh3->GetConfigurationForm(), true);
+$formFunc = json_decode(cf($fresh3), true);
 $scanFuncField = null;
 foreach ($formFunc['elements'] ?? [] as $el) {
     if (($el['caption'] ?? '') === '🔌  Zähler') {
@@ -1566,7 +1568,7 @@ $a = t35_apply($aIid);
 check('35e: kein Fehler, rechnet weiter (102)', ($GLOBALS['STATUS'][$aIid] ?? 0) === 102, json_encode(t35_call($a, 'Validate')));
 $warn35 = implode(' | ', t35_call($a, 'Warnings', t35_call($a, 'Nodes')));
 check('35e: Warnung nennt das Mitglied und „existiert nicht mehr"', str_contains($warn35, 'Altes Gerät') && str_contains($warn35, 'existiert nicht mehr'), $warn35);
-$form35 = json_decode($a->GetConfigurationForm(), true);
+$form35 = json_decode(cf($a), true);
 $list35 = t35_find($form35, 'MemberSettings');
 $found35 = array_column($list35['values'] ?? [], 'Found');
 check('35e: Formular-Liste zeigt „Ziel fehlt"', count(array_filter($found35, fn($f) => str_contains($f, 'Ziel fehlt'))) === 1, json_encode($found35));
@@ -1657,7 +1659,7 @@ IPS_SetProperty($cIid, 'Nodes', json_encode([
 ]));
 $c = t35_apply($cIid);
 check('35k: Instanz mit Zeilen bleibt im Tabellen-Modus', t35_call($c, 'IsTreeMode') === false);
-$formC = json_decode($c->GetConfigurationForm(), true);
+$formC = json_decode(cf($c), true);
 check('35k: Umstell-Angebot sichtbar', t35_find($formC, 'TreeOfferPanel') !== null);
 $beforeP = (float)t35_out($cIid, 'power');
 $beforeI = (float)t35_out($cIid, 'energy_import');
@@ -1717,7 +1719,7 @@ $lE2 = t35_link($eIid, 300, 'WB', 110);
 vari(4960, 'Direkter Zähler', $eIid, '', 'MHB.W', 55.0);   // direkt (kein Link) einsortiert
 IPS_SetPosition(4960, 120);
 $e = t35_apply($eIid);
-$listE = t35_find(json_decode($e->GetConfigurationForm(), true), 'MemberSettings');
+$listE = t35_find(json_decode(cf($e), true), 'MemberSettings');
 check('35m: Tabelle erlaubt Hinzufügen, Löschen und Umsortieren', ($listE['add'] ?? false) === true && ($listE['delete'] ?? false) === true && ($listE['changeOrder'] ?? false) === true);
 $colsE = array_column($listE['columns'] ?? [], null, 'name');
 check('35m: Name und Ziel editierbar, Ausgangswerte unsichtbar mitgespeichert', isset($colsE['Name']['edit'], $colsE['Target']['edit'])
@@ -1736,7 +1738,7 @@ check('35m: direkt einsortierter Zähler wird NICHT gelöscht, sondern gemeldet'
 check('35m: neuer Link angelegt, umbenannt, Reihenfolge wie im Formular', t35_names($e) === ['Garage', 'Wärmepumpe neu', 'Direkter Zähler'], json_encode(t35_names($e), JSON_UNESCAPED_UNICODE));
 check('35m: Anteil der neuen Zeile gilt (0,5 × 700 + 1200 + 55)', abs((float)t35_out($eIid, 'power') - 1605.0) < 0.01, (string)t35_out($eIid, 'power'));
 check('35m: Doppel-Zeile und Zeile ohne Ziel gemeldet statt angelegt', str_contains($notesE, 'bereits Mitglied') && str_contains($notesE, 'ohne Ziel') && count(t35_call($e, 'TreeMembers')) === 3, $notesE);
-$formLabels = json_encode(json_decode($e->GetConfigurationForm(), true), JSON_UNESCAPED_UNICODE);
+$formLabels = json_encode(json_decode(cf($e), true), JSON_UNESCAPED_UNICODE);
 check('35m: Hinweise stehen im Formular', str_contains($formLabels, 'Beim letzten'));
 
 IPS_SetName($lE1, 'Im Baum umbenannt');
@@ -1747,7 +1749,7 @@ $e = $GLOBALS['MODOBJ'][$eIid];
 check('35m: interne Speicherung (AddDevice) spielt keinen alten Formular-Stand zurück', IPS_GetName($lE1) === 'Im Baum umbenannt' && count(t35_call($e, 'TreeMembers')) === 4, $resSauna);
 check('35m: Anteil der Formular-Zeile bleibt dabei erhalten (+3000 Sauna)', abs((float)t35_out($eIid, 'power') - 4605.0) < 0.01, (string)t35_out($eIid, 'power'));
 
-$rowsE2 = t35_find(json_decode($e->GetConfigurationForm(), true), 'MemberSettings')['values'];
+$rowsE2 = t35_find(json_decode(cf($e), true), 'MemberSettings')['values'];
 foreach ($rowsE2 as &$r) { if ($r['MemberID'] === $lE1) { $r['Target'] = 4920; } }
 unset($r);
 array_unshift($rowsE2, array_pop($rowsE2));   // Drag & Drop: letzte Zeile (Sauna) nach oben
@@ -1770,7 +1772,7 @@ $lF3 = t35_link($fIid, 4974, 'C', 120);
 $f = t35_apply($fIid);
 // Formular öffnen (setzt FormSnapshot = [A, B, C]), Zeilen unverändert wieder
 // einreichen — der Nutzer hat die Liste selbst NICHT angefasst.
-$rowsF = t35_find(json_decode($f->GetConfigurationForm(), true), 'MemberSettings')['values'];
+$rowsF = t35_find(json_decode(cf($f), true), 'MemberSettings')['values'];
 check('35m2: Formular zeigt A, B, C', array_column($rowsF, 'Name') === ['A', 'B', 'C'], json_encode(array_column($rowsF, 'Name')));
 // Während die Maske offen war, hat jemand im Objektbaum umsortiert — hier
 // simuliert durch direktes IPS_SetPosition, unabhängig von diesem Formular.
@@ -1784,7 +1786,7 @@ check('35m2: keine Hinweise, kein stiller Fehlschlag', $f->ReadAttributeString('
 // (Erste Zeile ans Ende — NICHT einfach der vorige Öffnungsstand [A,B,C],
 // sonst träfe die Einreichung zufällig wieder den zuletzt abgeglichenen Stand
 // und der „schon bekannt"-Kurzschluss oben würde den Test verfälschen.)
-$rowsF2 = t35_find(json_decode($f->GetConfigurationForm(), true), 'MemberSettings')['values'];
+$rowsF2 = t35_find(json_decode(cf($f), true), 'MemberSettings')['values'];
 array_push($rowsF2, array_shift($rowsF2));   // erste Zeile ans Ende
 IPS_SetProperty($fIid, 'MemberSettings', json_encode($rowsF2));
 $f = t35_apply($fIid);
@@ -2098,7 +2100,7 @@ IPS_ApplyChanges($sibC);
 // Seit 0.34.0 gleicht eine Instanz das Ausblenden beim Öffnen ihres Formulars ab, nicht mehr in ApplyChanges()
 // (Store-Review Tessie, Checkliste 27: beim Neuladen sind die anderen Instanzen evtl. noch nicht geladen).
 check('43z: ApplyChanges() fasst Geschwister-Instanzen nicht an — nach dem Übernehmen ist noch nichts übernommen', empty($GLOBALS['ATTR'][$sibA]['PurposeIntroGone']));
-foreach ([$sibA, $sibB, $sibC] as $sib43) { $GLOBALS['MODOBJ'][$sib43]->GetConfigurationForm(); }
+foreach ([$sibA, $sibB, $sibC] as $sib43) { cf($GLOBALS['MODOBJ'][$sib43]); }
 // PurposeIntro (Block 28c) und News (Zeile ~604) wurden an früher im
 // Prüfstand angelegten Instanzen schon bestätigt — jede der drei neuen
 // Instanzen muss das beim eigenen ersten ApplyChanges() automatisch
@@ -2122,7 +2124,7 @@ check('43d: propagiert auf B und C', $GLOBALS['ATTR'][$sibB]['ForumHintGone'] ==
 // ApplyChanges() automatisch den vollständigen Stand.
 $sibD = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
 IPS_ApplyChanges($sibD);
-$GLOBALS['MODOBJ'][$sibD]->GetConfigurationForm();
+cf($GLOBALS['MODOBJ'][$sibD]);
 check('43e: neu hinzugekommene Instanz übernimmt den vollständigen Stand automatisch', $GLOBALS['ATTR'][$sibD]['PurposeIntroGone'] === true && $GLOBALS['ATTR'][$sibD]['ForumHintGone'] === true && $GLOBALS['ATTR'][$sibD]['SeenNews'] === $newsVersion43);
 
 echo "\n44) Duplikat-Erkennung: Host-IP allein reicht nicht mehr, Unit-ID muss mit übereinstimmen (0.29.2, Dashboard-Fund Solarpark 14.09.2026: 24 blue'Log-SCADA-WR hinter einer Gateway-IP, 23 davon fälschlich als Dublette der 24. ausgeschlossen)\n";
@@ -2284,7 +2286,7 @@ $hub47->Create();
 $visOf = function (string $mode, string $meter) use ($findEl, $hub47) {
     IPS_SetProperty(9200, 'Meter', $meter);
     IPS_SetProperty(9200, 'ConnectionMode', $mode);
-    $f = json_decode($hub47->GetConfigurationForm(), true);
+    $f = json_decode(cf($hub47), true);
     $out = [];
     foreach (['GatewayPick', 'BtnCreateBridge', 'BridgeInstanceID', 'Host'] as $n) {
         $e = $findEl($f['elements'], $n);
@@ -2302,7 +2304,7 @@ check('47c: Cloud-Zähler (Inexogy) — auch bei gespeichertem „gateway" keine
 $statusCaption = function (string $mode, string $meter, int $code) use ($hub47) {
     IPS_SetProperty(9200, 'Meter', $meter);
     IPS_SetProperty(9200, 'ConnectionMode', $mode);
-    $f = json_decode($hub47->GetConfigurationForm(), true);
+    $f = json_decode(cf($hub47), true);
     foreach ($f['status'] as $st) { if ($st['code'] === $code) { return $st['caption']; } }
     return '';
 };
@@ -2313,7 +2315,7 @@ check('47e: Status 201 bei Direkt und Cloud bleibt allgemein', $statusCaption('d
 echo "\n48) Eastron SDM120/SDM220/SDM230 im Zählertyp-Dropdown (einphasig, nicht mehr experimentell)\n";
 IPS_SetProperty(9200, 'Meter', 'eastron_sdm120');
 IPS_SetProperty(9200, 'ConnectionMode', 'direct');
-$f48 = json_decode($hub47->GetConfigurationForm(), true);
+$f48 = json_decode(cf($hub47), true);
 $meterSel = $findEl($f48['elements'], 'Meter');
 $opts48 = [];
 foreach ($meterSel['options'] ?? [] as $o) { $opts48[$o['value']] = $o['caption']; }
@@ -2327,7 +2329,7 @@ $modeVis = function (string $meter, string $mode = 'combined') use ($hub47, $fin
     IPS_SetProperty(9200, 'Meter', $meter);
     IPS_SetProperty(9200, 'ConnectionMode', 'direct');
     IPS_SetProperty(9200, 'MeasureMode', $mode);
-    $f = json_decode($hub47->GetConfigurationForm(), true);
+    $f = json_decode(cf($hub47), true);
     $vis = fn($n) => ($e = $findEl($f['elements'], $n)) === null ? null : (bool)($e['visible'] ?? true);
     return ['select' => $vis('MeasureMode'), 'intro' => $vis('MeasureModeIntro'), 'single' => $vis('MeasureModeSingle'), 'phaseFields' => $findEl($f['elements'], 'FuncL1') !== null, 'total' => $findEl($f['elements'], 'FuncTotal') !== null];
 };
@@ -2350,7 +2352,7 @@ echo "\n50) Verbund-Verbindungen im Formular sichtbar machen (SUITE.md 21.09.202
 $line50 = function (string $mode, string $meter, string $name) use ($hub47, $findEl) {
     IPS_SetProperty(9200, 'Meter', $meter);
     IPS_SetProperty(9200, 'ConnectionMode', $mode);
-    $f = json_decode($hub47->GetConfigurationForm(), true);
+    $f = json_decode(cf($hub47), true);
     $e = $findEl($f['elements'], $name);
     return $e === null ? null : ['caption' => (string)($e['caption'] ?? ''), 'visible' => (bool)($e['visible'] ?? true)];
 };
@@ -2417,7 +2419,7 @@ IPS_SetProperty(9200, 'InexogyMeterID', '');
 
 echo "\n50b2) Inexogy — Zählerliste übersteht den Formular-Reload nach IPS_ApplyChanges() (HeishaMon-Fund im Symcon-Store-Review 23.09.2026: InexogyLogin() rief bisher ApplyChanges() VOR den UpdateFormField()-Aufrufen auf, die dadurch laut Reviewer wirkungslos blieben — Fix: Reihenfolge getauscht + Zählerliste zusätzlich im Attribut InexogyMeterOptions gecacht, GetConfigurationForm() liest es beim [erzwungenen] Neuaufbau)\n";
 $meterOptsEl = function () use ($hub47, $findEl) {
-    $f = json_decode($hub47->GetConfigurationForm(), true);
+    $f = json_decode(cf($hub47), true);
     return $findEl($f['elements'], 'InexogyMeterID');
 };
 unset($GLOBALS['ATTR'][9200]['InexogyMeterOptions']);
@@ -2452,7 +2454,7 @@ $GLOBALS['INSTMOD'][50] = $acMod;
 IPS_SetProperty(9200, 'Meter', 'siemens_pac2200');
 IPS_SetProperty(9200, 'ConnectionMode', 'direct');
 
-$formV = json_decode($GLOBALS['MODOBJ'][$plausIid]->GetConfigurationForm(), true);
+$formV = json_decode(cf($GLOBALS['MODOBJ'][$plausIid]), true);
 $vText = json_encode($formV, JSON_UNESCAPED_UNICODE);
 check('50d: Virtual — die ✅-Vorschau nennt je Term die gelesene Variable (Quelle #ID und Name)', str_contains($vText, '✅ Formel schlüssig') && str_contains($vText, '[Quelle #63001') && str_contains($vText, '[Quelle #63002') && str_contains($vText, '[Quelle #63003'), substr($vText, 0, 200));
 
@@ -2708,7 +2710,7 @@ check('54j: „Anmelden" bei leerem Passwortfeld und gewähltem Tresor nutzt das
 $sv = $line50('direct', 'inexogy', 'SecretsStatusLine');
 check('54k: Formular enthält die Tresor-Zeile, bei einem Cloud-Zähler sichtbar', $sv !== null && $sv['visible'] === true && $sv['caption'] !== '', json_encode($sv));
 check('54k: bei einem Modbus-Zähler ausgeblendet', ($line50('direct', 'siemens_pac2200', 'SecretsStatusLine')['visible'] ?? null) === false);
-$fAll = json_decode($hub47->GetConfigurationForm(), true);
+$fAll = json_decode(cf($hub47), true);
 check('54k: Tresor-Auswahl und Feldnamen stehen im Formular', $findEl($fAll['elements'], 'SecretsInstanceID') !== null && $findEl($fAll['elements'], 'SecretsRecord') !== null && $findEl($fAll['elements'], 'SecretsPassField') !== null && $findEl($fAll['elements'], 'SecretsUserField') !== null);
 IPS_SetProperty(9200, 'Meter', 'siemens_pac2200');
 
@@ -2804,7 +2806,7 @@ $rv58->invoke($h58, $def58, 0);
 check('58f: MeterHub, weiter aus: von Hand gesetzte Regel bleibt unberührt', $GLOBALS['COMPACTION_STATE'][$hv58] === [6 => 3], json_encode($GLOBALS['COMPACTION_STATE'][$hv58]));
 
 echo "\n59) Formular: Aufbau (SUITE.md 3a, EMS 29.10.2026): Aufklapp-Zustand, Reihenfolge und Ausblenden der Fachpanels wählbar — MeterHub und MeterHubVirtual\n";
-function t59_form($obj) { return json_decode($obj->GetConfigurationForm(), true); }
+function t59_form($obj) { return json_decode(cf($obj), true); }
 function t59_panels($form) {
     $out = [];
     foreach ($form['elements'] as $e) { if (($e['type'] ?? '') === 'ExpansionPanel') { $out[] = $e; } }
@@ -2851,7 +2853,7 @@ foreach ($t59 as [$cls, $iid, $keys, $probe, $pfx]) {
         $GLOBALS['PROP'][$iid]['FormLayout'] = json_encode($rows);
     };
     $setRow($probeKey, true, false, false, array_search($probeKey, $keys) + 1);
-    check("59d $cls: „Aufgeklappt“ klappt das Panel auf", t59_find(t59_form($o), $probe)['expanded'] === true);
+    check("59d $cls: „Aufgeklappt“ klappt das Panel auf", (t59_find(t59_form($o), $probe)['expanded'] ?? null) === true, json_encode(t59_order(t59_form($o)), JSON_UNESCAPED_UNICODE));
     $setRow($probeKey, false, true, false, array_search($probeKey, $keys) + 1);
     check("59d $cls: „Zugeklappt“ klappt das Panel zu", t59_find(t59_form($o), $probe)['expanded'] === false);
     $setRow($probeKey, true, true, true, array_search($probeKey, $keys) + 1);
@@ -2913,7 +2915,7 @@ foreach ($t59 as [$cls, $iid, $keys, $probe, $pfx]) {
 foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery'] as $cls) {
     $src = file_get_contents(dirname(__DIR__) . "/$cls/module.php");
     check("59l $cls: Property FormLayout (String, '[]') registriert", strpos($src, "RegisterPropertyString('FormLayout', '[]')") !== false);
-    check("59l $cls: Neu-Panel erwähnt „Formular-Aufbau selbst wählen“", mb_strpos($src, 'Neu: Formular-Aufbau selbst wählen') !== false);
+    check("59l $cls: Neu-Panel erwähnt „Formular-Aufbau selbst wählen“ (englischer Quelltext, Deutsch in locale.json)", mb_strpos($src, 'New: choose the form layout yourself') !== false && mb_strpos((string)file_get_contents(dirname(__DIR__) . "/$cls/locale.json"), 'Neu: Formular-Aufbau selbst wählen') !== false);
 }
 
 echo "\n60) Keine Kategorien unter der Instanz (Symcon-Store-Review 30.10.2026): alle Variablen direkt unter der Instanz, alte Kategorien werden aufgeräumt, IDs bleiben\n";
@@ -3032,7 +3034,7 @@ check('61f (26): überzählige eigene Variable wird entfernt, die übrigen bleib
 // 19 MeterHub: nichts wird von selbst geloggt
 $logged61 = array_filter(IPS_GetChildrenIDs(8501), fn($c) => isset($GLOBALS['ARCHIVED'][$c]));
 check('61g (19) MeterHub: nach dem Registrieren ist KEINE Variable von selbst im Archiv', count($logged61) === 0 && count(IPS_GetChildrenIDs(8501)) > 5, json_encode(array_values($logged61)));
-$f61 = json_decode($h61->GetConfigurationForm(), true);
+$f61 = json_decode(cf($h61), true);
 $pl61 = null; foreach ($f61['elements'] as $e61) { if (($e61['name'] ?? '') === 'PanelLogging') { $pl61 = $e61; } }
 $btn61 = null; foreach (($pl61['items'] ?? []) as $it61) { if (($it61['type'] ?? '') === 'Button') { $btn61 = $it61; } }
 check('61h (19) MeterHub: Formular zeigt das Panel „Archivierung fehlt“ mit Knopf', $pl61 !== null && $btn61 !== null && strpos($btn61['onClick'], 'MHUB_EnableArchiving($id)') !== false, json_encode(array_column($f61['elements'], 'name')));
@@ -3043,7 +3045,7 @@ $msg61 = $h61->EnableArchiving();
 $missing61 = new ReflectionMethod('MeterHub', 'ArchivingMissing');
 check('61i (19) MeterHub: Klick schaltet die fehlenden Variablen ein (danach fehlt keine mehr), Aggregationstyp wird gesetzt', $missing61->invoke($h61) === [] && isset($GLOBALS['ARCHIVED'][$en61]) && ($GLOBALS['AGGTYPE'][$en61] ?? -1) === 1 && str_contains($msg61, 'eingeschaltet'), $msg61);
 check('61i (19) MeterHub: danach verschwindet das Panel (UpdateFormField) und im Formular fehlt es', ($GLOBALS['FORMFIELDS']['PanelLogging']['visible'] ?? true) === false);
-$f61b = json_decode($h61->GetConfigurationForm(), true);
+$f61b = json_decode(cf($h61), true);
 check('61i (19) MeterHub: nach dem Einschalten zeigt das Formular das Panel nicht mehr', !in_array('PanelLogging', array_column($f61b['elements'], 'name'), true));
 $loggedBefore61 = count($GLOBALS['ARCHIVED']);
 check('61j (19) MeterHub: ein zweiter Klick ändert nichts („Es fehlte nichts“), nichts wird abgeschaltet', str_contains($h61->EnableArchiving(), 'fehlte nichts') && count($GLOBALS['ARCHIVED']) === $loggedBefore61);
@@ -3061,7 +3063,7 @@ $vp61 = (int)IPS_GetObjectIDByIdent('power', $vIid61);
 $ve61 = (int)IPS_GetObjectIDByIdent('energy_import', $vIid61);
 check('61l (19) MeterHubVirtual: nach dem Übernehmen ist keine Ausgabe von selbst im Archiv', $vp61 > 0 && $ve61 > 0 && !isset($GLOBALS['ARCHIVED'][$vp61]) && !isset($GLOBALS['ARCHIVED'][$ve61]));
 check('61l (28) MeterHubVirtual: Ausgaben haben das Profil als Standarddarstellung, kein benutzerdefiniertes', ($GLOBALS['VAR'][$vp61]['VariablePresentation']['PROFILE'] ?? '') === 'NRG.Watt' && ($GLOBALS['VAR'][$vp61]['VariableCustomProfile'] ?? 'x') === '' && ($GLOBALS['VAR'][$ve61]['VariableProfile'] ?? '') === 'NRG.kWh');
-$fv61 = json_decode($vo61->GetConfigurationForm(), true);
+$fv61 = json_decode(cf($vo61), true);
 $plv61 = null; foreach ($fv61['elements'] as $e61) { if (($e61['name'] ?? '') === 'PanelLogging') { $plv61 = $e61; } }
 check('61m (19) MeterHubVirtual: Panel „Archivierung fehlt“ mit Knopf MHUBV_EnableArchiving', $plv61 !== null && strpos(json_encode($plv61), 'MHUBV_EnableArchiving($id)') !== false);
 $msgv61 = $vo61->EnableArchiving();
@@ -3085,6 +3087,62 @@ $rvs61->invoke($hi61);
 $bf61 = (new ReflectionMethod('MeterHub', 'DoBackfillInexogyArchive'))->invoke($hi61, time() - 86400, time());
 check('61p (19): Inexogy-Nachtrag ohne Archivierung meldet das klar und schreibt nichts', str_contains($bf61, 'noch nicht archiviert') && str_contains($bf61, 'Archivierung für diese Variablen einschalten'), $bf61);
 $GLOBALS['PRELOGGED'] = true;
+
+echo "\n62) Zweisprachigkeit (SUITE.md Punkt 9, Checkliste 25): englische Oberfläche — keine deutschen Reste in den erzeugten Formularen\n";
+putenv('I18N_LANG=en');
+$enForms = [];
+foreach (['siemens_pac2200', 'inexogy', 'goe_controller', 'bluelog_scada_logger', 'bluelog_rpc', 'janitza_umg800', 'eastron_sdm120'] as $mt62) {
+    $id62 = 8600 + count($enForms);
+    obj($id62, 1, "EN-Form $mt62", 0);
+    $h = new MeterHub($id62); $h->Create();
+    $GLOBALS['PROP'][$id62]['Meter'] = $mt62;
+    $enForms["MeterHub/$mt62"] = json_decode(cf($h), true);
+}
+obj(8620, 1, 'EN-Form Virtual', 0);
+$vEn = new MeterHubVirtual(8620); $vEn->Create();
+$enForms['MeterHubVirtual'] = json_decode(cf($vEn), true);
+foreach ($enForms as $label62 => $form62) {
+    // Nutzerdaten aus den Prüfstand-Anlagen (Instanz-/Standortnamen wie „Keller“, „Hausanschluss (#100)“) sind kein Modultext
+    $left = array_values(array_filter(i18n_german_leftovers($form62), fn($t) => $t !== 'Keller' && strpos($t, '(#') === false && strpos($t, "echo 'http") !== 0 && strpos($t, '…Wirkleistung') === false   // die KNX-Namensmuster sind bewusst deutsch: sie passen auf deutsche Instanznamen
+        
+        && ($t === ($t2 = str_replace('"Tresor"', '', $t)) || array_filter(i18n_german_leftovers(['caption' => $t2])))));
+    check("62a $label62: englisches Formular enthält keinen deutschen Text", $form62 !== null && !$left, json_encode(array_slice($left, 0, 3), JSON_UNESCAPED_UNICODE));
+}
+// dieselben Formulare in der deutschen Oberfläche: nichts Englisches in den Beschriftungen, das übersetzt werden müsste
+putenv('I18N_LANG=de');
+$deForm = json_decode(cf($vEn), true);
+$flat = json_encode($deForm, JSON_UNESCAPED_UNICODE);
+check('62b: deutsche Oberfläche zeigt deutsche Panel-Namen (Zähler, Prüfung & Vorschau, Formular: Aufbau)', strpos($flat, '"🔌  Zähler"') !== false && strpos($flat, 'Prüfung & Vorschau') !== false && strpos($flat, 'Formular: Aufbau') !== false);
+// Laufzeit-Meldungen: englisch mit englischer, deutsch mit deutscher Oberfläche
+putenv('I18N_LANG=en');
+check('62c: Laufzeit-Text auf Englisch (Quelltext)', str_starts_with($hub->EnableArchiving(), '❌ No archive') || str_contains($hub->EnableArchiving(), 'archiv'), $hub->EnableArchiving());
+putenv('I18N_LANG=de');
+check('62c: derselbe Laufzeit-Text auf Deutsch', i18n_tr('❌ No archive instance found.') === '❌ Keine Archiv-Instanz gefunden.');
+
+echo "\n63) Stolperstein 24: wenige Translate()-Aufrufe je Formular und je Übernehmen (kein Aufruf pro Messwert/Abfrage)\n";
+$GLOBALS['TR_COUNT'] = 0;
+trait_exists('I18nStub');
+$cntBefore = function () { return $GLOBALS['TR_COUNT']; };
+// Zähler über den Übersetzer der Fassaden einhängen
+MHUB_Text::set(function (string $t): string { $GLOBALS['TR_COUNT']++; return i18n_tr($t); });
+obj(8630, 1, 'Zähl-Hub', 0);
+$hc = new MeterHub(8630); $hc->Create();
+MHUB_Text::set(function (string $t): string { $GLOBALS['TR_COUNT']++; return i18n_tr($t); });   // der Konstruktor hat ihn überschrieben
+$GLOBALS['PROP'][8630]['Meter'] = 'siemens_pac2200';
+$GLOBALS['TR_COUNT'] = 0;
+$t0 = microtime(true);
+$rvs61->invoke($hc);
+$nReg = $GLOBALS['TR_COUNT'];
+check("63a: Variablen anlegen (Übernehmen) braucht höchstens ~2 Übersetzungen je Variable", $nReg <= 2 * count(IPS_GetChildrenIDs(8630)) + 20, "$nReg Aufrufe für " . count(IPS_GetChildrenIDs(8630)) . ' Variablen');
+$GLOBALS['TR_COUNT'] = 0;
+cf($hc);
+$nForm = $GLOBALS['TR_COUNT'];
+check("63b: Formularaufbau MeterHub braucht nur wenige Übersetzungen (Formulartexte übersetzt die Konsole selbst)", $nForm < 80, "$nForm Aufrufe");
+// Abfragezyklus: SetVarFloat/SetVarEnergyWh dürfen nie übersetzen
+$GLOBALS['TR_COUNT'] = 0;
+for ($i = 0; $i < 200; $i++) { $hc->SetVarFloat('power_total', 100.0 + $i); $hc->SetVarEnergyWh('energy_import', 1000.0 + $i); }
+check('63c: 200 Messwert-Schreibvorgänge lösen keine einzige Übersetzung aus', $GLOBALS['TR_COUNT'] === 0, (string)$GLOBALS['TR_COUNT']);
+MHUB_Text::set(function (string $t): string { return i18n_tr($t); });
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

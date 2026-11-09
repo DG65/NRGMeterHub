@@ -2,6 +2,33 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.35.0 (2026-11-09)
+
+- **Zweisprachig: Deutsch und Englisch (Auftrag Dietmar 05.11.2026, SUITE.md Konvention 9).** Alle vier Module
+  (`MeterHub`, `MeterHubVirtual`, `MeterHubDiscovery`, `MeterHubBridge`) haben englische Quelltexte, die deutschen
+  Fassungen stehen in der jeweiligen `locale.json` (rund 1.100 Texte). Die Texte folgen der Symcon-Spracheinstellung.
+  - **Formular (Checkliste 25):** Beschriftungen, Hinweise und Auswahltexte im Formular bleiben englischer Quelltext,
+    die Konsole übersetzt sie selbst (`GetConfigurationForm` und `UpdateFormField`). Selbst übersetzt werden nur
+    Texte mit Werten (Statuszeilen, Meldungen, Fortschritt), Rückgaben von Knöpfen (`echo`), Bestätigungsfragen,
+    Variablennamen, Profiltexte und Listenwerte (z. B. Panelnamen im „Formular: Aufbau“).
+  - **Fassade `MHUB_Text`/`MHUBV_Text`/`MHUBD_Text`/`MHUBB_Text`:** `::t('English %s', $arg)` übersetzt über die
+    `Translate()`-Methode der Modulklasse (im Konstruktor hinterlegt) und wendet danach `sprintf()` an. Sie ist auch in
+    Hilfsklassen und statischen Methoden nutzbar. Variablennamen werden einmal je „Übernehmen“ übersetzt, nie je
+    Abfrage (Stolperstein 24; Prüfstand Block 63: 200 Messwert-Schreibvorgänge lösen null Übersetzungen aus).
+  - **Kennungen unverändert:** Idents, Property-/Attribut-/Funktionsnamen und Vertrags-Schlüssel sind dieselben
+    (Migrationsvergleich ohne Bruch). Für Deutsch-Nutzer ändert sich kein sichtbarer Text, außer wo eine Aussage
+    inhaltlich veraltet war (siehe unten).
+  - **Neu: `README.en.md`** (englische README), Sprachlink in beiden Dateien.
+  - **„Neu in dieser Version“ gekürzt:** Die Panels von `MeterHub`, `MeterHubVirtual` und `MeterHubDiscovery` zeigen nur
+    noch die jüngsten Einträge; die älteren Punkte (bis 0.31.x) stehen weiter im CHANGELOG.
+  - **Inhaltlich aktualisiert:** „MeterHub/MeterHubVirtual/MeterHubDiscovery sind Beta“ (Forum-Hinweis) gilt seit 0.32.5
+    nicht mehr; die Beschreibung des virtuellen Zählers im Hauptmodul sprach noch vom früheren Verdrahtungs-Modell
+    („hängen dahinter“) und beschreibt jetzt Formel mit Anteil in Prozent; README entsprechend.
+  - Prüfstand: `.tools/test-i18n.php` (neu, statisch: jeder Text in `locale.json`, kein deutscher Rest im Code, keine
+    toten Einträge, Platzhalter gleich), `test-virtual.php` Block 62 (englische Formulare ohne deutsche Reste) und
+    Block 63 (Anzahl der Übersetzungen). Die übrigen Prüfstände simulieren die deutsche Oberfläche
+    (`.tools/i18n-test-support.php`); die englische Oberfläche wird gezielt in Block 62 geprüft.
+
 ## 0.34.1 (2026-11-09)
 
 - **Altes eigenes benutzerdefiniertes Profil wird genau EINMAL je Instanz geleert (EMS-Ausnahmeregel zu
@@ -409,30 +436,4 @@
   3 über den SCADA-Scan), dazu die klassischen Janitza-Modelle und den SDM630 stellvertretend.
   Ob sich der Phoenix EEM-XM per Signatur erkennen ließe, ist offen (Herstellerunterlagen
   fehlen).
-
-## 0.31.0-beta.1 (2026-09-19)
-
-- **Neu: drei einphasige Eastron-Zähler — SDM120, SDM220, SDM230** (Wunsch des Forum-Testers,
-  der sie an seiner Symbox betreibt). Neuer Treiber `MHUB_EastronSdmSinglePhaseDriver`:
-  Wirkleistung (Register 12), Spannung (0), Strom (6), Frequenz (70), Energie Bezug (72) und
-  Abgabe (74) in kWh, optional Scheinleistung (18), Blindleistung (24) und Leistungsfaktor (30).
-  FC 0x04, Float32 Big-Endian, Modbus-Adresse ab Werk 1. Die drei Geräte teilen dieselbe
-  Registerkarte.
-- **Registerkarte gegen drei unabhängige Quellen gegengelesen:** nmakel/sdm_modbus (SDM120,
-  SDM230), evcc (SDM120, SDM220/230) und volkszaehler/mbmd (SDM120, SDM220, SDM230) stimmen in
-  Funktionscode, Adressen, Datentyp und Wortreihenfolge überein und decken sich mit dem
-  vorhandenen SDM630-Treiber. **Nicht an echter Hardware bestätigt** — im Dropdown
-  „experimentell", der Tester prüft an seinen Geräten.
-- **Bewusst ein eigener Treiber statt des dreiphasigen:** der SDM630-Treiber liest zwei große
-  Blöcke (0–40, 42–63) und nimmt die Summenleistung aus Register 52 — die einphasigen Geräte
-  haben keine Summenregister, die Leistung steht auf 12, und die Register dazwischen sind nicht
-  belegt (ein Blocklesen riskiert „Illegal Data Address" für die ganze Anfrage, dieselbe Lehre
-  wie beim PAC2200). Jede Größe wird deshalb einzeln gelesen (je 2 Register), wie in allen drei
-  Quellen.
-- Reine RS485-Geräte: die Netzwerksuche (MeterHubDiscovery) scannt sie bewusst nicht; Anlage von
-  Hand, für den Anschluss an die Symbox über den Verbindungsweg „Symbox-Gateway".
-- Prüfstand `test-eastron-single-phase.php` (neu): der Treiber läuft über den echten
-  Gateway-Client gegen eine nachgebaute Registertabelle — Anfragen (FC 4, je 2 Register, keine
-  Blocklesung), Dekodierung, negative Leistung bei Einspeisung, Ausfall einzelner Register.
-  Doku: README-Tabelle, Doku-Panel, News-Eintrag (`NEWS_VERSION` 0.31.0).
 

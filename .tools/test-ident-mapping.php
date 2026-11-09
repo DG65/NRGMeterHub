@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/i18n-test-support.php';
 /**
  * Prüfstand für MHUB_GetIdentMapping() (Verbund-Vertrag 29.07.2026, mit
  * MigrationsHub/ChargerHub/InverterHub abgestimmt). Fest-arität-gebundene
@@ -17,6 +18,7 @@ $GLOBALS['ATTR'] = [];
 
 class IPSModule
 {
+    use I18nStub;
     public $InstanceID;
     protected $defs = [];
     public function __construct($id) { $this->InstanceID = $id; }

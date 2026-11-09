@@ -27,50 +27,85 @@
 // eigentliche Absicherung, nicht der Baum selbst.
 // ---------------------------------------------------------------------------
 
+/**
+ * Texte zur Laufzeit übersetzen (Quelltexte englisch, Deutsch in locale.json — SUITE.md Punkt 9). Die Modulklasse
+ * hinterlegt im Konstruktor ihre Translate()-Methode; auch Hilfsklassen und statische Methoden kommen so an die Übersetzung.
+ * Mit Argumenten: sprintf() auf den übersetzten Text.
+ */
+class MHUBV_Text
+{
+    private static $fn = null;
+
+    public static function set(\Closure $fn): void
+    {
+        self::$fn = $fn;
+    }
+
+    public static function t(string $text, ...$args): string
+    {
+        $s = self::$fn !== null ? (string)(self::$fn)($text) : $text;
+        return $args ? sprintf($s, ...$args) : $s;
+    }
+
+    /** Zahl im Format der Oberflächensprache (Deutsch: 1.234,5 — Englisch: 1,234.5). */
+    public static function num(float $value, int $decimals): string
+    {
+        return self::t('<decimal separator>') === ',' ? number_format($value, $decimals, ',', '.') : number_format($value, $decimals, '.', ',');
+    }
+}
+
 class MeterHubVirtual extends IPSModule
 {
+    public function __construct($InstanceID)
+    {
+        parent::__construct($InstanceID);
+        MHUBV_Text::set(function (string $text): string {
+            return $this->Translate($text);
+        });
+    }
+
     // Vokabular wie im MeterHub-Hauptmodul, damit virtuelle Zähler in Kachel
     // und Sankey dieselben Funktionen belegen können. Bewusst dupliziert:
     // Konstanten lassen sich zwischen IPS-Modulen nicht teilen. Änderungen
     // hier und in MeterHub/module.php gleich halten.
     private const FUNCTIONS = [
-        'none'       => ['— keine Zuordnung —',      ''],
-        'grid'       => ['Netzanschluss',            'Electricity'],
-        'house'      => ['Hausverbrauch',            'HollowHouse'],
-        'pv'         => ['PV-Erzeugung',             'Sun'],
-        'battery'    => ['Batterie',                 'Battery'],
-        'heatpump'   => ['Wärmepumpe',               'Temperature'],
-        'heater'     => ['Heizung / Heizstab',       'Temperature'],
-        'hotwater'   => ['Warmwasser',               'Drops'],
-        'aircon'     => ['Klimaanlage',               'Snowflake'],
-        'ventilation'=> ['Lüftung',                  'Ventilation'],
+        'none'       => ['— no assignment —',      ''],
+        'grid'       => ['Grid connection',            'Electricity'],
+        'house'      => ['House consumption',            'HollowHouse'],
+        'pv'         => ['PV generation',             'Sun'],
+        'battery'    => ['Battery',                 'Battery'],
+        'heatpump'   => ['Heat pump',               'Temperature'],
+        'heater'     => ['Heating / heating element',       'Temperature'],
+        'hotwater'   => ['Hot water',               'Drops'],
+        'aircon'     => ['Air conditioning',               'Snowflake'],
+        'ventilation'=> ['Ventilation',                  'Ventilation'],
         'wallbox1'   => ['Wallbox 1',                'Car'],
         'wallbox2'   => ['Wallbox 2',                'Car'],
         'wallbox3'   => ['Wallbox 3',                'Car'],
         'wallbox4'   => ['Wallbox 4',                'Car'],
         'wallbox5'   => ['Wallbox 5',                'Car'],
         'garage'     => ['Garage',                   'Car'],
-        'washer'     => ['Waschmaschine',            'Drops'],
-        'dryer'      => ['Trockner',                 'Wind'],
-        'dishwasher' => ['Spülmaschine',             'Drops'],
+        'washer'     => ['Washing machine',            'Drops'],
+        'dryer'      => ['Dryer',                 'Wind'],
+        'dishwasher' => ['Dishwasher',             'Drops'],
         'oven'       => ['Backofen',                 'Flame'],
-        'stove'      => ['Herd',                     'Flame'],
-        'fridge'     => ['Kühl-/Gefriergerät',       'Snowflake'],
-        'kitchen'    => ['Küche (gesamt)',           'Gear'],
-        'appliances' => ['Haushaltsgeräte (allgemein)', 'Plug'],
+        'stove'      => ['Stove',                     'Flame'],
+        'fridge'     => ['Refrigerator/freezer',       'Snowflake'],
+        'kitchen'    => ['Kitchen (total)',           'Gear'],
+        'appliances' => ['Household appliances (general)', 'Plug'],
         'pool'       => ['Pool',                     'Waves'],
         'sauna'      => ['Sauna',                    'Flame'],
-        'light'      => ['Beleuchtung',              'Bulb'],
-        'it'         => ['Server / Netzwerk',        'Gear'],
+        'light'      => ['Lighting',              'Bulb'],
+        'it'         => ['Server / network',        'Gear'],
         'entertainment' => ['Unterhaltungsmedien',   'TV'],
         'workshop'   => ['Werkstatt',                'Gear'],
-        'other'      => ['Sonstiger Verbraucher',    'Electricity'],
+        'other'      => ['Other consumer',    'Electricity'],
     ];
 
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.34.0';
+    private const NEWS_VERSION = '0.35.0';
 
     public function Create()
     {
@@ -203,11 +238,11 @@ class MeterHubVirtual extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
-            'caption' => '💬  Feedback im Symcon-Forum',
+            'caption' => '💬  Feedback in the Symcon forum',
             'items' => [
-                ['type' => 'Label', 'caption' => 'MeterHub/MeterHubVirtual sind Beta — Rückmeldungen, gerade zu neuen/ungetesteten Zählertypen, sind ausdrücklich willkommen im Community-Thread.'],
-                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckForumHint($id);'],
+                ['type' => 'Label', 'caption' => 'Feedback, especially on new/untested meter types, is explicitly welcome in the community thread.'],
+                ['type' => 'Button', 'caption' => 'Go to the forum thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUBV_AckForumHint($id);'],
             ],
         ];
     }
@@ -325,14 +360,14 @@ class MeterHubVirtual extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🧡  Über dieses Modul',
+            'caption' => '🧡  About this module',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
-                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
-                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
-                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
-                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Born out of real enthusiasm for my own energy system — and a few evenings spent typing. Still: hobby or not, this is intellectual property and real work went into it.'],
+                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private, non-commercial use; commercial use requires a separate license from the rights holder.'],
+                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Commercial use or license questions? Just get in touch: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Like the module and want to leave something anyway? A small donation is appreciated — entirely voluntary, nothing expected in return.'],
+                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
@@ -355,13 +390,13 @@ class MeterHubVirtual extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
-            'caption' => '👋  Wozu dieses Modul?',
+            'caption' => '👋  What is this module for?',
             'items' => [
-                ['type' => 'Label', 'caption' => 'MeterHubVirtual misst selbst nichts — es RECHNET aus bereits vorhandenen Leistungs-/Energiewerten (von MeterHub oder anderen Quellen) genau die eine Zahl, die dir fehlt.'],
-                ['type' => 'Label', 'caption' => 'Typische Fälle: der unbekannte Rest eines Hausanschlusses (Hauptzähler minus alle bekannten Verbraucher), die Summe mehrerer Zähler zu einem Gesamtwert, oder ein Zähler, dessen Wert anteilig auf mehrere Instanzen/Mieter aufgeteilt werden muss.'],
-                ['type' => 'Label', 'caption' => 'Kurz: ein zusätzlicher, virtueller Zähler ganz ohne zusätzliche Hardware. Wie man ihn zusammenbaut, steht im Panel „🔌 Zähler" weiter unten.'],
-                ['type' => 'Label', 'caption' => '🙏 Dank an Sepp Lausch (seppm, community.symcon.de/u/seppm) — Betatester mit KNX-Zählertechnik-Fachwissen, hat dieses Modul entscheidend mitgeprägt.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckPurposeIntro($id);'],
+                ['type' => 'Label', 'caption' => 'MeterHubVirtual does not measure anything itself — it CALCULATES, from power/energy values that already exist (from MeterHub or other sources), exactly the one number that is missing.'],
+                ['type' => 'Label', 'caption' => 'Typical cases: the unknown remainder of a house connection (main meter minus all known consumers), the sum of several meters into one total, or a meter whose value has to be split proportionally between several instances/tenants.'],
+                ['type' => 'Label', 'caption' => 'In short: an additional, virtual meter without any additional hardware. How to put it together is described in the panel "🔌 Meters" further below.'],
+                ['type' => 'Label', 'caption' => '🙏 Thanks to Sepp Lausch (seppm, community.symcon.de/u/seppm) — beta tester with KNX metering expertise, who decisively shaped this module.'],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUBV_AckPurposeIntro($id);'],
             ],
         ];
     }
@@ -386,48 +421,21 @@ class MeterHubVirtual extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
-            'caption' => '🆕  Neu in dieser Version',
+            'caption' => '🆕  New in this version',
             'items' => [
-                ['type' => 'Label', 'caption' => '• 📈 Wichtig: MeterHubVirtual schaltet die Archivierung (Logging) nicht mehr von selbst ein. Sind die Ausgaben (Leistung, Bezug, Einspeisung, hochgerechnete Energie) nicht archiviert, erscheint oben im Formular ein Hinweis mit dem Knopf „Archivierung für diese Variablen einschalten“. Bereits laufende Archivierung bleibt, wie sie ist, und wird nie abgeschaltet. Neue Instanzen archivieren erst nach deinem Klick; die Archiv-Verdichtung wirkt nur bei archivierten Variablen.'],
-                ['type' => 'Label', 'caption' => '• 🎛️ Anzeige: Das Profil kommt jetzt als Standarddarstellung der Ausgabe, nicht mehr als benutzerdefiniertes Profil — das gehört dir. Ein früher von MeterHubVirtual gesetztes eigenes Profil (NRG.*, MHB.*, MHBV.*) entfernt das Modul genau einmal je Instanz (Merker), die Standarddarstellung zeigt dasselbe; trägst du später selbst wieder eines ein, bleibt es. Ein von dir gewähltes anderes Profil bleibt.'],
-                ['type' => 'Label', 'caption' => '• 🪟 Neu: Formular-Aufbau selbst wählen. Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist, und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so sieht das Formular jedes Mal so aus, wie du es brauchst. Ausgeblendete Bereiche behalten ihre Einstellungen und arbeiten weiter. Kein Haken heißt „Standard“; „Auf Standard zurücksetzen“ stellt alles zurück. Wirkt nach „Übernehmen“ beim nächsten Öffnen.'],
-                ['type' => 'Label', 'caption' => '• 📈 Bezug und Einspeisung laufen jetzt nahtlos weiter, wenn sich die Zusammensetzung ändert (Mitglied hinzu oder weg, Dublette umgestellt, „aktiv" geändert). Vorher sprang der Summen-Zählerstand um den Unterschied der Mitglieder — im Archiv und in Tagesbalken wirkte das wie ein Riesenverbrauch oder ein Zähler-Reset.'],
-                ['type' => 'Label', 'caption' => '• 👯 Doppelte Anbindung erkannt: Ist dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub UND über OCPPHub), zählt bis zu deiner Wahl nur die erste Anbindung, und „Prüfung & Vorschau" nennt beide samt Grund (gleiche Seriennummer, IP-Adresse oder fast gleiche Zählerstände). Festgelegt wird die überzählige im Modul der Anbindung selbst (z. B. ChargerHub, OCPPHub) — dann zählt sie überall nicht mehr mit. Die neue Spalte „aktiv" nimmt ein Mitglied nur aus dieser Summe.'],
-                ['type' => 'Label', 'caption' => '• 🌳 Neu: Mitglieder direkt im Objektbaum — alles, was als Verknüpfung (Link) oder direkt unter dieser Instanz hängt, wird automatisch Mitglied, in der Reihenfolge seiner Position dort. Neue Instanzen starten so; gelöschte Geräte fallen sofort als „Ziel fehlt" auf statt still als Leiche weiterzuleben.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Fix: bei Geräten ohne MeterHub-Kennung (z. B. Wallboxen) konnte statt der Gesamtleistung eine einzelne Phase gewählt werden. Jetzt gelten zuerst die Werte, die das Gerätemodul selbst meldet; sonst Gesamtwert vor Phasenwert, mehrdeutige Fälle werden gemeldet. Bitte die „Erkannt"-Spalte der eigenen Instanzen einmal ansehen.'],
-                ['type' => 'Label', 'caption' => '• ✏️ Mitglieder direkt in der Tabelle bearbeiten: hinzufügen (Spalte „Ziel“), löschen, per Drag & Drop umsortieren, umbenennen, Ziel ändern — mit „Übernehmen“ werden die Links im Objektbaum entsprechend angepasst. Gelöscht werden nur Links, nie Geräte.'],
-                ['type' => 'Label', 'caption' => '• 🔀 Schalter der verknüpften Geräte werden automatisch erkannt (Gruppe schalten ohne Einstellung); mehrdeutige Geräte werden gemeldet. Pro Mitglied lässt sich übersteuern oder „nicht schalten" wählen. Links ohne eigenen Namen heißen wie ihr Ziel.'],
-                ['type' => 'Label', 'caption' => '• 🌳 Verschachteln: einen Link auf eine andere virtuelle Zähler-Instanz unterhängen (z. B. mehrere Wallbox-Zähler unter „Fahrzeugbeladung"). Kreisverweise werden erkannt und blockiert.'],
-                ['type' => 'Label', 'caption' => '• 🌳 Instanzen mit der bisherigen Tabelle rechnen unverändert weiter. Ein Knopf „In Objektbaum-Mitglieder umwandeln" legt auf Wunsch die Links an — rechnerisch identisch, die alte Tabelle wird gesichert.'],
-                ['type' => 'Label', 'caption' => '• Komplett neues, einfacheres Modell: Diese Instanz ist jetzt selbst die oberste Ebene. Jede Zeile ist ein Term mit einem Anteil in Prozent — kein „Kürzel“, kein „hängt hinter“, keine Sammelzeilen mehr.'],
-                ['type' => 'Label', 'caption' => '• Ein Zähler lässt sich aufteilen: Spalte „Anteil (%)“ statt nur +/− — 100/−100 wie bisher, jeder Wert dazwischen ein Teil-Anteil, jetzt mit bis zu zwei Nachkommastellen (z. B. exakt ein Drittel). Details samt Beispiel im Doku-Panel unten.'],
-                ['type' => 'Label', 'caption' => '• „Zähler suchen“ trägt nichts mehr automatisch ein, sondern zeigt nur noch die Fundstellen — aufgenommen wird über das normale „+“ mit dem eingebauten Symcon-Variablenpicker oder den neuen Geräte-Picker („Gerät wählen“).'],
-                ['type' => 'Label', 'caption' => '• Zeilen lassen sich per Drag & Drop umsortieren, und „Prüfung & Vorschau“ zeigt die aktuellen Live-Werte samt Rechenergebnis, nicht nur die Formel-Struktur.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Neue Felder „Zählerbezeichnung“ (benennt die Instanz direkt im Formular um) und „Standort“ (Raum/Geschoss, mit Vorschlägen aus bereits benutzten Werten — jetzt auch aus normalen MeterHub-Instanzen).'],
-                ['type' => 'Label', 'caption' => '• 🆕 Archiv-Verdichtung läuft automatisch: bei jedem „Übernehmen" wird eine konfigurierbare Staffelung gesetzt (Panels „🗄️ Archiv-Verdichtung", getrennt für Leistung/Energie), statt sie für jeden Datenpunkt von Hand in der Konsole einzustellen. Ein Fix stellt sicher, dass „aus" eine vorhandene Verdichtungsregel auch wirklich löscht. Ein neues „?" bei den Verdichtungsstufen erklärt das Zusammenspiel der drei Stufen mit Beispiel.'],
-                ['type' => 'Label', 'caption' => '• Die Funktion (fürs Dashboard) wird einmal für die ganze Instanz gesetzt, nicht mehr pro Zeile.'],
-                ['type' => 'Label', 'caption' => '• Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere verkettete Instanzen statt innerhalb einer einzigen — Details im Doku-Panel unten.'],
-                ['type' => 'Label', 'caption' => '• Schon verdrahtete Instanzen (altes Baum-Format) brauchen eine einmalige Bestätigung: ein Migrations-Panel zeigt die bisherigen Zeilen als Vorschlag, nichts wird automatisch übernommen.'],
-                ['type' => 'Label', 'caption' => '• Fix: „Übernehmen" konnte mit „Fehler beim Übernehmen der Änderungen" fehlschlagen, wenn eine Verdichtungsstufe auf „aus" stand oder eine Alt-Regel von einer früheren Einstellung im Archiv übrig war — beides räumt die Archiv-Verdichtung jetzt sauber auf.'],
-                ['type' => 'Label', 'caption' => '• Fix: „Jetzt neu berechnen" meldete zwar Erfolg, das Panel „Prüfung & Vorschau" zeigte aber weiter die alten Werte — der Knopf lädt das Formular jetzt mit den frischen Werten neu.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Geräte-Familien ohne gemeinsamen Container (z. B. MDT AZI — jeder Messwert eine eigene KNX-Instanz): Kategorie wählen, „Geräte-Familie erkennen" liefert alle passenden Geräte auf einmal als neue Zeilen.'],
-                ['type' => 'Label', 'caption' => '• 🆕 „Geräte-Familie erkennen" versteht jetzt auch KNX-Zähler mit getrennten Bezugs-/Einspeisungswerten (z. B. Lingg&Janke, P14/P23/A14/A23) — ergibt automatisch die richtige Drei-Zeilen-Verdrahtung mit Vorzeichen, statt sie von Hand zusammenzustellen.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Fehlt bei einem Zähler der Bezugswert (z. B. reine Wirkleistungs-Aktoren): „Fehlende Energiewerte aus der Leistung hochrechnen" rechnet Leistung × Berechnungs-Intervall zu einer eigenen, klar beschrifteten Variable auf — keine Schätzung, aber ungenauer als ein echter Zähler.'],
-                ['type' => 'Label', 'caption' => '• 🆕 „Prüfung & Vorschau" warnt jetzt (⚠️, nicht blockierend), wenn eine Zeile Leistung, aber keinen Bezug hat, während andere Zeilen derselben Formel einen haben — sonst würde die Bezug-Summe diese Zeile still mit 0 kWh mitzählen.'],
-                ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
-                ['type' => 'Label', 'caption' => '• Übersichtlicher: die vier Wege, eine Zeile hinzuzufügen, stehen jetzt gleich am Anfang als Kurzübersicht mit eigenen Namen (Sucher-/Quick-Pick-/Familien-/Handarbeit-Alternative), jede mit eigener Zwischenüberschrift bei den passenden Bedienelementen.'],
-                ['type' => 'Label', 'caption' => '• 👋 Neue Zweck-Einführung „Wozu dieses Modul?" ganz oben im Formular — kurz und knapp, wofür MeterHubVirtual gedacht ist, bevor es an die Bedienung geht.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Neue Übersichtsgrafik im Doku-Panel — zeigt die drei Verdrahtungs-Muster (Sammeln/Abziehen/Aufteilen) als Skizze, passend zu den bestehenden Text-Beispielen.'],
-                ['type' => 'Label', 'caption' => '• 🧪 Experiment: WebFront-Kachel — zeigt die Formel-Zeilen mit Live-Werten und Ergebnis, Name/Anteil lassen sich direkt dort bearbeiten. Ergänzt das Konsolenformular, ersetzt es nicht (neue Zeilen/Variablen weiterhin dort).'],
-                ['type' => 'Label', 'caption' => '• 🆕 Neuer Suchfilter „Nur Funktion X" — findet Datenpunkte, deren Ursprungsinstanz schon eine Funktion wie „Beleuchtung" trägt, auch wenn der Gerätename allein nicht eindeutig ist. Praktisch, um eine Sparte über mehrere Stromkreise hinweg zu einem Sammelzähler (Energie- UND Kostenblock) zusammenzufassen.'],
-                ['type' => 'Label', 'caption' => '• Fix: „Gerät wählen" fand bei einer ANDEREN virtuellen Zähler-Instanz als Quelle die Leistung nicht (Bezug/Einspeisung schon) — betrifft das Verketten mehrerer virtueller Zähler.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Zwei neue Funktionen: „Haushaltsgeräte (allgemein)" und „Unterhaltungsmedien" — für einen Sammelzähler, der nicht in die schon vorhandenen Einzelkategorien passt.'],
-                ['type' => 'Label', 'caption' => '• 🙏 Dank an Sepp Lausch (seppm) im Panel „Wozu dieses Modul?" und in der README — Betatester mit KNX-Zählertechnik-Fachwissen, hat dieses Modul entscheidend mitgeprägt.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Vertrag MHUBV_GetFunctions 1.3: liefert jetzt die Mitglieder („members") der Formel nach außen — damit kann das NRG-Dashboard Sammelzähler per Klick „aufschachteln" (verkettete virtuelle Zähler als Hierarchie). Ein reiner Zwischenknoten braucht dafür keine Funktion.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Schaltgruppe: neue Spalte „Schalter" für Mitglieder, die schalten UND messen (z. B. Z-Wave-Aktoren) — automatisch vorgeschlagen beim Übernehmen eines Geräts. Ab dem ersten schaltbaren, positiven Mitglied entstehen „Gruppe schalten" und „Gruppenstatus" an der Instanz. Nur positive Anteile werden mitgeschaltet, abgezogene Zeilen bewusst nicht.'],
-                ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen: „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Fix: Geräte hinter demselben Modbus-TCP-Gateway (z. B. viele Wechselrichter hinter einem blue\'Log SCADA-Datenlogger, alle über dieselbe Host-IP, nur über die Unit-ID unterschieden) wurden von der Duplikat-Erkennung fälschlich als dasselbe Gerät behandelt — von 24 solchen Mitgliedern überlebte nur eines. Die Kennung berücksichtigt jetzt zusätzlich die Unit-ID.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBV_AckNews($id);'],
+                ['type' => 'Label', 'caption' => '• 🌐 New: MeterHubVirtual is now available in German and English. Texts follow the Symcon language setting: the form is translated by the console, messages are shown in the set language, and variable names are set in the language that is active when you click "Apply". Identifiers, properties and functions are unchanged — nothing is lost on existing instances.'],
+                ['type' => 'Label', 'caption' => '• 📈 Important: MeterHubVirtual no longer switches archiving (logging) on by itself. If the outputs (power, import, feed-in, extrapolated energy) are not archived, a notice with the button "Enable archiving for these variables" appears at the top of the form. Archiving that is already running stays as it is and is never switched off. New instances only archive after you click; archive compaction only works on archived variables.'],
+                ['type' => 'Label', 'caption' => '• 🎛️ Display: the profile now comes as the default presentation of the output, no longer as a custom profile — that belongs to you. A custom profile of its own (NRG.*, MHB.*, MHBV.*) that MeterHubVirtual set earlier is removed by the module exactly once per instance (marker); the default presentation shows the same thing, and if you enter one yourself later, it stays. A different profile you chose stays as well.'],
+                ['type' => 'Label', 'caption' => '• 🪟 New: choose the form layout yourself. In the new panel "Form: layout" (at the bottom, before the forum notice) you decide per section whether it is expanded, collapsed or hidden when opened, and at which position it sits. Symcon does not remember expanding and collapsing by itself, so the form looks the way you need it every time. Hidden sections keep their settings and keep working. No tick means "default"; "Reset to default" restores everything. Takes effect after "Apply" the next time the form is opened.'],
+                ['type' => 'Label', 'caption' => '• 📈 Import and feed-in now continue seamlessly when the composition changes (member added or removed, duplicate switched, "active" changed). Previously the total meter reading jumped by the difference of the members — in the archive and in daily bars this looked like a huge consumption or a meter reset.'],
+                ['type' => 'Label', 'caption' => '• 👯 Duplicate connection detected: if the same device is a member twice (e.g. a wallbox via ChargerHub AND via OCPPHub), only the first connection counts until you decide, and "Check & preview" names both with the reason (same serial number, IP address or almost identical meter readings). The redundant one is flagged in the module of the connection itself (e.g. ChargerHub, OCPPHub) — then it no longer counts anywhere. The new column "active" takes a member out of this sum only.'],
+                ['type' => 'Label', 'caption' => '• 🌳 New: members directly in the object tree — everything that is placed as a link or directly under this instance automatically becomes a member, in the order of its position there. New instances start this way; deleted devices stand out immediately as "target missing" instead of silently living on as an orphaned entry.'],
+                ['type' => 'Label', 'caption' => '• 🔧 Fix: for devices without a MeterHub identifier (e.g. wallboxes) a single phase could be chosen instead of the total power. Now the values the device module itself reports apply first; otherwise total value before phase value, ambiguous cases are reported. Please look at the "Detected" column of your own instances once.'],
+                ['type' => 'Label', 'caption' => '• ✏️ Edit members directly in the table: add (column "Target"), delete, reorder by drag & drop, rename, change target — with "Apply" the links in the object tree are adjusted accordingly. Only links are deleted, never devices.'],
+                ['type' => 'Label', 'caption' => '• 🔀 Switches of the linked devices are detected automatically (switch group without any setting); ambiguous devices are reported. Per member you can override or choose "do not switch". Links without a name of their own are named like their target.'],
+                ['type' => 'Label', 'caption' => '• 🌳 Nesting: place a link to another virtual meter instance underneath (e.g. several wallbox meters under "Vehicle charging"). Circular references are detected and blocked.'],
+                ['type' => 'Label', 'caption' => '• 🌳 Instances with the previous table keep calculating unchanged. A button "Convert to object tree members" creates the links on request — arithmetically identical, the old table is backed up.'],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUBV_AckNews($id);'],
             ],
         ];
     }
@@ -649,7 +657,7 @@ class MeterHubVirtual extends IPSModule
                     $met = $this->MetersOfDevice($m['target']);
                     $auto = ['power' => $met['power'], 'imp' => $met['imp'], 'exp' => $met['exp']];
                     if (!empty($met['extraPower']) && (int)($s['PowerID'] ?? 0) <= 0) {
-                        $meterNote = 'mehrere gleichwertige Leistungswerte am Gerät (' . implode(', ', array_map('IPS_GetName', array_merge([$met['power']], $met['extraPower']))) . ') — gewählt: „' . IPS_GetName($met['power']) . '“';
+                        $meterNote = MHUBV_Text::t('several equivalent power values on the device (%s) — chosen: "%s"', implode(', ', array_map('IPS_GetName', array_merge([$met['power']], $met['extraPower']))), IPS_GetName($met['power']));
                     }
                 }
             }
@@ -762,15 +770,15 @@ class MeterHubVirtual extends IPSModule
         $sa = strtolower(trim((string)($a['serial'] ?? '')));
         $sb = strtolower(trim((string)($b['serial'] ?? '')));
         if ($sa !== '' && $sb !== '') {
-            return $sa === $sb ? 'gleiche Seriennummer ' . trim((string)$a['serial']) : null;
+            return $sa === $sb ? MHUBV_Text::t('same serial number %s', trim((string)$a['serial'])) : null;
         }
         $ia = trim((string)($a['ip'] ?? ''));
         $ib = trim((string)($b['ip'] ?? ''));
         if ($ia !== '' && $ia === $ib) {
-            return 'gleiche IP-Adresse ' . $ia;
+            return MHUBV_Text::t('same IP address %s', $ia);
         }
         if ($ea !== null && $eb !== null && $ea >= 100.0 && $eb >= 100.0 && abs($ea - $eb) <= 0.01 * max($ea, $eb)) {
-            return 'Zählerstände fast gleich (' . number_format($ea, 1, ',', '.') . ' / ' . number_format($eb, 1, ',', '.') . ')';
+            return MHUBV_Text::t('meter readings almost identical (%s / %s)', MHUBV_Text::num($ea, 1), MHUBV_Text::num($eb, 1));
         }
         return null;
     }
@@ -1061,16 +1069,16 @@ class MeterHubVirtual extends IPSModule
             if ($n['broken']) {
                 continue;
             }
-            $label = '„' . $n['name'] . '“';
+            $label = MHUBV_Text::t('"%s"', $n['name']);
             if ($n['target'] === $this->InstanceID) {
-                $errors[] = "Mitglied $label verweist auf diese Instanz selbst — das ergäbe eine Endlosschleife.";
+                $errors[] = MHUBV_Text::t('Member %s points to this instance itself — that would create an endless loop.', $label);
                 continue;
             }
             foreach (['power', 'imp', 'exp'] as $f) {
                 $vid = $n[$f];
                 if ($vid > 0 && IPS_ObjectExists($vid) && (int)IPS_GetParent($vid) === $this->InstanceID
                     && in_array((string)IPS_GetObject($vid)['ObjectIdent'], ['power', 'energy_import', 'energy_export'], true)) {
-                    $errors[] = "Mitglied $label verweist auf eine Ausgabe dieser Instanz selbst — das ergäbe eine Rückkopplung.";
+                    $errors[] = MHUBV_Text::t('Member %s points to an output of this instance itself — that would create a feedback loop.', $label);
                     continue 2;
                 }
             }
@@ -1082,7 +1090,7 @@ class MeterHubVirtual extends IPSModule
                 && (int)IPS_GetParent($n['target']) === $this->InstanceID;
             $seen = [];
             if (!$directVar && $this->ReferencesInstance($n['target'], $this->InstanceID, $seen, 0)) {
-                $errors[] = "Mitglied $label enthält (direkt oder über weitere virtuelle Zähler) wiederum diese Instanz — ein Kreisverweis, der sich nie auflösen lässt.";
+                $errors[] = MHUBV_Text::t('Member %s contains (directly or via further virtual meters) this instance again — a circular reference that can never be resolved.', $label);
             }
         }
         return $errors;
@@ -1270,21 +1278,23 @@ class MeterHubVirtual extends IPSModule
     private function FoundText(array $n): string
     {
         if ($n['broken']) {
-            return '⚠️ Ziel fehlt' . ($n['target'] > 0 ? ' (#' . $n['target'] . ')' : '') . ' — Link löschen oder neu verknüpfen';
+            return $n['target'] > 0
+                ? MHUBV_Text::t('⚠️ Target missing (#%d) — delete the link or link it again', $n['target'])
+                : MHUBV_Text::t('⚠️ Target missing — delete the link or link it again');
         }
         $parts = [];
-        foreach (['power' => 'Leistung', 'imp' => 'Bezug', 'exp' => 'Einspeisung'] as $f => $lbl) {
+        foreach (['power' => 'Power: %s', 'imp' => 'Import: %s', 'exp' => 'Feed-in: %s'] as $f => $fmt) {
             if ($n[$f] > 0 && IPS_ObjectExists($n[$f])) {
-                $parts[] = $lbl . ': ' . IPS_GetName($n[$f]);
+                $parts[] = MHUBV_Text::t($fmt, IPS_GetName($n[$f]));
             }
         }
         if ($n['switch'] > 0 && IPS_ObjectExists($n['switch'])) {
-            $parts[] = 'Schalter: ' . IPS_GetName($n['switch']);
+            $parts[] = MHUBV_Text::t('Switch: %s', IPS_GetName($n['switch']));
         } elseif (($n['switchNote'] ?? '') !== '') {
-            $parts[] = 'Schalter: mehrdeutig';
+            $parts[] = MHUBV_Text::t('Switch: ambiguous');
         }
         $prefix = ($n['isLink'] ? '🔗 ' : '') . IPS_GetName($n['target']) . ' → ';
-        return $prefix . ($parts ? implode(' · ', $parts) : 'nichts gefunden');
+        return $prefix . ($parts ? implode(' · ', $parts) : MHUBV_Text::t('nothing found'));
     }
 
     /**
@@ -1353,18 +1363,18 @@ class MeterHubVirtual extends IPSModule
     public function ConvertToTree(): string
     {
         if ($this->IsTreeMode()) {
-            return 'ℹ️ Diese Instanz nutzt bereits den Objektbaum.';
+            return MHUBV_Text::t('ℹ️ This instance already uses the object tree.');
         }
         $raw = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         if (is_array($raw) && $this->NeedsMigration($raw)) {
-            return '❌ Bitte zuerst die ausstehende Migration oben abschließen.';
+            return MHUBV_Text::t('❌ Please complete the pending migration above first.');
         }
         $settings = [];
         $viaDevice = 0;
         $viaVariable = 0;
         $skipped = [];
         foreach ($this->Nodes() as $i => $n) {
-            $label = $n['name'] !== '' ? $n['name'] : 'Zeile ' . ($i + 1);
+            $label = $n['name'] !== '' ? $n['name'] : MHUBV_Text::t('Row %d', $i + 1);
             $fields = array_filter(['power' => $n['power'], 'imp' => $n['imp'], 'exp' => $n['exp']]);
             if (!$fields) {
                 $skipped[] = $label;
@@ -1391,12 +1401,13 @@ class MeterHubVirtual extends IPSModule
         IPS_ApplyChanges($this->InstanceID);
         $this->ReloadForm();
 
-        $msg = '✅ Umgestellt: ' . ($viaDevice + $viaVariable) . ' Link(s) unter dieser Instanz angelegt';
-        $msg .= $viaVariable > 0 ? " ($viaDevice aufs Gerät, $viaVariable auf eine einzelne Variable mit festgehaltener Zuordnung)." : '.';
+        $msg = MHUBV_Text::t('✅ Converted: %d link(s) created under this instance', $viaDevice + $viaVariable);
+        $msg .= $viaVariable > 0 ? MHUBV_Text::t(' (%d to the device, %d to a single variable with a fixed assignment).', $viaDevice, $viaVariable) : '.';
         if ($skipped) {
-            $msg .= "\nℹ️ Ohne Datenpunkt, deshalb nicht übernommen: " . implode(', ', $skipped) . '.';
+            $msg .= "\n" . MHUBV_Text::t('ℹ️ Without a data point, therefore not added: %s.', implode(', ', $skipped));
         }
-        $msg .= "\nDie bisherige Tabelle ist gesichert. Ab jetzt: Mitglieder im Objektbaum hinzufügen, entfernen und umsortieren.";
+        $msg .= MHUBV_Text::t('
+The previous table is backed up. From now on: add, remove and reorder members in the object tree.');
         return $msg;
     }
 
@@ -1454,23 +1465,23 @@ class MeterHubVirtual extends IPSModule
                 IPS_DeleteLink($mid);
                 unset($members[$mid]);
             } else {
-                $notes[] = '„' . $members[$mid]['name'] . '“ hängt direkt (nicht als Link) unter dieser Instanz — ein Gerät bzw. eine Variable wird aus dem Formular nie gelöscht. Zum Entfernen im Objektbaum an einen anderen Ort verschieben.';
+                $notes[] = MHUBV_Text::t('"%s" sits directly (not as a link) under this instance — a device or variable is never deleted from the form. To remove it, move it elsewhere in the object tree.', $members[$mid]['name']);
             }
         }
 
         // 2. Zeile für Zeile: umbenennen, Ziel ändern, neu anlegen
         $refused = function (int $target) use (&$notes): bool {
             if (!IPS_ObjectExists($target)) {
-                $notes[] = "Ziel #$target existiert nicht — Zeile nicht übernommen.";
+                $notes[] = MHUBV_Text::t('Target #%d does not exist — row not applied.', $target);
                 return true;
             }
             if ($target === $this->InstanceID) {
-                $notes[] = 'Diese Instanz kann nicht ihr eigenes Mitglied sein — Zeile nicht übernommen.';
+                $notes[] = MHUBV_Text::t('This instance cannot be its own member — row not applied.');
                 return true;
             }
             $seen = [];
             if ((int)IPS_GetObject($target)['ObjectType'] !== 2 && $this->ReferencesInstance($target, $this->InstanceID, $seen, 0)) {
-                $notes[] = '„' . IPS_GetName($target) . '“ enthält selbst (direkt oder verschachtelt) diese Instanz — Kreisverweis, Zeile nicht übernommen.';
+                $notes[] = MHUBV_Text::t('"%s" itself contains (directly or nested) this instance — circular reference, row not applied.', IPS_GetName($target));
                 return true;
             }
             return false;
@@ -1489,9 +1500,9 @@ class MeterHubVirtual extends IPSModule
                 }
                 if ($target > 0 && $target !== (int)($r['OrigTarget'] ?? 0) && $target !== $members[$mid]['target']) {
                     if (!$members[$mid]['isLink']) {
-                        $notes[] = '„' . $members[$mid]['name'] . '“ ist kein Link — sein Ziel lässt sich nicht ändern.';
+                        $notes[] = MHUBV_Text::t('"%s" is not a link — its target cannot be changed.', $members[$mid]['name']);
                     } elseif (isset($targets[$target])) {
-                        $notes[] = '„' . IPS_GetName($target) . '“ ist bereits Mitglied (als „' . $targets[$target] . '“) — Ziel von „' . $members[$mid]['name'] . '“ nicht geändert.';
+                        $notes[] = MHUBV_Text::t('"%s" is already a member (as "%s") — target of "%s" not changed.', IPS_GetName($target), $targets[$target], $members[$mid]['name']);
                     } elseif (!$refused($target)) {
                         unset($targets[$members[$mid]['target']]);
                         IPS_SetLinkTargetID($mid, $target);
@@ -1501,7 +1512,7 @@ class MeterHubVirtual extends IPSModule
                 $order[] = $mid;
             } elseif ($target > 0) {
                 if (isset($targets[$target])) {
-                    $notes[] = '„' . IPS_GetName($target) . '“ ist bereits Mitglied (als „' . $targets[$target] . '“) — nicht doppelt verknüpft.';
+                    $notes[] = MHUBV_Text::t('"%s" is already a member (as "%s") — not linked twice.', IPS_GetName($target), $targets[$target]);
                     continue;
                 }
                 if ($refused($target)) {
@@ -1511,7 +1522,7 @@ class MeterHubVirtual extends IPSModule
                 $targets[$target] = IPS_GetName($link);
                 $order[] = $link;
             } else {
-                $notes[] = 'Eine neue Zeile ohne Ziel wurde ignoriert — bitte in der Spalte „Ziel" ein Gerät, eine Variable oder einen anderen virtuellen Zähler wählen.';
+                $notes[] = MHUBV_Text::t('A new row without a target was ignored — please choose a device, a variable or another virtual meter in the column "Target".');
             }
         }
 
@@ -1675,7 +1686,7 @@ class MeterHubVirtual extends IPSModule
             $rows = json_decode((string)file_get_contents('php://input'), true);
             if (!is_array($rows)) {
                 http_response_code(400);
-                echo json_encode(['ok' => false, 'error' => 'Ungültige Daten.']);
+                echo json_encode(['ok' => false, 'error' => MHUBV_Text::t('Invalid data.')]);
                 return;
             }
             if ($this->IsTreeMode()) {
@@ -1852,17 +1863,18 @@ class MeterHubVirtual extends IPSModule
         $usedVars = [];
         foreach ($nodes as $i => $n) {
             $nr = $this->RowLabel($i, $n);
-            foreach ([['power', 'PowerID', 'Leistung'], ['imp', 'EnergyImportID', 'Bezug'], ['exp', 'EnergyExportID', 'Einspeisung']] as [$f, , $lbl]) {
+            foreach ([['power', 'PowerID', 'Power'], ['imp', 'EnergyImportID', 'Import'], ['exp', 'EnergyExportID', 'Feed-in']] as [$f, , $lbl]) {
+                $lbl = MHUBV_Text::t($lbl);
                 $vid = $n[$f];
                 if ($vid <= 0) {
                     continue;
                 }
                 if (!IPS_VariableExists($vid)) {
-                    $errors[] = "$nr: $lbl verweist auf Variable #$vid, die es nicht gibt.";
+                    $errors[] = MHUBV_Text::t('%s: %s points to variable #%d, which does not exist.', $nr, $lbl, $vid);
                     continue;
                 }
                 if (isset($usedVars[$vid])) {
-                    $errors[] = "Variable #$vid ($lbl) wird in {$usedVars[$vid]} und in $nr verwendet. Ein Zähler darf nur einmal eingehen — sonst würde er doppelt gerechnet.";
+                    $errors[] = MHUBV_Text::t('Variable #%d (%s) is used in %s and in %s. A meter may only be included once — otherwise it would be counted twice.', $vid, $lbl, $usedVars[$vid], $nr);
                 } else {
                     $usedVars[$vid] = $nr;
                 }
@@ -1870,7 +1882,8 @@ class MeterHubVirtual extends IPSModule
         }
 
         // Gemischte Einheiten je Feld ergeben stillschweigend falsche Werte.
-        foreach ([['power', 'Leistung'], ['imp', 'Bezug'], ['exp', 'Einspeisung']] as [$f, $lbl]) {
+        foreach ([['power', 'Power'], ['imp', 'Import'], ['exp', 'Feed-in']] as [$f, $lbl]) {
+            $lbl = MHUBV_Text::t($lbl);
             $units = [];
             foreach ($nodes as $i => $n) {
                 $vid = $n[$f];
@@ -1886,7 +1899,7 @@ class MeterHubVirtual extends IPSModule
                 foreach ($units as $u => $rows) {
                     $parts[] = $u . ' (' . implode(', ', $rows) . ')';
                 }
-                $errors[] = "Bei $lbl haben die Datenpunkte verschiedene Einheiten: " . implode(' vs. ', $parts) . '. Das ergäbe still falsche Werte — bitte auf eine Einheit bringen.';
+                $errors[] = MHUBV_Text::t('For %s the data points have different units: %s. That would silently give wrong values — please bring them to one unit.', $lbl, implode(' vs. ', $parts));
             }
         }
 
@@ -1904,8 +1917,8 @@ class MeterHubVirtual extends IPSModule
         }
         if (!$anyOutput && $this->HasExistingOutputs()) {
             $errors[] = $this->IsTreeMode()
-                ? 'Unter dieser Instanz liefert kein Mitglied mehr einen Zähler (alle Links fehlen oder zeigen ins Leere). Vorhandene Ausgabevariablen bleiben deshalb unangetastet, bis wieder mindestens ein Mitglied im Objektbaum hängt.'
-                : 'Die aktuelle Formel ergibt keine einzige Ausgabe mehr — keine Zeile hat mehr einen Zähler. Vorhandene Ausgabevariablen bleiben deshalb unangetastet, bis das behoben ist.';
+                ? MHUBV_Text::t('No member under this instance provides a meter any more (all links are missing or point to nothing). Existing output variables are therefore left untouched until at least one member sits in the object tree again.')
+                : MHUBV_Text::t('The current formula yields no output at all any more — no row has a meter any more. Existing output variables are therefore left untouched until this is fixed.');
         }
 
         return $errors;
@@ -1915,9 +1928,9 @@ class MeterHubVirtual extends IPSModule
     private function RowLabel(int $i, array $n): string
     {
         if (isset($n['member'])) {
-            return 'Mitglied ' . ($n['name'] !== '' ? '„' . $n['name'] . '“' : '#' . $n['member']);
+            return $n['name'] !== '' ? MHUBV_Text::t('Member "%s"', $n['name']) : MHUBV_Text::t('Member #%s', $n['member']);
         }
-        return 'Zeile ' . ($i + 1);
+        return MHUBV_Text::t('Row %d', $i + 1);
     }
 
     /**
@@ -1948,8 +1961,11 @@ class MeterHubVirtual extends IPSModule
                 }
                 $la = $this->RowLabel($i, $n);
                 $lb = $this->RowLabel($j, $nodes[$j]);
-                $sure = !str_starts_with($d['why'], 'Zählerstände');
-                $warnings[] = "$la und $lb sind " . ($sure ? '' : 'vermutlich ') . 'dasselbe Gerät (' . $d['why'] . ') — in der Summe zählte es doppelt, bis zur Entscheidung zählt nur ' . ((($n['excluded'] ?? '') === 'undecided') ? $lb : $la) . ' (die Anbindung mit aktuellen Messwerten, sonst die erste). Bitte im Modul der überzähligen Anbindung (z. B. ChargerHub oder OCPPHub) festlegen, dass sie eine Dublette ist: dann zählt sie überall nicht mehr mit, auch im Dashboard.';
+                $sure = !str_starts_with($d['why'], (string)strstr(MHUBV_Text::t('meter readings almost identical (%s / %s)'), '(', true));
+                $counted = (($n['excluded'] ?? '') === 'undecided') ? $lb : $la;
+                $warnings[] = $sure
+                    ? MHUBV_Text::t('%s and %s are the same device (%s) — it would be counted twice in the total; until you decide, only %s counts (the connection with current readings, otherwise the first). Please set in the module of the redundant connection (e.g. ChargerHub or OCPPHub) that it is a duplicate: then it no longer counts anywhere, including the dashboard.', $la, $lb, $d['why'], $counted)
+                    : MHUBV_Text::t('%s and %s are probably the same device (%s) — it would be counted twice in the total; until you decide, only %s counts (the connection with current readings, otherwise the first). Please set in the module of the redundant connection (e.g. ChargerHub or OCPPHub) that it is a duplicate: then it no longer counts anywhere, including the dashboard.', $la, $lb, $d['why'], $counted);
             }
         }
         // Baum-Modus: tote und leere Mitglieder zuerst — genau diese
@@ -1960,15 +1976,15 @@ class MeterHubVirtual extends IPSModule
             }
             $label = $this->RowLabel($i, $n);
             if ($n['broken']) {
-                $warnings[] = "$label: das verknüpfte Ziel existiert nicht mehr — geht mit 0 in die Summe ein. Den Link im Objektbaum löschen oder auf ein vorhandenes Gerät umbiegen.";
+                $warnings[] = MHUBV_Text::t('%s: the linked target no longer exists — counts as 0 in the total. Delete the link in the object tree or repoint it to an existing device.', $label);
             } elseif ($n['power'] <= 0 && $n['imp'] <= 0 && $n['exp'] <= 0) {
-                $warnings[] = "$label: am Ziel wurde weder eine Leistung (W) noch ein Energiezähler (kWh) gefunden — geht mit 0 in die Summe ein" . ($n['switch'] > 0 ? ', wird aber mitgeschaltet' : '') . '. Unten in der Mitglieder-Tabelle lässt sich ein Datenpunkt von Hand zuordnen.';
+                $warnings[] = MHUBV_Text::t('%s: neither a power (W) nor an energy meter (kWh) was found at the target — counts as 0 in the total%s. A data point can be assigned by hand in the members table below.', $label, $n['switch'] > 0 ? MHUBV_Text::t(', but is switched with the group') : '');
             }
             if (($n['meterNote'] ?? '') !== '') {
-                $warnings[] = "$label: " . $n['meterNote'] . ' — falls das nicht die Gesamtleistung ist, in der Mitglieder-Tabelle „Leistung übersteuern" setzen.';
+                $warnings[] = MHUBV_Text::t('%s: %s — if this is not the total power, set "Override power" in the members table.', $label, $n['meterNote']);
             }
             if (($n['switchNote'] ?? '') !== '') {
-                $warnings[] = "$label: Schalter nicht eindeutig — " . $n['switchNote'] . ' (Spalte „Schalter übersteuern", oder „nicht schalten").';
+                $warnings[] = MHUBV_Text::t('%s: switch ambiguous — %s (column "Override switch", or "do not switch").', $label, $n['switchNote']);
             }
         }
         $anyImp = false;
@@ -1995,13 +2011,13 @@ class MeterHubVirtual extends IPSModule
             if (isset($n['member'])) {
                 $prefix = $this->RowLabel($i, $n);
             } else {
-                $prefix = 'Zeile ' . ($i + 1) . ' (' . ($n['name'] !== '' ? '„' . $n['name'] . '“' : 'ohne Bezeichnung') . ')';
+                $prefix = $n['name'] !== '' ? MHUBV_Text::t('Row %d ("%s")', $i + 1, $n['name']) : MHUBV_Text::t('Row %d (unnamed)', $i + 1);
             }
             if ($anyImp && $n['imp'] <= 0) {
-                $warnings[] = "$prefix: hat eine Leistung, aber keinen Bezug — andere Zeilen in dieser Formel haben einen. Die Bezug-Summe zählt diese Zeile mit 0 kWh statt mit ihrem tatsächlichen Verbrauch. Unten lässt sich der fehlende Wert aus der Leistung hochrechnen.";
+                $warnings[] = MHUBV_Text::t('%s: has power but no import — other rows in this formula have one. The import total counts this row with 0 kWh instead of its actual consumption. The missing value can be extrapolated from the power below.', $prefix);
             }
             if ($anyExp && $n['exp'] <= 0) {
-                $warnings[] = "$prefix: hat eine Leistung, aber keine Einspeisung — andere Zeilen in dieser Formel haben eine. Die Einspeisung-Summe zählt diese Zeile mit 0 kWh mit.";
+                $warnings[] = MHUBV_Text::t('%s: has power but no feed-in — other rows in this formula have one. The feed-in total counts this row with 0 kWh.', $prefix);
             }
         }
         // Schaltgruppe: nicht blockierend, aber sichtbar — ein Schalter, der
@@ -2014,13 +2030,13 @@ class MeterHubVirtual extends IPSModule
             }
             $prefix = isset($n['member'])
                 ? $this->RowLabel($i, $n)
-                : 'Zeile ' . ($i + 1) . ' (' . ($n['name'] !== '' ? '„' . $n['name'] . '“' : 'ohne Bezeichnung') . ')';
+                : ($n['name'] !== '' ? MHUBV_Text::t('Row %d ("%s")', $i + 1, $n['name']) : MHUBV_Text::t('Row %d (unnamed)', $i + 1));
             if (!IPS_VariableExists($n['switch'])) {
-                $warnings[] = "$prefix: der eingetragene Schalter (Variable #{$n['switch']}) existiert nicht mehr — die Zeile wird von der Gruppe nicht geschaltet.";
+                $warnings[] = MHUBV_Text::t('%s: the entered switch (variable #%d) no longer exists — the row is not switched by the group.', $prefix, $n['switch']);
             } elseif ((int)(IPS_GetVariable($n['switch'])['VariableType'] ?? -1) !== VARIABLETYPE_BOOLEAN) {
-                $warnings[] = "$prefix: der eingetragene Schalter ist keine Bool-Variable (An/Aus) — die Zeile wird von der Gruppe nicht geschaltet.";
+                $warnings[] = MHUBV_Text::t('%s: the entered switch is not a Boolean variable (on/off) — the row is not switched by the group.', $prefix);
             } elseif ($n['factor'] <= 0) {
-                $warnings[] = "$prefix: Schalter gesetzt, aber der Anteil ist abgezogen/0 — abgezogene Zeilen werden vom Gruppenschalter bewusst nicht mitgeschaltet (einzeln bleibt sie schaltbar).";
+                $warnings[] = MHUBV_Text::t('%s: switch set, but the share is subtracted or 0 — subtracted rows are deliberately not switched by the group switch (the row itself stays switchable).', $prefix);
             }
         }
         return $warnings;
@@ -2094,13 +2110,13 @@ class MeterHubVirtual extends IPSModule
         }
         $defs = [];
         if ($has['power']) {
-            $defs[] = ['power', 'Leistung', 'NRG.Watt', 'power'];
+            $defs[] = ['power', MHUBV_Text::t('Power'), 'NRG.Watt', 'power'];
         }
         if ($has['imp']) {
-            $defs[] = ['energy_import', 'Bezug', 'NRG.kWh', 'imp'];
+            $defs[] = ['energy_import', MHUBV_Text::t('Import'), 'NRG.kWh', 'imp'];
         }
         if ($has['exp']) {
-            $defs[] = ['energy_export', 'Einspeisung', 'NRG.kWh', 'exp'];
+            $defs[] = ['energy_export', MHUBV_Text::t('Feed-in'), 'NRG.kWh', 'exp'];
         }
         return $defs;
     }
@@ -2283,8 +2299,8 @@ class MeterHubVirtual extends IPSModule
         $vid = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_SWITCH, $this->InstanceID);
         $created = !$vid;
         $posBefore = $vid ? (int)IPS_GetObject($vid)['ObjectPosition'] : 0;
-        $vid = $this->RegisterVariableBoolean(self::IDENT_GROUP_SWITCH, 'Gruppe schalten', ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => '~Switch'], $pos);
-        IPS_SetName($vid, 'Gruppe schalten');
+        $vid = $this->RegisterVariableBoolean(self::IDENT_GROUP_SWITCH, MHUBV_Text::t('Group switch'), ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => '~Switch'], $pos);
+        IPS_SetName($vid, MHUBV_Text::t('Group switch'));
         if (!$created && (int)IPS_GetObject($vid)['ObjectPosition'] !== $posBefore) {
             IPS_SetPosition($vid, $posBefore);
         }
@@ -2295,8 +2311,8 @@ class MeterHubVirtual extends IPSModule
         $vid = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_STATE, $this->InstanceID);
         $created = !$vid;
         $posBefore = $vid ? (int)IPS_GetObject($vid)['ObjectPosition'] : 0;
-        $vid = $this->RegisterVariableInteger(self::IDENT_GROUP_STATE, 'Gruppenstatus', ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => self::PROFILE_GROUP_STATE], $pos);
-        IPS_SetName($vid, 'Gruppenstatus');
+        $vid = $this->RegisterVariableInteger(self::IDENT_GROUP_STATE, MHUBV_Text::t('Group state'), ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => self::PROFILE_GROUP_STATE], $pos);
+        IPS_SetName($vid, MHUBV_Text::t('Group state'));
         if (!$created && (int)IPS_GetObject($vid)['ObjectPosition'] !== $posBefore) {
             IPS_SetPosition($vid, $posBefore);
         }
@@ -2380,7 +2396,7 @@ class MeterHubVirtual extends IPSModule
             }
         }
         if (count($found) > 1) {
-            return [0, 'mehrere schaltbare Variablen (' . implode(', ', array_map('IPS_GetName', $found)) . ') — bitte in der Spalte „Schalter" von Hand wählen'];
+            return [0, MHUBV_Text::t('several switchable variables (%s) — please choose by hand in the column "Switch"', implode(', ', array_map('IPS_GetName', $found)))];
         }
         return [0, ''];
     }
@@ -2407,7 +2423,7 @@ class MeterHubVirtual extends IPSModule
         $nodes = $this->Nodes();
         $sw    = $this->SwitchableMembers($nodes);
         if (!$sw) {
-            return 'ℹ️ Diese Gruppe hat keine schaltbaren Mitglieder (Spalte „Schalter" ist leer oder nur bei abgezogenen Zeilen gesetzt).';
+            return MHUBV_Text::t('ℹ️ This group has no switchable members (column "Switch" is empty or only set on subtracted rows).');
         }
         $ok = 0;
         $failed = [];
@@ -2423,9 +2439,9 @@ class MeterHubVirtual extends IPSModule
             }
         }
         $this->RefreshGroupState($nodes);
-        $msg = ($on ? '✅ Eingeschaltet: ' : '✅ Ausgeschaltet: ') . $ok . ' von ' . count($sw) . ' Mitglied(ern).';
+        $msg = $on ? MHUBV_Text::t('✅ Switched on: %d of %d member(s).', $ok, count($sw)) : MHUBV_Text::t('✅ Switched off: %d of %d member(s).', $ok, count($sw));
         if ($failed) {
-            $msg .= ' ⚠️ Nicht geschaltet: ' . implode(', ', $failed) . '.';
+            $msg .= ' ' . MHUBV_Text::t('⚠️ Not switched: %s.', implode(', ', $failed));
         }
         return $msg;
     }
@@ -2439,7 +2455,7 @@ class MeterHubVirtual extends IPSModule
     {
         $rows = json_decode($nodesJson, true);
         if (!is_array($rows)) {
-            return '❌ Keine Zeilen übergeben.';
+            return MHUBV_Text::t('❌ No rows passed.');
         }
         $tree = $this->IsTreeMode();
         $resolve = $tree ? $this->TreeRowResolver() : null;
@@ -2460,13 +2476,13 @@ class MeterHubVirtual extends IPSModule
                 $did = (int)IPS_GetObject($n['target'])['ObjectType'] === 1
                     ? $n['target']
                     : $this->DeviceOf($power > 0 ? $power : $n['target'])[0];
-                $label = $n['name'] !== '' ? $n['name'] : 'Mitglied ' . ($i + 1);
+                $label = $n['name'] !== '' ? $n['name'] : MHUBV_Text::t('Member %d', $i + 1);
             } else {
                 if ((int)($r['PowerID'] ?? 0) <= 0) {
                     continue;
                 }
                 [$did] = $this->DeviceOf((int)$r['PowerID']);
-                $label = trim((string)($r['Name'] ?? '')) !== '' ? $r['Name'] : 'Zeile ' . ($i + 1);
+                $label = trim((string)($r['Name'] ?? '')) !== '' ? $r['Name'] : MHUBV_Text::t('Row %d', $i + 1);
             }
             if ($did <= 0 || $did === $this->InstanceID) {
                 continue;
@@ -2476,15 +2492,15 @@ class MeterHubVirtual extends IPSModule
                 $rows[$i]['SwitchID'] = $sw;
                 $set++;
             } elseif ($note !== '') {
-                $notes[] = '   ⚠️ ' . $label . ': ' . $note;
+                $notes[] = '   ' . MHUBV_Text::t('⚠️ %s: %s', $label, $note);
             }
         }
         if ($set > 0) {
             $this->UpdateFormField($tree ? 'MemberSettings' : 'Nodes', 'values', json_encode(array_values($rows)));
         }
         $msg = $set > 0
-            ? "✅ $set Schalter gefunden und in die Spalte „Schalter\" eingetragen — bitte prüfen und „Übernehmen\" nicht vergessen."
-            : 'ℹ️ Keine weiteren Schalter gefunden (Zeilen ohne Leistung oder ohne Bool-Variable mit Aktion am Gerät).';
+            ? MHUBV_Text::t('✅ %d switch(es) found and entered in the column "Switch" — please check and do not forget to "Apply".', $set)
+            : MHUBV_Text::t('ℹ️ No further switches found (rows without power or without a Boolean variable with an action on the device).');
         if ($notes) {
             $msg .= "\n" . implode("\n", $notes);
         }
@@ -2500,15 +2516,15 @@ class MeterHubVirtual extends IPSModule
     private function CompactionTypeOptions(): array
     {
         return [
-            ['caption' => '— aus —', 'value' => -1],
-            ['caption' => '1× pro Minute', 'value' => 0],
-            ['caption' => '1× pro 5 Minuten', 'value' => 1],
-            ['caption' => '1× pro Stunde', 'value' => 2],
-            ['caption' => '1× pro Tag', 'value' => 3],
-            ['caption' => '1× pro Woche', 'value' => 4],
-            ['caption' => '1× pro Monat', 'value' => 5],
-            ['caption' => '1× pro Jahr', 'value' => 6],
-            ['caption' => 'Werte löschen', 'value' => 7],
+            ['caption' => '— off —', 'value' => -1],
+            ['caption' => '1× per minute', 'value' => 0],
+            ['caption' => '1× per 5 minutes', 'value' => 1],
+            ['caption' => '1× per hour', 'value' => 2],
+            ['caption' => '1× per day', 'value' => 3],
+            ['caption' => '1× per week', 'value' => 4],
+            ['caption' => '1× per month', 'value' => 5],
+            ['caption' => '1× per year', 'value' => 6],
+            ['caption' => 'Delete values', 'value' => 7],
         ];
     }
 
@@ -2517,27 +2533,27 @@ class MeterHubVirtual extends IPSModule
     {
         $opts = $this->CompactionTypeOptions();
         return [
-            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Automatische Verdichtung aktivieren'],
-            ['type' => 'Label', 'caption' => '⚠️ Beim Ausschalten (von an auf aus) löscht MeterHub einmalig aktiv alle drei Verdichtungsstufen dieser Kategorie im Archiv (auch von Hand in der Konsole gesetzte). Ist der Schalter von vornherein aus, fasst MeterHub die Verdichtung im Archiv nicht an — neue Instanzen starten deshalb mit „aus".'],
+            ['type' => 'CheckBox', 'name' => 'AutoCompaction' . $kind, 'caption' => 'Enable automatic compaction'],
+            ['type' => 'Label', 'caption' => '⚠️ When switching off (from on to off), MeterHub actively deletes all three compaction stages of this category in the archive once (including ones set by hand in the console). If the switch is off from the start, MeterHub does not touch the compaction in the archive — new instances therefore start with "off".'],
             [
-                'type' => 'PopupButton', 'caption' => 'Was bedeuten die drei Verdichtungsstufen?', 'width' => '480px',
+                'type' => 'PopupButton', 'caption' => 'What do the three compaction stages mean?', 'width' => '480px',
                 'popup' => [
-                    'caption' => 'Archiv-Verdichtung in drei Stufen',
+                    'caption' => 'Archive compaction in three stages',
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'Verdichtung reduziert nachträglich den Detailgrad geloggter Werte, damit das Archiv nicht unbegrenzt wächst — je älter ein Wert, desto gröber genügt er meist. Drei Stufen, jede mit eigenem Zeitpunkt und eigener Ziel-Auflösung:'],
-                        ['type' => 'Label', 'caption' => '„Direkt verdichten auf" — gilt sofort, ab dem ersten geloggten Wert.'],
-                        ['type' => 'Label', 'caption' => '„Nach so vielen Monaten … verdichten auf" (zwei Stufen) — greift erst, sobald ein Wert das angegebene Alter erreicht hat.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel (Standardvorbelegung): direkt 1×/Minute, nach 1 Monat 1×/5 Minuten, nach 12 Monaten 1×/Stunde — Werte werden also mit der Zeit automatisch gröber, nie feiner.'],
-                        ['type' => 'Label', 'caption' => 'Eine Stufe greift nur, wenn ihre Ziel-Auflösung tatsächlich GRÖBER ist als das Berechnungs-Intervall oben — sonst gäbe es dort nichts zu verdichten, die Stufe bleibt dann wirkungslos, auch wenn sie eingestellt ist.'],
-                        ['type' => 'Label', 'caption' => '„— aus —" bei einer einzelnen Stufe LÖSCHT eine dort zuvor gesetzte Regel aktiv, genau wie der Hauptschalter oben — kein „einfach nicht mehr anfassen".'],
+                        ['type' => 'Label', 'caption' => 'Compaction subsequently reduces the level of detail of logged values so the archive does not grow without limit — the older a value, the coarser it usually can be. Three stages, each with its own point in time and its own target resolution:'],
+                        ['type' => 'Label', 'caption' => '"Compact directly to" — applies immediately, from the first logged value.'],
+                        ['type' => 'Label', 'caption' => '"After this many months … compact to" (two stages) — only takes effect once a value has reached the given age.'],
+                        ['type' => 'Label', 'caption' => 'Example (default presets): directly 1×/minute, after 1 month 1×/5 minutes, after 12 months 1×/hour — values thus automatically become coarser over time, never finer.'],
+                        ['type' => 'Label', 'caption' => 'A stage only takes effect if its target resolution is actually COARSER than the calculation interval above — otherwise there would be nothing to compact there; the stage then has no effect, even if it is set.'],
+                        ['type' => 'Label', 'caption' => '"— off —" on a single stage actively DELETES a rule set there before, exactly like the main switch above — not just "stop touching it".'],
                     ],
                 ],
             ],
-            ['type' => 'Select', 'name' => 'CompactDirect' . $kind, 'caption' => 'Direkt verdichten auf', 'options' => $opts],
-            ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
-            ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'caption' => '… verdichten auf', 'options' => $opts],
-            ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months' . $kind, 'caption' => 'Nach so vielen Monaten', 'minimum' => 0, 'maximum' => 120, 'suffix' => ' Monat(e)'],
-            ['type' => 'Select', 'name' => 'CompactStage3Type' . $kind, 'caption' => '… verdichten auf', 'options' => $opts],
+            ['type' => 'Select', 'name' => 'CompactDirect' . $kind, 'caption' => 'Compact directly to', 'options' => $opts],
+            ['type' => 'NumberSpinner', 'name' => 'CompactStage2Months' . $kind, 'caption' => 'After this many months', 'minimum' => 0, 'maximum' => 120, 'suffix' => MHUBV_Text::t(' month(s)')],
+            ['type' => 'Select', 'name' => 'CompactStage2Type' . $kind, 'caption' => '… compact to', 'options' => $opts],
+            ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months' . $kind, 'caption' => 'After this many months', 'minimum' => 0, 'maximum' => 120, 'suffix' => MHUBV_Text::t(' month(s)')],
+            ['type' => 'Select', 'name' => 'CompactStage3Type' . $kind, 'caption' => '… compact to', 'options' => $opts],
         ];
     }
 
@@ -2668,11 +2684,11 @@ class MeterHubVirtual extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PanelLogging', 'expanded' => true,
-            'caption' => count($missing) === 1 ? '📈  Archivierung fehlt (1 Variable)' : sprintf('📈  Archivierung fehlt (%d Variablen)', count($missing)),
+            'caption' => count($missing) === 1 ? MHUBV_Text::t('📈  Archiving missing (1 variable)') : sprintf(MHUBV_Text::t('📈  Archiving missing (%d variables)'), count($missing)),
             'items' => array_merge(
-                [['type' => 'Label', 'caption' => 'Diese Variablen werden nicht archiviert. Ohne Archiv gibt es keinen Verlauf, keine Verbrauchsauswertung und keine Archiv-Verdichtung. MeterHubVirtual schaltet die Archivierung nicht von selbst ein — das entscheidest du. Mit dem Knopf wird sie für diese Variablen eingeschaltet (Aggregationstyp und Verdichtung stellt das Modul dabei passend ein). Bereits laufende Archivierung wird nie abgeschaltet.']],
+                [['type' => 'Label', 'caption' => 'These variables are not archived. Without an archive there is no history, no consumption analysis and no archive compaction. MeterHubVirtual does not switch archiving on by itself — that is your decision. The button switches it on for these variables (the module sets the aggregation type and compaction appropriately). Archiving that is already running is never switched off.']],
                 $lines,
-                [['type' => 'Button', 'caption' => '📈  Archivierung für diese Variablen einschalten', 'onClick' => 'echo MHUBV_EnableArchiving($id);']]
+                [['type' => 'Button', 'caption' => '📈  Enable archiving for these variables', 'onClick' => 'echo MHUBV_EnableArchiving($id);']]
             ),
         ];
     }
@@ -2682,7 +2698,7 @@ class MeterHubVirtual extends IPSModule
     {
         $ac = $this->ArchiveInstanceID();
         if ($ac <= 0) {
-            return '❌ Keine Archiv-Instanz gefunden.';
+            return MHUBV_Text::t('❌ No archive instance found.');
         }
         $n = 0;
         foreach ($this->ArchivingMissing() as $vid => $counter) {
@@ -2691,7 +2707,7 @@ class MeterHubVirtual extends IPSModule
             $n++;
         }
         $this->UpdateFormField('PanelLogging', 'visible', false);
-        return $n === 0 ? 'ℹ️ Es fehlte nichts — alle Variablen werden schon archiviert.' : sprintf('✅ Archivierung für %d Variable(n) eingeschaltet.', $n);
+        return $n === 0 ? MHUBV_Text::t('ℹ️ Nothing was missing — all variables are already archived.') : sprintf(MHUBV_Text::t('✅ Archiving enabled for %d variable(s).'), $n);
     }
 
     private function SetArchive($vid, bool $counter = false, int $intervalSeconds = 10)
@@ -2775,9 +2791,9 @@ class MeterHubVirtual extends IPSModule
         if (!IPS_VariableProfileExists(self::PROFILE_GROUP_STATE)) {
             IPS_CreateVariableProfile(self::PROFILE_GROUP_STATE, VARIABLETYPE_INTEGER);
         }
-        IPS_SetVariableProfileAssociation(self::PROFILE_GROUP_STATE, 0, 'Aus', 'Power', -1);
-        IPS_SetVariableProfileAssociation(self::PROFILE_GROUP_STATE, 1, 'Teilweise an', 'Power', 0xFFA500);
-        IPS_SetVariableProfileAssociation(self::PROFILE_GROUP_STATE, 2, 'An', 'Power', 0x00FF00);
+        IPS_SetVariableProfileAssociation(self::PROFILE_GROUP_STATE, 0, MHUBV_Text::t('Off'), 'Power', -1);
+        IPS_SetVariableProfileAssociation(self::PROFILE_GROUP_STATE, 1, MHUBV_Text::t('Partly on'), 'Power', 0xFFA500);
+        IPS_SetVariableProfileAssociation(self::PROFILE_GROUP_STATE, 2, MHUBV_Text::t('On'), 'Power', 0x00FF00);
     }
 
     // -----------------------------------------------------------------------
@@ -2813,10 +2829,10 @@ class MeterHubVirtual extends IPSModule
     public function Recalc(): string
     {
         if (!$this->InstanceReady()) {
-            return 'ℹ️ Instanz wird gerade neu geladen, es wurde nichts berechnet.';
+            return MHUBV_Text::t('ℹ️ The instance is being reloaded, nothing was calculated.');
         }
         if (!$this->ReadPropertyBoolean('Active')) {
-            return 'ℹ️ Instanz ist deaktiviert, es wurde nichts berechnet.';
+            return MHUBV_Text::t('ℹ️ The instance is deactivated, nothing was calculated.');
         }
         $nodes = $this->Nodes();
         // Sicherheitsnetz des Baum-Modus: falls eine Objektbaum-Änderung
@@ -2827,7 +2843,7 @@ class MeterHubVirtual extends IPSModule
         if ($this->IsTreeMode() && $this->ReadAttributeString('TreeSignature') !== $this->TreeSignature($nodes)) {
             $this->SendDebug('Objektbaum', 'Mitglieder beim Berechnen verändert vorgefunden — wende neu an.', 0);
             $this->ApplyChanges();
-            return '✅ Mitglieder aus dem Objektbaum neu übernommen und berechnet (' . date('H:i:s') . ' Uhr).';
+            return MHUBV_Text::t('✅ Members applied again from the object tree and calculated (%s).', date('H:i:s'));
         }
         $this->AdvanceCalculatedEnergy($nodes);
 
@@ -2873,8 +2889,8 @@ class MeterHubVirtual extends IPSModule
         $this->RefreshGroupState($nodes);
 
         return $count > 0
-            ? "✅ Neu berechnet: $count Ausgabe(n) aktualisiert (" . date('H:i:s') . ' Uhr).'
-            : 'ℹ️ Keine Ausgabe zum Berechnen vorhanden — erst oben Zähler eintragen und übernehmen.';
+            ? MHUBV_Text::t('✅ Recalculated: %d output(s) updated (%s).', $count, date('H:i:s'))
+            : MHUBV_Text::t('ℹ️ No output to calculate — first enter meters above and apply.');
     }
 
     /**
@@ -2912,8 +2928,8 @@ class MeterHubVirtual extends IPSModule
             if (abs($off) < 0.0005) {
                 continue;
             }
-            $label = $ident === 'energy_export' ? 'Einspeisung' : 'Bezug';
-            $out[] = $label . ': Ausgleich ' . ($off > 0 ? '+' : '−') . number_format(abs($off), 3, ',', '.') . ' kWh wegen geänderter Zusammensetzung — der Zählerstand läuft nahtlos weiter und weicht deshalb um diesen Wert von der Summe der Mitglieder ab.';
+            $label = MHUBV_Text::t($ident === 'energy_export' ? 'Feed-in' : 'Import');
+            $out[] = MHUBV_Text::t('%s: offset %s kWh due to changed composition — the meter reading continues seamlessly and therefore deviates by this value from the sum of the members.', $label, ($off > 0 ? '+' : '−') . MHUBV_Text::num(abs($off), 3));
         }
         return $out;
     }
@@ -3343,14 +3359,14 @@ class MeterHubVirtual extends IPSModule
     public function AddDevice(int $deviceId): string
     {
         if ($deviceId <= 0 || !IPS_ObjectExists($deviceId)) {
-            return '❌ Kein Gerät ausgewählt.';
+            return MHUBV_Text::t('❌ No device selected.');
         }
         if ($this->IsTreeMode()) {
             return $this->AddDeviceToTree($deviceId);
         }
         $m = $this->MetersOfDevice($deviceId);
         if ($m['power'] === 0 && $m['imp'] === 0 && $m['exp'] === 0) {
-            return '❌ „' . IPS_GetName($deviceId) . '" — keine passenden Leistungs-/Energie-Datenpunkte gefunden (weder bekannte NRG-Stack-Idents noch W-/kWh-Profil darunter). Bitte stattdessen unten „Hinzufügen" nutzen und die Variable von Hand wählen.';
+            return MHUBV_Text::t('❌ "%s" — no suitable power/energy data points found (neither known NRG-Stack idents nor a W/kWh profile below). Please use "Add" below instead and choose the variable by hand.', IPS_GetName($deviceId));
         }
         // Schaltgruppe: die Schaltvariable des Geräts gleich mit vorschlagen
         // (Dietmars Entscheidung 03.09.2026: automatisch + manuell
@@ -3366,22 +3382,29 @@ class MeterHubVirtual extends IPSModule
         $this->UpdateFormField('Nodes', 'values', json_encode($rows));
         $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($rows)));
 
-        $parts   = [];
-        $parts[] = $m['power'] > 0 ? 'Leistung „' . IPS_GetName($m['power']) . '"' : 'Leistung: nicht gefunden';
-        $parts[] = $m['imp']   > 0 ? 'Bezug „' . IPS_GetName($m['imp']) . '"' : 'Bezug: nicht gefunden';
-        $parts[] = $m['exp']   > 0 ? 'Einspeisung „' . IPS_GetName($m['exp']) . '"' : 'Einspeisung: nicht gefunden';
-        if ($sw > 0) {
-            $parts[] = 'Schalter „' . IPS_GetName($sw) . '"';
-        } elseif ($swNote !== '') {
-            $parts[] = 'Schalter: ' . $swNote;
-        }
-        $msg = '✅ „' . IPS_GetName($deviceId) . '" als neue Zeile übernommen — ' . implode(', ', $parts) . '.';
+        $parts = $this->FoundParts($m, $sw, $swNote);
+        $msg = MHUBV_Text::t('✅ "%s" added as a new row — %s.', IPS_GetName($deviceId), implode(', ', $parts));
         if (!empty($m['extra'])) {
             $names = array_map('IPS_GetName', $m['extra']);
-            $msg .= "\n⚠️ Weitere kWh-Datenpunkte an diesem Gerät gefunden, aber nicht automatisch zugeordnet — könnten Einspeisung statt Bezug sein, bitte prüfen und bei Bedarf von Hand in die Zeile eintragen: " . implode(', ', $names) . '.';
+            $msg .= "\n" . MHUBV_Text::t('⚠️ Further kWh data points found on this device but not assigned automatically — they could be feed-in instead of import, please check and enter them in the row by hand if needed: %s.', implode(', ', $names));
         }
-        $msg .= ' Bitte in der Tabelle prüfen und „Übernehmen“ nicht vergessen.';
+        $msg .= MHUBV_Text::t(' Please check in the table and do not forget to "Apply".');
         return $msg;
+    }
+
+    /** Lesbare Aufzählung, welche Datenpunkte (und welcher Schalter) für ein Gerät gefunden wurden — für die Meldungen von AddDevice()/AddDeviceToTree(). */
+    private function FoundParts(array $m, int $sw, string $swNote): array
+    {
+        $parts   = [];
+        $parts[] = $m['power'] > 0 ? MHUBV_Text::t('Power "%s"', IPS_GetName($m['power'])) : MHUBV_Text::t('Power: not found');
+        $parts[] = $m['imp']   > 0 ? MHUBV_Text::t('Import "%s"', IPS_GetName($m['imp'])) : MHUBV_Text::t('Import: not found');
+        $parts[] = $m['exp']   > 0 ? MHUBV_Text::t('Feed-in "%s"', IPS_GetName($m['exp'])) : MHUBV_Text::t('Feed-in: not found');
+        if ($sw > 0) {
+            $parts[] = MHUBV_Text::t('Switch "%s"', IPS_GetName($sw));
+        } elseif ($swNote !== '') {
+            $parts[] = MHUBV_Text::t('Switch: %s', $swNote);
+        }
+        return $parts;
     }
 
     /**
@@ -3395,11 +3418,11 @@ class MeterHubVirtual extends IPSModule
     {
         $name = IPS_GetName($deviceId);
         if ($deviceId === $this->InstanceID) {
-            return '❌ Diese Instanz kann nicht ihr eigenes Mitglied sein.';
+            return MHUBV_Text::t('❌ This instance cannot be its own member.');
         }
         foreach ($this->TreeMembers() as $mem) {
             if ($mem['target'] === $deviceId) {
-                return 'ℹ️ „' . $name . '" ist bereits Mitglied (als „' . $mem['name'] . '").';
+                return MHUBV_Text::t('ℹ️ "%s" is already a member (as "%s").', $name, $mem['name']);
             }
         }
         $isVar = (int)IPS_GetObject($deviceId)['ObjectType'] === 2;
@@ -3410,11 +3433,11 @@ class MeterHubVirtual extends IPSModule
             $m = $this->MetersOfDevice($deviceId);
         }
         if ($m['power'] === 0 && $m['imp'] === 0 && $m['exp'] === 0) {
-            return '❌ „' . $name . '" — keine passenden Leistungs-/Energie-Datenpunkte gefunden (weder bekannte NRG-Stack-Idents noch W-/kWh-Profil). Nichts verknüpft. Eine einzelne Variable ohne erkennbare Einheit lässt sich trotzdem als Link unter diese Instanz legen und dann in der Mitglieder-Tabelle mit einer Rolle versehen.';
+            return MHUBV_Text::t('❌ "%s" — no suitable power/energy data points found (neither known NRG-Stack idents nor a W/kWh profile). Nothing linked. A single variable without a recognizable unit can still be put under this instance as a link and then be given a role in the members table.', $name);
         }
         $seen = [];
         if (!$isVar && $this->ReferencesInstance($deviceId, $this->InstanceID, $seen, 0)) {
-            return '❌ „' . $name . '" enthält selbst (direkt oder verschachtelt) diese Instanz — das wäre ein Kreisverweis. Nichts verknüpft.';
+            return MHUBV_Text::t('❌ "%s" itself contains (directly or nested) this instance — that would be a circular reference. Nothing linked.', $name);
         }
         [$sw, $swNote] = $this->SwitchOfDevice($isVar ? $this->DeviceOf($deviceId)[0] : $deviceId);
         $link = $this->CreateMemberLink($deviceId, $name);
@@ -3423,21 +3446,13 @@ class MeterHubVirtual extends IPSModule
         $this->StoreMemberSettings([$link => ['Factor' => 100]]);
         $this->ReloadForm();
 
-        $parts   = [];
-        $parts[] = $m['power'] > 0 ? 'Leistung „' . IPS_GetName($m['power']) . '"' : 'Leistung: nicht gefunden';
-        $parts[] = $m['imp']   > 0 ? 'Bezug „' . IPS_GetName($m['imp']) . '"' : 'Bezug: nicht gefunden';
-        $parts[] = $m['exp']   > 0 ? 'Einspeisung „' . IPS_GetName($m['exp']) . '"' : 'Einspeisung: nicht gefunden';
-        if ($sw > 0) {
-            $parts[] = 'Schalter „' . IPS_GetName($sw) . '"';
-        } elseif ($swNote !== '') {
-            $parts[] = 'Schalter: ' . $swNote;
-        }
-        $msg = '✅ „' . $name . '" als Mitglied verknüpft (Link im Objektbaum unter dieser Instanz, ans Ende der Reihenfolge) — ' . implode(', ', $parts) . '.';
+        $parts = $this->FoundParts($m, $sw, $swNote);
+        $msg = MHUBV_Text::t('✅ "%s" linked as a member (link in the object tree under this instance, at the end of the order) — %s.', $name, implode(', ', $parts));
         if (!empty($m['extra'])) {
             $names = array_map('IPS_GetName', $m['extra']);
-            $msg .= "\n⚠️ Weitere kWh-Datenpunkte an diesem Gerät gefunden, aber nicht automatisch zugeordnet — könnten Einspeisung statt Bezug sein, bei Bedarf in der Mitglieder-Tabelle übersteuern: " . implode(', ', $names) . '.';
+            $msg .= "\n" . MHUBV_Text::t('⚠️ Further kWh data points found on this device but not assigned automatically — they could be feed-in instead of import, override them in the members table if needed: %s.', implode(', ', $names));
         }
-        $msg .= ' Bereits wirksam — kein „Übernehmen" nötig. Rückgängig: den Link im Objektbaum löschen.';
+        $msg .= MHUBV_Text::t(' Already in effect — no "Apply" needed. To undo: delete the link in the object tree.');
         return $msg;
     }
 
@@ -3576,11 +3591,11 @@ class MeterHubVirtual extends IPSModule
     public function AddDeviceFamily(int $rootId): string
     {
         if ($rootId <= 0 || !IPS_ObjectExists($rootId)) {
-            return '❌ Kein Bereich ausgewählt.';
+            return MHUBV_Text::t('❌ No area selected.');
         }
         $devices = $this->FindDeviceFamilies($rootId);
         if (!$devices) {
-            return '❌ Unter „' . IPS_GetName($rootId) . '" wurde kein bekanntes Muster gefunden (aktuell erkannt: Instanzen, die auf „Wirkleistung"/„Hauptzähler kWh" enden, z. B. MDT AZI, oder auf „Wirkleistung P14/P23 (W)"/„Wirkenergie A14/A23 (kWh)", z. B. Lingg&Janke). Bitte stattdessen den Geräte-Picker oder „Hinzufügen" in der Tabelle nutzen.';
+            return MHUBV_Text::t('❌ No known pattern was found under "%s" (currently recognized: instances whose names end in "Wirkleistung"/"Hauptzähler kWh", e.g. MDT AZI, or in "Wirkleistung P14/P23 (W)"/"Wirkenergie A14/A23 (kWh)", e.g. Lingg&Janke). Please use the device picker or "Add" in the table instead.', IPS_GetName($rootId));
         }
 
         $tree = $this->IsTreeMode();
@@ -3618,7 +3633,7 @@ class MeterHubVirtual extends IPSModule
                 return 0;
             }
             if (isset($used[$vid])) {
-                $alreadyUsed[] = "$label ($fieldLabel)";
+                $alreadyUsed[] = MHUBV_Text::t('%s (%s)', $label, MHUBV_Text::t($fieldLabel));
                 return 0;
             }
             return $vid;
@@ -3626,28 +3641,28 @@ class MeterHubVirtual extends IPSModule
         foreach ($devices as $label => $d) {
             $rowsForDevice = [];
 
-            $power = $useField($d, 'power', $label, 'Leistung');
-            $imp   = $useField($d, 'imp', $label, 'Bezug');
+            $power = $useField($d, 'power', $label, 'Power');
+            $imp   = $useField($d, 'imp', $label, 'Import');
             if ($power > 0 || $imp > 0) {
                 $rowsForDevice[] = ['Name' => $label, 'Factor' => 100, 'PowerID' => $power, 'EnergyImportID' => $imp, 'EnergyExportID' => 0];
             }
 
-            $powerImport  = $useField($d, 'power_import', $label, 'Bezug-Leistung');
-            $powerExport  = $useField($d, 'power_export', $label, 'Einspeisung-Leistung');
-            $energyImport = $useField($d, 'energy_import', $label, 'Bezug-Energie');
-            $energyExport = $useField($d, 'energy_export', $label, 'Einspeisung-Energie');
+            $powerImport  = $useField($d, 'power_import', $label, 'Import power');
+            $powerExport  = $useField($d, 'power_export', $label, 'Feed-in power');
+            $energyImport = $useField($d, 'energy_import', $label, 'Import energy');
+            $energyExport = $useField($d, 'energy_export', $label, 'Feed-in energy');
             if ($powerImport > 0 || $energyImport > 0) {
-                $rowsForDevice[] = ['Name' => $label . ' — Bezug', 'Factor' => 100, 'PowerID' => $powerImport, 'EnergyImportID' => $energyImport, 'EnergyExportID' => 0];
+                $rowsForDevice[] = ['Name' => MHUBV_Text::t('%s — Import', $label), 'Factor' => 100, 'PowerID' => $powerImport, 'EnergyImportID' => $energyImport, 'EnergyExportID' => 0];
             }
             if ($powerExport > 0) {
                 // Eigene Zeile, NICHT mit der Bezugs-Zeile zusammengelegt:
                 // die Leistung braucht hier Faktor -100 (signierte Summe),
                 // eine gemeinsame Zeile würde ein gleichzeitig eingetragenes
                 // A23 fälschlich mit ins Negative ziehen.
-                $rowsForDevice[] = ['Name' => $label . ' — Einspeisung (Leistung)', 'Factor' => -100, 'PowerID' => $powerExport, 'EnergyImportID' => 0, 'EnergyExportID' => 0];
+                $rowsForDevice[] = ['Name' => MHUBV_Text::t('%s — Feed-in (power)', $label), 'Factor' => -100, 'PowerID' => $powerExport, 'EnergyImportID' => 0, 'EnergyExportID' => 0];
             }
             if ($energyExport > 0) {
-                $rowsForDevice[] = ['Name' => $label . ' — Einspeisung (Energie)', 'Factor' => 100, 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => $energyExport];
+                $rowsForDevice[] = ['Name' => MHUBV_Text::t('%s — Feed-in (energy)', $label), 'Factor' => 100, 'PowerID' => 0, 'EnergyImportID' => 0, 'EnergyExportID' => $energyExport];
             }
 
             if (!$rowsForDevice) {
@@ -3662,7 +3677,7 @@ class MeterHubVirtual extends IPSModule
         }
 
         if (!$added) {
-            return 'ℹ️ Alle gefundenen Geräte (' . implode(', ', array_keys($devices)) . ') sind bereits vollständig verdrahtet.';
+            return MHUBV_Text::t('ℹ️ All devices found (%s) are already completely wired.', implode(', ', array_keys($devices)));
         }
 
         if ($tree) {
@@ -3676,21 +3691,21 @@ class MeterHubVirtual extends IPSModule
             }
             $this->StoreMemberSettings($patch);
             $this->ReloadForm();
-            $msg = '✅ ' . count($added) . ' Gerät(e) als ' . $addedRows . ' Mitglied(er) im Objektbaum verknüpft: ' . implode(', ', $added) . '.';
+            $msg = MHUBV_Text::t('✅ %d device(s) linked as %d member(s) in the object tree: %s.', count($added), $addedRows, implode(', ', $added));
             if ($alreadyUsed) {
-                $msg .= "\nℹ️ Bereits Mitglied, deshalb nicht erneut verknüpft: " . implode(', ', $alreadyUsed) . '.';
+                $msg .= "\n" . MHUBV_Text::t('ℹ️ Already a member, therefore not linked again: %s.', implode(', ', $alreadyUsed));
             }
-            return $msg . ' Bereits wirksam — kein „Übernehmen" nötig.';
+            return $msg . ' ' . MHUBV_Text::t('Already in effect — no "Apply" needed.');
         }
 
         $this->UpdateFormField('Nodes', 'values', json_encode($existing));
         $this->UpdateFormField('Nodes', 'rowCount', $this->RowCountFor(count($existing)));
 
-        $msg = '✅ ' . count($added) . ' Gerät(e) als ' . $addedRows . ' neue Zeile(n) übernommen: ' . implode(', ', $added) . '.';
+        $msg = MHUBV_Text::t('✅ %d device(s) added as %d new row(s): %s.', count($added), $addedRows, implode(', ', $added));
         if ($alreadyUsed) {
-            $msg .= "\nℹ️ Bereits anderswo verdrahtet, deshalb nicht erneut eingetragen: " . implode(', ', $alreadyUsed) . '.';
+            $msg .= "\n" . MHUBV_Text::t('ℹ️ Already wired elsewhere, therefore not entered again: %s.', implode(', ', $alreadyUsed));
         }
-        $msg .= ' Bitte in der Tabelle prüfen und „Übernehmen“ nicht vergessen.';
+        $msg .= MHUBV_Text::t(' Please check in the table and do not forget to "Apply".');
         return $msg;
     }
 
@@ -3786,8 +3801,8 @@ class MeterHubVirtual extends IPSModule
             return $existing;
         }
         $this->CreateProfiles();
-        $vid = $this->RegisterVariableFloat($ident, $label . ' — Energie hochgerechnet', ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => 'NRG.kWh'], 500);
-        IPS_SetInfo($vid, 'Hochgerechnet aus Leistung × Berechnungs-Intervall, kein echter Zählerstand — Genauigkeit hängt vom Intervall ab.');
+        $vid = $this->RegisterVariableFloat($ident, MHUBV_Text::t('%s — Energy extrapolated', $label), ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => 'NRG.kWh'], 500);
+        IPS_SetInfo($vid, MHUBV_Text::t('Extrapolated from power × calculation interval, not a real meter reading — accuracy depends on the interval.'));
         SetValueFloat($vid, 0.0);
         return $vid;
     }
@@ -3831,19 +3846,19 @@ class MeterHubVirtual extends IPSModule
             if ($powerId <= 0 || $impId > 0 || !IPS_VariableExists($powerId)) {
                 continue;
             }
-            $label = $label !== '' ? $label : ('Zeile ' . ($i + 1));
+            $label = $label !== '' ? $label : MHUBV_Text::t('Row %d', $i + 1);
             $r['EnergyImportID'] = $this->EnsureCalculatedEnergyVar($powerId, $label);
             $touched[] = $label;
         }
         unset($r);
 
         if (!$touched) {
-            return 'ℹ️ Keine Zeile gefunden, die eine Leistung, aber keinen Bezug hat — nichts zu tun.';
+            return MHUBV_Text::t('ℹ️ No row found that has power but no import — nothing to do.');
         }
 
         $this->UpdateFormField($tree ? 'MemberSettings' : 'Nodes', 'values', json_encode($rows));
-        $msg = '✅ ' . count($touched) . ' Zeile(n) bekommen eine hochgerechnete Bezugs-Variable (Leistung × Berechnungs-Intervall — keine Schätzung, aber ungenauer als ein echter Zähler): ' . implode(', ', $touched) . '.';
-        $msg .= ' Bitte in der Tabelle prüfen und „Übernehmen“ nicht vergessen.';
+        $msg = MHUBV_Text::t('✅ %d row(s) get an extrapolated import variable (power × calculation interval — not an estimate, but less precise than a real meter): %s.', count($touched), implode(', ', $touched));
+        $msg .= MHUBV_Text::t(' Please check in the table and do not forget to "Apply".');
         return $msg;
     }
 
@@ -3938,7 +3953,7 @@ class MeterHubVirtual extends IPSModule
         $onlyFunction = trim($onlyFunction);
 
         if ($root > 0 && !IPS_ObjectExists($root)) {
-            $this->UpdateFormField('ScanResult', 'caption', "❌ Der gewählte Suchbereich (#$root) existiert nicht mehr.");
+            $this->UpdateFormField('ScanResult', 'caption', MHUBV_Text::t('❌ The chosen search area (#%d) no longer exists.', $root));
             $this->UpdateFormField('ScanResult', 'visible', true);
             return;
         }
@@ -4045,7 +4060,7 @@ class MeterHubVirtual extends IPSModule
         // möchte ich auch direkt aus dem Suchdialog etwas übernehmen") —
         // "value" ist die ID, die AddDevice() bekommt (Gerät oder, falls
         // DeviceOf() keins fand, die Variable selbst).
-        $scanOptions = [['caption' => '— Fund wählen —', 'value' => 0]];
+        $scanOptions = [['caption' => '— choose a result —', 'value' => 0]];
         $filteredOut = ['ohneenergie' => 0, 'inaktiv' => 0];
         foreach ($devices as $d) {
             if ($d['power'] === 0 && $d['import'] === 0) {
@@ -4069,31 +4084,31 @@ class MeterHubVirtual extends IPSModule
             }
             $warn = [];
             if ($d['import'] > 0 && !$this->IsArchived($d['import'])) {
-                $warn[] = 'Energie nicht archiviert (für Langzeitauswertung nötig)';
+                $warn[] = MHUBV_Text::t('Energy not archived (needed for long-term analysis)');
             }
             if ($d['power'] > 0) {
                 $age = time() - (int)(@IPS_GetVariable($d['power'])['VariableUpdated'] ?? 0);
                 if ($age > 7 * 86400) {
-                    $warn[] = 'Leistung seit über 7 Tagen nicht aktualisiert';
+                    $warn[] = MHUBV_Text::t('Power not updated for more than 7 days');
                 }
             }
             if (count($d['usedIn']) > 0) {
-                $warn[] = 'bereits verwendet in „' . implode('“, „', array_keys($d['usedIn'])) . '“ — bei Aufnahme hier auf Doppelzählung/Aufteilung achten';
+                $warn[] = MHUBV_Text::t('already used in %s — watch for double counting/splitting when adding it here', implode(', ', array_map(fn($k) => MHUBV_Text::t('"%s"', $k), array_keys($d['usedIn']))));
             }
             $found[] = $d['name'];
             $scanOptions[] = ['caption' => $d['name'], 'value' => $d['id']];
             if ($warn) {
-                $notes[] = '   ⚠️ ' . $d['name'] . ': ' . implode('; ', $warn);
+                $notes[] = '   ' . MHUBV_Text::t('⚠️ %s: %s', $d['name'], implode('; ', $warn));
             }
         }
 
         $scope = [];
-        if ($root > 0)          { $scope[] = 'nur unterhalb „' . IPS_GetName($root) . '“'; }
-        if ($filter !== '')     { $scope[] = 'Name enthält „' . $filter . '“'; }
-        if ($needEnergy)        { $scope[] = 'nur mit Energiezähler'; }
-        if ($onlyActive)        { $scope[] = 'nur in den letzten 7 Tagen aktualisiert'; }
-        if ($onlyUsedElsewhere) { $scope[] = 'nur Datenpunkte, die schon in einer anderen Instanz stecken'; }
-        if ($onlyFunction !== '') { $scope[] = 'nur Funktion „' . (self::FUNCTIONS[$onlyFunction][0] ?? $onlyFunction) . '“'; }
+        if ($root > 0)          { $scope[] = MHUBV_Text::t('only below "%s"', IPS_GetName($root)); }
+        if ($filter !== '')     { $scope[] = MHUBV_Text::t('name contains "%s"', $filter); }
+        if ($needEnergy)        { $scope[] = MHUBV_Text::t('only with energy meter'); }
+        if ($onlyActive)        { $scope[] = MHUBV_Text::t('only updated in the last 7 days'); }
+        if ($onlyUsedElsewhere) { $scope[] = MHUBV_Text::t('only data points that are already part of another instance'); }
+        if ($onlyFunction !== '') { $scope[] = MHUBV_Text::t('only function "%s"', isset(self::FUNCTIONS[$onlyFunction]) ? MHUBV_Text::t(self::FUNCTIONS[$onlyFunction][0]) : $onlyFunction); }
 
         // Trägt weiterhin NICHT automatisch in die Formel-Tabelle ein (bis
         // 0.24.4: jeder Fund landete automatisch als neue Zeile, musste bei
@@ -4103,14 +4118,16 @@ class MeterHubVirtual extends IPSModule
         // ("ScanPick" + Knopf) — auswählen und übernehmen, ohne den
         // Umweg über den separaten Geräte-Picker weiter unten.
         $msg = count($found) > 0
-            ? '🔎 ' . count($found) . ' Gerät(e) gefunden: ' . implode(', ', $found) . '. Unten in „Fund auswählen" wählen und übernehmen — oder in der Tabelle weiter unten „Hinzufügen" für die manuelle Variablen-Auswahl.'
-            : '🔎 Keine Geräte gefunden.';
-        $msg .= "\nSuchbereich: " . ($scope ? implode(', ', $scope) : 'ganze Installation, ungefiltert');
-        $msg .= sprintf("\nÜbersprungen: %d ohne W/kWh-Profil, %d bereits eingetragen, %d Ausgaben virtueller Zähler, %d aus anderen NRG-Stack-Modulen, %d schon in einer anderen virtuellen Zähler-Instanz, %d außerhalb des Suchbereichs, %d durch den Namensfilter, %d durch den Funktionsfilter, %d ohne Energiezähler, %d länger als 7 Tage still.",
+            ? MHUBV_Text::t('🔎 %d device(s) found: %s. Choose below in "Select result" and add it — or use "Add" in the table further below for manual variable selection.', count($found), implode(', ', $found))
+            : MHUBV_Text::t('🔎 No devices found.');
+        $msg .= "\n" . MHUBV_Text::t('Search area: %s', $scope ? implode(', ', $scope) : MHUBV_Text::t('whole installation, unfiltered'));
+        $msg .= sprintf(MHUBV_Text::t('
+Skipped: %d without W/kWh profile, %d already entered, %d outputs of virtual meters, %d from other NRG-Stack modules, %d already in another virtual meter instance, %d outside the search area, %d by the name filter, %d by the function filter, %d without energy meter, %d silent for more than 7 days.'),
             $skipped['einheit'], $skipped['schonverwendet'], $skipped['virtuell'], $skipped['verbund'], $skipped['andereinstanz'],
             $skipped['bereich'], $skipped['name'], $skipped['funktion'], $filteredOut['ohneenergie'], $filteredOut['inaktiv']);
         if (count($found) === 0 && ($filteredOut['ohneenergie'] + $filteredOut['inaktiv'] + $skipped['bereich'] + $skipped['name'] + $skipped['funktion']) > 0) {
-            $msg .= "\n💡 Es wurde etwas gefunden, aber wegfiltriert — probeweise einen Filter lockern.";
+            $msg .= MHUBV_Text::t('
+💡 Something was found but filtered out — try loosening a filter.');
         }
         if ($notes) {
             $msg .= "\n" . implode("\n", $notes);
@@ -4372,7 +4389,7 @@ class MeterHubVirtual extends IPSModule
         // (Dietmars Auftrag 01.09.2026, Standort jetzt auch bei echten
         // Zählern), wächst mit der eigenen Nutzung statt eine erfundene
         // Raumliste vorzugeben, die an keiner echten Anlage passt.
-        $locationOptions = [['caption' => '— Vorschlag wählen —', 'value' => '']];
+        $locationOptions = [['caption' => '— choose a suggestion —', 'value' => '']];
         $seenLocations = [];
         foreach (array_merge(IPS_GetInstanceListByModuleID(self::GUID_VIRTUAL), IPS_GetInstanceListByModuleID(self::GUID_METER)) as $iid) {
             $loc = trim((string)@IPS_GetProperty($iid, 'Location'));
@@ -4392,22 +4409,22 @@ class MeterHubVirtual extends IPSModule
         $rn = json_decode((string)$this->ReadAttributeString('ReconcileNotes'), true);
         if (is_array($rn) && time() - (int)($rn['ts'] ?? 0) < 600) {
             foreach ((array)($rn['notes'] ?? []) as $note) {
-                $check[] = ['type' => 'Label', 'caption' => '⚠️ Beim letzten „Übernehmen“: ' . $note];
+                $check[] = ['type' => 'Label', 'caption' => MHUBV_Text::t('⚠️ At the last "Apply": %s', $note)];
             }
         }
         if ($migration) {
-            $check[] = ['type' => 'Label', 'caption' => 'Migration ausstehend — siehe Panel oben.'];
+            $check[] = ['type' => 'Label', 'caption' => 'Migration pending — see the panel above.'];
         } elseif (count($errors) > 0) {
-            $check[] = ['type' => 'Label', 'caption' => '❌ ' . count($errors) . ' Problem(e) — solange sie bestehen, wird nicht gerechnet:'];
+            $check[] = ['type' => 'Label', 'caption' => MHUBV_Text::t('❌ %d problem(s) — as long as they exist, nothing is calculated:', count($errors))];
             foreach ($errors as $e) {
                 $check[] = ['type' => 'Label', 'caption' => '   • ' . $e];
             }
         } elseif (count($nodes) === 0) {
             $check[] = ['type' => 'Label', 'caption' => $tree
-                ? 'Noch keine Mitglieder — oben ein Gerät verknüpfen oder im Objektbaum eine Verknüpfung unter diese Instanz legen.'
-                : 'Noch keine Zähler eingetragen.'];
+                ? MHUBV_Text::t('No members yet — link a device above or put a link under this instance in the object tree.')
+                : MHUBV_Text::t('No meters entered yet.')];
         } else {
-            $check[] = ['type' => 'Label', 'caption' => '✅ Formel schlüssig:'];
+            $check[] = ['type' => 'Label', 'caption' => '✅ Formula consistent:'];
             foreach ($this->FormulaPreview($nodes) as $line) {
                 $check[] = ['type' => 'Label', 'caption' => $line];
             }
@@ -4421,7 +4438,7 @@ class MeterHubVirtual extends IPSModule
 
         $migrationPanel = null;
         $listDef = [
-            'type' => 'List', 'name' => 'Nodes', 'caption' => 'Zähler und ihr Anteil',
+            'type' => 'List', 'name' => 'Nodes', 'caption' => 'Meters and their share',
             'rowCount' => $this->RowCountFor($migration ? count($rawRows) : count($nodes)),
             'add' => true, 'delete' => true,
             // Drag & Drop zum Umsortieren (Dietmars Anregung 31.08.2026) —
@@ -4431,7 +4448,7 @@ class MeterHubVirtual extends IPSModule
             // die Liste sortiert bisher ohnehin nirgends nach Spalte.
             'changeOrder' => true,
             'columns' => [
-                ['caption' => 'Bezeichnung', 'name' => 'Name', 'width' => '240px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                ['caption' => 'Label', 'name' => 'Name', 'width' => '240px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                 // Vorzeichen zu einem Prozent-Anteil verallgemeinert (Dietmars
                 // Anregung 31.08.2026: ein Zähler soll sich aufteilen lassen,
                 // z. B. PV-Einspeisevergütung nach Quotierung anteilig auf
@@ -4442,7 +4459,7 @@ class MeterHubVirtual extends IPSModule
                 // digits=2 (Dietmars Auftrag 01.09.2026): krumme Aufteilungen
                 // wie 33,33 % (Drittel) müssen sich exakt eintragen lassen,
                 // nicht nur ganze Prozentpunkte.
-                ['caption' => 'Anteil (%)', 'name' => 'Factor', 'width' => '130px', 'add' => 100, 'edit' => ['type' => 'NumberSpinner', 'minimum' => -1000, 'maximum' => 1000, 'digits' => 2, 'suffix' => ' %']],
+                ['caption' => 'Share (%)', 'name' => 'Factor', 'width' => '130px', 'add' => 100, 'edit' => ['type' => 'NumberSpinner', 'minimum' => -1000, 'maximum' => 1000, 'digits' => 2, 'suffix' => ' %']],
                 // Feste statt "auto" Breite (Dietmars Fund 31.08.2026: eine
                 // SelectVariable-Spalte zeigt den vollen Objektpfad, "auto"
                 // ließ die Zeile dadurch beliebig breit werden — Papierkorb-
@@ -4450,16 +4467,16 @@ class MeterHubVirtual extends IPSModule
                 // sichtbaren Bereich, ohne dass sich dorthin scrollen ließ.
                 // Feste Breite kappt die Spalte stattdessen (Text wird vom
                 // Browser abgeschnitten, per Klick weiterhin änderbar).
-                ['caption' => 'Leistung (W)', 'name' => 'PowerID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                ['caption' => 'Bezug (kWh)', 'name' => 'EnergyImportID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                ['caption' => 'Einspeisung (kWh)', 'name' => 'EnergyExportID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                ['caption' => 'Power (W)', 'name' => 'PowerID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                ['caption' => 'Import (kWh)', 'name' => 'EnergyImportID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                ['caption' => 'Feed-in (kWh)', 'name' => 'EnergyExportID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                 // Schaltgruppe (Dietmars Entscheidung 03.09.2026, über
                 // Dashboard adressiert): viele Mitglieder sind Aktoren, die
                 // schalten UND messen — die Bool-Variable mit Aktion hier
                 // eintragen (automatisch vorgeschlagen beim Übernehmen eines
                 // Geräts bzw. per Knopf „Schalter suchen", von Hand
                 // korrigierbar). Nur positive Anteile werden mitgeschaltet.
-                ['caption' => 'Schalter (Bool)', 'name' => 'SwitchID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                ['caption' => 'Switch (Boolean)', 'name' => 'SwitchID', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
             ],
         ];
 
@@ -4474,10 +4491,10 @@ class MeterHubVirtual extends IPSModule
         if ($tree) {
             $treeRows = $this->TreeFormRows();
             $roleOptions = [
-                ['caption' => 'automatisch', 'value' => ''],
-                ['caption' => 'Leistung (W)', 'value' => 'power'],
-                ['caption' => 'Bezug (kWh)', 'value' => 'imp'],
-                ['caption' => 'Einspeisung (kWh)', 'value' => 'exp'],
+                ['caption' => 'automatic', 'value' => ''],
+                ['caption' => 'Power (W)', 'value' => 'power'],
+                ['caption' => 'Import (kWh)', 'value' => 'imp'],
+                ['caption' => 'Feed-in (kWh)', 'value' => 'exp'],
             ];
             // Beim Öffnen gezeigte Mitglieder merken — nur diese darf ein
             // gelöschte Zeile beim „Übernehmen" entfernen (ein inzwischen im
@@ -4486,24 +4503,24 @@ class MeterHubVirtual extends IPSModule
             $this->WriteAttributeString('FormSnapshot', (string)json_encode(array_column($treeRows, 'MemberID')));
             $listDef = [
                 'type' => 'List', 'name' => 'MemberSettings',
-                'caption' => 'Mitglieder — hinzufügen, löschen, umsortieren und umbenennen wirkt mit „Übernehmen“ auf die Links im Objektbaum',
+                'caption' => 'Members — adding, deleting, reordering and renaming takes effect on the links in the object tree with "Apply"',
                 'rowCount' => $this->RowCountFor(count($treeRows)),
                 'add' => true, 'delete' => true, 'changeOrder' => true,
                 'loadValuesFromConfiguration' => false,
                 'values' => $treeRows,
                 'columns' => [
-                    ['caption' => 'Mitglied', 'name' => 'Name', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                    ['caption' => 'Ziel', 'name' => 'Target', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectObject']],
-                    ['caption' => 'Erkannt', 'name' => 'Found', 'width' => '360px', 'add' => '🆕 wird mit „Übernehmen“ verknüpft'],
-                    ['caption' => 'Anteil (%)', 'name' => 'Factor', 'width' => '130px', 'add' => 100, 'edit' => ['type' => 'NumberSpinner', 'minimum' => -1000, 'maximum' => 1000, 'digits' => 2, 'suffix' => ' %']],
-                    ['caption' => 'Rolle (bei Link auf Variable)', 'name' => 'Role', 'width' => '170px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $roleOptions]],
-                    ['caption' => 'Leistung übersteuern', 'name' => 'PowerID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                    ['caption' => 'Bezug übersteuern', 'name' => 'EnergyImportID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                    ['caption' => 'Einspeisung übersteuern', 'name' => 'EnergyExportID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                    ['caption' => 'Schalter übersteuern', 'name' => 'SwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                    ['caption' => 'nicht schalten', 'name' => 'NoSwitch', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                    ['caption' => 'aktiv', 'name' => 'Active', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
-                    ['caption' => 'Objekt-ID', 'name' => 'MemberID', 'width' => '90px', 'add' => 0, 'save' => true],
+                    ['caption' => 'Member', 'name' => 'Name', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                    ['caption' => 'Target', 'name' => 'Target', 'width' => '220px', 'add' => 0, 'edit' => ['type' => 'SelectObject']],
+                    ['caption' => 'Detected', 'name' => 'Found', 'width' => '360px', 'add' => MHUBV_Text::t('🆕 will be linked with "Apply"')],
+                    ['caption' => 'Share (%)', 'name' => 'Factor', 'width' => '130px', 'add' => 100, 'edit' => ['type' => 'NumberSpinner', 'minimum' => -1000, 'maximum' => 1000, 'digits' => 2, 'suffix' => ' %']],
+                    ['caption' => 'Role (for a link to a variable)', 'name' => 'Role', 'width' => '170px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $roleOptions]],
+                    ['caption' => 'Override power', 'name' => 'PowerID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                    ['caption' => 'Override import', 'name' => 'EnergyImportID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                    ['caption' => 'Override feed-in', 'name' => 'EnergyExportID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                    ['caption' => 'Override switch', 'name' => 'SwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                    ['caption' => 'do not switch', 'name' => 'NoSwitch', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                    ['caption' => 'active', 'name' => 'Active', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+                    ['caption' => 'Object ID', 'name' => 'MemberID', 'width' => '90px', 'add' => 0, 'save' => true],
                     // Unsichtbare Ausgangswerte für den Abgleich, siehe TreeFormRows().
                     ['caption' => 'OrigName', 'name' => 'OrigName', 'width' => '0px', 'add' => '', 'save' => true, 'visible' => false],
                     ['caption' => 'OrigTarget', 'name' => 'OrigTarget', 'width' => '0px', 'add' => 0, 'save' => true, 'visible' => false],
@@ -4513,11 +4530,11 @@ class MeterHubVirtual extends IPSModule
         } elseif (!$migration && count($nodes) > 0) {
             $treeOffer = [
                 'type' => 'ExpansionPanel', 'name' => 'TreeOfferPanel', 'expanded' => true,
-                'caption' => '🌳  Neu: Mitglieder direkt im Objektbaum',
+                'caption' => '🌳  New: members directly in the object tree',
                 'items' => [
-                    ['type' => 'Label', 'caption' => 'Virtuelle Zähler lassen sich jetzt allein über den Objektbaum zusammenstellen: alles, was als Verknüpfung (Link) oder direkt unter dieser Instanz hängt, ist Mitglied — in der Reihenfolge seiner Position dort. Ein gelöschtes Gerät fällt sofort als „Ziel fehlt" auf, statt still als Leiche in der Tabelle zu bleiben, und virtuelle Zähler lassen sich ineinander verschachteln (Link auf eine andere Instanz).'],
-                    ['type' => 'Label', 'caption' => 'Die Umstellung legt für jede Zeile unten einen Link unter dieser Instanz an — aufs Gerät, wenn es genau diese Datenpunkte liefert, sonst auf die einzelne Variable mit festgehaltener Zuordnung. Anteile und Schalter bleiben erhalten, das Ergebnis ist rechnerisch identisch. Die bisherige Tabelle wird gesichert. Ohne Klick hier ändert sich nichts.'],
-                    ['type' => 'Button', 'caption' => '🌳  In Objektbaum-Mitglieder umwandeln', 'onClick' => 'echo MHUBV_ConvertToTree($id);', 'confirm' => 'Für alle ' . count($nodes) . ' Zeilen Links unter dieser Instanz anlegen und auf den Objektbaum umstellen? Ungespeicherte Änderungen in der Tabelle gehen dabei verloren.'],
+                    ['type' => 'Label', 'caption' => 'Virtual meters can now be assembled solely via the object tree: everything that is placed as a link or directly under this instance is a member — in the order of its position there. A deleted device immediately stands out as "target missing" instead of silently staying in the table as an orphaned entry, and virtual meters can be nested into each other (link to another instance).'],
+                    ['type' => 'Label', 'caption' => 'The conversion creates a link under this instance for every row below — to the device if it delivers exactly these data points, otherwise to the single variable with a fixed assignment. Shares and switches are kept, the result is arithmetically identical. The previous table is backed up. Nothing changes without a click here.'],
+                    ['type' => 'Button', 'caption' => '🌳  Convert to object tree members', 'onClick' => 'echo MHUBV_ConvertToTree($id);', 'confirm' => MHUBV_Text::t('Create links under this instance for all %d rows and switch to the object tree? Unsaved changes in the table will be lost.', count($nodes))],
                 ],
             ];
         }
@@ -4527,11 +4544,11 @@ class MeterHubVirtual extends IPSModule
             $listDef['value'] = json_encode($migratedRows);
             $migrationPanel = [
                 'type' => 'ExpansionPanel', 'name' => 'MigrationPanel', 'expanded' => true,
-                'caption' => '🔄  Migration nötig',
+                'caption' => '🔄  Migration required',
                 'items' => [
-                    ['type' => 'Label', 'caption' => 'MeterHubVirtual rechnet jetzt mit einer flachen Formel statt mit einem Baum aus „Kürzel“ und „hängt hinter“ — diese Instanz selbst ist die oberste Ebene, jede Zeile unten ein Term mit Vorzeichen.'],
-                    ['type' => 'Label', 'caption' => 'Alle ' . count($migratedRows) . ' bisherigen Zeilen stehen unten als Vorschlag, vorerst alle mit Vorzeichen „+“. WICHTIG: nur behalten, was wirklich zu DIESER Instanz gehören soll (Papierkorb-Symbol bei allen anderen — bei einer gewachsenen Installation ist das oft die Mehrzahl, etwa Zeilen aus einem früheren Suchlauf, die nie tatsächlich verdrahtet wurden). Vorzeichen wo nötig auf „−“ stellen, dann „Übernehmen“.'],
-                    ['type' => 'Label', 'caption' => 'Bis „Übernehmen“ geklickt wird, bleiben vorhandene Ausgabevariablen unverändert — es wird nichts automatisch neu berechnet.'],
+                    ['type' => 'Label', 'caption' => 'MeterHubVirtual now calculates with a flat formula instead of a tree of "abbreviations" and "sits behind" — this instance itself is the top level, every row below is a term with a sign.'],
+                    ['type' => 'Label', 'caption' => MHUBV_Text::t('All %d previous rows are shown below as a suggestion, for now all with the sign "+". IMPORTANT: keep only what really should belong to THIS instance (trash icon for all others — in a grown installation that is often the majority, e.g. rows from an earlier search that were never actually wired). Set the sign to "−" where needed, then "Apply".', count($migratedRows))],
+                    ['type' => 'Label', 'caption' => 'Until "Apply" is clicked, existing output variables stay unchanged — nothing is recalculated automatically.'],
                 ],
             ];
         }
@@ -4553,44 +4570,44 @@ class MeterHubVirtual extends IPSModule
             // Alternative auch textlich/im Schriftstil herausstellen, z. B.
             // "Die Quick-Pick-Alternative").
             if ($tree) {
-                $meterItems[] = ['type' => 'Label', 'caption' => '🌳 Mitglieder dieser Instanz ist alles, was im Objektbaum direkt unter ihr hängt — am einfachsten eine Verknüpfung (Link) auf ein Zählergerät, eine einzelne Variable oder eine andere virtuelle Zähler-Instanz. Reihenfolge = Position im Objektbaum. Entfernen = Link löschen. Die drei Alternativen unten legen solche Links für dich an.'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '🌳 Members of this instance are everything that sits directly under it in the object tree — most simply a link to a meter device, a single variable or another virtual meter instance. Order = position in the object tree. Removing = deleting the link. The three alternatives below create such links for you.'];
             }
             $meterItems[] = ['type' => 'Label', 'caption' => $tree
-                ? 'Vier gleichwertige Alternativen, ein Mitglied hinzuzufügen — wähl die, die zu deiner Situation passt:'
-                : 'Vier gleichwertige Alternativen, eine Zeile hinzuzufügen — wähl die, die zu deiner Situation passt (kein Ablauf, den man der Reihe nach abarbeitet):'];
-            $meterItems[] = ['type' => 'Label', 'caption' => '1. Die Sucher-Alternative — das System systematisch nach Kandidaten durchsuchen, dann aus der Fundliste übernehmen.'];
-            $meterItems[] = ['type' => 'Label', 'caption' => '2. Die Quick-Pick-Alternative — Zähler-Instanz/Gerät schon bekannt? Direkt wählen, keine Suche nötig.'];
-            $meterItems[] = ['type' => 'Label', 'caption' => '3. Die Familien-Alternative — mehrere Geräte auf einmal aus einer Kategorie übernehmen (z. B. viele gleichartige KNX-Aktoren).'];
+                ? MHUBV_Text::t('Four equivalent alternatives to add a member — choose the one that suits your situation:')
+                : MHUBV_Text::t('Four equivalent alternatives to add a row — choose the one that suits your situation (not a sequence to be worked through in order):')];
+            $meterItems[] = ['type' => 'Label', 'caption' => '1. The finder alternative — search the system systematically for candidates, then use one from the result list.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '2. The quick-pick alternative — meter instance/device already known? Choose it directly, no search needed.'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '3. The family alternative — add several devices at once from one category (e.g. many identical KNX actuators).'];
             $meterItems[] = ['type' => 'Label', 'caption' => $tree
-                ? '4. Die Objektbaum-Alternative — selbst eine Verknüpfung anlegen und unter diese Instanz legen (oder eine vorhandene hierher verschieben).'
-                : '4. Die Handarbeit-Alternative — von Hand in der Tabelle unten, Feld für Feld mit dem eingebauten Symcon-Variablenpicker.'];
+                ? MHUBV_Text::t('4. The object tree alternative — create a link yourself and put it under this instance (or move an existing one here).')
+                : MHUBV_Text::t('4. The manual alternative — by hand in the table below, field by field with the built-in Symcon variable picker.')];
 
-            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 1. Die Sucher-Alternative ━━━'];
-            $meterItems[] = ['type' => 'Label', 'caption' => '🔎 Findet alle Datenpunkte mit W-/kW- bzw. kWh-Profil, gruppiert sie nach Gerät. Trägt nichts automatisch in die Tabelle ein — die Funde stehen danach direkt unter „Fund auswählen" zum Übernehmen bereit. Variablen aus bekannten NRG-Stack-Modulen (EMS, InverterHub, ChargerHub, Prognose, Tibber Grid Rewards …) werden übersprungen — sie sind dort schon korrekt eingebunden.'];
-            $meterItems[] = ['type' => 'SelectObject', 'name' => 'ScanRoot', 'caption' => 'Nur in diesem Bereich suchen (leer = ganze Installation)'];
-            $meterItems[] = ['type' => 'ValidationTextBox', 'name' => 'ScanFilter', 'caption' => 'Nur Geräte, deren Name das hier enthält (leer = alle)'];
-            $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanNeedEnergy', 'caption' => 'Nur Geräte mit Energiezähler (kWh) — blendet Schalter aus, die bloß die Momentanleistung melden'];
-            $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyActive', 'caption' => 'Nur Geräte, die in den letzten 7 Tagen Werte geliefert haben — blendet Karteileichen aus'];
-            $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyUsedElsewhere', 'caption' => 'Nur Datenpunkte zeigen, die schon in einer ANDEREN virtuellen Zähler-Instanz stecken (zum gezielten Prüfen auf Doppelverwendung/Aufteilung) — sonst werden sie wie gewohnt ausgeblendet'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 1. The finder alternative ━━━'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '🔎 Finds all data points with a W/kW or kWh profile and groups them by device. Enters nothing into the table automatically — the results are then ready to use directly under "Select result". Variables from known NRG-Stack modules (EMS, InverterHub, ChargerHub, Forecast, Tibber Grid Rewards …) are skipped — they are already correctly integrated there.'];
+            $meterItems[] = ['type' => 'SelectObject', 'name' => 'ScanRoot', 'caption' => 'Only search in this area (empty = whole installation)'];
+            $meterItems[] = ['type' => 'ValidationTextBox', 'name' => 'ScanFilter', 'caption' => 'Only devices whose name contains this (empty = all)'];
+            $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanNeedEnergy', 'caption' => 'Only devices with an energy meter (kWh) — hides switches that only report the instantaneous power'];
+            $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyActive', 'caption' => 'Only devices that delivered values in the last 7 days — hides dead entries'];
+            $meterItems[] = ['type' => 'CheckBox', 'name' => 'ScanOnlyUsedElsewhere', 'caption' => 'Show only data points that are already part of ANOTHER virtual meter instance (for targeted checking of double use/splitting) — otherwise they are hidden as usual'];
             // Filter nach bereits vergebener Funktion (Dietmars Anregung
             // 02.09.2026): eine Sparte wie "Beleuchtung" sammeln, auch wenn
             // die einzelnen Stromkreise ganz unterschiedlich heißen (Flur,
             // Wohnzimmer, Außenbeleuchtung …) — Name allein (Feld oben)
             // trifft das nicht zuverlässig, die schon an der jeweiligen
             // Ursprungsinstanz gesetzte Funktions-Zuordnung schon.
-            $scanFuncOptions = [['caption' => '— egal (keine Einschränkung) —', 'value' => '']];
+            $scanFuncOptions = [['caption' => '— any (no restriction) —', 'value' => '']];
             foreach (self::FUNCTIONS as $key => $def) {
                 $scanFuncOptions[] = ['caption' => $def[0], 'value' => $key];
             }
-            $meterItems[] = ['type' => 'Select', 'name' => 'ScanOnlyFunction', 'caption' => 'Nur Datenpunkte, deren Ursprungsinstanz bereits diese Funktion trägt (z. B. „Beleuchtung" — praktisch, um eine Sparte über mehrere Stromkreise hinweg zu einem Sammelzähler zusammenzufassen)', 'options' => $scanFuncOptions];
-            $meterItems[] = ['type' => 'Button', 'caption' => '🔎  Zähler im System suchen', 'onClick' => 'MHUBV_ScanMetersEx($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive, $ScanOnlyUsedElsewhere, $ScanOnlyFunction);'];
+            $meterItems[] = ['type' => 'Select', 'name' => 'ScanOnlyFunction', 'caption' => 'Only data points whose source instance already carries this function (e.g. "Lighting" — handy for combining a category across several circuits into one collective meter)', 'options' => $scanFuncOptions];
+            $meterItems[] = ['type' => 'Button', 'caption' => '🔎  Search for meters in the system', 'onClick' => 'MHUBV_ScanMetersEx($id, $ScanRoot, $ScanFilter, $ScanNeedEnergy, $ScanOnlyActive, $ScanOnlyUsedElsewhere, $ScanOnlyFunction);'];
             $meterItems[] = ['type' => 'Label', 'name' => 'ScanResult', 'caption' => '', 'visible' => false];
             // Funde direkt übernehmbar (Dietmars Anregung 31.08.2026: "wenn
             // ich schon etwas suchen muss, dann möchte ich auch direkt aus
             // dem Suchdialog etwas übernehmen") — ScanMeters() füllt die
             // Optionen dieses Felds bei jedem Suchlauf neu (siehe dort).
-            $meterItems[] = ['type' => 'Select', 'name' => 'ScanPick', 'caption' => 'Fund auswählen', 'options' => [['caption' => '— erst oben suchen —', 'value' => 0]], 'value' => 0];
-            $meterItems[] = ['type' => 'Button', 'caption' => '✅  Fund übernehmen', 'onClick' => 'echo MHUBV_AddDevice($id, $ScanPick);'];
+            $meterItems[] = ['type' => 'Select', 'name' => 'ScanPick', 'caption' => 'Select result', 'options' => [['caption' => '— search above first —', 'value' => 0]], 'value' => 0];
+            $meterItems[] = ['type' => 'Button', 'caption' => '✅  Use result', 'onClick' => 'echo MHUBV_AddDevice($id, $ScanPick);'];
 
             // Schneller Weg OHNE Suche (Dietmars Anregung 31.08.2026: "ich
             // möchte die Zählerinstanz auswählen müssen und der Rest muss
@@ -4600,10 +4617,10 @@ class MeterHubVirtual extends IPSModule
             // MetersOfDevice()) und als neue Zeile eingetragen — inklusive
             // Ergebnistext, damit sofort sichtbar ist, was gefunden wurde
             // ("genau dieses Ergebnis zu Gesicht bekommen").
-            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 2. Die Quick-Pick-Alternative ━━━'];
-            $meterItems[] = ['type' => 'Label', 'caption' => '⚡ Ohne vorherige Suche: Zähler-Instanz/Gerät direkt wählen.'];
-            $meterItems[] = ['type' => 'SelectObject', 'name' => 'DevicePick', 'caption' => 'Zähler-Instanz oder Gerät'];
-            $meterItems[] = ['type' => 'Button', 'caption' => $tree ? '🔗  Als Mitglied verknüpfen' : '✅  Als neue Zeile übernehmen', 'onClick' => 'echo MHUBV_AddDevice($id, $DevicePick);'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 2. The quick-pick alternative ━━━'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '⚡ Without a prior search: choose a meter instance/device directly.'];
+            $meterItems[] = ['type' => 'SelectObject', 'name' => 'DevicePick', 'caption' => 'Meter instance or device'];
+            $meterItems[] = ['type' => 'Button', 'caption' => $tree ? MHUBV_Text::t('🔗  Link as member') : MHUBV_Text::t('✅  Add as new row'), 'onClick' => 'echo MHUBV_AddDevice($id, $DevicePick);'];
 
             // Geräte-Familie ohne gemeinsamen Container (Dietmars Auftrag
             // 01.09.2026, ausgelöst durch Sepps Diagnose seiner MDT-AZI-
@@ -4611,25 +4628,25 @@ class MeterHubVirtual extends IPSModule
             // Namens-Anfang verbindet sie — der Geräte-Picker oben braucht
             // aber einen Container. Siehe FindDeviceFamilies()/
             // AddDeviceFamily() für die volle Herleitung.
-            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 3. Die Familien-Alternative ━━━'];
-            $meterItems[] = ['type' => 'Label', 'caption' => '🏷️ Mehrere Zähler auf einmal erkennen — zwei Muster: Geräte ohne gemeinsamen Container, jeder Messwert eine eigene KNX-Instanz (z. B. MDT AZI, „…Wirkleistung"/„…Hauptzähler kWh"); oder ein KNX-Zähler mit getrennten Bezugs-/Einspeisungswerten (z. B. Lingg&Janke, „…Wirkleistung P14/P23 (W)"/„…Wirkenergie A14/A23 (kWh)" — ergibt automatisch die richtige Verdrahtung mit Vorzeichen). Kategorie wählen, die die passenden Instanzen enthält.'];
-            $meterItems[] = ['type' => 'SelectObject', 'name' => 'FamilyRoot', 'caption' => 'Kategorie mit der Geräte-Familie'];
-            $meterItems[] = ['type' => 'Button', 'caption' => '🏷️  Geräte-Familie erkennen und übernehmen', 'onClick' => 'echo MHUBV_AddDeviceFamily($id, $FamilyRoot);'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 3. The family alternative ━━━'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '🏷️ Detect several meters at once — two patterns: devices without a common container, every measured value its own KNX instance (e.g. MDT AZI, "…Wirkleistung"/"…Hauptzähler kWh"); or a KNX meter with separate import/feed-in values (e.g. Lingg&Janke, "…Wirkleistung P14/P23 (W)"/"…Wirkenergie A14/A23 (kWh)" — automatically yields the right wiring with signs). Choose the category that contains the matching instances.'];
+            $meterItems[] = ['type' => 'SelectObject', 'name' => 'FamilyRoot', 'caption' => 'Category with the device family'];
+            $meterItems[] = ['type' => 'Button', 'caption' => '🏷️  Detect and add device family', 'onClick' => 'echo MHUBV_AddDeviceFamily($id, $FamilyRoot);'];
 
             if ($tree) {
-                $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 4. Direkt in der Tabelle oder im Objektbaum ━━━'];
-                $meterItems[] = ['type' => 'Label', 'caption' => '✏️ In der Tabelle unten: „Hinzufügen" und in „Ziel" ein Gerät, eine Variable oder einen anderen virtuellen Zähler wählen; Zeilen löschen, per Drag & Drop umsortieren, „Mitglied" umbenennen oder das „Ziel" ändern — mit „Übernehmen" legt das Modul die Links im Objektbaum entsprechend an, löscht, sortiert und benennt sie. Gelöscht werden dabei nur Links, nie ein Gerät.'];
-                $meterItems[] = ['type' => 'Label', 'caption' => '🔗 Oder im Objektbaum selbst eine Verknüpfung unter diese Instanz legen — wird beim nächsten Berechnungstakt automatisch Mitglied, ohne „Übernehmen". Bei einem Link auf eine einzelne Variable ohne erkennbare Einheit in der Tabelle die „Rolle" setzen.'];
-                $meterItems[] = ['type' => 'Label', 'caption' => '━━━ Danach, für jedes Mitglied ━━━'];
-                $meterItems[] = ['type' => 'Label', 'caption' => '📐 „Anteil (%)" in der Tabelle unten: 100 = voll addieren, −100 = voll abziehen, jeder Wert dazwischen ein Teil-Anteil. Leistung/Bezug/Einspeisung werden am Ziel automatisch gefunden; nur wenn das nicht passt, eine Variable in der jeweiligen „übersteuern"-Spalte wählen (leer = automatisch).'];
-                $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Reihenfolge und Namen: in der Tabelle (wirkt mit „Übernehmen") oder im Objektbaum (Position bzw. Name des Links) — beides bleibt synchron. Was du im Objektbaum änderst, während das Formular offen ist, überschreibt das Formular nicht; es ändert nur, was du in der Tabelle selbst geändert hast.'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 4. Directly in the table or in the object tree ━━━'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '✏️ In the table below: "Add" and in "Target" choose a device, a variable or another virtual meter; delete rows, reorder by drag & drop, rename "Member" or change the "Target" — with "Apply" the module creates, deletes, sorts and names the links in the object tree accordingly. Only links are deleted, never a device.'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '🔗 Or create a link under this instance in the object tree itself — it automatically becomes a member at the next calculation cycle, without "Apply". For a link to a single variable without a recognizable unit, set the "Role" in the table.'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '━━━ Afterwards, for each member ━━━'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '📐 "Share (%)" in the table below: 100 = add fully, −100 = subtract fully, any value in between is a partial share. Power/import/feed-in are found automatically at the target; only if that does not fit, choose a variable in the respective "override" column (empty = automatic).'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Order and names: in the table (takes effect with "Apply") or in the object tree (position or name of the link) — both stay in sync. What you change in the object tree while the form is open does not overwrite the form; it only changes what you changed in the table yourself.'];
             } else {
-                $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 4. Die Handarbeit-Alternative ━━━'];
-                $meterItems[] = ['type' => 'Label', 'caption' => '➕ Unter der Tabelle auf „Hinzufügen" klicken, dann in „Leistung"/„Bezug"/„Einspeisung" mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen — für Einzelfälle, die die automatischen Alternativen nicht (richtig) finden.'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '━━━ 4. The manual alternative ━━━'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '➕ Click "Add" under the table, then choose the matching variable in "Power"/"Import"/"Feed-in" with the built-in Symcon variable picker — for individual cases that the automatic alternatives do not find (correctly).'];
 
-                $meterItems[] = ['type' => 'Label', 'caption' => '━━━ Danach, für jede Zeile ━━━'];
-                $meterItems[] = ['type' => 'Label', 'caption' => '📐 „Anteil (%)" setzen: 100 = voll addieren, −100 = voll abziehen, jeder Wert dazwischen ein Teil-Anteil. Beispiel: eine Einspeisung wird per Quotierung zur Hälfte zwei Mietern zugerechnet → in der Instanz für Mieter A 50, in der für Mieter B ebenfalls 50 (oder −50, je nachdem ob addiert oder abgezogen werden soll) bei DERSELBEN Variable.'];
-                $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Zeilen lassen sich per Drag & Drop umsortieren — rein zur eigenen Übersicht, das Ergebnis ist unabhängig von der Reihenfolge.'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '━━━ Afterwards, for each row ━━━'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '📐 Set "Share (%)": 100 = add fully, −100 = subtract fully, any value in between is a partial share. Example: a feed-in is attributed half to two tenants by quota → 50 in the instance for tenant A, 50 as well in the one for tenant B (or −50, depending on whether it should be added or subtracted) for the SAME variable.'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '↕️ Rows can be reordered by drag & drop — purely for your own overview, the result does not depend on the order.'];
             }
             // Fehlende Bezugswerte hochrechnen (Dietmars Auftrag 01.09.2026,
             // ausgelöst durch AZI-Geräte mit reiner Wirkleistung ohne
@@ -4639,16 +4656,16 @@ class MeterHubVirtual extends IPSModule
             // gemessenen Werten, keine Vermutung. Siehe AddCalculatedEnergy().
             // Nur außerhalb der Migration sinnvoll, die Nodes-Liste zeigt
             // dort erst einen unbestätigten Alt-Vorschlag.
-            $meterItems[] = ['type' => 'Label', 'caption' => '🧮 Zeilen mit Leistung, aber ohne Bezug: aus Leistung × Berechnungs-Intervall hochrechnen (keine Schätzung, aber ungenauer als ein echter Zähler — genauer bei kurzem Intervall, bei sprunghaften Verbrauchern wie einer Waschmaschine ungenauer).'];
-            $meterItems[] = ['type' => 'Button', 'caption' => '🧮  Fehlende Energiewerte aus der Leistung hochrechnen', 'onClick' => $tree ? 'echo MHUBV_AddCalculatedEnergy($id, $MemberSettings);' : 'echo MHUBV_AddCalculatedEnergy($id, $Nodes);'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '🧮 Rows with power but without import: extrapolate from power × calculation interval (not an estimate, but less precise than a real meter — more precise with a short interval, less precise for erratic consumers such as a washing machine).'];
+            $meterItems[] = ['type' => 'Button', 'caption' => '🧮  Extrapolate missing energy values from the power', 'onClick' => $tree ? 'echo MHUBV_AddCalculatedEnergy($id, $MemberSettings);' : 'echo MHUBV_AddCalculatedEnergy($id, $Nodes);'];
             // Schaltgruppe (Dietmars Entscheidung 03.09.2026): Schalter für
             // bereits vorhandene Zeilen nachtragen — beim Übernehmen eines
             // Geräts wird er schon automatisch vorgeschlagen, ältere Zeilen
             // holen ihn hiermit nach. Nur die offene Maske, „Übernehmen"
             // bleibt der bewusste letzte Schritt.
-            $meterItems[] = ['type' => 'Label', 'caption' => '🔀 Schaltgruppe: Zeilen, deren Gerät schaltet UND misst (z. B. Z-Wave-Aktor je Leuchte), bekommen in der Spalte „Schalter" ihre Bool-Variable — dann entstehen an dieser Instanz „Gruppe schalten" (An/Aus für alle) und „Gruppenstatus" (aus / teilweise / an). Nur Zeilen mit positivem Anteil werden mitgeschaltet; abgezogene Zeilen bewusst nicht.'];
-            $meterItems[] = ['type' => 'Button', 'caption' => '🔀  Schalter für vorhandene Zeilen suchen', 'onClick' => $tree ? 'echo MHUBV_FindSwitches($id, $MemberSettings);' : 'echo MHUBV_FindSwitches($id, $Nodes);'];
-            $meterItems[] = ['type' => 'Label', 'caption' => '✅ Zuletzt „Übernehmen" klicken (Formular-Ende).'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '🔀 Switch group: rows whose device both switches AND measures (e.g. a Z-Wave actuator per light) get their Boolean variable in the column "Switch" — this creates "Group switch" (on/off for all) and "Group state" (off / partial / on) on this instance. Only rows with a positive share are switched together with the group; subtracted rows deliberately are not.'];
+            $meterItems[] = ['type' => 'Button', 'caption' => '🔀  Find switches for existing rows', 'onClick' => $tree ? 'echo MHUBV_FindSwitches($id, $MemberSettings);' : 'echo MHUBV_FindSwitches($id, $Nodes);'];
+            $meterItems[] = ['type' => 'Label', 'caption' => '✅ Finally click "Apply" (end of the form).'];
         }
         $meterItems[] = $listDef;
 
@@ -4661,29 +4678,29 @@ class MeterHubVirtual extends IPSModule
                 $this->ArchivingPanel(),
                 $treeOffer,
                 [
-                    'type' => 'ExpansionPanel', 'caption' => '📖  Dokumentation & Hilfe', 'expanded' => false,
+                    'type' => 'ExpansionPanel', 'caption' => '📖  Documentation & help', 'expanded' => false,
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'MeterHubVirtual ' . self::NEWS_VERSION . ' — Stand dieser Anleitung.'],
-                        ['type' => 'Label', 'caption' => 'Bildet einen virtuellen Zähler aus einer FORMEL: Diese Instanz ist die oberste Ebene, jede Zeile unten ein Term mit einem Anteil in Prozent. Ergebnis = Summe aller Anteile (100 % = ganz addiert, −100 % = ganz abgezogen, jeder Wert dazwischen ein Teil-Anteil), getrennt für Leistung, Bezug und Einspeisung.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel „Sammeln“: Kühlschrank (100 %) und Brunnenpumpe (100 %) ergeben deren Summe — nützlich, wenn es keinen echten Zähler gibt, der beide zusammen misst.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel „Sammeln“ als Kostenblock: alle Stromkreise einer Sparte wie „Beleuchtung“ (100 %) in einer eigenen Instanz zusammenfassen, auch wenn die einzelnen Kreise ganz unterschiedlich heißen (Flur, Wohnzimmer, Außenbeleuchtung …). Das Ergebnis ist der Energiewert (kWh) dieser Sparte — den passenden Euro-Betrag liefert erst ein Tarif (z. B. Tibber Grid Rewards oder EMS), MeterHubVirtual selbst rechnet keine Preise. Zum Finden aller Stromkreise: unten bei „Zähler suchen“ das Feld „Nur Datenpunkte, deren Ursprungsinstanz bereits diese Funktion trägt“ auf „Beleuchtung“ stellen — trifft auch dann, wenn der Name allein nicht eindeutig ist.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel „Abziehen“: Hausanschluss (100 %, eigener Zähler), Wärmepumpe (−100 %) und Wallbox (−100 %) ergeben Hausanschluss minus Wärmepumpe minus Wallbox — der unbekannte Rest des Hauses.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel „Durchreichen“: nur EINE Zeile (100 %) — die Instanz gibt einfach diesen einen Zähler weiter, nützlich um ihm über „Funktion“ eine Dashboard-Zuordnung zu geben, ohne ihn mit etwas anderem zu verrechnen.'],
-                        ['type' => 'Label', 'caption' => 'Beispiel „Aufteilen“: eine PV-Anlage mit mehreren Erzeugungsjahren bekommt die Einspeisevergütung anteilig nach Quotierung — dieselbe Einspeisungs-Variable wird in der Instanz für den einen Anteil mit z. B. 60 % eingetragen, in einer zweiten Instanz für den anderen Anteil mit 40 %. Dasselbe funktioniert für eine anteilige Zuordnung an mehrere Mieter.'],
+                        ['type' => 'Label', 'caption' => MHUBV_Text::t('MeterHubVirtual %s — version of this guide.', self::NEWS_VERSION)],
+                        ['type' => 'Label', 'caption' => 'Builds a virtual meter from a FORMULA: this instance is the top level, every row below is a term with a share in percent. Result = sum of all shares (100 % = fully added, −100 % = fully subtracted, any value in between is a partial share), separately for power, import and feed-in.'],
+                        ['type' => 'Label', 'caption' => 'Example "Collecting": refrigerator (100 %) and well pump (100 %) give their sum — useful when there is no real meter that measures both together.'],
+                        ['type' => 'Label', 'caption' => 'Example "Collecting" as a cost block: combine all circuits of a category such as "Lighting" (100 %) in an instance of their own, even if the individual circuits have completely different names (hallway, living room, outdoor lighting …). The result is the energy value (kWh) of this category — the matching euro amount only comes from a tariff (e.g. Tibber Grid Rewards or EMS), MeterHubVirtual itself does not calculate prices. To find all circuits: under "Search for meters" below, set the field "Only data points whose source instance already carries this function" to "Lighting" — this also matches when the name alone is not unambiguous.'],
+                        ['type' => 'Label', 'caption' => 'Example "Subtracting": house connection (100 %, own meter), heat pump (−100 %) and wallbox (−100 %) give house connection minus heat pump minus wallbox — the unknown remainder of the house.'],
+                        ['type' => 'Label', 'caption' => 'Example "Passing through": just ONE row (100 %) — the instance simply passes this one meter on, useful to give it a dashboard assignment via "Function" without combining it with anything else.'],
+                        ['type' => 'Label', 'caption' => 'Example "Splitting": a PV system built in several stages (commissioning years) is allocated the feed-in tariff proportionally by quota — the same feed-in variable is entered with e.g. 60 % in the instance for one share, and 40 % in a second instance for the other share. The same works for a proportional allocation to several tenants.'],
                         ['type' => 'Image', 'image' => self::KONZEPT_DIAGRAMM, 'center' => true],
-                        ['type' => 'Label', 'caption' => 'Mehrstufige Verschachtelung (z. B. ein Zwischenwert aus mehreren Zählern, von dem dann wieder etwas abgezogen wird) geht über mehrere Instanzen: eine Instanz rechnet den Zwischenwert, dessen Ausgabe wird als ganz normale Zeile in der nächsten Instanz verdrahtet — nicht mehr innerhalb einer einzigen Instanz.'],
-                        ['type' => 'Label', 'caption' => '🆕 Objektbaum als Mitglieder-Quelle (Standard für neue Instanzen): alles, was als Verknüpfung (Link) oder direkt unter dieser Instanz hängt, ist Mitglied, in der Reihenfolge seiner Position dort. Verschachteln = einen Link auf eine andere virtuelle Zähler-Instanz unter diese legen (z. B. „Wallbox Garage" und „Wallbox Carport" unter „Fahrzeugbeladung"). Ein Kreisverweis (A enthält B, B enthält A) wird erkannt und blockiert. Ein Link, dessen Ziel gelöscht wurde, erscheint als ⚠️ „Ziel fehlt" und geht mit 0 ein. Instanzen mit der bisherigen Tabelle rechnen unverändert weiter; umgestellt wird nur per Knopf.'],
-                        ['type' => 'Label', 'caption' => '━━━ Schritt für Schritt ━━━'],
-                        ['type' => 'Label', 'caption' => '1. Optional zuerst: „Zählerbezeichnung“ oben setzen — das ist zugleich der Name dieser Instanz im Objektbaum, keine zwei getrennten Namen zu pflegen.'],
-                        ['type' => 'Label', 'caption' => '2. Optional zur Übersicht: „Zähler suchen" unten klicken — zeigt brauchbare Kandidaten im Ergebnistext, trägt aber nichts ein.'],
-                        ['type' => 'Label', 'caption' => '3. Je Zähler eine Zeile — vier Wege: nach dem Suchlauf bei „Fund auswählen" wählen und übernehmen; ohne Suche direkt bei „Zähler-Instanz oder Gerät" wählen und übernehmen; bei mehreren Geräten ohne gemeinsamen Container (z. B. MDT AZI) eine Kategorie bei „Geräte-Familie erkennen" wählen — findet alle passenden Geräte auf einmal; oder von Hand unter der Tabelle „Hinzufügen" klicken und je Spalte mit dem eingebauten Symcon-Variablenpicker die passende Variable wählen. In den ersten drei Fällen werden Leistung/Bezug/Einspeisung automatisch gesucht.'],
-                        ['type' => 'Label', 'caption' => '4. „Anteil (%)" setzen: 100 addiert voll, −100 zieht voll ab, jeder Wert dazwischen ist ein Teil-Anteil, auch mit Nachkommastellen (siehe Beispiel „Aufteilen").'],
-                        ['type' => 'Label', 'caption' => '5. „Übernehmen“ klicken.'],
-                        ['type' => 'Label', 'caption' => '6. Unten im Panel „Prüfung & Vorschau“ kontrollieren: ✅ zeigt die fertige Formel MIT aktuellen Werten, ❌ nennt genau, was noch fehlt, ⚠️ weist auf Zeilen hin, die Leistung aber keinen Bezug haben, obwohl andere Zeilen einen haben (blockiert nichts, kann aber die Bezug-Summe zu niedrig ausfallen lassen). Fehlt bei einem Zähler grundsätzlich der Bezugswert (z. B. reine Wirkleistungs-Aktoren wie MDT AZI): „Fehlende Energiewerte aus der Leistung hochrechnen" klicken — rechnet Leistung × Berechnungs-Intervall zu einer eigenen, klar beschrifteten Variable auf (keine Schätzung, aber ungenauer als ein echter Zähler).'],
-                        ['type' => 'Label', 'caption' => '7. Optional: „Funktion“ setzen, damit das Dashboard diese Instanz als Verbraucher erkennt; „Standort“ (Raum/Geschoss) für die eigene Übersicht, unabhängig von der Funktion.'],
-                        ['type' => 'Label', 'caption' => 'Ein Datenpunkt darf innerhalb DERSELBEN Instanz nur in EINER Zeile stehen — sonst würde er doppelt gezählt, die Prüfung meldet das. Über mehrere Instanzen hinweg ist dieselbe Variable dagegen ausdrücklich erlaubt (siehe „Aufteilen") — die Verantwortung, dass die Anteile insgesamt sinnvoll sind, liegt dann bei dir.'],
-                        ['type' => 'Label', 'caption' => 'Einheiten: Leistung in W, Energie als kumulative kWh-Zählerstände. Alle Datenpunkte je Spalte müssen dieselbe Einheit haben; Abweichungen meldet die Prüfung.'],
-                        ['type' => 'Label', 'caption' => 'Zeilen lassen sich per Drag & Drop umsortieren, rein zur eigenen Übersicht — das Ergebnis ist unabhängig von der Reihenfolge.'],
+                        ['type' => 'Label', 'caption' => 'Multi-level nesting (e.g. an intermediate value from several meters from which something is then subtracted again) works across several instances: one instance calculates the intermediate value, its output is wired as an ordinary row in the next instance — no longer within a single instance.'],
+                        ['type' => 'Label', 'caption' => '🆕 Object tree as the source of members (default for new instances): everything that is placed as a link or directly under this instance is a member, in the order of its position there. Nesting = put a link to another virtual meter instance underneath (e.g. "Wallbox garage" and "Wallbox carport" under "Vehicle charging"). A circular reference (A contains B, B contains A) is detected and blocked. A link whose target was deleted appears as ⚠️ "target missing" and counts as 0. Instances with the previous table keep calculating unchanged; conversion happens only via the button.'],
+                        ['type' => 'Label', 'caption' => '━━━ Step by step ━━━'],
+                        ['type' => 'Label', 'caption' => '1. Optionally first: set "Meter name" above — this is at the same time the name of this instance in the object tree, no two separate names to maintain.'],
+                        ['type' => 'Label', 'caption' => '2. Optionally for an overview: click "Search for meters" below — shows usable candidates in the result text, but enters nothing.'],
+                        ['type' => 'Label', 'caption' => '3. One row per meter — four ways: after the search, choose from "Select result" and add it; without a search, choose directly under "Meter instance or device" and add it; for several devices without a common container (e.g. MDT AZI) choose a category under "Detect device family" — finds all matching devices at once; or by hand click "Add" under the table and choose the matching variable per column with the built-in Symcon variable picker. In the first three cases power/import/feed-in are searched automatically.'],
+                        ['type' => 'Label', 'caption' => '4. Set "Share (%)": 100 adds fully, −100 subtracts fully, any value in between is a partial share, also with decimal places (see example "Splitting").'],
+                        ['type' => 'Label', 'caption' => '5. Click "Apply".'],
+                        ['type' => 'Label', 'caption' => '6. Check at the bottom in the panel "Check & preview": ✅ shows the finished formula WITH current values, ❌ names exactly what is still missing, ⚠️ points to rows that have power but no import although other rows have one (blocks nothing, but can make the import sum come out too low). If a meter fundamentally lacks the import value (e.g. pure active-power actuators such as MDT AZI): click "Extrapolate missing energy values from the power" — calculates power × calculation interval into a variable of its own, clearly labeled (not an estimate, but less precise than a real meter).'],
+                        ['type' => 'Label', 'caption' => '7. Optionally: set "Function" so that the dashboard recognizes this instance as a consumer; "Location" (room/floor) for your own overview, independent of the function.'],
+                        ['type' => 'Label', 'caption' => 'A data point may appear in only ONE row within the SAME instance — otherwise it would be counted twice, the check reports this. Across several instances, however, the same variable is explicitly allowed (see "Splitting") — the responsibility that the shares make sense overall is then yours.'],
+                        ['type' => 'Label', 'caption' => 'Units: power in W, energy as cumulative kWh meter readings. All data points per column must have the same unit; the check reports deviations.'],
+                        ['type' => 'Label', 'caption' => 'Rows can be reordered by drag & drop, purely for your own overview — the result does not depend on the order.'],
                     ],
                 ],
                 // Name der Instanz — Dietmars Frage 31.08.2026, ob sich der
@@ -4693,30 +4710,30 @@ class MeterHubVirtual extends IPSModule
                 // sondern nur mit dem aktuellen IPS-Namen vorbelegt —
                 // IPS_SetName() läuft sofort per onChange, unabhängig vom
                 // Client (Konsole/WebFront/App) und von "Übernehmen".
-                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => '🆕 Zählerbezeichnung', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUBV_RenameInstance($id, $InstanceName);'],
-                ['type' => 'CheckBox', 'name' => 'Active', 'caption' => 'Berechnung aktiv'],
-                ['type' => 'Select', 'name' => 'Function', 'caption' => 'Funktion (fürs Dashboard)', 'options' => $funcOptions],
+                ['type' => 'ValidationTextBox', 'name' => 'InstanceName', 'caption' => '🆕 Meter name', 'value' => IPS_GetName($this->InstanceID), 'onChange' => 'MHUBV_RenameInstance($id, $InstanceName);'],
+                ['type' => 'CheckBox', 'name' => 'Active', 'caption' => 'Calculation active'],
+                ['type' => 'Select', 'name' => 'Function', 'caption' => 'Function (for the dashboard)', 'options' => $funcOptions],
                 // Standort: reines Freitext-Label (Raum/Geschoss …), bewusst
                 // getrennt vom Dashboard-Vertrag "Function". Auswahlliste aus
                 // den Werten, die irgendeine Instanz schon benutzt — plus
                 // jederzeit frei eintragbar für den Einzelfall, der in keine
                 // Liste passt (Dietmars Auftrag: "auch die letzten
                 // Absurditäten noch bezeichnen können").
-                ['type' => 'Select', 'name' => 'LocationPreset', 'caption' => 'Standort (Vorschlag übernehmen …)', 'options' => $locationOptions, 'value' => '', 'onChange' => 'MHUBV_ApplyLocationPreset($id, $LocationPreset);'],
-                ['type' => 'ValidationTextBox', 'name' => 'Location', 'caption' => '🆕 Standort (Raum/Geschoss, frei eintragbar)'],
+                ['type' => 'Select', 'name' => 'LocationPreset', 'caption' => 'Location (apply a suggestion …)', 'options' => $locationOptions, 'value' => '', 'onChange' => 'MHUBV_ApplyLocationPreset($id, $LocationPreset);'],
+                ['type' => 'ValidationTextBox', 'name' => 'Location', 'caption' => '🆕 Location (room/floor, free text)'],
             ];
 
         // Fachpanels in Standardreihenfolge — Reihenfolge und Aufklapp-Zustand wählt der Nutzer im Panel „Formular: Aufbau“.
         $free = [
                 'meters' => [
-                    'type' => 'ExpansionPanel', 'caption' => '🔌  Zähler', 'expanded' => true,
+                    'type' => 'ExpansionPanel', 'caption' => '🔌  Meters', 'expanded' => true,
                     'items' => $meterItems,
                 ],
-                'check' => ['type' => 'ExpansionPanel', 'caption' => '🔎  Prüfung & Vorschau', 'expanded' => true, 'items' => $check],
+                'check' => ['type' => 'ExpansionPanel', 'caption' => '🔎  Check & preview', 'expanded' => true, 'items' => $check],
                 'calc' => [
-                    'type' => 'ExpansionPanel', 'caption' => '⏱️  Berechnung', 'expanded' => false,
+                    'type' => 'ExpansionPanel', 'caption' => '⏱️  Calculation', 'expanded' => false,
                     'items' => [
-                        ['type' => 'NumberSpinner', 'name' => 'Interval', 'caption' => 'Neu berechnen alle', 'minimum' => 2, 'maximum' => 3600, 'suffix' => 's'],
+                        ['type' => 'NumberSpinner', 'name' => 'Interval', 'caption' => 'Recalculate every', 'minimum' => 2, 'maximum' => 3600, 'suffix' => 's'],
                     ],
                 ],
                 'archPower' => [
@@ -4725,16 +4742,16 @@ class MeterHubVirtual extends IPSModule
                     // kein horizontales Nebeneinander — schon bei den
                     // PopupButtons geprüft. Zwei einzeln auf-/zuklappbare
                     // Panels halten wenigstens die sichtbare Feldzahl klein.
-                    'type' => 'ExpansionPanel', 'caption' => '🗄️  Archiv-Verdichtung: Leistung', 'expanded' => false,
+                    'type' => 'ExpansionPanel', 'caption' => '🗄️  Archive compaction: power', 'expanded' => false,
                     'items' => array_merge(
-                        [['type' => 'Label', 'caption' => 'Reduziert automatisch den Detailgrad älterer Archivwerte (spart Speicher), bei jedem „Übernehmen" neu gesetzt — nur für Variablen, die archiviert werden (die Archivierung schaltest du selbst ein, siehe Hinweis oben im Formular). Jede Stufe greift nur, wenn ihre Auflösung tatsächlich gröber ist als das Update-Intervall oben — sonst gäbe es nichts zu verdichten.']],
+                        [['type' => 'Label', 'caption' => 'Automatically reduces the level of detail of older archive values (saves memory), set anew on every "Apply" — only for variables that are archived (you switch archiving on yourself, see the notice at the top of the form). Each stage only takes effect if its resolution is actually coarser than the update interval above — otherwise there would be nothing to compact.']],
                         $this->CompactionFields('Power')
                     ),
                 ],
                 'archEnergy' => [
-                    'type' => 'ExpansionPanel', 'caption' => '🗄️  Archiv-Verdichtung: Energie (Bezug/Einspeisung)', 'expanded' => false,
+                    'type' => 'ExpansionPanel', 'caption' => '🗄️  Archive compaction: energy (import/feed-in)', 'expanded' => false,
                     'items' => array_merge(
-                        [['type' => 'Label', 'caption' => 'Unabhängig von der Leistung einstellbar — Energie-Zählerstände haben oft andere Aufbewahrungs-Anforderungen.']],
+                        [['type' => 'Label', 'caption' => 'Can be set independently of power — energy meter readings often have different retention requirements.']],
                         $this->CompactionFields('Energy')
                     ),
                 ],
@@ -4748,14 +4765,14 @@ class MeterHubVirtual extends IPSModule
             'elements' => array_values(array_filter(array_merge($top, $lay['panels'],
                 [$this->LayoutPanel($lay['layout'], $free), $this->ForumHint(), $this->LicenseHint()]))),
             'actions' => [
-                ['type' => 'Button', 'caption' => 'Jetzt neu berechnen', 'onClick' => 'echo MHUBV_RecalcAndRefreshForm($id);'],
-                ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
+                ['type' => 'Button', 'caption' => 'Recalculate now', 'onClick' => 'echo MHUBV_RecalcAndRefreshForm($id);'],
+                ['type' => 'Button', 'caption' => '🔄  Force apply (without a form change)', 'onClick' => MHUBV_Text::t('IPS_ApplyChanges($id); echo \'✅ ApplyChanges() executed.\';'), 'confirm' => MHUBV_Text::t('Apply the instance now (ApplyChanges)?')],
             ],
             'status' => [
-                ['code' => 102, 'icon' => 'active',   'caption' => 'Berechnung aktiv.'],
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Berechnung deaktiviert.'],
-                ['code' => 201, 'icon' => 'error',    'caption' => 'Formel unvollständig oder widersprüchlich — siehe Prüfung.'],
-                ['code' => 202, 'icon' => 'error',    'caption' => 'Migration nötig — Formular öffnen und im Panel oben bestätigen.'],
+                ['code' => 102, 'icon' => 'active',   'caption' => 'Calculation active.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Calculation deactivated.'],
+                ['code' => 201, 'icon' => 'error',    'caption' => 'Formula incomplete or contradictory — see the check.'],
+                ['code' => 202, 'icon' => 'error',    'caption' => 'Migration required — open the form and confirm in the panel at the top.'],
             ],
         ];
         return $form;
@@ -4800,7 +4817,8 @@ class MeterHubVirtual extends IPSModule
     /** Name eines Fachpanels für die Liste im Aufbau-Panel (ohne Klammerzusatz). */
     private function layoutPanelName(array $panel, string $key): string
     {
-        return trim((string)preg_replace('/\s*\(.*$/u', '', (string)($panel['caption'] ?? $key)));
+        // Der Name steht als Wert in einer Liste (nicht als Beschriftung) — die Konsole übersetzt ihn nicht, deshalb hier.
+        return trim((string)preg_replace('/\s*\(.*$/u', '', MHUBV_Text::t((string)($panel['caption'] ?? $key))));
     }
 
     /**
@@ -4842,28 +4860,28 @@ class MeterHubVirtual extends IPSModule
             }
         }
         $hiddenLine = $hidden
-            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            ? [['type' => 'Label', 'caption' => MHUBV_Text::t('🙈 Hidden: %s — to show again, clear the "Hidden" checkbox. Hidden sections keep working, only the display is missing.', implode(', ', $hidden))]]
             : [];
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
+            'caption' => MHUBV_Text::t('🪟  Form: layout%s', $hidden ? MHUBV_Text::t(' (%s hidden)', count($hidden)) : ''),
             'items' => array_merge($hiddenLine, [
-                ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
-                ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard“: wie das Modul es vorsieht. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen oder „Auf Standard zurücksetzen“ klicken. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“. Die Bereiche oben (Zweck, Neu, Dokumentation) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind, und lassen sich nicht ausblenden.'],
+                ['type' => 'Label', 'caption' => 'Here you decide which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing by itself, so this setting applies every time the form opens. It takes effect after “Apply” the next time the form is opened.'],
+                ['type' => 'Label', 'caption' => 'No tick means "default": as the module intends. The position is a number; with the same number the default order stays. "Hidden" takes a section out of the display without it losing anything: its settings are kept and keep working (meant for sections you rarely need). To show it again, remove the tick at "Hidden" or click "Reset to default". If several ticks are set, "Hidden" wins over "Collapsed" over "Expanded". The sections at the top (purpose, news, documentation) and at the bottom (feedback, About this module) stay where they are and cannot be hidden.'],
                 [
-                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Areas', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
                     'loadValuesFromConfiguration' => false,
                     'values' => $rows,
                     'columns' => [
-                        ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
-                        ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                        ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Area', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Key', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Expanded', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Collapsed', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Hidden', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
                     ],
                 ],
-                ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo MHUBV_ResetFormLayout($id);'],
+                ['type' => 'Button', 'caption' => '↩️ Reset to default', 'onClick' => 'echo MHUBV_ResetFormLayout($id);'],
             ]),
         ];
     }
@@ -4877,14 +4895,14 @@ class MeterHubVirtual extends IPSModule
             $rows[] = ['Key' => $key, 'Panel' => $this->layoutPanelName($panel, $key), 'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => ++$i];
         }
         $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
-        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';
+        return MHUBV_Text::t('ℹ️ Reset to default. Click "Apply" below to save.');
     }
 
     /** Formel je Feld als Klartext (Vorschau im Formular). */
     /** Zahl im Format der jeweiligen NRG-Stack-Profile (0 bzw. 1 Nachkommastelle, deutsches Komma). */
     private function FormatValue(float $v, string $field): string
     {
-        return number_format($v, $field === 'power' ? 0 : 1, ',', '.');
+        return MHUBV_Text::num($v, $field === 'power' ? 0 : 1);
     }
 
     /**
@@ -4899,7 +4917,8 @@ class MeterHubVirtual extends IPSModule
     {
         $units = ['power' => 'W', 'imp' => 'kWh', 'exp' => 'kWh'];
         $lines = [];
-        foreach ([['power', 'Leistung'], ['imp', 'Bezug'], ['exp', 'Einspeisung']] as [$f, $lbl]) {
+        foreach ([['power', 'Power'], ['imp', 'Import'], ['exp', 'Feed-in']] as [$f, $lbl]) {
+            $lbl   = MHUBV_Text::t($lbl);
             $terms = [];
             $sum   = 0.0;
             foreach ($nodes as $n) {
@@ -4907,7 +4926,7 @@ class MeterHubVirtual extends IPSModule
                 if ($vid <= 0) {
                     continue;
                 }
-                $name   = $n['name'] !== '' ? $n['name'] : '(ohne Namen)';
+                $name   = $n['name'] !== '' ? $n['name'] : MHUBV_Text::t('(unnamed)');
                 $factor = $n['factor'];
                 $sign   = $factor < 0 ? '−' : '+';
                 // Volle 100%/−100% liest sich wie bisher als reines +/−, ein
@@ -4924,13 +4943,13 @@ class MeterHubVirtual extends IPSModule
                         ? $this->FormatValue($val, $f) . ' ' . $units[$f]
                         : $this->FormatValue($val, $f) . ' ' . $units[$f] . ' → ' . $this->FormatValue($contribution, $f) . ' ' . $units[$f];
                 } else {
-                    $valText = 'Wert fehlt';
+                    $valText = MHUBV_Text::t('Value missing');
                 }
-                $pctText = $isFull ? '' : ' × ' . rtrim(rtrim(number_format(abs($factor), 2, ',', '.'), '0'), ',') . ' %';
+                $pctText = $isFull ? '' : ' × ' . rtrim(rtrim(MHUBV_Text::num(abs($factor), 2), '0'), MHUBV_Text::t('<decimal separator>') === ',' ? ',' : '.') . ' %';
                 // Quelle je Term (SUITE.md „Verbund-Verbindungen im Formular sichtbar machen", 21.09.2026):
                 // welche Variable tatsächlich gelesen wird — bei automatisch am Ziel gefundenen Datenpunkten
                 // sonst nicht erkennbar.
-                $src = ' [Quelle #' . $vid . (IPS_VariableExists($vid) ? ' „' . IPS_GetName($vid) . '"' : ' fehlt') . ']';
+                $src = ' ' . (IPS_VariableExists($vid) ? MHUBV_Text::t('[source #%d "%s"]', $vid, IPS_GetName($vid)) : MHUBV_Text::t('[source #%d missing]', $vid));
                 $terms[] = $sign . ' ' . $name . $src . $pctText . ' (' . $valText . ')';
             }
             if ($terms) {
@@ -4941,7 +4960,7 @@ class MeterHubVirtual extends IPSModule
             }
         }
         if (!$lines) {
-            $lines[] = '   (kein Term ergibt eine Ausgabe)';
+            $lines[] = MHUBV_Text::t('   (no term yields an output)');
         }
         return $lines;
     }

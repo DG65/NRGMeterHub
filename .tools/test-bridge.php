@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/i18n-test-support.php';
 /**
  * Prüfstand MeterHubBridge und Brückenanbindung im MeterHub (0.30.0, SUITE.md 9j).
  *
@@ -15,6 +16,7 @@
 if (!class_exists('IPSModule')) {
     class IPSModule
     {
+    use I18nStub;
         public $InstanceID = 0;
         public function __construct($id = 0) { $this->InstanceID = $id; }
         public function Create() {}
@@ -136,11 +138,11 @@ check('3c: Gateway inaktiv: verbunden, aber nicht aktiv, Status durchgereicht', 
 $b->ApplyChanges();
 $bNo->ApplyChanges();
 check('3d: Status 102 mit aktivem Gateway, 104 ohne', $GLOBALS['STATUS'][$bridge] === 102 && $GLOBALS['STATUS'][$bridgeNo] === 104, json_encode($GLOBALS['STATUS']));
-$form = json_decode($b->GetConfigurationForm(), true);
+$form = json_decode(cf($b), true);
 check('3e: Formular ist gültig und die Statuszeile (✅) nennt Gateway mit ID und Name, Unit-ID und Quelle', is_array($form) && str_contains($form['elements'][0]['caption'] ?? '', '✅') && str_contains($form['elements'][0]['caption'] ?? '', '#' . $gw . ' „ModBus Gateway BCR PV Zähler"') && str_contains($form['elements'][0]['caption'] ?? '', 'Unit-ID 41') && str_contains($form['elements'][0]['caption'] ?? '', 'DeviceID'), $form['elements'][0]['caption'] ?? '');
-$formNo = json_decode($bNo->GetConfigurationForm(), true);
+$formNo = json_decode(cf($bNo), true);
 check('3e: ohne Gateway (⚠️): sagt, was fehlt und was dann gilt', str_starts_with($formNo['elements'][0]['caption'] ?? '', '⚠️') && str_contains($formNo['elements'][0]['caption'], 'Gateway ändern') && str_contains($formNo['elements'][0]['caption'], 'keine Werte'), $formNo['elements'][0]['caption'] ?? '');
-$formDown = json_decode((new MeterHubBridge($bridgeDown))->GetConfigurationForm(), true);
+$formDown = json_decode(cf(new MeterHubBridge($bridgeDown)), true);
 check('3e: Gateway inaktiv (⚠️): nennt Gateway und Status', str_starts_with($formDown['elements'][0]['caption'] ?? '', '⚠️') && str_contains($formDown['elements'][0]['caption'], '#' . $gwDown) && str_contains($formDown['elements'][0]['caption'], 'Status 201'), $formDown['elements'][0]['caption'] ?? '');
 check('3e: Formular sagt „eine Brücke = genau eine Unit-ID"', str_contains(json_encode($form, JSON_UNESCAPED_UNICODE), 'genau EINE Unit-ID'));
 

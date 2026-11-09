@@ -9,8 +9,37 @@
 // aus dem MeterHub-Modulordner — Module sind bewusst getrennt).
 // ---------------------------------------------------------------------------
 
+/**
+ * Texte zur Laufzeit übersetzen (Quelltexte englisch, Deutsch in locale.json — SUITE.md Punkt 9). Die Modulklasse
+ * hinterlegt im Konstruktor ihre Translate()-Methode; auch Hilfsklassen und statische Methoden kommen so an die Übersetzung.
+ * Mit Argumenten: sprintf() auf den übersetzten Text.
+ */
+class MHUBD_Text
+{
+    private static $fn = null;
+
+    public static function set(\Closure $fn): void
+    {
+        self::$fn = $fn;
+    }
+
+    public static function t(string $text, ...$args): string
+    {
+        $s = self::$fn !== null ? (string)(self::$fn)($text) : $text;
+        return $args ? sprintf($s, ...$args) : $s;
+    }
+}
+
 class MeterHubDiscovery extends IPSModule
 {
+    public function __construct($InstanceID)
+    {
+        parent::__construct($InstanceID);
+        MHUBD_Text::set(function (string $text): string {
+            return $this->Translate($text);
+        });
+    }
+
     private const METERHUB_GUID = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
     private const MIGRATIONSHUB_GUID = '{330717BB-E309-41A2-90A8-FDA3179ED948}';
 
@@ -37,7 +66,7 @@ class MeterHubDiscovery extends IPSModule
 
     private const METER_LABELS = [
         'siemens_pac2200' => 'Siemens PAC2200',
-        'janitza_umg604'  => 'Janitza UMG (klassische Map)',
+        'janitza_umg604'  => 'Janitza UMG (classic register map)',
         'janitza_umg800'  => 'Janitza UMG 800',
         'shelly_pro3em'    => 'Shelly Pro 3EM',
         'carlo_gavazzi_em' => 'Carlo Gavazzi EM24/ET340',
@@ -62,9 +91,9 @@ class MeterHubDiscovery extends IPSModule
         3 => 'bluelog_scada_meter',
     ];
     private const BLUELOG_TYPE_LABELS = [
-        0 => "Datenlogger – Summe aller Wechselrichter",
-        1 => 'Wechselrichter',
-        3 => 'Zähler',
+        0 => 'Data logger – total of all inverters',
+        1 => 'Inverter',
+        3 => 'Meter',
     ];
     // SCADA-Adresse des blue'Log selbst (fest, laut Hersteller reserviert).
     private const BLUELOG_SELF_ADDR = 97;
@@ -129,7 +158,7 @@ class MeterHubDiscovery extends IPSModule
         $this->RegisterAttributeBoolean('PurposeIntroGone', false);
     }
 
-    private const NEWS_VERSION = '0.33.0';
+    private const NEWS_VERSION = '0.35.0';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/ems-integration/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
@@ -145,12 +174,12 @@ class MeterHubDiscovery extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
-            'caption' => '👋  Wozu dieses Modul?',
+            'caption' => '👋  What is this module for?',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Durchsucht dein lokales Netz nach unterstützten Energiezählern und legt auf Klick eine passend vorausgefüllte MeterHub-Instanz an — IP-Adresse, Unit-ID und Zählertyp müssen nicht von Hand eingetragen werden.'],
-                ['type' => 'Label', 'caption' => 'Der Nutzen: bei mehreren Zählern (z. B. je Verbraucher oder je Wohnung) ein paar Klicks statt manueller Konfiguration jeder einzelnen Instanz. Auch der Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie läuft hier mit (siehe unten).'],
-                ['type' => 'Label', 'caption' => 'Das Modul selbst misst nichts — die eigentliche Datenerfassung übernimmt danach die neu angelegte MeterHub-Instanz.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBD_AckPurposeIntro($id);'],
+                ['type' => 'Label', 'caption' => 'Searches your local network for supported energy meters and, on a click, creates a suitably prefilled MeterHub instance — IP address, unit ID and meter type do not have to be entered by hand.'],
+                ['type' => 'Label', 'caption' => 'The benefit: with several meters (e.g. per consumer or per apartment) a few clicks instead of configuring each instance manually. Switching from another meter/hub module while keeping the measurement history is also done here (see below).'],
+                ['type' => 'Label', 'caption' => 'The module itself measures nothing — the actual data acquisition is then done by the newly created MeterHub instance.'],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUBD_AckPurposeIntro($id);'],
             ],
         ];
     }
@@ -170,27 +199,11 @@ class MeterHubDiscovery extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
-            'caption' => '🆕  Neu in dieser Version',
+            'caption' => '🆕  New in this version',
             'items' => [
-                ['type' => 'Label', 'caption' => '• 🪟 Neu: Formular-Aufbau selbst wählen. Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist, und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so sieht das Formular jedes Mal so aus, wie du es brauchst. Ausgeblendete Bereiche behalten ihre Einstellungen und arbeiten weiter. Kein Haken heißt „Standard“; „Auf Standard zurücksetzen“ stellt alles zurück. Wirkt nach „Übernehmen“ beim nächsten Öffnen.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Kernfix: blue\'Log-Erkennung fragte bisher eine Schnittstelle nach der anderen ab, mit Pause dazwischen — genau das lässt ein blue\'Log offenbar scheitern (live gemessen: 8 rasch AUFEINANDERFOLGENDE Verbindungen scheitern komplett, 8 GLEICHZEITIGE werden dagegen anstandslos beantwortet). Alle Kandidaten — SCADA-Selbstauskunft, zwei Geräte-IDs aus dem konfigurierten Bereich, Power Control, RPC — werden jetzt in einem Rutsch parallel angefragt. Dasselbe gilt für den SCADA-Adressbereich-Suchlauf: bis zu 20 Adressen gleichzeitig statt einzeln mit Pause, dadurch spürbar schneller.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Fix: automatische blue\'Log-Erkennung verwendete für SCADA/Power Control/RPC immer denselben Port wie die klassische Zählersuche (Fund aus dem Praxistest: Gesucht wurde standardmäßig auf Port 502, SCADA und Power Control/RPC liegen aber oft auf anderen Ports). Läuft ein blue\'Log auf einem abweichenden Port, probiert „🔎 Netzwerk durchsuchen" jetzt zusätzlich den im Panel „blue\'Log SCADA-Adressbereich" eingetragenen Port — beide Panels erklären das jetzt auch im Formulartext.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Fix: blue\'Log-Erkennung fand in der Praxis KEINEN einzigen blue\'Log (Praxistest: 15 echte Geräte im Netz, null Treffer). Ursache laut Live-Messung: mehrere rasch aufeinanderfolgende Modbus-TCP-Verbindungen zum selben Gerät scheitern reihenweise, besonders bei parallel laufenden eigenen Regel-Skripten — jede Schnittstellen-Prüfung bekommt jetzt bis zu drei Versuche mit wachsender Pause. Reihenfolge zusätzlich an die reale Geräteflotte angepasst: SCADA zuerst (meist vorhanden), Power Control/RPC nur noch als Rückfall für Master-/EZA-Regler.'],
-                ['type' => 'Label', 'caption' => '• 🆕 „🔎 Netzwerk durchsuchen" erkennt Meteocontrol-blue\'Log-Datenlogger jetzt von sich aus — keine vorher bekannte IP mehr nötig. Bei einem Treffer wird automatisch der eingestellte SCADA-Adressbereich dahinter mitdurchsucht, dieselbe Fundliste wie bei klassischen Zählern.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Neuer zweiter Suchmodus „blue\'Log SCADA-Adressbereich": statt eines IP-Bereichs EIN fest bekannter Meteocontrol-blue\'Log-Solarpark-Datenlogger, aber viele dahinter angeschlossene Geräte (Wechselrichter, Zähler …) über ihre eigene, am blue\'Log selbst frei vergebene SCADA-Adresse. Findet und schlägt jedes unterstützte Gerät als eigene MeterHub-Instanz vor — dieselbe Fundliste/„Erstellen"-Mechanik wie beim normalen Netzwerk-Suchlauf. Bleibt der schnellere, gezielte Weg, wenn die IP schon bekannt ist.'],
-                ['type' => 'Label', 'caption' => '• 🆕 Neuer Platzhalter `{busaddr}` (RS485-Busadresse) für die „Namens-Vorlage" — nützlich, um viele gleichartige blue\'Log-Funde (z. B. 100 Wechselrichter) nach einem eigenen Muster statt einer reinen laufenden Nummer zu benennen.'],
-                ['type' => 'Label', 'caption' => '• 🆕 „Bekannten Host übernehmen" schlägt die blue\'Log-IP aus bereits bestehenden MeterHub-Instanzen vor — kein Umweg mehr über das Meteocontrol-VCOM-Portal, wenn die IP schon einmal verwendet wurde.'],
-                ['type' => 'Label', 'caption' => '• 🆕 „Schnittstellen prüfen" testet vorab, ob Power Control/RPC/SCADA an einer blue\'Log-IP überhaupt antworten — eine SCADA-Lizenz ist teuer und in der Praxis selten, die Standardlizenz hat weder sie noch RPC.'],
-                ['type' => 'Label', 'caption' => '• Fundliste im „Erstellen"-Panel ist jetzt breiter/höher, die Namens-Vorlage sitzt dort statt im Suchbereich-Panel, und die blue\'Log-Suche ist bei dünn besetzten Adressbereichen spürbar schneller.'],
-                ['type' => 'Label', 'caption' => '• 🔧 Fix: Die Modellbezeichnung bei blue\'Log-SCADA-Funden war fehlerhaft dekodiert (zeigte Zeichensalat statt eines lesbaren Namens) — jetzt an mehreren echten Geräten geprüft.'],
-                ['type' => 'Label', 'caption' => '• 🔀 Migration von einer Alt-Instanz (anderes Modul, gleiche IP/Unit-ID): „Migration vorbereiten" verknüpft automatisch mit Gerätetausch (vormals MigrationsHub) — Simulieren/Ausführen bleiben dort bewusst manuelle Schritte. Details über das „?" beim Knopf.'],
-                ['type' => 'Label', 'caption' => '• Die Suche lässt sich jederzeit abbrechen („✖ Suche abbrechen"), die Kopfzeile zeigt live, wie viele Zähler bereits gefunden wurden.'],
-                ['type' => 'Label', 'caption' => '• Erkennt inzwischen neun Zählertypen: Siemens PAC2200, Janitza UMG (klassisch + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375, Eastron SDM72D/SDM630, go-e Controller. Details über das „?" beim Suche-Knopf.'],
-                ['type' => 'Label', 'caption' => '• IPs lassen sich gezielt von der Suche ausschließen (Feld „IPs ignorieren").'],
-                ['type' => 'Label', 'caption' => '• 🧡 Neues Panel „Über dieses Modul" ganz unten — Lizenz (PolyForm Noncommercial 1.0.0), Kontakt für gewerbliche Nutzung und ein PayPal-Link für alle, die etwas dalassen möchten.'],
-                ['type' => 'Label', 'caption' => '• 👋 Neue Zweck-Einführung „Wozu dieses Modul?" ganz oben im Formular — kurz und knapp, wofür MeterHubDiscovery gedacht ist, bevor es an die Bedienung geht.'],
-                ['type' => 'Label', 'caption' => '• 🔗 Bei mehreren Instanzen: „Wozu dieses Modul?"/„Was ist Neu?"/der Forum-Hinweis müssen nicht mehr an jeder Instanz einzeln weggeklickt werden — ein Klick an einer bestätigt es für alle Instanzen dieses Moduls, auch für später neu hinzukommende.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBD_AckNews($id);'],
+                ['type' => 'Label', 'caption' => '• 🌐 New: MeterHubDiscovery is now available in German and English. Texts follow the Symcon language setting: the form is translated by the console, messages are shown in the set language, and variable names are set in the language that is active when you click "Apply". Identifiers, properties and functions are unchanged — nothing is lost on existing instances.'],
+                ['type' => 'Label', 'caption' => '• 🪟 New: choose the form layout yourself. In the new panel "Form: layout" (at the bottom, before the forum notice) you decide per section whether it is expanded, collapsed or hidden when opened, and at which position it sits. Symcon does not remember expanding and collapsing by itself, so the form looks the way you need it every time. Hidden sections keep their settings and keep working. No tick means "default"; "Reset to default" restores everything. Takes effect after "Apply" the next time the form is opened.'],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUBD_AckNews($id);'],
             ],
         ];
     }
@@ -210,11 +223,11 @@ class MeterHubDiscovery extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'ForumHintPanel', 'expanded' => true,
-            'caption' => '💬  Feedback im Symcon-Forum',
+            'caption' => '💬  Feedback in the Symcon forum',
             'items' => [
-                ['type' => 'Label', 'caption' => 'MeterHubDiscovery ist Beta — Rückmeldungen, gerade zu neu erkannten Zählertypen, sind ausdrücklich willkommen im Community-Thread.'],
-                ['type' => 'Button', 'caption' => 'Zum Forums-Thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'MHUBD_AckForumHint($id);'],
+                ['type' => 'Label', 'caption' => 'Feedback, especially on newly recognized meter types, is explicitly welcome in the community thread.'],
+                ['type' => 'Button', 'caption' => 'Go to the forum thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
+                ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUBD_AckForumHint($id);'],
             ],
         ];
     }
@@ -332,14 +345,14 @@ class MeterHubDiscovery extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🧡  Über dieses Modul',
+            'caption' => '🧡  About this module',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
-                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
-                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
-                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
-                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Born out of real enthusiasm for my own energy system — and a few evenings spent typing. Still: hobby or not, this is intellectual property and real work went into it.'],
+                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private, non-commercial use; commercial use requires a separate license from the rights holder.'],
+                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Commercial use or license questions? Just get in touch: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Like the module and want to leave something anyway? A small donation is appreciated — entirely voluntary, nothing expected in return.'],
+                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
@@ -354,11 +367,11 @@ class MeterHubDiscovery extends IPSModule
     {
         $ts = $this->ReadAttributeInteger('LastScanTs');
         if ($ts === 0) {
-            return 'ℹ️ Noch nicht gesucht — Button oben drücken.';
+            return MHUBD_Text::t('ℹ️ Not searched yet — press the button above.');
         }
         $count = count(json_decode((string)$this->ReadAttributeString('ResultsJSON'), true) ?: []);
         $icon  = $count > 0 ? '✅' : '⚠️';
-        return sprintf('%s %d Zähler gefunden (zuletzt %s Uhr).', $icon, $count, date('H:i:s', $ts));
+        return sprintf(MHUBD_Text::t('%s %d meters found (last at %s).'), $icon, $count, date('H:i:s', $ts));
     }
 
     // Ermittelt heuristisch die ersten drei Oktette des lokalen Subnetzes
@@ -396,7 +409,7 @@ class MeterHubDiscovery extends IPSModule
         // Variable trotzdem einmalig nachgezogen, da IPS_GetObjectIDByIdent()
         // erst nach der ersten erfolgreichen Anlage etwas findet.
         if (!@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
-            $this->RegisterVariableBoolean('ScanAbort', 'Scan-Abbruch', '', 100);
+            $this->RegisterVariableBoolean('ScanAbort', MHUBD_Text::t('Scan abort'), '', 100);
             IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
         }
     }
@@ -412,7 +425,7 @@ class MeterHubDiscovery extends IPSModule
         if (@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
             $this->SetValue('ScanAbort', true);
         }
-        @$this->UpdateFormField('ScanProgress', 'caption', 'Abbruch angefordert – bitte kurz warten …');
+        @$this->UpdateFormField('ScanProgress', 'caption', MHUBD_Text::t('Abort requested – please wait a moment …'));
         @$this->UpdateFormField('ScanProgress', 'indeterminate', true);
     }
 
@@ -438,22 +451,22 @@ class MeterHubDiscovery extends IPSModule
     {
         $host = trim($host);
         if ($host === '') {
-            return "❌ Bitte zuerst die blue'Log-IP-Adresse eintragen.";
+            return MHUBD_Text::t('❌ Please enter the blue\'Log IP address first.');
         }
         // Kurz genug, damit jede Zeile im nativen Meldungsdialog ohne Umbruch
         // passt (Dietmars Screenshot 08.09.2026: "RPC" statt ausgeschriebenem
         // "Remote Power Control / RPC" reicht — die Klammer erklärt die Rolle).
         $roles = [
-            1  => 'Power Control (Netzbetreiber)',
-            10 => 'RPC (Direktvermarkter)',
-            97 => 'SCADA (alle Geräte)',
+            1  => MHUBD_Text::t('Power Control (grid operator)'),
+            10 => MHUBD_Text::t('RPC (direct marketer)'),
+            97 => MHUBD_Text::t('SCADA (all devices)'),
         ];
         $parts = [];
         foreach ($roles as $unitId => $label) {
             $ok = $this->probeUnitResponds($host, $port, $unitId, 1.0);
             // ❌ statt "—" — eindeutiges Gegenteil zu ✅ (Dietmars Einwand:
             // "—" liest sich nicht klar als "nicht erreichbar").
-            $parts[] = ($ok ? '✅ ' : '❌ ') . "$label (Slave-ID $unitId)";
+            $parts[] = ($ok ? '✅ ' : '❌ ') . MHUBD_Text::t('%s (slave ID %s)', $label, $unitId);
         }
         // Eine Zeile je Rolle statt mit "·" aneinandergereiht — der native
         // Meldungsdialog (Dietmars Screenshot 08.09.2026) macht aus einem
@@ -525,7 +538,7 @@ class MeterHubDiscovery extends IPSModule
         // blue'Log erst über das Meteocontrol-VCOM-Portal/VPN suchen zu
         // müssen, obwohl sie oft schon in einer eigenen Instanz steht).
         // Gleiches Muster wie MeterHub::GetConfigurationForm() "Standort".
-        $blueLogHostOptions = [['caption' => '— bekannten Host wählen —', 'value' => '']];
+        $blueLogHostOptions = [['caption' => '— choose a known host —', 'value' => '']];
         $seenHosts = [];
         foreach (IPS_GetInstanceListByModuleID(self::METERHUB_GUID) as $iid) {
             $h = trim((string)@IPS_GetProperty($iid, 'Host'));
@@ -580,7 +593,7 @@ class MeterHubDiscovery extends IPSModule
             }
 
             $values[] = [
-                'name'       => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ')',
+                'name'       => MHUBD_Text::t('%s @ %s (unit %s)', $r['label'], $r['ip'], $r['unitId']),
                 'meter'      => $r['label'],
                 'ip'         => $r['ip'],
                 'unitId'     => $r['unitId'],
@@ -600,16 +613,16 @@ class MeterHubDiscovery extends IPSModule
                 $this->NewsBanner(),
                 [
                     'type'     => 'ExpansionPanel',
-                    'caption'  => '📖  Dokumentation & Hilfe',
+                    'caption'  => '📖  Documentation & help',
                     'expanded' => false,
                     'items'    => [
-                        ['type' => 'Label', 'caption' => 'MeterHubDiscovery ' . self::NEWS_VERSION . ' — Stand dieser Anleitung.'],
-                        ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Energiezählern auf Modbus-TCP-Port 502 und erkennt den Zählertyp anhand eines charakteristischen Registers (Frequenz + Spannung als Plausibilitätsprüfung).'],
-                        ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Zähler erscheinen unten — Klick auf „Erstellen" legt eine MeterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Zählertyp an.'],
-                        ['type' => 'Label', 'caption' => '🔀 Neue Instanz kommt mit „Kommunikation aktiv" bereits eingeschaltet. Falls ein Umstieg von einem anderen Zähler-/Hub-Modul mit Übernahme der Messhistorie geplant ist: direkt nach dem Anlegen an der neuen MeterHub-Instanz wieder ausschalten, bis Gerätetausch die alte Historie übernommen hat — sonst überlappen sich die neu geloggten Werte mit der übertragenen Alt-Historie.'],
-                        ['type' => 'Label', 'caption' => 'Die Suche prüft nur wenige dokumentierte Standard-Unit-IDs je Zähler, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die MeterHub-Instanz manuell anlegen.'],
-                        ['type' => 'Label', 'caption' => 'Erkannt werden: Siemens PAC2200, Janitza UMG (klassisch + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375 und Eastron SDM72D/SDM630. Beim Shelly Pro 3EM muss Modbus TCP am Gerät aktiviert sein. Nicht automatisch gefunden werden: Zähler hinter RTU/TCP-Gateways mit frei wählbarer Unit-ID (z. B. Socomec, MBS), Zähler an einem ModBus Gateway wie dem RS485-Port der Symbox (z. B. die reinen RS485-Geräte Eastron SDM120/220/230), der Phoenix EEM-XM, Inexogy (Cloud) und die schreibenden blue\'Log-Typen RPC/Power Control — dort die MeterHub-Instanz manuell anlegen, bei der Symbox mit dem Verbindungsweg „Symbox-Gateway".'],
-                        ['type' => 'Label', 'caption' => '🆕 Ein Meteocontrol blue\'Log-Datenlogger wird von „🔎 Netzwerk durchsuchen" jetzt von sich aus erkannt — keine vorher bekannte IP mehr nötig. Bei einem Treffer wird direkt der SCADA-Adressbereich dahinter mitdurchsucht (Einstellung im Panel „blue\'Log SCADA-Adressbereich" unten). Das eigene Panel dort bleibt der schnellere, gezielte Weg, wenn die IP schon bekannt ist.'],
+                        ['type' => 'Label', 'caption' => MHUBD_Text::t('MeterHubDiscovery %s — version of this guide.', self::NEWS_VERSION)],
+                        ['type' => 'Label', 'caption' => 'Searches an IP range in the local network for energy meters on Modbus TCP port 502 and recognizes the meter type by a characteristic register (frequency + voltage as a plausibility check).'],
+                        ['type' => 'Label', 'caption' => 'Enter start and end IP (a suggestion based on your own network is already filled in), then click "Search network". Meters found appear below — a click on "Create" creates a MeterHub instance with prefilled IP address, unit ID and meter type.'],
+                        ['type' => 'Label', 'caption' => '🔀 A new instance comes with "Communication active" already switched on. If you plan to switch from another meter/hub module while keeping the measurement history: switch it off again on the new MeterHub instance right after creating it, until Device swap has taken over the old history — otherwise the newly logged values overlap with the transferred old history.'],
+                        ['type' => 'Label', 'caption' => 'The search checks only a few documented default unit IDs per meter, not a full 1-247 range — if the unit ID has an unusual setting, please create the MeterHub instance manually.'],
+                        ['type' => 'Label', 'caption' => 'Recognized: Siemens PAC2200, Janitza UMG (classic + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375 and Eastron SDM72D/SDM630. For the Shelly Pro 3EM, Modbus TCP must be enabled on the device. Not found automatically: meters behind RTU/TCP gateways with a freely selectable unit ID (e.g. Socomec, MBS), meters on a ModBus gateway such as the RS485 port of the Symbox (e.g. the pure RS485 devices Eastron SDM120/220/230), the Phoenix EEM-XM, Inexogy (cloud) and the write-capable blue\'Log types RPC/Power Control — create the MeterHub instance manually there, with the Symbox using the connection path "Symbox gateway".'],
+                        ['type' => 'Label', 'caption' => '🆕 A Meteocontrol blue\'Log data logger is now recognized by "🔎 Search network" on its own — no previously known IP needed. On a hit, the SCADA address range behind it is searched directly as well (setting in the panel "blue\'Log SCADA address range" below). The panel of its own there remains the faster, targeted way if the IP is already known.'],
                     ],
                 ],
             ];
@@ -618,35 +631,35 @@ class MeterHubDiscovery extends IPSModule
         $free = [
                 'range' => [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🔎  Suchbereich',
+                    'caption' => '🔎  Search range',
                     'expanded' => true,
                     'items' => [
-                        ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start-IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                        ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End-IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
-                        ['type' => 'Label', 'caption' => '💡 Gilt für klassische Zähler UND als erster Versuch für blue\'Log SCADA/Power Control/RPC. Läuft ein blue\'Log auf einem ANDEREN Port als die übrigen Zähler, dort den abweichenden Port im Feld „Modbus-TCP-Port" im Panel „blue\'Log SCADA-Adressbereich" unten eintragen — die Suche probiert dann automatisch beide Ports.'],
-                        ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'IPs ignorieren (Komma-getrennt)'],
-                        ['type' => 'Label', 'caption' => 'Diese Adressen werden bei der Suche komplett übersprungen — z. B. andere Modbus-Geräte, die sonst fälschlich erscheinen würden.'],
+                        ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus TCP port', 'minimum' => 1, 'maximum' => 65535],
+                        ['type' => 'Label', 'caption' => '💡 Applies to classic meters AND as a first attempt for blue\'Log SCADA/Power Control/RPC. If a blue\'Log runs on a DIFFERENT port than the other meters, enter the different port in the field "Modbus TCP port" in the panel "blue\'Log SCADA address range" below — the search then tries both ports automatically.'],
+                        ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'Ignore IPs (comma-separated)'],
+                        ['type' => 'Label', 'caption' => 'These addresses are skipped completely during the search — e.g. other Modbus devices that would otherwise appear by mistake.'],
                         [
-                            'type' => 'PopupButton', 'caption' => 'Welche Zähler findet die Suche — und welche nicht?', 'width' => '480px',
+                            'type' => 'PopupButton', 'caption' => 'Which meters does the search find — and which not?', 'width' => '480px',
                             'popup' => [
-                                'caption' => 'Was die Suche erkennt',
+                                'caption' => 'What the search recognizes',
                                 'items' => [
-                                    ['type' => 'Label', 'caption' => 'Erkannt werden: Siemens PAC2200, Janitza UMG (klassisch + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375, Eastron SDM72D/SDM630 und der go-e Controller.'],
-                                    ['type' => 'Label', 'caption' => '🆕 Meteocontrol blue\'Log-Datenlogger werden zusätzlich automatisch erkannt (unabhängig vom Zähler-Suchlauf oben) — bei einem Treffer wird gleich der eingestellte SCADA-Adressbereich dahinter mitdurchsucht, ganz ohne die IP vorher zu kennen.'],
-                                    ['type' => 'Label', 'caption' => 'Die Suche prüft nur wenige dokumentierte Standard-Unit-IDs je Zähler, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die MeterHub-Instanz manuell anlegen.'],
-                                    ['type' => 'Label', 'caption' => 'Nicht automatisch gefunden werden: Zähler hinter RTU/TCP-Gateways mit frei wählbarer Unit-ID (z. B. Socomec, MBS), Zähler an einem ModBus Gateway wie dem RS485-Port der Symbox (z. B. die reinen RS485-Geräte Eastron SDM120/220/230), der Phoenix EEM-XM, Inexogy (Cloud) und die schreibenden blue\'Log-Typen RPC/Power Control — dort die MeterHub-Instanz manuell anlegen, bei der Symbox mit dem Verbindungsweg „Symbox-Gateway".'],
-                                    ['type' => 'Label', 'caption' => 'Beim Shelly Pro 3EM muss Modbus TCP am Gerät erst aktiviert werden, sonst antwortet Port 502 gar nicht.'],
+                                    ['type' => 'Label', 'caption' => 'Recognized: Siemens PAC2200, Janitza UMG (classic + UMG 800), Shelly Pro 3EM, Carlo Gavazzi EM24/ET340, WhatWatt, Phoenix EEM-EM375, Eastron SDM72D/SDM630 and the go-e Controller.'],
+                                    ['type' => 'Label', 'caption' => '🆕 Meteocontrol blue\'Log data loggers are additionally recognized automatically (independent of the meter search above) — on a hit, the configured SCADA address range behind it is searched right away, without knowing the IP beforehand.'],
+                                    ['type' => 'Label', 'caption' => 'The search checks only a few documented default unit IDs per meter, not a full 1-247 range — if the unit ID has an unusual setting, please create the MeterHub instance manually.'],
+                                    ['type' => 'Label', 'caption' => 'Not found automatically: meters behind RTU/TCP gateways with a freely selectable unit ID (e.g. Socomec, MBS), meters on a ModBus gateway such as the RS485 port of the Symbox (e.g. the pure RS485 devices Eastron SDM120/220/230), the Phoenix EEM-XM, Inexogy (cloud) and the write-capable blue\'Log types RPC/Power Control — create the MeterHub instance manually there, with the Symbox using the connection path "Symbox gateway".'],
+                                    ['type' => 'Label', 'caption' => 'For the Shelly Pro 3EM, Modbus TCP must be enabled on the device first, otherwise port 502 does not answer at all.'],
                                 ],
                             ],
                         ],
-                        ['type' => 'Button', 'name' => 'BtnScan',  'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'MHUBD_Discover($id);'],
-                        ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Suche abbrechen', 'onClick' => 'MHUBD_AbortScan($id);', 'visible' => false],
+                        ['type' => 'Button', 'name' => 'BtnScan',  'caption' => '🔎  Search network', 'onClick' => 'MHUBD_Discover($id);'],
+                        ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Abort search', 'onClick' => 'MHUBD_AbortScan($id);', 'visible' => false],
                         ['type' => 'Label', 'name' => 'ScanSummary', 'caption' => $this->ScanSummaryLine()],
                         [
                             'type'          => 'ProgressBar',
                             'name'          => 'ScanProgress',
-                            'caption'       => 'Bereit.',
+                            'caption'       => 'Ready.',
                             'minimum'       => 0,
                             'maximum'       => 100,
                             'current'       => 0,
@@ -657,33 +670,33 @@ class MeterHubDiscovery extends IPSModule
                 ],
                 'scada' => [
                     'type'    => 'ExpansionPanel',
-                    'caption' => "🆕 🔎  blue'Log SCADA-Adressbereich",
+                    'caption' => '🆕 🔎  blue\'Log SCADA address range',
                     'expanded' => false,
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'Für Meteocontrol-blue\'Log-Solarpark-Datenlogger: EIN fest bekannter blue\'Log, aber viele dahinter angeschlossene Geräte (Wechselrichter, Zähler …) — jedes über seine eigene, am blue\'Log selbst frei vergebene „SCADA-Adresse" erreichbar (Geräteliste am blue\'Log → Spalte „SCADA Adresse").'],
-                        ['type' => 'Label', 'caption' => '🆕 „🔎 Netzwerk durchsuchen" oben findet einen blue\'Log inzwischen von selbst und durchsucht den hier eingestellten SCADA-Adressbereich automatisch mit. Dieses Panel bleibt der schnellere Weg, wenn die blue\'Log-IP schon bekannt ist und man nicht das ganze Netz absuchen möchte — der Adressbereich unten gilt für BEIDE Wege.'],
-                        ['type' => 'Label', 'caption' => '⚠️ Die SCADA-Lizenz ist ein separates, kostenpflichtiges Zusatzmodul und wird in der Praxis selten verwendet — die Standard-Lizenz eines blue\'Log enthält weder SCADA noch RPC. Vor dem Adressbereich-Suchlauf lohnt sich ein Blick über „Schnittstellen prüfen" unten, ob SCADA an diesem blue\'Log überhaupt lizenziert ist.'],
+                        ['type' => 'Label', 'caption' => 'For Meteocontrol blue\'Log solar park data loggers: ONE known blue\'Log, but many devices connected behind it (inverters, meters …) — each reachable via its own "SCADA address" assigned freely on the blue\'Log itself (device list on the blue\'Log → column "SCADA address").'],
+                        ['type' => 'Label', 'caption' => '🆕 "🔎 Search network" above now finds a blue\'Log by itself and automatically also searches the SCADA address range set here. This panel remains the faster way if the blue\'Log IP is already known and you do not want to search the whole network — the address range below applies to BOTH ways.'],
+                        ['type' => 'Label', 'caption' => '⚠️ The SCADA license is a separate, paid add-on module and is rarely used in practice — the standard license of a blue\'Log contains neither SCADA nor RPC. Before the address range search it is worth taking a look at "Check interfaces" below to see whether SCADA is licensed on this blue\'Log at all.'],
                         [
                             'type' => 'Select', 'name' => 'BlueLogHostPreset',
-                            'caption' => 'Bekannten Host übernehmen … (aus bestehenden MeterHub-Instanzen)',
+                            'caption' => 'Choose a known host … (from existing MeterHub instances)',
                             'options' => $blueLogHostOptions, 'value' => '',
                             'onChange' => 'MHUBD_ApplyBlueLogHostPreset($id, $BlueLogHostPreset);',
                         ],
-                        ['type' => 'ValidationTextBox', 'name' => 'BlueLogHost', 'caption' => "blue'Log-IP-Adresse", 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                        ['type' => 'NumberSpinner', 'name' => 'BlueLogPort', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
-                        ['type' => 'Label', 'caption' => '🆕 Dieser Port gilt jetzt auch für „🔎 Netzwerk durchsuchen" oben — wird der blue\'Log dort nicht über den allgemeinen Suchport gefunden, probiert die Suche automatisch diesen hier eingetragenen Port zusätzlich.'],
-                        ['type' => 'Button', 'name' => 'BtnCheckLicenses', 'caption' => '🔍  Schnittstellen dieser IP prüfen (Power Control/RPC/SCADA)', 'onClick' => 'echo MHUBD_CheckBlueLogLicenses($id, $BlueLogHost, $BlueLogPort);'],
-                        ['type' => 'NumberSpinner', 'name' => 'ScadaAddrStart', 'caption' => 'SCADA-Adresse von', 'minimum' => 1, 'maximum' => 247],
-                        ['type' => 'NumberSpinner', 'name' => 'ScadaAddrEnd',   'caption' => 'SCADA-Adresse bis',  'minimum' => 1, 'maximum' => 247],
-                        ['type' => 'Label', 'caption' => 'Adresse 97 ist üblicherweise das blue\'Log selbst (Summenwerte, hier nicht relevant) — der Bereich der angeschlossenen Einzelgeräte steht in derselben Spalte am blue\'Log, oft ab 100 aufwärts.'],
-                        ['type' => 'Label', 'caption' => '💡 Eigene Namen statt „Wechselrichter (Modell) 1, 2, 3 …": die „Namens-Vorlage" im Panel „🛠️ Erstellen" unten gilt für BEIDE Suchmodi — z. B. „WR SCADA {unitid}" oder „WR Bus {busaddr}" (Busadresse = Spalte „Adresse" in der blue\'Log-Geräteliste).'],
-                        ['type' => 'Button', 'name' => 'BtnScanBlueLog',  'caption' => "🔎  blue'Log-Adressbereich durchsuchen", 'onClick' => 'MHUBD_DiscoverBlueLog($id);'],
-                        ['type' => 'Button', 'name' => 'BtnAbortBlueLog', 'caption' => '✖  Suche abbrechen', 'onClick' => 'MHUBD_AbortScan($id);', 'visible' => false],
+                        ['type' => 'ValidationTextBox', 'name' => 'BlueLogHost', 'caption' => 'blue\'Log IP address', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        ['type' => 'NumberSpinner', 'name' => 'BlueLogPort', 'caption' => 'Modbus TCP port', 'minimum' => 1, 'maximum' => 65535],
+                        ['type' => 'Label', 'caption' => '🆕 This port now also applies to "🔎 Search network" above — if the blue\'Log is not found there via the general search port, the search automatically also tries the port entered here.'],
+                        ['type' => 'Button', 'name' => 'BtnCheckLicenses', 'caption' => '🔍  Check the interfaces of this IP (Power Control/RPC/SCADA)', 'onClick' => 'echo MHUBD_CheckBlueLogLicenses($id, $BlueLogHost, $BlueLogPort);'],
+                        ['type' => 'NumberSpinner', 'name' => 'ScadaAddrStart', 'caption' => 'SCADA address from', 'minimum' => 1, 'maximum' => 247],
+                        ['type' => 'NumberSpinner', 'name' => 'ScadaAddrEnd',   'caption' => 'SCADA address to',  'minimum' => 1, 'maximum' => 247],
+                        ['type' => 'Label', 'caption' => 'Address 97 is usually the blue\'Log itself (total values, not relevant here) — the range of the connected individual devices is in the same column on the blue\'Log, often from 100 upwards.'],
+                        ['type' => 'Label', 'caption' => '💡 Custom names instead of "Inverter (model) 1, 2, 3 …": the "Name template" in the panel "🛠️ Create" below applies to BOTH search modes — e.g. "Inverter SCADA {unitid}" or "Inverter bus {busaddr}" (bus address = column "Address" in the blue\'Log device list).'],
+                        ['type' => 'Button', 'name' => 'BtnScanBlueLog',  'caption' => '🔎  Search blue\'Log address range', 'onClick' => 'MHUBD_DiscoverBlueLog($id);'],
+                        ['type' => 'Button', 'name' => 'BtnAbortBlueLog', 'caption' => '✖  Abort search', 'onClick' => 'MHUBD_AbortScan($id);', 'visible' => false],
                     ],
                 ],
                 'create' => [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🛠️  Erstellen',
+                    'caption' => '🛠️  Create',
                     'expanded' => true,
                     'items' => [
                         // Namens-Vorlage steht hier, nicht bei den Suchbereichen — sie hat
@@ -691,12 +704,12 @@ class MeterHubDiscovery extends IPSModule
                         // "Erstellen"-Schritt (Dietmars Einwand 08.09.2026: "die Benennung
                         // hat eigentlich nichts mit der Suche zu tun"). Gilt für Funde BEIDER
                         // Suchmodi (IP-Bereich UND blue'Log-SCADA-Adressbereich).
-                        ['type' => 'ValidationTextBox', 'name' => 'NameTemplate', 'caption' => 'Name-Vorlage (leer = Zählertyp + lfd. Nr.)'],
-                        ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {zaehler} {ip} {unitid} {nr} {busaddr} — z. B. „{zaehler} Keller ({ip})". {busaddr} (RS485-Busadresse) ist nur bei Funden der blue\'Log-SCADA-Suche gefüllt, sonst leer.'],
+                        ['type' => 'ValidationTextBox', 'name' => 'NameTemplate', 'caption' => 'Name template (empty = meter type + sequential no.)'],
+                        ['type' => 'Label', 'caption' => 'Placeholders for the template: {zaehler} {ip} {unitid} {nr} {busaddr} — e.g. "{zaehler} basement ({ip})". {busaddr} (RS485 bus address) is only filled for results of the blue\'Log SCADA search, otherwise empty.'],
                         [
                             'type'     => 'Configurator',
                             'name'     => 'DiscoveryList',
-                            'caption'  => 'Gefundene Zähler',
+                            'caption'  => 'Meters found',
                             // Laut SDK-Doku würde 0 "den verbleibenden Platz füllen" — live
                             // getestet (Dietmars Screenshot 08.09.2026) blieb die Tabelle in der
                             // Konsole trotzdem klein, wenn nur wenige Treffer da sind. Fester,
@@ -710,40 +723,40 @@ class MeterHubDiscovery extends IPSModule
                                 // mit den längsten Texten (blue'Log-Funde tragen die
                                 // Modellbezeichnung im Zählertyp-Text, z. B. "Wechselrichter
                                 // (M3L-KT360-00N2SU)").
-                                ['caption' => 'Zählertyp',    'name' => 'meter',  'width' => 'auto'],
-                                ['caption' => 'IP-Adresse',   'name' => 'ip',     'width' => '150px'],
+                                ['caption' => 'Meter type',    'name' => 'meter',  'width' => 'auto'],
+                                ['caption' => 'IP address',   'name' => 'ip',     'width' => '150px'],
                                 ['caption' => 'Unit ID',      'name' => 'unitId', 'width' => '100px'],
-                                ['caption' => 'Alt-Instanz gefunden (Gerätetausch)', 'name' => 'legacy', 'width' => '280px',
+                                ['caption' => 'Old instance found (Device swap)', 'name' => 'legacy', 'width' => '280px',
                                  'visible' => $this->MigrationApiPrefix() !== ''],
                             ],
                             'values' => $values,
                         ],
                         ['type' => 'Label', 'name' => 'MigrationStatusLine', 'caption' => $this->MigrationStatusLine()],
                         [
-                            'type' => 'Label', 'caption' => '🔀 Migration von einer Alt-Instanz (anderes Modul, gleiche IP/Unit-ID): erst oben „Erstellen" klicken, dann hier „Migration vorbereiten".',
+                            'type' => 'Label', 'caption' => '🔀 Migration from an old instance (another module, same IP/unit ID): first click "Create" above, then "Prepare migration" here.',
                             'visible' => $this->MigrationApiPrefix() !== '',
                         ],
                         [
-                            'type' => 'PopupButton', 'caption' => 'Wie funktioniert „Migration vorbereiten" genau?', 'width' => '480px',
+                            'type' => 'PopupButton', 'caption' => 'How exactly does "Prepare migration" work?', 'width' => '480px',
                             'visible' => $this->MigrationApiPrefix() !== '',
                             'popup' => [
-                                'caption' => 'Migration vorbereiten',
+                                'caption' => 'Prepare migration',
                                 'items' => [
-                                    ['type' => 'Label', 'caption' => 'Voraussetzung: Gerätetausch (vormals MigrationsHub) ist installiert und kennt eine Alt-Instanz (anderes Modul) an genau derselben IP-Adresse und Unit-ID wie ein hier gefundener Zähler — die Spalte „Alt-Instanz gefunden" zeigt das.'],
-                                    ['type' => 'Label', 'caption' => '1. Oben bei der Fund-Zeile auf „Erstellen" klicken. Die neue MeterHub-Instanz bekommt „Kommunikation aktiv" automatisch AUSGESCHALTET — sonst würden sich neu geloggte Werte mit der noch nicht übertragenen Alt-Historie überlappen.'],
-                                    ['type' => 'Label', 'caption' => '2. Hier „Migration vorbereiten" klicken. Verknüpft die neue Instanz mit der Alt-Instanz im Gerätetausch (legt bei Bedarf eine Gerätetausch-Instanz an).'],
-                                    ['type' => 'Label', 'caption' => '3. Weiter geht es in der Gerätetausch-Instanz (Knopf „→ Zur Gerätetausch-Instanz" erscheint danach) — dort bleiben Simulation, Bestätigung und die eigentliche Übernahme der Archiv-Historie bewusst manuelle, einzeln zu bestätigende Schritte.'],
-                                    ['type' => 'Label', 'caption' => 'Bei mehreren Treffern: immer nur EIN Klick auf „Migration vorbereiten" pro noch offener Migration — erst die laufende im Gerätetausch abschließen, dann hier für den nächsten Treffer erneut klicken.'],
+                                    ['type' => 'Label', 'caption' => 'Prerequisite: Device swap (formerly MigrationsHub) is installed and knows an old instance (another module) at exactly the same IP address and unit ID as a meter found here — the column "Old instance found" shows this.'],
+                                    ['type' => 'Label', 'caption' => '1. Click "Create" in the result row above. The new MeterHub instance automatically gets "Communication active" SWITCHED OFF — otherwise newly logged values would overlap with the old history that has not been transferred yet.'],
+                                    ['type' => 'Label', 'caption' => '2. Click "Prepare migration" here. Links the new instance with the old instance in Device swap (creates a Device swap instance if needed).'],
+                                    ['type' => 'Label', 'caption' => '3. Continue in the Device swap instance (the button "→ To the Device swap instance" appears afterwards) — simulation, confirmation and the actual takeover of the archive history deliberately remain manual steps there, each to be confirmed individually.'],
+                                    ['type' => 'Label', 'caption' => 'With several hits: only ONE click on "Prepare migration" per still open migration — first finish the running one in Device swap, then click here again for the next hit.'],
                                 ],
                             ],
                         ],
                         [
-                            'type' => 'Button', 'name' => 'BtnPrepareMigration', 'caption' => '🔀  Migration vorbereiten',
+                            'type' => 'Button', 'name' => 'BtnPrepareMigration', 'caption' => '🔀  Prepare migration',
                             'onClick' => 'MHUBD_PrepareMigration($id);',
                             'visible' => $this->MigrationApiPrefix() !== '',
                         ],
                         ['type' => 'Label', 'name' => 'MigrationResult', 'caption' => '', 'visible' => false],
-                        ['type' => 'OpenObjectButton', 'name' => 'BtnOpenMigration', 'caption' => '→ Zur Gerätetausch-Instanz', 'objectID' => 0, 'visible' => false],
+                        ['type' => 'OpenObjectButton', 'name' => 'BtnOpenMigration', 'caption' => '→ To the Device swap instance', 'objectID' => 0, 'visible' => false],
                     ],
                 ],
             ];
@@ -756,11 +769,11 @@ class MeterHubDiscovery extends IPSModule
             'elements' => array_values(array_filter(array_merge($top, $lay['panels'],
                 [$this->LayoutPanel($lay['layout'], $free), $this->ForumHint(), $this->LicenseHint()]))),
             'actions' => [
-                ['type' => 'Button', 'caption' => '🔄  Übernehmen erzwingen (ohne Formularänderung)', 'onClick' => "IPS_ApplyChanges(\$id); echo '✅ ApplyChanges() ausgeführt.';", 'confirm' => 'Instanz jetzt neu anwenden (ApplyChanges)?'],
+                ['type' => 'Button', 'caption' => '🔄  Force apply (without a form change)', 'onClick' => MHUBD_Text::t('IPS_ApplyChanges($id); echo \'✅ ApplyChanges() executed.\';'), 'confirm' => MHUBD_Text::t('Apply the instance now (ApplyChanges)?')],
             ],
             'status' => [
-                ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Such-IP-Bereich eintragen.'],
+                ['code' => 102, 'icon' => 'active',   'caption' => 'Ready.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Please enter the search IP range.'],
             ],
         ];
 
@@ -806,7 +819,8 @@ class MeterHubDiscovery extends IPSModule
     /** Name eines Fachpanels für die Liste im Aufbau-Panel (ohne Klammerzusatz). */
     private function layoutPanelName(array $panel, string $key): string
     {
-        return trim((string)preg_replace('/\s*\(.*$/u', '', (string)($panel['caption'] ?? $key)));
+        // Der Name steht als Wert in einer Liste (nicht als Beschriftung) — die Konsole übersetzt ihn nicht, deshalb hier.
+        return trim((string)preg_replace('/\s*\(.*$/u', '', MHUBD_Text::t((string)($panel['caption'] ?? $key))));
     }
 
     /**
@@ -848,28 +862,28 @@ class MeterHubDiscovery extends IPSModule
             }
         }
         $hiddenLine = $hidden
-            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            ? [['type' => 'Label', 'caption' => MHUBD_Text::t('🙈 Hidden: %s — to show again, clear the "Hidden" checkbox. Hidden sections keep working, only the display is missing.', implode(', ', $hidden))]]
             : [];
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
+            'caption' => MHUBD_Text::t('🪟  Form: layout%s', $hidden ? MHUBD_Text::t(' (%s hidden)', count($hidden)) : ''),
             'items' => array_merge($hiddenLine, [
-                ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
-                ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard“: wie das Modul es vorsieht. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen oder „Auf Standard zurücksetzen“ klicken. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“. Die Bereiche oben (Zweck, Neu, Dokumentation) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind, und lassen sich nicht ausblenden.'],
+                ['type' => 'Label', 'caption' => 'Here you decide which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing by itself, so this setting applies every time the form opens. It takes effect after “Apply” the next time the form is opened.'],
+                ['type' => 'Label', 'caption' => 'No tick means "default": as the module intends. The position is a number; with the same number the default order stays. "Hidden" takes a section out of the display without it losing anything: its settings are kept and keep working (meant for sections you rarely need). To show it again, remove the tick at "Hidden" or click "Reset to default". If several ticks are set, "Hidden" wins over "Collapsed" over "Expanded". The sections at the top (purpose, news, documentation) and at the bottom (feedback, About this module) stay where they are and cannot be hidden.'],
                 [
-                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Areas', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
                     'loadValuesFromConfiguration' => false,
                     'values' => $rows,
                     'columns' => [
-                        ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
-                        ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                        ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Area', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Key', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Expanded', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Collapsed', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Hidden', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
                     ],
                 ],
-                ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo MHUBD_ResetFormLayout($id);'],
+                ['type' => 'Button', 'caption' => '↩️ Reset to default', 'onClick' => 'echo MHUBD_ResetFormLayout($id);'],
             ]),
         ];
     }
@@ -883,7 +897,7 @@ class MeterHubDiscovery extends IPSModule
             $rows[] = ['Key' => $key, 'Panel' => $this->layoutPanelName($panel, $key), 'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => ++$i];
         }
         $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
-        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';
+        return MHUBD_Text::t('ℹ️ Reset to default. Click "Apply" below to save.');
     }
 
     // -----------------------------------------------------------------------
@@ -910,7 +924,7 @@ class MeterHubDiscovery extends IPSModule
             // gerade erst getippte, noch nicht übernommene Werte in RangeStart/
             // RangeEnd wieder verwerfen — also genau die Felder, die der Nutzer
             // jetzt korrigieren soll.
-            @$this->UpdateFormField('ScanSummary', 'caption', '❌ Start-/End-IP fehlt — bitte beide Felder ausfüllen und übernehmen.');
+            @$this->UpdateFormField('ScanSummary', 'caption', MHUBD_Text::t('❌ Start/end IP is missing — please fill in both fields and apply.'));
             return;
         }
 
@@ -928,7 +942,7 @@ class MeterHubDiscovery extends IPSModule
             $ips = array_slice($ips, 0, 1024);
         }
 
-        $this->ShowProgress('Durchsuche ' . count($ips) . ' IP-Adressen auf Port ' . $port . ' …', 0);
+        $this->ShowProgress(MHUBD_Text::t('Searching %d IP addresses on port %d …', count($ips), $port), 0);
 
         $ignore = $this->ParseIgnoreIPs();
         if (count($ignore) > 0) {
@@ -967,7 +981,7 @@ class MeterHubDiscovery extends IPSModule
         foreach ($openIps as $ip) {
             if ($this->scanAborted()) { $aborted = true; break; }
             $i++;
-            $this->ShowProgress("Prüfe Zählertyp: $ip ($i von $total offenen Ports) …", (int)round(($i / max(1, $total)) * 100));
+            $this->ShowProgress(MHUBD_Text::t('Checking meter type: %s (%d of %d open ports) …', $ip, $i, $total), (int)round(($i / max(1, $total)) * 100));
             $found = $this->identifyMeter($ip, $port);
             if ($found !== null) {
                 $results[] = $found;
@@ -990,7 +1004,7 @@ class MeterHubDiscovery extends IPSModule
                 foreach (array_chunk($scadaAddrs, self::BLUELOG_SCAN_BATCH_SIZE) as $batch) {
                     if ($this->scanAborted()) { $aborted = true; break 2; }
                     $this->ShowProgress(
-                        "blue'Log $ip gefunden — SCADA-Adressen {$batch[0]}–" . end($batch) . ' …',
+                        MHUBD_Text::t("blue'Log %s found — SCADA addresses %d–%d …", $ip, $batch[0], end($batch)),
                         (int)round(($i / max(1, $total)) * 100)
                     );
                     foreach ($this->identifyBlueLogDevicesBatch($ip, $blueLogPortUsed, $batch) as $blueLogFound) {
@@ -1001,10 +1015,10 @@ class MeterHubDiscovery extends IPSModule
         }
 
         if ($aborted) {
-            $this->ShowProgress('Scan abgebrochen – ' . count($results) . ' Zähler bis dahin gefunden.', 100);
+            $this->ShowProgress(MHUBD_Text::t('Scan aborted – %d meters found so far.', count($results)), 100);
         } else {
-            $blueLogNote = $blueLogsFound > 0 ? " (davon $blueLogsFound blue'Log(s) samt SCADA-Geräten)" : '';
-            $this->ShowProgress('Fertig: ' . count($results) . " Zähler gefunden (von $total offenen Ports)$blueLogNote.", 100);
+            $blueLogNote = $blueLogsFound > 0 ? MHUBD_Text::t(" (including %d blue'Log(s) with their SCADA devices)", $blueLogsFound) : '';
+            $this->ShowProgress(MHUBD_Text::t('Done: %d meters found (of %d open ports)%s.', count($results), $total, $blueLogNote), 100);
         }
 
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
@@ -1041,7 +1055,7 @@ class MeterHubDiscovery extends IPSModule
 
         if ($host === '') {
             $this->SetStatus(104);
-            @$this->UpdateFormField('ScanSummary', 'caption', "❌ blue'Log-IP-Adresse fehlt — bitte eintragen und übernehmen.");
+            @$this->UpdateFormField('ScanSummary', 'caption', MHUBD_Text::t('❌ blue\'Log IP address is missing — please enter it and apply.'));
             return;
         }
         if ($to < $from) {
@@ -1061,7 +1075,7 @@ class MeterHubDiscovery extends IPSModule
             $addrs = array_slice($addrs, 0, 247);
         }
 
-        $this->ShowProgress("Prüfe " . count($addrs) . " SCADA-Adressen an $host:$port …", 0);
+        $this->ShowProgress(MHUBD_Text::t('Checking %d SCADA addresses at %s:%d …', count($addrs), $host, $port), 0);
 
         $results = [];
         $total   = count($addrs);
@@ -1070,7 +1084,7 @@ class MeterHubDiscovery extends IPSModule
         foreach (array_chunk($addrs, self::BLUELOG_SCAN_BATCH_SIZE) as $batch) {
             if ($this->scanAborted()) { $aborted = true; break; }
             $this->ShowProgress(
-                "SCADA-Adressen {$batch[0]}–" . end($batch) . " ($done von $total) …",
+                MHUBD_Text::t('SCADA addresses %d–%d (%d of %d) …', $batch[0], end($batch), $done, $total),
                 (int)round(($done / max(1, $total)) * 100)
             );
             foreach ($this->identifyBlueLogDevicesBatch($host, $port, $batch) as $found) {
@@ -1080,9 +1094,9 @@ class MeterHubDiscovery extends IPSModule
         }
 
         if ($aborted) {
-            $this->ShowProgress('Suche abgebrochen – ' . count($results) . ' Geräte bis dahin gefunden.', 100);
+            $this->ShowProgress(MHUBD_Text::t('Search aborted – %d devices found so far.', count($results)), 100);
         } else {
-            $this->ShowProgress('Fertig: ' . count($results) . ' Geräte gefunden (von ' . $total . ' geprüften Adressen).', 100);
+            $this->ShowProgress(MHUBD_Text::t('Done: %d devices found (of %d checked addresses).', count($results), $total), 100);
         }
 
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
@@ -1254,7 +1268,7 @@ class MeterHubDiscovery extends IPSModule
             $unitId  = $t['unitId'];
             $model   = trim((string)$this->readAscii($host, $port, $unitId, 40033, 32, 1.5));
             $busAddr = $this->readU16Holding($host, $port, $unitId, 40113, 1.0);
-            $label   = self::BLUELOG_TYPE_LABELS[$type] . ($model !== '' ? " ($model)" : '');
+            $label   = MHUBD_Text::t(self::BLUELOG_TYPE_LABELS[$type]) . ($model !== '' ? " ($model)" : '');
             $found[] = [
                 'ip'      => $host,
                 'port'    => $port,
@@ -1343,17 +1357,17 @@ class MeterHubDiscovery extends IPSModule
     private function MigrationStatusLine(): string
     {
         if ($this->MigrationApiPrefix() === '') {
-            return 'ℹ️ Gerätetausch (vormals MigrationsHub) ist nicht installiert — die Übernahme von Alt-Instanzen samt Messhistorie entfällt. Gefundene Zähler lassen sich trotzdem als MeterHub-Instanz anlegen.';
+            return MHUBD_Text::t('ℹ️ Device swap (formerly MigrationsHub) is not installed — taking over old instances including their measurement history is not available. Meters found can still be created as a MeterHub instance.');
         }
         $ids = IPS_GetInstanceListByModuleID(self::MIGRATIONSHUB_GUID);
         if (!$ids) {
-            return 'ℹ️ Gerätetausch ist installiert, hat aber noch keine Instanz — „Migration vorbereiten" legt sie beim ersten Klick an; die Spalte „Alt-Instanz gefunden" bleibt bis dahin leer.';
+            return MHUBD_Text::t('ℹ️ Device swap is installed but has no instance yet — "Prepare migration" creates it on the first click; the column "Old instance found" stays empty until then.');
         }
         $id = (int)$ids[0];
         if (count($ids) > 1) {
-            return '⚠️ Mehrere Gerätetausch-Instanzen gefunden (' . implode(', ', array_map(fn($i) => '#' . $i, $ids)) . ') — verwendet wird die erste, #' . $id . ' „' . IPS_GetName($id) . '". Die übrigen bitte nicht für dieselbe Übernahme nutzen.';
+            return MHUBD_Text::t('⚠️ Several Device swap instances found (%s) — the first one is used, #%d "%s". Please do not use the others for the same takeover.', implode(', ', array_map(fn($i) => '#' . $i, $ids)), $id, IPS_GetName($id));
         }
-        return '✅ Gerätetausch-Instanz #' . $id . ' „' . IPS_GetName($id) . '" gefunden — Alt-Instanzen mit gleicher IP und Unit-ID erscheinen in der Spalte „Alt-Instanz gefunden".';
+        return MHUBD_Text::t('✅ Device swap instance #%d "%s" found — old instances with the same IP and unit ID appear in the column "Old instance found".', $id, IPS_GetName($id));
     }
 
     /**
@@ -1430,7 +1444,7 @@ class MeterHubDiscovery extends IPSModule
         };
         $api = $this->MigrationApiPrefix(true);
         if ($api === '') {
-            $say('❌ Gerätetausch (vormals MigrationsHub) ist nicht installiert.');
+            $say(MHUBD_Text::t('❌ Device swap (formerly MigrationsHub) is not installed.'));
             return;
         }
 
@@ -1473,14 +1487,13 @@ class MeterHubDiscovery extends IPSModule
                 MIGHUB_PrefillMigration($migID, $legacy['id'], $targetID);
             }
 
-            $say('✅ Migration vorbereitet: „' . $legacy['name'] . '" (#' . $legacy['id'] . ') → „' .
-                IPS_GetName($targetID) . '" (#' . $targetID . '). Weiter in der Gerätetausch-Instanz — dort simulieren, prüfen, ausführen.');
+            $say(MHUBD_Text::t('✅ Migration prepared: "%s" (#%d) → "%s" (#%d). Continue in the Device swap instance — simulate, check and run there.', $legacy['name'], $legacy['id'], IPS_GetName($targetID), $targetID));
             $this->UpdateFormField('BtnOpenMigration', 'objectID', $migID);
             $this->UpdateFormField('BtnOpenMigration', 'visible', true);
             return;
         }
 
-        $say('🔎 Keine passende Kombination aus bereits erstellter MeterHub-Instanz und gefundener Alt-Instanz — erst oben „Erstellen" klicken.');
+        $say(MHUBD_Text::t('🔎 No matching combination of an already created MeterHub instance and an old instance found — first click "Create" above.'));
     }
 
     private function ParseIgnoreIPs()
@@ -1561,7 +1574,7 @@ class MeterHubDiscovery extends IPSModule
                 $elapsed = $now - $startTime;
                 $pct     = (int)round(min(95, ($elapsed / $timeoutSec) * 90));
                 $this->ShowProgress(
-                    "Portscan läuft … " . count($open) . " offen, " . count($pending) . " von $totalOpen noch offen",
+                    MHUBD_Text::t('Port scan running … %d open, %d of %d still pending', count($open), count($pending), $totalOpen),
                     $pct
                 );
                 $deadline += microtime(true) - $now;
@@ -1583,7 +1596,7 @@ class MeterHubDiscovery extends IPSModule
                         'port'   => $port,
                         'unitId' => $unitId,
                         'meter'  => $meter,
-                        'label'  => self::METER_LABELS[$meter],
+                        'label'  => MHUBD_Text::t(self::METER_LABELS[$meter]),
                     ];
                 }
             }

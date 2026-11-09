@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/i18n-test-support.php';
 /**
  * Prüfstand MHUB_ModbusTcpClient: eine Verbindung je Lesezyklus (0.26.5).
  * Block 6 prüft zusätzlich MHUB_ModbusGatewayClient (0.29.6, SUITE.md 9j).
@@ -17,6 +18,7 @@
 if (!class_exists('IPSModule')) {
     class IPSModule
     {
+    use I18nStub;
         public $InstanceID = 0;
         public function __construct($id = 0) { $this->InstanceID = $id; }
     }
@@ -28,6 +30,7 @@ if (!function_exists('IPS_LogMessage')) {
     function IPS_LogMessage($s, $m) { $GLOBALS['LOG'][] = $m; }
 }
 require_once dirname(__DIR__) . '/MeterHub/module.php';
+MHUB_Text::set(function (string $t): string { return i18n_tr($t); });   // Prüfstand simuliert die deutsche Oberfläche
 
 $fails = 0;
 function check($label, $cond, $detail = '')
