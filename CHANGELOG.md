@@ -2,6 +2,42 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.34.0 (2026-11-09)
+
+- **Archivierung nur auf Klick (Symcon-Store-Checkliste 19; Review-Wortlaut bei WPHub, WPModbusHub, SamsungEhs,
+  WPBsbLan: „Du aktivierst hier für deine Variablen das Logging ganz ohne die Zustimmung des Benutzers …
+  es muss bewusst durch den Benutzer aktiviert werden.").** `MeterHub` und `MeterHubVirtual` schalten das
+  Logging ihrer Variablen nicht mehr von selbst ein (`AC_SetLoggingStatus` steht nur noch in
+  `EnableArchiving()`). Fehlt bei eigenen, zu archivierenden Variablen das Logging, erscheint oben im Formular
+  das Panel „📈 Archivierung fehlt (n Variablen)" mit der Liste und dem Knopf „Archivierung für diese
+  Variablen einschalten"; das Panel verschwindet, sobald nichts mehr fehlt. Bestehendes Logging wird nie
+  abgeschaltet. Aggregationstyp („Zähler" für Energie) und Archiv-Verdichtung setzt das Modul nur noch bei
+  Variablen, deren Logging läuft — und beim Klick.
+  - **Folge für neue Instanzen:** Sie archivieren erst nach dem Klick. Die Archiv-Verdichtung und der
+    Inexogy-Nachtrag der 15-Minuten-Werte wirken nur bei archivierten Variablen; der Nachtrag meldet sonst
+    klar „Die Zielvariablen werden noch nicht archiviert …" und schreibt nichts. Bestandsinstanzen laufen
+    unverändert weiter, ihr Logging bleibt eingeschaltet.
+- **Kein benutzerdefiniertes Profil mehr (Checkliste 28; Review Messwertrechner: „… setzt du das
+  benutzerdefinierte Profil (und somit ja auch die Darstellung) von Variablen. Diese sind aber stets in der
+  Hoheit des Benutzers.").** Variablen werden über `RegisterVariable*()` angelegt, das Profil kommt als
+  Standarddarstellung (`VARIABLE_PRESENTATION_LEGACY` + `PROFILE`). „Energie in Wh" stellt das Standardprofil
+  auf `MHB.Wh` um. Ein von früheren Versionen gesetztes EIGENES benutzerdefiniertes Profil (`NRG.*`, `MHB.*`,
+  `MHBV.*`) entfernt das Modul einmal, weil es sonst die Anzeige dauerhaft überdecken würde (z. B. kWh nach dem
+  Umschalten auf Wh) — die Standarddarstellung zeigt dasselbe. Ein vom Nutzer gewähltes fremdes Profil bleibt
+  unangetastet. Position und Name bleiben wie bisher (Position nur beim Anlegen).
+- **`UnregisterVariable()` statt `IPS_DeleteVariable()` (Checkliste 26; Review Automat).** Überzählige eigene
+  Variablen (anderer Treiber, abgeschaltete Gruppe, nicht mehr gebrauchte Ausgabe) gehen über
+  `$this->UnregisterVariable($ident)`.
+- **Kein Abgleich mit Geschwister-Instanzen in `ApplyChanges()` (Checkliste 27; Review Tessie: „Beim Neuladen
+  von Modulen kann AdoptDismissFromSibling fehlschlagen, da die anderen Instanzen noch nicht geladen sein
+  könnten.").** Das gemeinsame Ausblenden von Zweck-Hinweis, „Neu"-Panel und Forum-Hinweis
+  (`AdoptDismissFromSibling()`) läuft in `MeterHub`, `MeterHubVirtual` und `MeterHubDiscovery` jetzt beim
+  Öffnen des Formulars (`BuildForm()`), nicht mehr in `ApplyChanges()`.
+  - Prüfstand: `.tools/test-virtual.php` Block 61 (Archivierung nur auf Klick in beiden Modulen, Panel und
+    Knopf, nichts wird abgeschaltet, Standarddarstellung statt Custom-Profil, Wh-Umschaltung, Bestand mit
+    eigenem altem Profil, fremdes Profil bleibt, `UnregisterVariable`, Quelltextprüfung für 19/26/27/28,
+    Inexogy-Nachtrag ohne Archivierung); sechs absichtlich eingebaute Fehler werden gefangen.
+
 ## 0.33.1 (2026-10-30)
 
 - **MeterHub: keine Kategorien mehr unter der Instanz (Symcon-Store-Review 30.10.2026: „Kategorien unter
@@ -401,43 +437,4 @@
   Geräts wählen …" und „Brücke (MeterHub Brücke zum ModBus-Gateway)", das erste wurde in der
   Anzeige abgeschnitten); der Knopf heißt „Brücke anlegen und verbinden" ohne das „…" davor.
 - Prüfstand `test-virtual.php` Block 47 um die Statustexte je Verbindungsweg erweitert.
-
-## 0.30.0-beta.1 (2026-09-19)
-
-- **Neu: Modul „MeterHub Brücke" (`MeterHubBridge`, Prefix `MHUBB`) — der Symbox-Gateway-Weg
-  läuft jetzt darüber; `parentRequirements`/`implemented` sind in `MeterHub/module.json`
-  zurückgenommen.** Auslöser: Beim Schwestermodul InverterHub zeigte jede bestehende
-  Direkt-Instanz den orangen Balken „Die Instanz benötigt eine übergeordnete Instanz, hat aber
-  keine" (Tester im Forum), bei MeterHub derselbe Mechanismus (0.29.10–0.29.14). Die
-  Anforderung trägt jetzt allein die Brücke (Kind des nativen ModBus Gateways); MeterHub wählt
-  sie im neuen Feld `BridgeInstanceID` und ruft `MHUBB_Forward()`. GUID und Prefix von
-  MeterHub bleiben unverändert — Konsumenten von `MHUB_GetFunctions` (EMS, Dashboard, OCPPHub,
-  HeishaMon, RLTHub, MeterHubVirtual) merken nichts, bestehende Instanzen behalten ihre Historie.
-- **Vertrag der Brücke (in allen drei Hubs identisch, jeweils eigene Brücke in der eigenen
-  Bibliothek — Dietmars Entscheidung, damit jedes Modul für sich eigenständig bleibt):**
-  `Forward(string $json): string` antwortet immer JSON `{"ok":true,"data":"<base64>"}` oder
-  `{"ok":false,"error":"not_connected"|"parent_inactive"|"no_response"}` — rohe Registerbytes
-  sind meist kein gültiges UTF-8, deshalb base64 über die Instanzgrenze. `GetState(): string`
-  liefert `{connected, parentActive, parentStatus, unitId}` (Unit-ID aus der `DeviceID` des
-  Gateways). Die Brücke kennt keine Function Codes und reicht Lesen wie Schreiben durch. Eine
-  Brücke bedient genau eine Unit-ID.
-- **Halbautomatisch:** Neben der Brückenauswahl gibt es „Natives ModBus Gateway wählen … und
-  Brücke anlegen und verbinden" — der Knopf legt die Brücke an, hängt sie ans Gateway, benennt
-  sie und trägt sie ein (eine vorhandene Brücke am selben Gateway wird wiederverwendet).
-  Anlegen nur per Klick, nie in `ApplyChanges()`/`GetConfigurationForm()`.
-- Verbindungstest und Statustexte nennen jetzt den Grund: keine Brücke gewählt, Brücke ohne
-  Gateway, Gateway nicht aktiv, Gateway antwortet nicht (Unit-ID prüfen). Bereitschaft im
-  Gateway-Modus = Brücke gewählt (`BridgeInstanceID > 0`).
-- **Wer den Gateway-Weg mit 0.29.10–0.29.14 eingerichtet hatte:** Instanz und Messhistorie
-  bleiben; Gateway wählen, „Brücke anlegen und verbinden" klicken, übernehmen. Der direkte
-  Anschluss der Instanz ans Gateway entfällt ohne diese Einträge.
-- Prüfstand `test-bridge.php` (neu): alle Fehlerarten der Brücke, Binärwerte 0xFFFF/0x8001
-  Bit für Bit über die Brücke, `BridgeCall()` bis zu den dekodierten Registern,
-  `CreateBridge()` (anlegen, verbinden, wiederverwenden), `module.json` beider Module.
-  Nicht nachgebildet: das Kernel-Verhalten beim Funktionsaufruf zwischen Instanzen und die
-  Konsole — an echter Hardware unbestätigt. `test-virtual.php` Block 47: Gateway-Auswahl,
-  Knopf und Brückenauswahl sind nur im Verbindungsweg „Symbox-Gateway" sichtbar (nicht bei
-  „Direkt" und nicht bei Cloud-Zählern).
-- Hilfe und Doku: neuer Absatz im Doku-Panel des Formulars, Abschnitt „MeterHubBridge" in der
-  README, News-Panel-Eintrag (`NEWS_VERSION` 0.30.0), Formularhinweise mit den drei Schritten.
 

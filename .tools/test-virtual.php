@@ -10,6 +10,7 @@ const VARIABLETYPE_INTEGER = 1;
 const VARIABLETYPE_FLOAT = 2;
 const VARIABLETYPE_STRING = 3;
 const KR_READY = 104;
+const VARIABLE_PRESENTATION_LEGACY = '{4153A8D4-5C33-C65F-C1F3-7B61AAF99B1C}';
 const IPS_KERNELMESSAGE = 10603;
 $GLOBALS['RUNLEVEL'] = KR_READY;
 function IPS_GetKernelRunlevel() { return $GLOBALS['RUNLEVEL']; }
@@ -158,7 +159,7 @@ function IPS_ApplyChanges($iid) {
         $m->ApplyChanges();
     }
 }
-function AC_SetLoggingStatus($a, $b, $c) {}
+function AC_SetLoggingStatus($a, $b, $c) { if ($c) { $GLOBALS['ARCHIVED'][$b] = true; } else { unset($GLOBALS['ARCHIVED'][$b]); } }
 function AC_SetAggregationType($a, $vid, $type) { $GLOBALS['AGGTYPE'][$vid] = $type; }
 // Bildet Sepps zweiten Fund vom 01.09.2026 nach ("Verdichtungseinträge, die
 // näher an der Gegenwart sind, müssen lockerer als die vorherigen sein"),
@@ -222,6 +223,31 @@ class IPSModule
     public function ReadPropertyFloat($n)   { return (float)($GLOBALS['PROP'][$this->InstanceID][$n] ?? $this->defs[$n] ?? 0.0); }
     protected function RegisterTimer($n, $i, $s) {}
     protected function SetTimerInterval($n, $i) {}
+    // RegisterVariable*()/UnregisterVariable() wie der Kern: Ident direkt unter der Instanz, bei vorhandener
+    // Variable nur die Darstellung aktualisieren (Name/Position bleiben), bei anderem Typ neu anlegen.
+    // $GLOBALS['PRELOGGED'] (Standard an) simuliert einen Benutzer, der das Logging schon eingeschaltet hat.
+    private function t_reg($type, $ident, $name, $pres, $pos) {
+        $vid = IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+        if ($vid && IPS_GetVariable($vid)['VariableType'] !== $type) { IPS_DeleteVariable($vid); $vid = false; }
+        if (!$vid) {
+            $vid = IPS_CreateVariable($type);
+            IPS_SetIdent($vid, $ident); IPS_SetParent($vid, $this->InstanceID); IPS_SetName($vid, $name); IPS_SetPosition($vid, $pos);
+            if ($GLOBALS['PRELOGGED'] ?? true) { $GLOBALS['ARCHIVED'][$vid] = true; }
+        }
+        $GLOBALS['VAR'][$vid]['VariablePresentation'] = is_array($pres) ? $pres : [];
+        $GLOBALS['VAR'][$vid]['VariableProfile'] = is_array($pres) ? (string)($pres['PROFILE'] ?? '') : (string)$pres;
+        return $vid;
+    }
+    protected function RegisterVariableFloat($i, $n, $p = '', $pos = 0)   { return $this->t_reg(VARIABLETYPE_FLOAT, $i, $n, $p, $pos); }
+    protected function RegisterVariableInteger($i, $n, $p = '', $pos = 0) { return $this->t_reg(VARIABLETYPE_INTEGER, $i, $n, $p, $pos); }
+    protected function RegisterVariableBoolean($i, $n, $p = '', $pos = 0) { return $this->t_reg(VARIABLETYPE_BOOLEAN, $i, $n, $p, $pos); }
+    protected function RegisterVariableString($i, $n, $p = '', $pos = 0)  { return $this->t_reg(VARIABLETYPE_STRING, $i, $n, $p, $pos); }
+    protected function UnregisterVariable($ident) {
+        $vid = IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+        if (!$vid) { return false; }
+        IPS_DeleteVariable($vid);
+        return true;
+    }
     protected function SetStatus($s) { $GLOBALS['STATUS'][$this->InstanceID] = $s; }
     public function GetStatus() { return $GLOBALS['STATUS'][$this->InstanceID] ?? 0; }
     protected function SetVisualizationType($t) {}
@@ -937,6 +963,7 @@ IPS_SetProperty(8100, 'CompactStage2TypePower', 1);
 IPS_SetProperty(8100, 'CompactStage3MonthsPower', 12);
 IPS_SetProperty(8100, 'CompactStage3TypePower', 2);
 $freshVid = 9998; // taucht in COMPACTION_STATE noch nirgends auf -- genau Sepps Fall (brandneue Instanz)
+$GLOBALS['ARCHIVED'][$freshVid] = true;   // Logging läuft (der Benutzer hat es eingeschaltet) — Checkliste 19
 $setArchive->invoke($fresh2, $freshVid, false, 10);
 $stateA = $GLOBALS['COMPACTION_STATE'][$freshVid] ?? [];
 check('22a: Löschversuch an nie vorhandenem Offset -1 wirft keinen Fehler (nur @-unterdrückte Warnung)', !array_key_exists(-1, $stateA), json_encode($stateA));
@@ -944,6 +971,7 @@ check('22a: die beiden echten Stufen kommen trotzdem an', ($stateA[1] ?? null) =
 
 echo "\n  22b) Verwaiste Regel an einem Offset AUSSERHALB des aktuellen Plans (z. B. von einer früher anderen \"Nach so vielen Monaten\"-Einstellung, oder weil die Variable schon vorher eine eigene Verdichtung hatte) — muss vor der neuen Staffelung bereinigt werden\n";
 $orphanVid = 9997;
+$GLOBALS['ARCHIVED'][$orphanVid] = true;
 $GLOBALS['COMPACTION_STATE'][$orphanVid] = [6 => 0]; // Fremd-/Alt-Regel, nicht Teil des Plans [-1,1,12]
 $setArchive->invoke($fresh2, $orphanVid, false, 10);
 $stateB = $GLOBALS['COMPACTION_STATE'][$orphanVid] ?? [];
@@ -2067,6 +2095,10 @@ $sibB = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
 IPS_ApplyChanges($sibB);
 $sibC = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
 IPS_ApplyChanges($sibC);
+// Seit 0.34.0 gleicht eine Instanz das Ausblenden beim Öffnen ihres Formulars ab, nicht mehr in ApplyChanges()
+// (Store-Review Tessie, Checkliste 27: beim Neuladen sind die anderen Instanzen evtl. noch nicht geladen).
+check('43z: ApplyChanges() fasst Geschwister-Instanzen nicht an — nach dem Übernehmen ist noch nichts übernommen', empty($GLOBALS['ATTR'][$sibA]['PurposeIntroGone']));
+foreach ([$sibA, $sibB, $sibC] as $sib43) { $GLOBALS['MODOBJ'][$sib43]->GetConfigurationForm(); }
 // PurposeIntro (Block 28c) und News (Zeile ~604) wurden an früher im
 // Prüfstand angelegten Instanzen schon bestätigt — jede der drei neuen
 // Instanzen muss das beim eigenen ersten ApplyChanges() automatisch
@@ -2090,6 +2122,7 @@ check('43d: propagiert auf B und C', $GLOBALS['ATTR'][$sibB]['ForumHintGone'] ==
 // ApplyChanges() automatisch den vollständigen Stand.
 $sibD = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
 IPS_ApplyChanges($sibD);
+$GLOBALS['MODOBJ'][$sibD]->GetConfigurationForm();
 check('43e: neu hinzugekommene Instanz übernimmt den vollständigen Stand automatisch', $GLOBALS['ATTR'][$sibD]['PurposeIntroGone'] === true && $GLOBALS['ATTR'][$sibD]['ForumHintGone'] === true && $GLOBALS['ATTR'][$sibD]['SeenNews'] === $newsVersion43);
 
 echo "\n44) Duplikat-Erkennung: Host-IP allein reicht nicht mehr, Unit-ID muss mit übereinstimmen (0.29.2, Dashboard-Fund Solarpark 14.09.2026: 24 blue'Log-SCADA-WR hinter einer Gateway-IP, 23 davon fälschlich als Dublette der 24. ausgeschlossen)\n";
@@ -2933,6 +2966,114 @@ check('60e: Quelltext legt nirgends mehr Kategorien an (kein IPS_CreateCategory 
     && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubVirtual/module.php'), 'IPS_CreateCategory') === false
     && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubDiscovery/module.php'), 'IPS_CreateCategory') === false
     && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubBridge/module.php'), 'IPS_CreateCategory') === false);
+
+echo "\n61) Store-Checkliste 19/26/27/28 (Symcon-Reviews 30.10.–06.11.2026): Archivierung nur auf Klick, UnregisterVariable, kein Geschwister-Abgleich in ApplyChanges, kein benutzerdefiniertes Profil\n";
+// Quelltext ohne Kommentare — die Prüfungen sollen Aufrufe finden, nicht Erwähnungen in Erklärtexten
+function t61_code($file) {
+    $out = '';
+    foreach (token_get_all(file_get_contents($file)) as $tok) {
+        if (is_array($tok)) { if ($tok[0] !== T_COMMENT && $tok[0] !== T_DOC_COMMENT) { $out .= $tok[1]; } } else { $out .= $tok; }
+    }
+    return $out;
+}
+$srcMH61 = t61_code(dirname(__DIR__) . '/MeterHub/module.php');
+$srcV61  = t61_code(dirname(__DIR__) . '/MeterHubVirtual/module.php');
+$srcD61  = t61_code(dirname(__DIR__) . '/MeterHubDiscovery/module.php');
+// 26
+check('61a (26): kein IPS_DeleteVariable mehr in MeterHub und MeterHubVirtual — Variablen gehen über UnregisterVariable', strpos($srcMH61, 'IPS_DeleteVariable') === false && strpos($srcV61, 'IPS_DeleteVariable') === false && strpos($srcMH61, '$this->UnregisterVariable(') !== false && strpos($srcV61, '$this->UnregisterVariable(') !== false);
+// 28
+$badProfile = fn($src) => preg_match("/IPS_SetVariableCustomProfile\(\s*\\\$[a-z]+\s*,(?!\s*'')[^)]+\)/", $src) === 1;
+check('61b (28): kein IPS_SetVariableCustomProfile mit einem Profil mehr (nur noch das Leeren eigener alter Profile)', !$badProfile($srcMH61) && !$badProfile($srcV61));
+check('61b (28): kein IPS_SetVariableCustomPresentation', strpos($srcMH61 . $srcV61, 'IPS_SetVariableCustomPresentation') === false);
+// 27: AdoptDismissFromSibling nur im Formularaufbau
+foreach (['MeterHub' => $srcMH61, 'MeterHubVirtual' => $srcV61, 'MeterHubDiscovery' => $srcD61] as $cls61 => $src61) {
+    $applyBody = '';
+    if (preg_match('/public function ApplyChanges\(\)\s*\{(.*?)\n    \}\n/s', $src61, $m61)) { $applyBody = $m61[1]; }
+    check("61c (27) $cls61: ApplyChanges() ruft AdoptDismissFromSibling() nicht auf", $applyBody !== '' && strpos($applyBody, 'AdoptDismissFromSibling') === false);
+    check("61c (27) $cls61: der Abgleich läuft beim Öffnen des Formulars (BuildForm)", preg_match('/function BuildForm\(bool \$freeOnly = false\)\s*\{.*?AdoptDismissFromSibling\(\)/s', $src61) === 1);
+}
+
+// 28: neue Variablen — Profil als Standarddarstellung, KEIN benutzerdefiniertes Profil
+$GLOBALS['PRELOGGED'] = false;
+obj(8501, 1, 'Archiv-Test-Hub', 10);
+$h61 = new MeterHub(8501); $h61->Create();
+$GLOBALS['PROP'][8501]['Meter'] = 'siemens_pac2200';
+$rvs61 = new ReflectionMethod('MeterHub', 'RegisterVariables');
+$rvs61->invoke($h61);
+$pw61 = (new ReflectionMethod('MeterHub', 'FindVarByIdent'))->invoke($h61, 'power_total');
+$en61 = (new ReflectionMethod('MeterHub', 'FindVarByIdent'))->invoke($h61, 'energy_import');
+check('61d (28): neue Variable — Profil kommt als Standarddarstellung (Legacy-Profil), benutzerdefiniertes Profil bleibt leer',
+    ($GLOBALS['VAR'][$pw61]['VariablePresentation']['PROFILE'] ?? '') !== '' && ($GLOBALS['VAR'][$pw61]['VariableCustomProfile'] ?? 'x') === '', json_encode($GLOBALS['VAR'][$pw61] ?? null));
+check('61d (28): kWh-Variable bekommt NRG.kWh als Standardprofil', ($GLOBALS['VAR'][$en61]['VariableProfile'] ?? '') === 'NRG.kWh');
+// Wh-Umschaltung wirkt über die Standarddarstellung
+$GLOBALS['PROP'][8501]['EnergyUnitWh'] = true;
+$rvs61->invoke($h61);
+check('61d (28): „Energie in Wh" schaltet das Standardprofil auf MHB.Wh um', ($GLOBALS['VAR'][$en61]['VariableProfile'] ?? '') === 'MHB.Wh', json_encode($GLOBALS['VAR'][$en61]['VariablePresentation'] ?? null));
+$GLOBALS['PROP'][8501]['EnergyUnitWh'] = false;
+// Bestand: eigenes altes benutzerdefiniertes Profil wird einmal geleert, ein fremdes bleibt
+$GLOBALS['VAR'][$pw61]['VariableCustomProfile'] = 'NRG.Watt';
+$GLOBALS['VAR'][$en61]['VariableCustomProfile'] = '~Temperature';
+$rvs61->invoke($h61);
+check('61e (28): altes EIGENES benutzerdefiniertes Profil (NRG.*) wird einmal entfernt, die Standarddarstellung übernimmt', ($GLOBALS['VAR'][$pw61]['VariableCustomProfile'] ?? 'x') === '');
+check('61e (28): ein vom Nutzer gewähltes fremdes Profil bleibt unangetastet', ($GLOBALS['VAR'][$en61]['VariableCustomProfile'] ?? '') === '~Temperature');
+$GLOBALS['VAR'][$en61]['VariableCustomProfile'] = '';
+// 26: eine überzählige eigene Variable verschwindet über UnregisterVariable (Ident bleibt Schlüssel)
+$stray61 = IPS_CreateVariable(VARIABLETYPE_FLOAT); IPS_SetIdent($stray61, 'gibt_es_nicht_mehr'); IPS_SetParent($stray61, 8501); IPS_SetName($stray61, 'Rest');
+$rvs61->invoke($h61);
+check('61f (26): überzählige eigene Variable wird entfernt, die übrigen bleiben', !isset($GLOBALS['OBJ'][$stray61]) && isset($GLOBALS['OBJ'][$pw61]));
+
+// 19 MeterHub: nichts wird von selbst geloggt
+$logged61 = array_filter(IPS_GetChildrenIDs(8501), fn($c) => isset($GLOBALS['ARCHIVED'][$c]));
+check('61g (19) MeterHub: nach dem Registrieren ist KEINE Variable von selbst im Archiv', count($logged61) === 0 && count(IPS_GetChildrenIDs(8501)) > 5, json_encode(array_values($logged61)));
+$f61 = json_decode($h61->GetConfigurationForm(), true);
+$pl61 = null; foreach ($f61['elements'] as $e61) { if (($e61['name'] ?? '') === 'PanelLogging') { $pl61 = $e61; } }
+$btn61 = null; foreach (($pl61['items'] ?? []) as $it61) { if (($it61['type'] ?? '') === 'Button') { $btn61 = $it61; } }
+check('61h (19) MeterHub: Formular zeigt das Panel „Archivierung fehlt“ mit Knopf', $pl61 !== null && $btn61 !== null && strpos($btn61['onClick'], 'MHUB_EnableArchiving($id)') !== false, json_encode(array_column($f61['elements'], 'name')));
+check('61h (19) MeterHub: Compaction/Aggregationstyp wurden bei nicht geloggten Variablen NICHT angefasst', !isset($GLOBALS['AGGTYPE'][$pw61]) && empty($GLOBALS['COMPACTION_STATE'][$pw61]));
+// Ein Nutzer, der eine Variable selbst loggt, behält das; und wird nicht angefasst
+$GLOBALS['ARCHIVED'][$pw61] = true;
+$msg61 = $h61->EnableArchiving();
+$missing61 = new ReflectionMethod('MeterHub', 'ArchivingMissing');
+check('61i (19) MeterHub: Klick schaltet die fehlenden Variablen ein (danach fehlt keine mehr), Aggregationstyp wird gesetzt', $missing61->invoke($h61) === [] && isset($GLOBALS['ARCHIVED'][$en61]) && ($GLOBALS['AGGTYPE'][$en61] ?? -1) === 1 && str_contains($msg61, 'eingeschaltet'), $msg61);
+check('61i (19) MeterHub: danach verschwindet das Panel (UpdateFormField) und im Formular fehlt es', ($GLOBALS['FORMFIELDS']['PanelLogging']['visible'] ?? true) === false);
+$f61b = json_decode($h61->GetConfigurationForm(), true);
+check('61i (19) MeterHub: nach dem Einschalten zeigt das Formular das Panel nicht mehr', !in_array('PanelLogging', array_column($f61b['elements'], 'name'), true));
+$loggedBefore61 = count($GLOBALS['ARCHIVED']);
+check('61j (19) MeterHub: ein zweiter Klick ändert nichts („Es fehlte nichts“), nichts wird abgeschaltet', str_contains($h61->EnableArchiving(), 'fehlte nichts') && count($GLOBALS['ARCHIVED']) === $loggedBefore61);
+check('61j (19): MeterHub und MeterHubVirtual schalten das Logging nie ab', strpos($srcMH61 . $srcV61, 'AC_SetLoggingStatus($ac, $vid, false)') === false && !preg_match('/AC_SetLoggingStatus\([^)]*false\)/', $srcMH61 . $srcV61));
+check('61k (19): AC_SetLoggingStatus steht nur noch in EnableArchiving()', preg_match_all('/AC_SetLoggingStatus\(/', $srcMH61) === 1 && preg_match_all('/AC_SetLoggingStatus\(/', $srcV61) === 1
+    && preg_match('/function EnableArchiving\(\).*?AC_SetLoggingStatus\(/s', $srcMH61) === 1 && preg_match('/function EnableArchiving\(\).*?AC_SetLoggingStatus\(/s', $srcV61) === 1);
+
+// 19 MeterHubVirtual
+meter(5500, 'Archiv-Test-Zähler', 100.0, 10.0);
+$vIid61 = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+obj($vIid61, 1, 'Archiv-Test-Virtual', 10);
+IPS_SetProperty($vIid61, 'Nodes', json_encode([['Name' => 'Z', 'Factor' => 100, 'PowerID' => 5503, 'EnergyImportID' => 5504, 'EnergyExportID' => 0]]));
+$vo61 = t35_apply($vIid61);
+$vp61 = (int)IPS_GetObjectIDByIdent('power', $vIid61);
+$ve61 = (int)IPS_GetObjectIDByIdent('energy_import', $vIid61);
+check('61l (19) MeterHubVirtual: nach dem Übernehmen ist keine Ausgabe von selbst im Archiv', $vp61 > 0 && $ve61 > 0 && !isset($GLOBALS['ARCHIVED'][$vp61]) && !isset($GLOBALS['ARCHIVED'][$ve61]));
+check('61l (28) MeterHubVirtual: Ausgaben haben das Profil als Standarddarstellung, kein benutzerdefiniertes', ($GLOBALS['VAR'][$vp61]['VariablePresentation']['PROFILE'] ?? '') === 'NRG.Watt' && ($GLOBALS['VAR'][$vp61]['VariableCustomProfile'] ?? 'x') === '' && ($GLOBALS['VAR'][$ve61]['VariableProfile'] ?? '') === 'NRG.kWh');
+$fv61 = json_decode($vo61->GetConfigurationForm(), true);
+$plv61 = null; foreach ($fv61['elements'] as $e61) { if (($e61['name'] ?? '') === 'PanelLogging') { $plv61 = $e61; } }
+check('61m (19) MeterHubVirtual: Panel „Archivierung fehlt“ mit Knopf MHUBV_EnableArchiving', $plv61 !== null && strpos(json_encode($plv61), 'MHUBV_EnableArchiving($id)') !== false);
+$msgv61 = $vo61->EnableArchiving();
+check('61n (19) MeterHubVirtual: Klick schaltet ein und setzt Aggregationstyp „Zähler“ für Bezug, „Standard“ für Leistung',
+    isset($GLOBALS['ARCHIVED'][$vp61], $GLOBALS['ARCHIVED'][$ve61]) && ($GLOBALS['AGGTYPE'][$ve61] ?? -1) === 1 && ($GLOBALS['AGGTYPE'][$vp61] ?? -1) === 0, $msgv61);
+// Bestand mit älterem eigenen Profil
+$GLOBALS['VAR'][$vp61]['VariableCustomProfile'] = 'NRG.Watt';
+t35_apply($vIid61);
+check('61o (28) MeterHubVirtual: altes eigenes benutzerdefiniertes Profil wird einmal geleert', ($GLOBALS['VAR'][$vp61]['VariableCustomProfile'] ?? 'x') === '');
+// Inexogy-Nachtrag: ohne Archivierung gibt es nichts zu beschreiben — klare Meldung statt blindem Schreiben
+$GLOBALS['PRELOGGED'] = false;
+obj(8510, 1, 'Archiv-Test-Inexogy', 10);
+$hi61 = new MeterHub(8510); $hi61->Create();
+$GLOBALS['PROP'][8510]['Meter'] = 'inexogy';
+$GLOBALS['PROP'][8510]['InexogyMeterID'] = 'abc';
+$rvs61->invoke($hi61);
+$bf61 = (new ReflectionMethod('MeterHub', 'DoBackfillInexogyArchive'))->invoke($hi61, time() - 86400, time());
+check('61p (19): Inexogy-Nachtrag ohne Archivierung meldet das klar und schreibt nichts', str_contains($bf61, 'noch nicht archiviert') && str_contains($bf61, 'Archivierung für diese Variablen einschalten'), $bf61);
+$GLOBALS['PRELOGGED'] = true;
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

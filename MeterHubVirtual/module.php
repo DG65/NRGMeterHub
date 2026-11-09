@@ -70,7 +70,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.33.0';
+    private const NEWS_VERSION = '0.34.0';
 
     public function Create()
     {
@@ -386,6 +386,8 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 📈 Wichtig: MeterHubVirtual schaltet die Archivierung (Logging) nicht mehr von selbst ein. Sind die Ausgaben (Leistung, Bezug, Einspeisung, hochgerechnete Energie) nicht archiviert, erscheint oben im Formular ein Hinweis mit dem Knopf „Archivierung für diese Variablen einschalten“. Bereits laufende Archivierung bleibt, wie sie ist, und wird nie abgeschaltet. Neue Instanzen archivieren erst nach deinem Klick; die Archiv-Verdichtung wirkt nur bei archivierten Variablen.'],
+                ['type' => 'Label', 'caption' => '• 🎛️ Anzeige: Das Profil kommt jetzt als Standarddarstellung der Ausgabe, nicht mehr als benutzerdefiniertes Profil — das gehört dir. Ein früher von MeterHubVirtual gesetztes eigenes Profil (NRG.*, MHB.*, MHBV.*) entfernt das Modul einmal, die Standarddarstellung zeigt dasselbe. Ein von dir gewähltes anderes Profil bleibt.'],
                 ['type' => 'Label', 'caption' => '• 🪟 Neu: Formular-Aufbau selbst wählen. Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist, und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so sieht das Formular jedes Mal so aus, wie du es brauchst. Ausgeblendete Bereiche behalten ihre Einstellungen und arbeiten weiter. Kein Haken heißt „Standard“; „Auf Standard zurücksetzen“ stellt alles zurück. Wirkt nach „Übernehmen“ beim nächsten Öffnen.'],
                 ['type' => 'Label', 'caption' => '• 📈 Bezug und Einspeisung laufen jetzt nahtlos weiter, wenn sich die Zusammensetzung ändert (Mitglied hinzu oder weg, Dublette umgestellt, „aktiv" geändert). Vorher sprang der Summen-Zählerstand um den Unterschied der Mitglieder — im Archiv und in Tagesbalken wirkte das wie ein Riesenverbrauch oder ein Zähler-Reset.'],
                 ['type' => 'Label', 'caption' => '• 👯 Doppelte Anbindung erkannt: Ist dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub UND über OCPPHub), zählt bis zu deiner Wahl nur die erste Anbindung, und „Prüfung & Vorschau" nennt beide samt Grund (gleiche Seriennummer, IP-Adresse oder fast gleiche Zählerstände). Festgelegt wird die überzählige im Modul der Anbindung selbst (z. B. ChargerHub, OCPPHub) — dann zählt sie überall nicht mehr mit. Die neue Spalte „aktiv" nimmt ein Mitglied nur aus dieser Summe.'],
@@ -1556,10 +1558,6 @@ class MeterHubVirtual extends IPSModule
         } else {
             $this->RegisterMessage(0, IPS_KERNELMESSAGE);
         }
-        // Vor der Migrationsprüfung (die bei ausstehender Migration früh
-        // zurückkehrt) — das Ausblenden gilt unabhängig davon.
-        $this->AdoptDismissFromSibling();
-
         $rawRows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rawRows = is_array($rawRows) ? $rawRows : [];
 
@@ -2143,31 +2141,28 @@ class MeterHubVirtual extends IPSModule
             // in AdvanceCalculatedEnergy() endet dann.
             if ($mayDelete && $o['ObjectType'] === 2 && $o['ObjectIdent'] !== '' && !isset($valid[$o['ObjectIdent']])
                 && !str_starts_with($o['ObjectIdent'], self::CALC_ENERGY_IDENT_PREFIX)) {
-                @IPS_DeleteVariable($cid);
+                $this->UnregisterVariable($o['ObjectIdent']);   // Checkliste 26: UnregisterVariable statt IPS_DeleteVariable
             }
         }
         $pos = 0;
         foreach ($defs as [$ident, $caption, $profile, $field]) {
             $vid = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
             $created = !$vid;
-            if ($created) {
-                $vid = IPS_CreateVariable(VARIABLETYPE_FLOAT);
-                IPS_SetIdent($vid, $ident);
-                IPS_SetParent($vid, $this->InstanceID);
-            }
+            $posBefore = $vid ? (int)IPS_GetObject($vid)['ObjectPosition'] : 0;
+            // Das Profil kommt als Standarddarstellung (Checkliste 28, Store-Review Messwertrechner): das
+            // benutzerdefinierte Profil gehört dem Benutzer und wird nie gesetzt.
+            $vid = $this->RegisterVariableFloat($ident, $caption, ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => $profile], $pos);
             IPS_SetName($vid, $caption);
             // Store-Review-Fund 9m (HeishaMon-Sitzung, 28.09.2026, siehe CLAUDE.md):
             // Position nur beim erstmaligen Anlegen setzen, sonst wirft eine
             // Umsortierung im Objektbaum von Hand bei jedem ApplyChanges() automatisch
             // wieder um. $pos zählt trotzdem immer weiter — neue Variablen sollen sich
             // weiterhin an dieser Reihenfolge orientieren.
-            if ($created) {
-                IPS_SetPosition($vid, $pos);
+            if (!$created && (int)IPS_GetObject($vid)['ObjectPosition'] !== $posBefore) {
+                IPS_SetPosition($vid, $posBefore);
             }
             $pos++;
-            if (self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), $profile)) {
-                IPS_SetVariableCustomProfile($vid, $profile);
-            }
+            $this->DropOwnCustomProfile($vid);
             // Bezug/Einspeisung sind kumulative Zählerstände (Archiv-
             // Aggregationstyp "Zähler" = Delta je Periode), Leistung ist ein
             // Momentanwert ("Standard" = Min/Max/Durchschnitt). Live an
@@ -2238,17 +2233,16 @@ class MeterHubVirtual extends IPSModule
     // -----------------------------------------------------------------------
 
     /**
-     * Store-Checkliste Punkt 5: Profile nicht bei jedem ApplyChanges erzwingen.
-     * Gesetzt wird nur, wenn noch keins da ist oder das vorhandene eines der
-     * eigenen ist (NRG.*, MHB.*, MHBV.*) — ein vom Nutzer gewähltes fremdes
-     * Profil bleibt unangetastet.
+     * Frühere Versionen haben ein eigenes Profil (NRG.*, MHB.*, MHBV.*) als benutzerdefiniertes Profil gesetzt. Das
+     * Profil gehört jetzt der Standarddarstellung (Checkliste 28): ein solches EIGENES Profil wird einmalig entfernt,
+     * sonst würde es die Anzeige dauerhaft überdecken. Ein vom Nutzer gewähltes fremdes Profil bleibt unangetastet.
      */
-    private static function ShouldSetProfile(string $current, string $wanted): bool
+    private function DropOwnCustomProfile(int $vid): void
     {
-        if ($current === $wanted) {
-            return false;
+        $custom = (string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? '');
+        if ($custom !== '' && preg_match('/^(NRG|MHB|MHBV)\./', $custom) === 1) {
+            IPS_SetVariableCustomProfile($vid, '');
         }
-        return $current === '' || preg_match('/^(NRG|MHB|MHBV)\./', $current) === 1;
     }
 
     private const IDENT_GROUP_SWITCH = 'group_switch';
@@ -2283,36 +2277,26 @@ class MeterHubVirtual extends IPSModule
         // wieder um.
         $vid = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_SWITCH, $this->InstanceID);
         $created = !$vid;
-        if ($created) {
-            $vid = IPS_CreateVariable(VARIABLETYPE_BOOLEAN);
-            IPS_SetIdent($vid, self::IDENT_GROUP_SWITCH);
-            IPS_SetParent($vid, $this->InstanceID);
-        }
+        $posBefore = $vid ? (int)IPS_GetObject($vid)['ObjectPosition'] : 0;
+        $vid = $this->RegisterVariableBoolean(self::IDENT_GROUP_SWITCH, 'Gruppe schalten', ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => '~Switch'], $pos);
         IPS_SetName($vid, 'Gruppe schalten');
-        if ($created) {
-            IPS_SetPosition($vid, $pos);
+        if (!$created && (int)IPS_GetObject($vid)['ObjectPosition'] !== $posBefore) {
+            IPS_SetPosition($vid, $posBefore);
         }
         $pos++;
-        if (self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), '~Switch')) {
-            IPS_SetVariableCustomProfile($vid, '~Switch');
-        }
+        $this->DropOwnCustomProfile($vid);
         $this->EnableAction(self::IDENT_GROUP_SWITCH);
 
         $vid = @IPS_GetObjectIDByIdent(self::IDENT_GROUP_STATE, $this->InstanceID);
         $created = !$vid;
-        if ($created) {
-            $vid = IPS_CreateVariable(VARIABLETYPE_INTEGER);
-            IPS_SetIdent($vid, self::IDENT_GROUP_STATE);
-            IPS_SetParent($vid, $this->InstanceID);
-        }
+        $posBefore = $vid ? (int)IPS_GetObject($vid)['ObjectPosition'] : 0;
+        $vid = $this->RegisterVariableInteger(self::IDENT_GROUP_STATE, 'Gruppenstatus', ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => self::PROFILE_GROUP_STATE], $pos);
         IPS_SetName($vid, 'Gruppenstatus');
-        if ($created) {
-            IPS_SetPosition($vid, $pos);
+        if (!$created && (int)IPS_GetObject($vid)['ObjectPosition'] !== $posBefore) {
+            IPS_SetPosition($vid, $posBefore);
         }
         $pos++;
-        if (self::ShouldSetProfile((string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? ''), self::PROFILE_GROUP_STATE)) {
-            IPS_SetVariableCustomProfile($vid, self::PROFILE_GROUP_STATE);
-        }
+        $this->DropOwnCustomProfile($vid);
         $this->RefreshGroupState($this->Nodes());
     }
 
@@ -2623,11 +2607,98 @@ class MeterHubVirtual extends IPSModule
         return $plan;
     }
 
+    // -----------------------------------------------------------------------
+    // Archivierung (Store-Review 30.10.2026, Checkliste 19): nur auf Klick im Formular einschalten
+    // -----------------------------------------------------------------------
+
+    /** Archiv-Instanz oder 0, wenn es keine gibt. */
+    private function ArchiveInstanceID(): int
+    {
+        if (!function_exists('AC_GetLoggingStatus')) {
+            return 0;
+        }
+        $ids = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        return count($ids) > 0 ? (int)$ids[0] : 0;
+    }
+
+    /**
+     * Eigene Variablen, die archiviert werden sollen, aber (noch) nicht geloggt werden.
+     *
+     * @return array vid => Zählerstand?
+     */
+    private function ArchivingMissing(): array
+    {
+        $ac = $this->ArchiveInstanceID();
+        if ($ac <= 0) {
+            return [];
+        }
+        $out = [];
+        foreach ($this->OutputDefs() as [$ident, , , $field]) {
+            $vid = (int)@IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+            if ($vid && !@AC_GetLoggingStatus($ac, $vid)) {
+                $out[$vid] = $field !== 'power';
+            }
+        }
+        foreach ($this->Nodes() as $n) {
+            foreach (['imp', 'exp'] as $ef) {
+                $vid = (int)$n[$ef];
+                if ($vid > 0 && $this->IsOwnCalculatedEnergyVar($vid) && !@AC_GetLoggingStatus($ac, $vid)) {
+                    $out[$vid] = true;
+                }
+            }
+        }
+        return $out;
+    }
+
+    /** Formular-Hinweis samt Knopf; null, wenn alles geloggt wird oder kein Archiv da ist. */
+    private function ArchivingPanel(): ?array
+    {
+        $missing = $this->ArchivingMissing();
+        if (!$missing) {
+            return null;
+        }
+        $lines = [];
+        foreach (array_keys($missing) as $vid) {
+            $lines[] = ['type' => 'Label', 'caption' => sprintf('   • %s (#%d)', IPS_GetName($vid), $vid)];
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PanelLogging', 'expanded' => true,
+            'caption' => count($missing) === 1 ? '📈  Archivierung fehlt (1 Variable)' : sprintf('📈  Archivierung fehlt (%d Variablen)', count($missing)),
+            'items' => array_merge(
+                [['type' => 'Label', 'caption' => 'Diese Variablen werden nicht archiviert. Ohne Archiv gibt es keinen Verlauf, keine Verbrauchsauswertung und keine Archiv-Verdichtung. MeterHubVirtual schaltet die Archivierung nicht von selbst ein — das entscheidest du. Mit dem Knopf wird sie für diese Variablen eingeschaltet (Aggregationstyp und Verdichtung stellt das Modul dabei passend ein). Bereits laufende Archivierung wird nie abgeschaltet.']],
+                $lines,
+                [['type' => 'Button', 'caption' => '📈  Archivierung für diese Variablen einschalten', 'onClick' => 'echo MHUBV_EnableArchiving($id);']]
+            ),
+        ];
+    }
+
+    /** Schaltet die Archivierung für die fehlenden eigenen Variablen ein (Klick im Formular) und richtet Aggregationstyp und Verdichtung ein. */
+    public function EnableArchiving(): string
+    {
+        $ac = $this->ArchiveInstanceID();
+        if ($ac <= 0) {
+            return '❌ Keine Archiv-Instanz gefunden.';
+        }
+        $n = 0;
+        foreach ($this->ArchivingMissing() as $vid => $counter) {
+            AC_SetLoggingStatus($ac, $vid, true);
+            $this->SetArchive($vid, $counter, $this->ReadPropertyInteger('Interval'));
+            $n++;
+        }
+        $this->UpdateFormField('PanelLogging', 'visible', false);
+        return $n === 0 ? 'ℹ️ Es fehlte nichts — alle Variablen werden schon archiviert.' : sprintf('✅ Archivierung für %d Variable(n) eingeschaltet.', $n);
+    }
+
     private function SetArchive($vid, bool $counter = false, int $intervalSeconds = 10)
     {
         $ids = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($ids) > 0) {
-            AC_SetLoggingStatus($ids[0], $vid, true);
+            // Das Logging einer Variablen gehört dem Benutzer (Store-Review 30.10.2026, Checkliste 19): MeterHubVirtual
+            // schaltet es nie von selbst ein, sondern nur auf Klick im Formular (EnableArchiving()). Aggregationstyp und
+            // Verdichtung setzt es nur dort, wo das Logging schon läuft.
+            if (!AC_GetLoggingStatus($ids[0], $vid)) {
+                return;
+            }
             AC_SetAggregationType($ids[0], $vid, $counter ? 1 : 0);
             $plan = $this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power');
             if ($plan === []) {
@@ -3710,12 +3781,7 @@ class MeterHubVirtual extends IPSModule
             return $existing;
         }
         $this->CreateProfiles();
-        $vid = IPS_CreateVariable(VARIABLETYPE_FLOAT);
-        IPS_SetIdent($vid, $ident);
-        IPS_SetParent($vid, $this->InstanceID);
-        IPS_SetName($vid, $label . ' — Energie hochgerechnet');
-        IPS_SetPosition($vid, 500);
-        IPS_SetVariableCustomProfile($vid, 'NRG.kWh');
+        $vid = $this->RegisterVariableFloat($ident, $label . ' — Energie hochgerechnet', ['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => 'NRG.kWh'], 500);
         IPS_SetInfo($vid, 'Hochgerechnet aus Leistung × Berechnungs-Intervall, kein echter Zählerstand — Genauigkeit hängt vom Intervall ab.');
         SetValueFloat($vid, 0.0);
         return $vid;
@@ -4277,6 +4343,11 @@ class MeterHubVirtual extends IPSModule
      */
     private function BuildForm(bool $freeOnly = false)
     {
+        // Abgleich mit Geschwister-Instanzen beim Öffnen des Formulars, nicht in ApplyChanges: beim Neuladen der
+        // Module sind die anderen Instanzen evtl. noch nicht geladen (Store-Review Tessie, Checkliste 27).
+        if (!$freeOnly) {
+            $this->AdoptDismissFromSibling();
+        }
         $rawRows   = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rawRows   = is_array($rawRows) ? $rawRows : [];
         $migration = $this->NeedsMigration($rawRows);
@@ -4582,6 +4653,7 @@ class MeterHubVirtual extends IPSModule
                 $migrationPanel,
                 $purposeIntro,
                 $newsBanner,
+                $this->ArchivingPanel(),
                 $treeOffer,
                 [
                     'type' => 'ExpansionPanel', 'caption' => '📖  Dokumentation & Hilfe', 'expanded' => false,
@@ -4650,7 +4722,7 @@ class MeterHubVirtual extends IPSModule
                     // Panels halten wenigstens die sichtbare Feldzahl klein.
                     'type' => 'ExpansionPanel', 'caption' => '🗄️  Archiv-Verdichtung: Leistung', 'expanded' => false,
                     'items' => array_merge(
-                        [['type' => 'Label', 'caption' => 'Reduziert automatisch den Detailgrad älterer Archivwerte (spart Speicher), bei jedem „Übernehmen" neu gesetzt. Jede Stufe greift nur, wenn ihre Auflösung tatsächlich gröber ist als das Update-Intervall oben — sonst gäbe es nichts zu verdichten.']],
+                        [['type' => 'Label', 'caption' => 'Reduziert automatisch den Detailgrad älterer Archivwerte (spart Speicher), bei jedem „Übernehmen" neu gesetzt — nur für Variablen, die archiviert werden (die Archivierung schaltest du selbst ein, siehe Hinweis oben im Formular). Jede Stufe greift nur, wenn ihre Auflösung tatsächlich gröber ist als das Update-Intervall oben — sonst gäbe es nichts zu verdichten.']],
                         $this->CompactionFields('Power')
                     ),
                 ],

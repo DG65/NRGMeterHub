@@ -1773,3 +1773,22 @@ müssten umgebaut werden). Neue Gruppen/Variablen also nie in Unterkategorien so
 `.tools/test-virtual.php` Block 60. Die Test-Fixtures mit `cat_*` in `test-powerinvert.php`/`test-virtual.php`
 bilden bewusst den Altbestand nach.
 
+## Store-Checkliste 19/26/27/28 (0.34.0, 09.11.2026)
+
+- **19 Archivierung nur auf Klick:** `AC_SetLoggingStatus()` steht nur in `EnableArchiving()` (MeterHub und
+  MeterHubVirtual). `ArchivingMissing()` listet eigene, zu archivierende Variablen ohne Logging; `ArchivingPanel()`
+  zeigt das Panel `PanelLogging` mit Knopf nur, solange etwas fehlt (steht fest oben, nicht im „Formular: Aufbau“).
+  `SetArchive()` setzt Aggregationstyp und Verdichtung nur bei Variablen mit laufendem Logging und kehrt sonst
+  zurück; Logging wird NIE abgeschaltet. Der Inexogy-Nachtrag (`DoBackfillInexogyArchive()`) schreibt nur in
+  geloggte Variablen. Vorbild: EMS 0.94.0 (`archivingMissing()`, `EnableArchiving()`).
+- **26** `$this->UnregisterVariable($ident)` über `RemoveVariable()` (MeterHub) bzw. direkt (Virtual).
+- **27** `AdoptDismissFromSibling()` nur in `BuildForm()` (nicht bei `$freeOnly`), nie in `ApplyChanges()`.
+- **28** Variablen über `RegisterVariable*()` mit `['PRESENTATION' => VARIABLE_PRESENTATION_LEGACY, 'PROFILE' => …]`
+  (MeterHub: `RegisterVar()`, Virtual: Ausgaben, Gruppenvariablen, `EnsureCalculatedEnergyVar()`); kein
+  `IPS_SetVariableCustomProfile` mit Profil. Alt-Bestand: ein EIGENES benutzerdefiniertes Profil (`NRG|MHB|MHBV`)
+  wird einmal geleert (`IPS_SetVariableCustomProfile($vid, '')`), fremde bleiben. **Abweichung von der EMS-Vorgabe**
+  („vorhandene Custom-Profile nicht wegnehmen"): ein bleibendes `NRG.kWh` würde nach „Energie in Wh" kWh anzeigen,
+  obwohl der Wert in Wh steht. Das Leeren betrifft nur Profile mit unserem Präfix. Prüfstand-Stub in
+  `.tools/test-virtual.php`: `RegisterVariable*`/`UnregisterVariable`, `$GLOBALS['PRELOGGED']` (Standard an =
+  Nutzer hat das Logging schon eingeschaltet; für Block 61 aus).
+

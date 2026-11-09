@@ -399,7 +399,6 @@ class MeterHubDiscovery extends IPSModule
             $this->RegisterVariableBoolean('ScanAbort', 'Scan-Abbruch', '', 100);
             IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
         }
-        $this->AdoptDismissFromSibling();
     }
 
     // true, wenn während eines laufenden Scans „Abbrechen" geklickt wurde.
@@ -508,6 +507,11 @@ class MeterHubDiscovery extends IPSModule
      */
     private function BuildForm(bool $freeOnly = false)
     {
+        // Abgleich mit Geschwister-Instanzen beim Öffnen des Formulars, nicht in ApplyChanges: beim Neuladen der
+        // Module sind die anderen Instanzen evtl. noch nicht geladen (Store-Review Tessie, Checkliste 27).
+        if (!$freeOnly) {
+            $this->AdoptDismissFromSibling();
+        }
         $results = json_decode((string)$this->ReadAttributeString('ResultsJSON'), true);
         if (!is_array($results)) {
             $results = [];
