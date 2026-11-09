@@ -2,6 +2,17 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.34.1 (2026-11-09)
+
+- **Altes eigenes benutzerdefiniertes Profil wird genau EINMAL je Instanz geleert (EMS-Ausnahmeregel zu
+  Checkliste 28, Bedingungen vom 09.11.2026).** In 0.34.0 räumte `RegisterVar()`/`DropOwnCustomProfile()` bei jedem
+  „Übernehmen" ein `NRG.*`-/`MHB.*`-/`MHBV.*`-Profil ab; trug der Nutzer später selbst eines mit diesem Präfix ein,
+  wäre es erneut gelöscht worden. Jetzt gibt es das Attribut `OwnCustomProfileCleared`: gesetzt wird es am Ende des
+  ersten vollständigen Registrierungsdurchlaufs, danach fasst das Modul benutzerdefinierte Profile nie wieder an.
+  Fremde Profile bleiben ohnehin. Das Leeren selbst bleibt nötig, weil ein von früheren Versionen gesetztes `NRG.kWh`
+  nach „Energie in Wh" sonst kWh über einem Wh-Wert anzeigen würde. Benannt im „Neu"-Panel von `MeterHub` und
+  `MeterHubVirtual`. Prüfstand: `.tools/test-virtual.php` Block 61 (Merker gesetzt, zweiter Eintrag bleibt).
+
 ## 0.34.0 (2026-11-09)
 
 - **Archivierung nur auf Klick (Symcon-Store-Checkliste 19; Review-Wortlaut bei WPHub, WPModbusHub, SamsungEhs,
@@ -424,17 +435,4 @@
   Gateway-Client gegen eine nachgebaute Registertabelle — Anfragen (FC 4, je 2 Register, keine
   Blocklesung), Dekodierung, negative Leistung bei Einspeisung, Ausfall einzelner Register.
   Doku: README-Tabelle, Doku-Panel, News-Eintrag (`NEWS_VERSION` 0.31.0).
-
-## 0.30.1-beta.1 (2026-09-19)
-
-- **Verständlichere Texte im Symbox-Gateway-Weg (Rückmeldung des Forum-Testers zum Handling,
-  „Getestet, läuft"):** Die Statuszeile ganz oben nannte im Gateway-Modus „IP-Adresse bzw.
-  Inexogy-Anmeldung" und „Zähler nicht erreichbar" — sie hängt jetzt vom Verbindungsweg ab. Im
-  Gateway-Modus: Status 104 „Bitte die Brücke zum ModBus Gateway eintragen …", Status 201
-  „keine Antwort über die Brücke: Brücke und ModBus Gateway prüfen (Unit-ID = DeviceID)"; bei
-  „Direkt" und Cloud-Zählern unverändert. Die Felder heißen jetzt „ModBus Gateway zum Gerät" und
-  „NRG-Stack Brücke zum ModBus Gateway" (vorher „Einfachster Weg: natives ModBus Gateway dieses
-  Geräts wählen …" und „Brücke (MeterHub Brücke zum ModBus-Gateway)", das erste wurde in der
-  Anzeige abgeschnitten); der Knopf heißt „Brücke anlegen und verbinden" ohne das „…" davor.
-- Prüfstand `test-virtual.php` Block 47 um die Statustexte je Verbindungsweg erweitert.
 

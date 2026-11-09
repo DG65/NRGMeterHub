@@ -3013,9 +3013,16 @@ $GLOBALS['PROP'][8501]['EnergyUnitWh'] = false;
 // Bestand: eigenes altes benutzerdefiniertes Profil wird einmal geleert, ein fremdes bleibt
 $GLOBALS['VAR'][$pw61]['VariableCustomProfile'] = 'NRG.Watt';
 $GLOBALS['VAR'][$en61]['VariableCustomProfile'] = '~Temperature';
+check('61e (28): nach dem ersten vollständigen Durchlauf ist der Merker „einmal geleert“ gesetzt', ($GLOBALS['ATTR'][8501]['OwnCustomProfileCleared'] ?? false) === true);
+unset($GLOBALS['ATTR'][8501]['OwnCustomProfileCleared']);   // Instanz aus einer älteren Version: Merker fehlt
 $rvs61->invoke($h61);
 check('61e (28): altes EIGENES benutzerdefiniertes Profil (NRG.*) wird einmal entfernt, die Standarddarstellung übernimmt', ($GLOBALS['VAR'][$pw61]['VariableCustomProfile'] ?? 'x') === '');
 check('61e (28): ein vom Nutzer gewähltes fremdes Profil bleibt unangetastet', ($GLOBALS['VAR'][$en61]['VariableCustomProfile'] ?? '') === '~Temperature');
+check('61e (28): nach dem Leeren ist der Merker gesetzt', ($GLOBALS['ATTR'][8501]['OwnCustomProfileCleared'] ?? false) === true);
+$GLOBALS['VAR'][$pw61]['VariableCustomProfile'] = 'NRG.Watt';   // der Nutzer trägt das Profil später selbst wieder ein
+$rvs61->invoke($h61);
+check('61e (28): trägt der Nutzer ein eigenes NRG.*-Profil später wieder ein, wird es NICHT erneut geleert (nur einmal, EMS-Bedingung 1)', ($GLOBALS['VAR'][$pw61]['VariableCustomProfile'] ?? '') === 'NRG.Watt');
+$GLOBALS['VAR'][$pw61]['VariableCustomProfile'] = '';
 $GLOBALS['VAR'][$en61]['VariableCustomProfile'] = '';
 // 26: eine überzählige eigene Variable verschwindet über UnregisterVariable (Ident bleibt Schlüssel)
 $stray61 = IPS_CreateVariable(VARIABLETYPE_FLOAT); IPS_SetIdent($stray61, 'gibt_es_nicht_mehr'); IPS_SetParent($stray61, 8501); IPS_SetName($stray61, 'Rest');
@@ -3062,8 +3069,12 @@ check('61n (19) MeterHubVirtual: Klick schaltet ein und setzt Aggregationstyp �
     isset($GLOBALS['ARCHIVED'][$vp61], $GLOBALS['ARCHIVED'][$ve61]) && ($GLOBALS['AGGTYPE'][$ve61] ?? -1) === 1 && ($GLOBALS['AGGTYPE'][$vp61] ?? -1) === 0, $msgv61);
 // Bestand mit älterem eigenen Profil
 $GLOBALS['VAR'][$vp61]['VariableCustomProfile'] = 'NRG.Watt';
+unset($GLOBALS['ATTR'][$vIid61]['OwnCustomProfileCleared']);   // Instanz aus einer älteren Version
 t35_apply($vIid61);
-check('61o (28) MeterHubVirtual: altes eigenes benutzerdefiniertes Profil wird einmal geleert', ($GLOBALS['VAR'][$vp61]['VariableCustomProfile'] ?? 'x') === '');
+check('61o (28) MeterHubVirtual: altes eigenes benutzerdefiniertes Profil wird einmal geleert', ($GLOBALS['VAR'][$vp61]['VariableCustomProfile'] ?? 'x') === '' && ($GLOBALS['ATTR'][$vIid61]['OwnCustomProfileCleared'] ?? false) === true);
+$GLOBALS['VAR'][$vp61]['VariableCustomProfile'] = 'NRG.Watt';
+t35_apply($vIid61);
+check('61o (28) MeterHubVirtual: ein später selbst eingetragenes NRG.*-Profil bleibt (nur einmal geleert)', ($GLOBALS['VAR'][$vp61]['VariableCustomProfile'] ?? '') === 'NRG.Watt');
 // Inexogy-Nachtrag: ohne Archivierung gibt es nichts zu beschreiben — klare Meldung statt blindem Schreiben
 $GLOBALS['PRELOGGED'] = false;
 obj(8510, 1, 'Archiv-Test-Inexogy', 10);

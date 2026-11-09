@@ -1791,4 +1791,7 @@ bilden bewusst den Altbestand nach.
   obwohl der Wert in Wh steht. Das Leeren betrifft nur Profile mit unserem Präfix. Prüfstand-Stub in
   `.tools/test-virtual.php`: `RegisterVariable*`/`UnregisterVariable`, `$GLOBALS['PRELOGGED']` (Standard an =
   Nutzer hat das Logging schon eingeschaltet; für Block 61 aus).
+- **0.34.1:** Das Leeren des eigenen alten Custom-Profils geschieht nur einmal je Instanz (Attribut
+  `OwnCustomProfileCleared`, am Ende des ersten vollständigen `RegisterVariables()`-Durchlaufs gesetzt) — EMS-Ausnahmeregel
+  zu Punkt 28 mit den drei Bedingungen: nur einmal (Merker), fremde Profile bleiben, im CHANGELOG und im „Neu"-Panel benannt.
 

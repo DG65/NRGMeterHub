@@ -3217,6 +3217,8 @@ class MeterHub extends IPSModule
         // pool über beide Modultypen (siehe GetConfigurationForm()).
         $this->RegisterPropertyString('Location', '');
         $this->RegisterPropertyString('FormLayout', '[]');   // Formular: Aufbau (SUITE.md 3a)
+        // Merker: das EIGENE alte benutzerdefinierte Profil wird genau einmal geleert (Checkliste 28, EMS-Ausnahmeregel 09.11.2026)
+        $this->RegisterAttributeBoolean('OwnCustomProfileCleared', false);
         $this->RegisterPropertyString('Meter', 'siemens_pac2200');
         // Zähler-Rolle: bestimmt nur die Vorzeichen-Semantik/Dokumentation.
         //   grid        = Netz-/NAP-Zähler (+ Bezug / − Einspeisung)
@@ -3463,7 +3465,7 @@ class MeterHub extends IPSModule
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
                 ['type' => 'Label', 'caption' => '• 📈 Wichtig: MeterHub schaltet die Archivierung (Logging) nicht mehr von selbst ein. Archivierung und Verlauf gehören dir. Sind Variablen nicht archiviert, erscheint oben im Formular ein Hinweis mit einem Knopf „Archivierung für diese Variablen einschalten“. Bereits laufende Archivierung bleibt, wie sie ist, und wird nie abgeschaltet. Neue Instanzen archivieren erst nach deinem Klick; Archiv-Verdichtung und der Inexogy-Nachtrag wirken nur bei archivierten Variablen.'],
-                ['type' => 'Label', 'caption' => '• 🎛️ Anzeige: Das Profil (Einheit, Nachkommastellen) kommt jetzt als Standarddarstellung der Variable, nicht mehr als benutzerdefiniertes Profil — das gehört dir. Ein früher von MeterHub gesetztes eigenes Profil (NRG.*, MHB.*) entfernt MeterHub einmal, die Standarddarstellung zeigt dasselbe. Ein von dir gewähltes anderes Profil bleibt. „Energie in Wh“ stellt das Standardprofil um.'],
+                ['type' => 'Label', 'caption' => '• 🎛️ Anzeige: Das Profil (Einheit, Nachkommastellen) kommt jetzt als Standarddarstellung der Variable, nicht mehr als benutzerdefiniertes Profil — das gehört dir. Ein früher von MeterHub gesetztes eigenes Profil (NRG.*, MHB.*) entfernt MeterHub genau einmal je Instanz (Merker), die Standarddarstellung zeigt dasselbe; trägst du später selbst wieder eines ein, bleibt es. Ein von dir gewähltes anderes Profil bleibt. „Energie in Wh“ stellt das Standardprofil um.'],
                 ['type' => 'Label', 'caption' => '• 🗂️ Aufgeräumt: Die Variablen liegen jetzt direkt unter der Instanz statt in Unterkategorien (Summenwerte, Energiezähler …). Kategorien unter Instanzen sind in Symcon nicht vorgesehen, die Visualisierung kennt sie nicht. Bestehende Instanzen räumt MeterHub beim nächsten „Übernehmen" von selbst auf: Die Variablen behalten ihre ID, Archiv, Verknüpfungen und Skripte sind nicht betroffen. Nur der Weg im Objektbaum ist kürzer. Hast du selbst etwas in eine dieser Kategorien gelegt, bleibt sie samt Inhalt bestehen.'],
                 ['type' => 'Label', 'caption' => '• 🪟 Neu: Formular-Aufbau selbst wählen. Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist, und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so sieht das Formular jedes Mal so aus, wie du es brauchst. Ausgeblendete Bereiche behalten ihre Einstellungen und arbeiten weiter. Kein Haken heißt „Standard“; „Auf Standard zurücksetzen“ stellt alles zurück. Wirkt nach „Übernehmen“ beim nächsten Öffnen.'],
                 ['type' => 'Label', 'caption' => '• 🗄️ Archiv-Verdichtung: Neue Instanzen starten mit „aus", damit du bewusst zustimmst. Bestehende Instanzen behalten ihre Einstellung (an) unverändert. Das Archiv wird nur noch beim Ausschalten (von an auf aus) zurückgesetzt, nicht mehr bei jedem „Übernehmen" eines ausgeschalteten Schalters.'],
@@ -8093,6 +8095,7 @@ class MeterHub extends IPSModule
                 @IPS_SetIcon($vid, $d[6]);
             }
         }
+        $this->WriteAttributeBoolean('OwnCustomProfileCleared', true);
         $this->RemoveLegacyCategories();
         $this->CommitCompactionState();
     }
@@ -8232,8 +8235,10 @@ class MeterHub extends IPSModule
         // Frühere Versionen haben ein eigenes Profil (NRG.*, MHB.*) als benutzerdefiniertes Profil gesetzt. Das gehört
         // jetzt der Standarddarstellung: ein solches EIGENES Profil wird einmalig entfernt, sonst würde es die Anzeige
         // dauerhaft überdecken (z. B. kWh nach dem Umschalten auf Wh). Ein vom Nutzer gewähltes fremdes Profil bleibt.
+        // Nur EINMAL je Instanz (Merker OwnCustomProfileCleared, gesetzt am Ende von RegisterVariables()): trägt der Nutzer
+        // später selbst wieder ein Profil ein, bleibt es unangetastet.
         $customProfile = (string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? '');
-        if ($customProfile !== '' && preg_match('/^(NRG|MHB|MHBV)\./', $customProfile) === 1) {
+        if (!$this->ReadAttributeBoolean('OwnCustomProfileCleared') && $customProfile !== '' && preg_match('/^(NRG|MHB|MHBV)\./', $customProfile) === 1) {
             IPS_SetVariableCustomProfile($vid, '');
         }
 

@@ -96,6 +96,8 @@ class MeterHubVirtual extends IPSModule
         // passendes Icon. "Location" ist reines Freitext-Label ohne Vertrag.
         $this->RegisterPropertyString('Location', '');
         $this->RegisterPropertyString('FormLayout', '[]');   // Formular: Aufbau (SUITE.md 3a)
+        // Merker: das EIGENE alte benutzerdefinierte Profil wird genau einmal geleert (Checkliste 28, EMS-Ausnahmeregel 09.11.2026)
+        $this->RegisterAttributeBoolean('OwnCustomProfileCleared', false);
         $this->RegisterPropertyInteger('Interval', 10);
         // Archiv-Verdichtung, konfigurierbar statt fest im Code (Dietmars
         // Einwand 31.08.2026: "ich bin nicht der einzigste Nutzer, andere
@@ -387,7 +389,7 @@ class MeterHubVirtual extends IPSModule
             'caption' => '🆕  Neu in dieser Version',
             'items' => [
                 ['type' => 'Label', 'caption' => '• 📈 Wichtig: MeterHubVirtual schaltet die Archivierung (Logging) nicht mehr von selbst ein. Sind die Ausgaben (Leistung, Bezug, Einspeisung, hochgerechnete Energie) nicht archiviert, erscheint oben im Formular ein Hinweis mit dem Knopf „Archivierung für diese Variablen einschalten“. Bereits laufende Archivierung bleibt, wie sie ist, und wird nie abgeschaltet. Neue Instanzen archivieren erst nach deinem Klick; die Archiv-Verdichtung wirkt nur bei archivierten Variablen.'],
-                ['type' => 'Label', 'caption' => '• 🎛️ Anzeige: Das Profil kommt jetzt als Standarddarstellung der Ausgabe, nicht mehr als benutzerdefiniertes Profil — das gehört dir. Ein früher von MeterHubVirtual gesetztes eigenes Profil (NRG.*, MHB.*, MHBV.*) entfernt das Modul einmal, die Standarddarstellung zeigt dasselbe. Ein von dir gewähltes anderes Profil bleibt.'],
+                ['type' => 'Label', 'caption' => '• 🎛️ Anzeige: Das Profil kommt jetzt als Standarddarstellung der Ausgabe, nicht mehr als benutzerdefiniertes Profil — das gehört dir. Ein früher von MeterHubVirtual gesetztes eigenes Profil (NRG.*, MHB.*, MHBV.*) entfernt das Modul genau einmal je Instanz (Merker), die Standarddarstellung zeigt dasselbe; trägst du später selbst wieder eines ein, bleibt es. Ein von dir gewähltes anderes Profil bleibt.'],
                 ['type' => 'Label', 'caption' => '• 🪟 Neu: Formular-Aufbau selbst wählen. Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist, und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so sieht das Formular jedes Mal so aus, wie du es brauchst. Ausgeblendete Bereiche behalten ihre Einstellungen und arbeiten weiter. Kein Haken heißt „Standard“; „Auf Standard zurücksetzen“ stellt alles zurück. Wirkt nach „Übernehmen“ beim nächsten Öffnen.'],
                 ['type' => 'Label', 'caption' => '• 📈 Bezug und Einspeisung laufen jetzt nahtlos weiter, wenn sich die Zusammensetzung ändert (Mitglied hinzu oder weg, Dublette umgestellt, „aktiv" geändert). Vorher sprang der Summen-Zählerstand um den Unterschied der Mitglieder — im Archiv und in Tagesbalken wirkte das wie ein Riesenverbrauch oder ein Zähler-Reset.'],
                 ['type' => 'Label', 'caption' => '• 👯 Doppelte Anbindung erkannt: Ist dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub UND über OCPPHub), zählt bis zu deiner Wahl nur die erste Anbindung, und „Prüfung & Vorschau" nennt beide samt Grund (gleiche Seriennummer, IP-Adresse oder fast gleiche Zählerstände). Festgelegt wird die überzählige im Modul der Anbindung selbst (z. B. ChargerHub, OCPPHub) — dann zählt sie überall nicht mehr mit. Die neue Spalte „aktiv" nimmt ein Mitglied nur aus dieser Summe.'],
@@ -2187,6 +2189,7 @@ class MeterHubVirtual extends IPSModule
                 }
             }
         }
+        $this->WriteAttributeBoolean('OwnCustomProfileCleared', true);
         $this->CommitCompactionState();
     }
 
@@ -2239,8 +2242,10 @@ class MeterHubVirtual extends IPSModule
      */
     private function DropOwnCustomProfile(int $vid): void
     {
+        // Nur EINMAL je Instanz (Merker OwnCustomProfileCleared, gesetzt am Ende von RegisterVariables()): trägt der Nutzer
+        // später selbst wieder ein Profil ein, bleibt es unangetastet.
         $custom = (string)(@IPS_GetVariable($vid)['VariableCustomProfile'] ?? '');
-        if ($custom !== '' && preg_match('/^(NRG|MHB|MHBV)\./', $custom) === 1) {
+        if (!$this->ReadAttributeBoolean('OwnCustomProfileCleared') && $custom !== '' && preg_match('/^(NRG|MHB|MHBV)\./', $custom) === 1) {
             IPS_SetVariableCustomProfile($vid, '');
         }
     }
