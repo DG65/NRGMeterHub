@@ -230,7 +230,7 @@ check('8b: Brücke ohne Gateway (ℹ️ statt einer erfundenen Zahl)', str_start
 $l = $uLine($bridge);
 check('8c: Gateway liefert Unit-ID (🔗): Wert, Gateway mit ID und Name, Quelle', str_starts_with($l, '🔗') && str_contains($l, 'Unit-ID: 41') && str_contains($l, '#' . $gw . ' „ModBus Gateway BCR PV Zähler"') && str_contains($l, 'DeviceID'), $l);
 $src = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
-check('8d: das Eingabefeld „Unit ID" ist im Gateway-Weg ausgeblendet, die 🔗-Zeile nur dort sichtbar', str_contains($src, "'name' => 'UnitId', 'visible' => !\$isCloud && \$connectionMode !== 'gateway'") && str_contains($src, "'name' => 'UnitIdAutoLine', 'visible' => !\$isCloud && \$connectionMode === 'gateway'"));
+check('8d: das Eingabefeld „Unit ID" ist im Gateway-Weg ausgeblendet, die 🔗-Zeile nur dort sichtbar', str_contains($src, "'name' => 'UnitId', 'visible' => !\$isCloud && !\$isHttp && \$connectionMode !== 'gateway'") && str_contains($src, "'name' => 'UnitIdAutoLine', 'visible' => !\$isCloud && \$connectionMode === 'gateway'"));
 check('8e: der automatische Wert wird NIE per UpdateFormField in das Eingabefeld geschrieben', !preg_match("/UpdateFormField\\('UnitId',\\s*'value'/", $src));
 $GLOBALS['FORMFIELDS'] = [];
 $mh->OnChangeBridge($bridge);

@@ -1820,3 +1820,14 @@ bilden bewusst den Altbestand nach.
 - Aliase in `module.json` bleiben genau EIN deutscher Eintrag je Modul (Test 6e: jeder Alias wäre ein eigener Eintrag im
   Anlege-Dialog).
 
+## Tasmota (HTTP), experimentell (0.36.0, 14.11.2026)
+
+Erster Zählertyp ohne Modbus und ohne Cloud: `MHUB_TasmotaClient` (ein `curl`-GET auf `/cm?cmnd=Status 8`, liest `StatusSNS`)
+und `MHUB_TasmotaDriver`. Auslöser Forum-Anfrage (Dirk: Nous A1T/A8T, IR-Lesekopf); **Shelly bekommt bewusst keinen HTTP-Weg**
+(Dietmar: Shelly hat Modbus, das gibt es schon). Transportwahl in `GetTransport()` über `HTTP_METERS`; Host/`HttpPort`
+statt Modbus-Port/Unit-ID (Formular blendet beides aus, `ConnectionMode` ist fest „direkt“). Der Treiber erreicht Einstellungen
+nur über `MeterHub::HttpSetting()` (Whitelist). **Formate stammen aus der Tasmota-Dokumentation, nicht von echten Geräten** —
+daher „experimentell“ im Dropdown und in der README; Web-Passwort (liefert keine `StatusSNS`) bewusst nicht in v1. Käme es später,
+gilt: Attribut mit eigenem Eingabefeld und Knopf, nie Property. Nicht erneut anbieten: Shelly-HTTP. Offen als Idee (Dietmar): MQTT
+für Shelly/Tasmota — wäre ein eigenes, push-basiertes Modul mit MQTT-Parent, nicht Teil von MeterHub. Prüfstand
+`.tools/test-tasmota.php` (echter `php -S`-Server, Fake-Hub).

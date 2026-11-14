@@ -2583,6 +2583,271 @@ class MHUB_InexogyDriver implements MHUB_MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// MHUB_TasmotaClient / MHUB_TasmotaDriver — Tasmota-Geräte über die lokale HTTP-Schnittstelle (0.36.0).
+//
+// Dritte Transportart neben Modbus und Cloud: Tasmota (ESP8266/ESP32-Firmware) meldet seine Sensoren
+// auf Anfrage als JSON, ein Abruf je Takt genügt (`/cm?cmnd=Status 8` → `StatusSNS`). Nur lesend:
+// es wird nie ein Schalt- oder Konfigurationsbefehl gesendet. Zielgeräte: Zähler mit eingebauter
+// Energiemessung (z. B. Nous A1T, Steckdosen mit `ENERGY`-Block) und IR-Lesekopf an einem Stromzähler
+// (SML-Skript, Sensorname und Feldnamen stehen im Skript des Nutzers und sind deshalb einstellbar).
+//
+// EXPERIMENTELL: Das Format stammt aus der Tasmota-Dokumentation, nicht aus Messungen an echten
+// Geräten (Registerkarten: erst messen, dann glauben). Die Prüfungen laufen gegen nachgebaute
+// Antworten (`.tools/test-tasmota.php`). Web-Passwort des Geräts wird in dieser Version nicht unterstützt.
+// ---------------------------------------------------------------------------
+
+class MHUB_TasmotaClient
+{
+    private $host;
+    private $port;
+    private $timeout;
+    private $lastError = '';
+
+    public function __construct(string $host, int $port = 80, float $timeout = 4.0)
+    {
+        $this->host    = trim($host);
+        $this->port    = $port > 0 ? $port : 80;
+        $this->timeout = $timeout;
+    }
+
+    public function getLastError(): string
+    {
+        return $this->lastError;
+    }
+
+    /** Vom Treiber gesetzte Fehlermeldung (z. B. kein Energiesensor in der Antwort). */
+    public function setError(string $text): void
+    {
+        $this->lastError = $text;
+    }
+
+    /**
+     * Sensordaten des Geräts (`StatusSNS`) oder null. Genau ein HTTP-Aufruf; Tasmota-Geräte sind schwach
+     * und vertragen keine parallelen oder schnell aufeinanderfolgenden Anfragen.
+     */
+    public function getSensors(): ?array
+    {
+        $this->lastError = '';
+        if ($this->host === '' || !preg_match('/^[A-Za-z0-9._-]+$/', $this->host)) {
+            $this->lastError = MHUB_Text::t('Invalid host name or IP address.');
+            return null;
+        }
+        $url = 'http://' . $this->host . ($this->port !== 80 ? ':' . $this->port : '') . '/cm?cmnd=' . rawurlencode('Status 8');
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, max(1, (int)ceil($this->timeout / 2)));
+        curl_setopt($ch, CURLOPT_TIMEOUT, max(1, (int)ceil($this->timeout)));
+        $body = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
+        if ($err !== '') {
+            $this->lastError = MHUB_Text::t('Network error: %s', $err);
+            return null;
+        }
+        if ($code !== 200) {
+            $this->lastError = MHUB_Text::t('The device answered with HTTP status %d.', $code);
+            return null;
+        }
+        $json = json_decode((string)$body, true);
+        if (!is_array($json)) {
+            $this->lastError = MHUB_Text::t('The response is not valid JSON — is this a Tasmota device?');
+            return null;
+        }
+        if (!isset($json['StatusSNS']) || !is_array($json['StatusSNS'])) {
+            $this->lastError = MHUB_Text::t('No sensor data in the response — is a web password set on the device? (not supported yet)');
+            return null;
+        }
+        return $json['StatusSNS'];
+    }
+}
+
+class MHUB_TasmotaDriver implements MHUB_MeterDriverInterface
+{
+    // Feldnamen, die automatisch erkannt werden (Groß-/Kleinschreibung egal). Tasmota ENERGY: Power, Total,
+    // ExportActive; SML-Skripte benennen die Felder frei — übliche Namen sind Total_in/Total_out/Power_curr.
+    private const POWER_FIELDS  = ['Power', 'Power_curr', 'PowerCurr', 'Power_in'];
+    private const IMPORT_FIELDS = ['Total', 'Total_in', 'TotalIn', 'ImportActive'];
+    private const EXPORT_FIELDS = ['ExportActive', 'Export', 'Total_out', 'TotalOut'];
+
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Total active power',  'F', 'NRG.Watt', true,  'total',  'Tasmota ENERGY.Power / SML power field (W)'],
+            ['energy_import', 'Active energy import', 'F', 'NRG.kWh', true,  'energy', 'Tasmota ENERGY.Total / SML Total_in'],
+            ['energy_export', 'Active energy export', 'F', 'NRG.kWh', true,  'energy', 'Tasmota ENERGY.ExportActive / SML Total_out'],
+            ['connected',     'Connection',           'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupElectrical' => ['caption' => 'Voltage and current (average)', 'vars' => [
+                ['voltage_avg', 'Average voltage', 'F', 'NRG.Volt',   false, 'total', 'Tasmota ENERGY.Voltage'],
+                ['current_avg', 'Average current', 'F', 'NRG.Ampere', false, 'total', 'Tasmota ENERGY.Current'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'Tasmota ENERGY.Power[0]'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'Tasmota ENERGY.Power[1]'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'Tasmota ENERGY.Power[2]'],
+            ]],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase', 'vars' => [
+                ['u_l1_n', 'Voltage L1', 'F', 'NRG.Volt', false, 'voltage', 'Tasmota ENERGY.Voltage[0]'],
+                ['u_l2_n', 'Voltage L2', 'F', 'NRG.Volt', false, 'voltage', 'Tasmota ENERGY.Voltage[1]'],
+                ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'Tasmota ENERGY.Voltage[2]'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase', 'vars' => [
+                ['i_l1', 'Current L1', 'F', 'NRG.Ampere', false, 'current', 'Tasmota ENERGY.Current[0]'],
+                ['i_l2', 'Current L2', 'F', 'NRG.Ampere', false, 'current', 'Tasmota ENERGY.Current[1]'],
+                ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'Tasmota ENERGY.Current[2]'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    /** Sensorobjekt aus StatusSNS: ausdrücklich genannt, sonst ENERGY, sonst das erste Objekt mit bekannten Energiefeldern. */
+    public static function findSensor(array $sns, string $wanted): ?array
+    {
+        if ($wanted !== '') {
+            foreach ($sns as $k => $v) {
+                if (is_array($v) && strcasecmp((string)$k, $wanted) === 0) {
+                    return $v;
+                }
+            }
+            return null;
+        }
+        if (isset($sns['ENERGY']) && is_array($sns['ENERGY'])) {
+            return $sns['ENERGY'];
+        }
+        $known = array_merge(self::POWER_FIELDS, self::IMPORT_FIELDS, self::EXPORT_FIELDS);
+        foreach ($sns as $v) {
+            if (is_array($v) && self::field($v, $known) !== null) {
+                return $v;
+            }
+        }
+        return null;
+    }
+
+    /** Wert eines Feldes (erster Treffer der Namensliste, ohne Beachtung der Schreibweise); Zahl, Zahlenliste oder null. */
+    public static function field(array $obj, array $names)
+    {
+        foreach ($names as $name) {
+            foreach ($obj as $k => $v) {
+                if (strcasecmp((string)$k, $name) !== 0) {
+                    continue;
+                }
+                if (is_numeric($v)) {
+                    return (float)$v;
+                }
+                if (is_array($v) && $v && count(array_filter($v, 'is_numeric')) === count($v)) {
+                    return array_map('floatval', array_values($v));
+                }
+            }
+        }
+        return null;
+    }
+
+    private function names(array $defaults, string $override): array
+    {
+        return $override !== '' ? [$override] : $defaults;
+    }
+
+    private function sensor($client, $hub): ?array
+    {
+        $sns = $client->getSensors();
+        if ($sns === null) {
+            return null;
+        }
+        $obj = self::findSensor($sns, trim((string)$hub->HttpSetting('TasmotaSensor')));
+        if ($obj === null) {
+            $client->setError(MHUB_Text::t('No energy sensor found in the response — enter the sensor name from your Tasmota script.'));
+        }
+        return $obj;
+    }
+
+    public function readFast($client, $hub)
+    {
+        $obj = $this->sensor($client, $hub);
+        if ($obj === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+
+        $p = self::field($obj, $this->names(self::POWER_FIELDS, trim((string)$hub->HttpSetting('TasmotaFieldPower'))));
+        if (is_array($p)) {            // mehrphasig: Liste je Phase → Summe, Einzelwerte in der Phasengruppe
+            if ($hub->GroupActive('GroupPowerPhase')) {
+                foreach (['p_l1', 'p_l2', 'p_l3'] as $i => $id) {
+                    if (isset($p[$i])) { $hub->SetVarFloat($id, $p[$i]); }
+                }
+            }
+            $p = array_sum($p);
+        }
+        if ($p !== null) {
+            $hub->SetVarFloat('power_total', $p);
+        }
+        $this->phaseValues($obj, 'Voltage', ['u_l1_n', 'u_l2_n', 'u_l3_n'], 'voltage_avg', 'GroupVoltagePhase', $hub);
+        $this->phaseValues($obj, 'Current', ['i_l1', 'i_l2', 'i_l3'], 'current_avg', 'GroupCurrentPhase', $hub);
+        return true;
+    }
+
+    /** Spannung/Strom: Einzelwert oder Liste je Phase; Mittelwert in die Gruppe „Spannung und Strom“, Einzelwerte in die Phasengruppe. */
+    private function phaseValues(array $obj, string $field, array $phaseIds, string $avgId, string $phaseGroup, $hub): void
+    {
+        $v = self::field($obj, [$field]);
+        if ($v === null) {
+            return;
+        }
+        if (is_array($v)) {
+            if ($hub->GroupActive($phaseGroup)) {
+                foreach ($phaseIds as $i => $id) {
+                    if (isset($v[$i])) { $hub->SetVarFloat($id, $v[$i]); }
+                }
+            }
+            $v = array_sum($v) / count($v);
+        }
+        if ($hub->GroupActive('GroupElectrical')) {
+            $hub->SetVarFloat($avgId, $v);
+        }
+    }
+
+    public function readSlow($client, $hub)
+    {
+        $obj = $this->sensor($client, $hub);
+        if ($obj === null) {
+            return;
+        }
+        // Der ENERGY-Block meldet immer kWh; bei SML-Skripten hängt die Einheit vom Skript ab (Einstellung).
+        $unitWh = strtolower((string)$hub->HttpSetting('TasmotaEnergyUnit')) === 'wh' && !self::isEnergyBlock($obj);
+        foreach ([['energy_import', self::IMPORT_FIELDS, 'TasmotaFieldImport'], ['energy_export', self::EXPORT_FIELDS, 'TasmotaFieldExport']] as [$ident, $defaults, $setting]) {
+            $v = self::field($obj, $this->names($defaults, trim((string)$hub->HttpSetting($setting))));
+            if (is_array($v)) {
+                $v = array_sum($v);
+            }
+            if ($v === null) {
+                continue;
+            }
+            $hub->SetVarEnergykWh($ident, $unitWh ? $v / 1000.0 : $v);
+        }
+    }
+
+    /** Ist das Sensorobjekt der Standard-ENERGY-Block (erkennbar an TotalStartTime/Today/Yesterday)? Dann ist die Einheit sicher kWh. */
+    private static function isEnergyBlock(array $obj): bool
+    {
+        foreach (['TotalStartTime', 'Today', 'Yesterday'] as $k) {
+            foreach ($obj as $key => $_) {
+                if (strcasecmp((string)$key, $k) === 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MHUB_BlueLogScadaInverterDriver — Meteocontrol blue'Log, SCADA-Schnittstelle
 // (Lizenz 557.009), Wechselrichter-Registerblock.
 //
@@ -3139,6 +3404,7 @@ class MeterHub extends IPSModule
         'mbs_professional' => 'MHUB_MbsProfessionalDriver',
         'shelly_pro3em'    => 'MHUB_ShellyPro3emDriver',
         'goe_controller'   => 'MHUB_GoeControllerDriver',
+        'tasmota'          => 'MHUB_TasmotaDriver',
         'inexogy'          => 'MHUB_InexogyDriver',
         'bluelog_scada_inverter' => 'MHUB_BlueLogScadaInverterDriver',
         'bluelog_scada_meter'    => 'MHUB_BlueLogScadaMeterDriver',
@@ -3170,6 +3436,7 @@ class MeterHub extends IPSModule
         'mbs_professional' => 'MBS Professional 3-75',
         'shelly_pro3em'    => 'Shelly Pro 3EM',
         'goe_controller'   => 'go-e Controller',
+        'tasmota'          => 'Tasmota (HTTP, experimental)',
         'inexogy'          => 'Inexogy / Discovergy (Cloud)',
         'bluelog_scada_inverter' => 'Meteocontrol blue\'Log SCADA – inverter',
         'bluelog_scada_meter'    => 'Meteocontrol blue\'Log SCADA – meter',
@@ -3293,6 +3560,13 @@ class MeterHub extends IPSModule
         // zwar über die Brücken-Instanz MeterHubBridge (BridgeInstanceID) —
         // siehe MHUB_ModbusGatewayClient.
         $this->RegisterPropertyString('ConnectionMode', 'direct');
+        // Tasmota (lokale HTTP-Schnittstelle, 0.36.0): Port und die Zuordnung der Sensorfelder (leer = automatisch erkennen)
+        $this->RegisterPropertyInteger('HttpPort', 80);
+        $this->RegisterPropertyString('TasmotaSensor', '');
+        $this->RegisterPropertyString('TasmotaFieldPower', '');
+        $this->RegisterPropertyString('TasmotaFieldImport', '');
+        $this->RegisterPropertyString('TasmotaFieldExport', '');
+        $this->RegisterPropertyString('TasmotaEnergyUnit', 'kwh');
         $this->RegisterPropertyInteger('BridgeInstanceID', 0);
         $this->RegisterPropertyInteger('GatewayPick', 0); // nur Formular-Eingabe für CreateBridge()
 
@@ -3447,8 +3721,8 @@ class MeterHub extends IPSModule
     }
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
-    private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230'];
-    private const NEWS_VERSION = '0.35.0';
+    private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230', 'tasmota'];
+    private const NEWS_VERSION = '0.36.0';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3493,6 +3767,7 @@ class MeterHub extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  New in this version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🧪 New (experimental): Tasmota meters. MeterHub reads Tasmota devices (e.g. Nous A1T, or an IR reading head with an SML script) over the local HTTP interface — reading only, one request per interval. The format comes from the Tasmota documentation and is not yet tested on real devices: please compare the values with the device display and report differences.'],
                 ['type' => 'Label', 'caption' => '• 🌐 New: MeterHub is now available in German and English. Texts follow the Symcon language setting: the form is translated by the console, messages are shown in the set language, and variable names are set in the language that is active when you click "Apply". Identifiers, properties and functions are unchanged — nothing is lost on existing instances.'],
                 ['type' => 'Label', 'caption' => '• 📈 Important: MeterHub no longer switches archiving (logging) on by itself. Archiving and history are yours. If variables are not archived, a notice with a button "Enable archiving for these variables" appears at the top of the form. Archiving that is already running stays as it is and is never switched off. New instances only archive after you click; archive compaction and the Inexogy backfill only work on archived variables.'],
                 ['type' => 'Label', 'caption' => '• 🎛️ Display: the profile (unit, decimal places) now comes as the variable\'s default presentation, no longer as a custom profile — that belongs to you. A custom profile of its own (NRG.*, MHB.*) that MeterHub set earlier is removed by MeterHub exactly once per instance (marker); the default presentation shows the same thing, and if you enter one yourself later, it stays. A different profile you chose stays as well. "Energy in Wh" switches the default profile.'],
@@ -3708,11 +3983,14 @@ class MeterHub extends IPSModule
         // gewählten Brücke. Ob die Brücke selbst mit einem Gateway verbunden ist,
         // ändert sich unabhängig von dieser Instanz — dann scheitert der
         // Lesezyklus mit Status 201 und erklärendem Text, die Timer laufen.
+        $isHttp  = in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true);
         $ready   = $isCloud
             ? ($this->ReadAttributeString('InexogyToken') !== '' && $this->ReadPropertyString('InexogyMeterID') !== '')
-            : ($this->ReadPropertyString('ConnectionMode') === 'gateway'
-                ? $this->ReadPropertyInteger('BridgeInstanceID') > 0
-                : $this->ReadPropertyString('Host') !== '');
+            : ($isHttp
+                ? $this->ReadPropertyString('Host') !== ''
+                : ($this->ReadPropertyString('ConnectionMode') === 'gateway'
+                    ? $this->ReadPropertyInteger('BridgeInstanceID') > 0
+                    : $this->ReadPropertyString('Host') !== ''));
         if (!$this->ReadPropertyBoolean('Active') || !$ready) {
             // Ausfallverhalten "Default-Sollwert": beim Deaktivieren (nicht
             // beim erstmaligen Anlegen ohne Host — dort gibt es nichts zu
@@ -3959,6 +4237,9 @@ class MeterHub extends IPSModule
         if ($ok) {
             return MHUB_Text::t('✅ Connection successful, values updated (%s).', date('H:i:s'));
         }
+        if (in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true) && method_exists($mb, 'getLastError')) {
+            return MHUB_Text::t('❌ Connection failed — %s', $mb->getLastError());
+        }
         return $this->ReadPropertyString('ConnectionMode') === 'gateway'
             ? MHUB_Text::t('❌ Connection failed — %s', $this->BridgeErrorText())
             : MHUB_Text::t('❌ Connection failed — check host/port/unit ID/meter type.');
@@ -4171,7 +4452,8 @@ The function is still set to "none" there — deliberately, because otherwise th
         }
         $driver = $this->GetDriver();
         $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
-        $connectionMode = $this->ReadPropertyString('ConnectionMode');
+        $isHttp  = in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true);
+        $connectionMode = $isHttp ? 'direct' : $this->ReadPropertyString('ConnectionMode');   // HTTP-Geräte kennen den Symbox-Weg nicht
 
         // Vorschlagsliste für "Standort": geteilter Pool über MeterHub UND
         // MeterHubVirtual (Dietmars Auftrag 01.09.2026) — siehe
@@ -4272,7 +4554,7 @@ The function is still set to "none" there — deliberately, because otherwise th
             [
                 'type'     => 'Select',
                 'name'     => 'ConnectionMode',
-                'visible'  => !$isCloud,
+                'visible'  => !$isCloud && !$isHttp,
                 'caption'  => 'Connection path',
                 'options'  => [
                     ['caption' => 'Direct (own connection)', 'value' => 'direct'],
@@ -4287,9 +4569,19 @@ The function is still set to "none" there — deliberately, because otherwise th
             ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'NRG-Stack bridge to the ModBus gateway', 'moduleID' => self::BRIDGE_GUID, 'onChange' => 'MHUB_OnChangeBridge($id, $BridgeInstanceID);'],
             ['type' => 'Label', 'name' => 'BridgeStatusLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->BridgeStatusLine($this->ReadPropertyInteger('BridgeInstanceID'))],
             ['type' => 'Label', 'name' => 'UnitIdAutoLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID')), 'color' => self::AutoLineColor($this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID')))],
-            ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP address', 'validate' => ($isCloud || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-            ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'TCP port', 'minimum' => 1, 'maximum' => 65535],
-            ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
+            ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP address', 'validate' => ($isCloud || $isHttp || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+            ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && !$isHttp && $connectionMode !== 'gateway', 'caption' => 'TCP port', 'minimum' => 1, 'maximum' => 65535],
+            ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && !$isHttp && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
+            ['type' => 'NumberSpinner', 'name' => 'HttpPort', 'visible' => $isHttp, 'caption' => 'HTTP port', 'minimum' => 1, 'maximum' => 65535],
+            ['type' => 'Label', 'name' => 'TasmotaHint', 'visible' => $isHttp, 'caption' => '🧪 Tasmota (experimental): MeterHub only reads — it asks the device once per interval for its sensor data (Tasmota command "Status 8") and never switches or changes anything. A web password on the device is not supported yet. The sensor name and field names below are only needed if automatic detection finds nothing (typical for an IR reading head: the names come from your own SML script).'],
+            ['type' => 'ValidationTextBox', 'name' => 'TasmotaSensor', 'visible' => $isHttp, 'caption' => 'Sensor name (empty = ENERGY or the first sensor with energy fields)'],
+            ['type' => 'ValidationTextBox', 'name' => 'TasmotaFieldPower', 'visible' => $isHttp, 'caption' => 'Field for the active power in W (empty = automatic)'],
+            ['type' => 'ValidationTextBox', 'name' => 'TasmotaFieldImport', 'visible' => $isHttp, 'caption' => 'Field for the energy import (empty = automatic)'],
+            ['type' => 'ValidationTextBox', 'name' => 'TasmotaFieldExport', 'visible' => $isHttp, 'caption' => 'Field for the energy export (empty = automatic)'],
+            ['type' => 'Select', 'name' => 'TasmotaEnergyUnit', 'visible' => $isHttp, 'caption' => 'Unit of the energy fields (the standard ENERGY block is always kWh)', 'options' => [
+                ['caption' => 'kWh', 'value' => 'kwh'],
+                ['caption' => 'Wh', 'value' => 'wh'],
+            ]],
         ];
 
         $groupItems = [];
@@ -4398,6 +4690,7 @@ The function is still set to "none" there — deliberately, because otherwise th
                         ['type' => 'Label', 'caption' => '🔌 Eastron SDM120/SDM220/SDM230 (single-phase): confirmed on real hardware by a tester. Pure RS485 devices (Modbus address 1 by factory default) — via the connection path "Symbox gateway" or an RTU/TCP gateway. No total registers as on the SDM630: the active power is at register 12.'],
                         ['type' => 'Label', 'caption' => '🧪 Experimental: Socomec Countis and MBS Professional 3-75 are derived from templates and not yet tested on real hardware — please compare the measured values with the device display. If values look implausible, the WordSwap or invert switch helps.'],
                         ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP must be enabled on the device first (Settings → Modbus, port 502). Read via FC 0x04, float word-swapped (CDAB); wire addresses = documentation − 30000 (measurements from 1011, energy 1162/1164). Verified on a real device.'],
+                        ['type' => 'Label', 'caption' => '🧪 Tasmota (HTTP, experimental): for meters and plugs with Tasmota firmware (e.g. Nous A1T) and for an IR reading head on a meter (SML script). MeterHub asks the device over the local network and only reads. Enter the device\'s IP address; the sensor is detected automatically (standard block ENERGY) — for an IR reading head enter the sensor and field names from your script. A web password on the device is not supported yet. Shelly meters are not read this way: they have Modbus (Shelly Pro 3EM) and are available as their own meter type.'],
                         ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP must be enabled on the device first (go-e app: Internet → Advanced settings → Modbus, or HTTP API men=true) — otherwise port 502 stays closed; after enabling, switch the setting off and on once if necessary. Core values come from the Grid category; sensors 1-6 and the categories Home/Car/Relays/Solar/Battery can be enabled. Verified on a real device. (The go-e wallboxes themselves are handled by the ChargerHub module.)'],
                         ['type' => 'Label', 'caption' => '⚠️ go-e Controller + surplus charging: the controller can regulate the go-e wallboxes BY ITSELF (PV surplus charging, load limiting — an on-device control loop). If an EMS is to control the wallboxes instead, this internal control must be disabled on the wallboxes — otherwise two controllers work against each other. This module only reads and is not affected; the control state is not visible via Modbus, only on the wallboxes themselves (go-e API: usePvSurplus, load management, modelStatus).'],
                         ['type' => 'Label', 'caption' => '🆕 Meteocontrol blue\'Log SCADA: a blue\'Log can offer EVERY connected device (inverter, meter …) under its own "SCADA address" — this address is the unit ID below, NOT 1. The assignment is on the blue\'Log itself (device list → column "SCADA address"); address 97 is the blue\'Log itself (total values). FC 0x03, float word-swapped (CDAB) — verified on a real solar park.'],
@@ -4457,6 +4750,7 @@ The function is still set to "none" there — deliberately, because otherwise th
                         ['caption' => 'MBS Professional 3-75 (experimental)', 'value' => 'mbs_professional'],
                         ['caption' => 'Shelly Pro 3EM', 'value' => 'shelly_pro3em'],
                         ['caption' => 'go-e Controller', 'value' => 'goe_controller'],
+                        ['caption' => 'Tasmota (HTTP, experimental)', 'value' => 'tasmota'],
                         ['caption' => 'Inexogy / Discovergy (cloud API, no Modbus)', 'value' => 'inexogy'],
                         ['caption' => 'Meteocontrol blue\'Log SCADA – inverter (SCADA address = unit ID)', 'value' => 'bluelog_scada_inverter'],
                         ['caption' => 'Meteocontrol blue\'Log SCADA – meter (SCADA address = unit ID)', 'value' => 'bluelog_scada_meter'],
@@ -4809,14 +5103,18 @@ The function is still set to "none" there — deliberately, because otherwise th
             $this->UpdateFormField('InexogyBackfillResult', 'visible', false);
             $this->UpdateFormField('InexogyArchiveStatus', 'visible', false);
         }
-        $isGateway = $this->ReadPropertyString('ConnectionMode') === 'gateway';
+        $isHttp = in_array($meter, self::HTTP_METERS, true);
+        $isGateway = !$isHttp && $this->ReadPropertyString('ConnectionMode') === 'gateway';
+        foreach (['HttpPort', 'TasmotaHint', 'TasmotaSensor', 'TasmotaFieldPower', 'TasmotaFieldImport', 'TasmotaFieldExport', 'TasmotaEnergyUnit'] as $f) {
+            $this->UpdateFormField($f, 'visible', $isHttp);
+        }
         $this->UpdateFormField('Host', 'visible', !$isCloud && !$isGateway);
         // Nicht nur ausblenden, auch die Pflicht-Regex entschärfen — falls
         // sie an einem unsichtbaren Feld trotzdem noch griffe.
-        $this->UpdateFormField('Host', 'validate', ($isCloud || $isGateway) ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
-        $this->UpdateFormField('Port', 'visible', !$isCloud && !$isGateway);
-        $this->UpdateFormField('UnitId', 'visible', !$isCloud && !$isGateway);
-        $this->UpdateFormField('ConnectionMode', 'visible', !$isCloud);
+        $this->UpdateFormField('Host', 'validate', ($isCloud || $isGateway || $isHttp) ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
+        $this->UpdateFormField('Port', 'visible', !$isCloud && !$isHttp && !$isGateway);
+        $this->UpdateFormField('UnitId', 'visible', !$isCloud && !$isHttp && !$isGateway);
+        $this->UpdateFormField('ConnectionMode', 'visible', !$isCloud && !$isHttp);
         $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('BridgeInstanceID', 'visible', !$isCloud && $isGateway);
@@ -5484,7 +5782,21 @@ The function is still set to "none" there — deliberately, because otherwise th
                 $this->ReadAttributeString('InexogyTokenSecret')
             );
         }
+        if (in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true)) {
+            return new MHUB_TasmotaClient($this->ReadPropertyString('Host'), $this->ReadPropertyInteger('HttpPort'));
+        }
         return $this->GetModbusClient();
+    }
+
+    /**
+     * Für den Tasmota-Treiber: Einstellungen der Sensorzuordnung (Treiberklassen erreichen nur öffentliche Methoden).
+     * Nur diese Schlüssel; alles andere liefert einen leeren Text.
+     */
+    public function HttpSetting(string $key): string
+    {
+        return in_array($key, ['TasmotaSensor', 'TasmotaFieldPower', 'TasmotaFieldImport', 'TasmotaFieldExport', 'TasmotaEnergyUnit'], true)
+            ? $this->ReadPropertyString($key)
+            : '';
     }
 
     /** Für den Inexogy-Treiber: die konfigurierte Zähler-UID. */
@@ -6146,6 +6458,8 @@ The function is still set to "none" there — deliberately, because otherwise th
     // Transport (MHUB_InexogyClient statt MHUB_ModbusTcpClient). Modbus-Zähler sind alle
     // 'realtime'.
     private const CLOUD_METERS = ['inexogy'];
+    // Lokale HTTP-Geräte (Tasmota): Host + HTTP-Port statt Modbus-Port/Unit-ID, immer „direkt“ (kein Symbox-Gateway)
+    private const HTTP_METERS = ['tasmota'];
     // Zählertypen mit Sollwert-Schreibzugriff (blue'Log RPC/Power Control) —
     // steuert Formular-Sichtbarkeit des Sollwert-Panels (GetConfigurationForm()/
     // OnChangeMeter()). Ob der TREIBER tatsächlich schreibt, prüft der Code

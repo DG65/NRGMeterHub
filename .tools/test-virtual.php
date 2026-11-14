@@ -3148,5 +3148,39 @@ for ($i = 0; $i < 200; $i++) { $hc->SetVarFloat('power_total', 100.0 + $i); $hc-
 check('63c: 200 Messwert-Schreibvorgänge lösen keine einzige Übersetzung aus', $GLOBALS['TR_COUNT'] === 0, (string)$GLOBALS['TR_COUNT']);
 MHUB_Text::set(function (string $t): string { return i18n_tr($t); });
 
+echo "\n64) Tasmota (HTTP, experimentell, 0.36.0): Formular und Variablen einer Tasmota-Instanz\n";
+function t64_find(array $els, string $name) {
+    foreach ($els as $e) {
+        if (($e['name'] ?? null) === $name) { return $e; }
+        foreach (['items', 'elements'] as $k) { if (isset($e[$k]) && is_array($e[$k])) { $r = t64_find($e[$k], $name); if ($r) { return $r; } } }
+    }
+    return null;
+}
+obj(8640, 1, 'Tasmota 64', 0);
+$ht = new MeterHub(8640); $ht->Create();
+$GLOBALS['PROP'][8640]['Meter'] = 'tasmota';
+$GLOBALS['PROP'][8640]['Host'] = '192.168.1.50';
+$f64 = json_decode(cf($ht), true);
+$els = $f64['elements'];
+check('64a: Tasmota-Instanz: Host und HTTP-Port sichtbar, Unit ID, Modbus-Port und Verbindungsart ausgeblendet',
+    (t64_find($els, 'Host')['visible'] ?? true) !== false && (t64_find($els, 'HttpPort')['visible'] ?? true) !== false
+    && t64_find($els, 'UnitId')['visible'] === false && t64_find($els, 'Port')['visible'] === false && t64_find($els, 'ConnectionMode')['visible'] === false);
+check('64b: Sensor-, Feld- und Einheitsfelder sowie der Hinweis sind im Formular',
+    t64_find($els, 'TasmotaSensor') !== null && t64_find($els, 'TasmotaFieldPower') !== null && t64_find($els, 'TasmotaEnergyUnit') !== null && t64_find($els, 'TasmotaHint') !== null);
+check('64c: Host-Prüfregex ist bei HTTP-Zählern leer (kein IP-Zwang, Hostnamen erlaubt)', (t64_find($els, 'Host')['validate'] ?? 'x') === '');
+check('64d: das Formular enthält kein Passwortfeld für Tasmota', t64_find($els, 'TasmotaPassword') === null);
+$GLOBALS['FORMFIELDS'] = [];
+$ht->OnChangeMeter('siemens_pac2200');
+check('64e: Wechsel von Tasmota auf Modbus-Zähler blendet die HTTP-Felder aus und Unit ID ein',
+    ($GLOBALS['FORMFIELDS']['HttpPort']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['TasmotaSensor']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['UnitId']['visible'] ?? null) === true);
+$GLOBALS['FORMFIELDS'] = [];
+$ht->OnChangeMeter('tasmota');
+check('64f: Wechsel auf Tasmota blendet die HTTP-Felder ein und Unit ID aus',
+    ($GLOBALS['FORMFIELDS']['HttpPort']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['TasmotaSensor']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['UnitId']['visible'] ?? null) === false);
+$rvs64 = new ReflectionMethod('MeterHub', 'RegisterVariables'); $rvs64->setAccessible(true);
+$rvs64->invoke($ht);
+$idents64 = array_map(fn($c) => IPS_GetObject($c)['ObjectIdent'], IPS_GetChildrenIDs(8640));
+check('64g: Variablen einer Tasmota-Instanz: Leistung, Bezug, Einspeisung, Verbindung', !array_diff(['power_total', 'energy_import', 'energy_export', 'connected'], $idents64), implode(',', $idents64));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

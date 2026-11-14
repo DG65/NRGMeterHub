@@ -2,6 +2,22 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.36.0 (2026-11-14)
+
+- **Neu (experimentell): Tasmota-Zähler.** Neuer Zählertyp „Tasmota (HTTP, experimentell)“ für Zähler und Steckdosen mit
+  Tasmota-Firmware (z. B. Nous A1T/A8T) und für einen IR-Lesekopf mit SML-Skript. Anlass: Anfrage im Forum (Dirk).
+  Shelly bekommt keinen HTTP-Weg (Pro 3EM läuft über Modbus).
+  - **Nur lesend, ein Aufruf je Lesevorgang:** `MHUB_TasmotaClient` fragt `/cm?cmnd=Status 8` ab und liest `StatusSNS`;
+    es wird nichts geschaltet oder geschrieben. Host wird auf Buchstaben/Ziffern/`.`/`_`/`-` geprüft.
+  - **Erkennung:** ausdrücklich genannter Sensor, sonst `ENERGY`, sonst das erste Objekt mit bekannten Feldern
+    (`Power`/`Power_curr`, `Total`/`Total_in`, `ExportActive`/`Total_out`, Groß-/Kleinschreibung egal). Listen je Phase
+    (Dreiphasen-`ENERGY`) werden zur Summe und in die Phasengruppen verteilt. Eigene Sensor-/Feldnamen und die Einheit der
+    Energiefelder (Wh/kWh; der Standardblock ist immer kWh) stehen im Formular.
+  - **Grenzen:** Formate stammen aus der Tasmota-Dokumentation, nicht von echten Geräten; Web-Passwort am Gerät wird nicht
+    unterstützt (Hinweis im Verbindungstest und Formular).
+  - Prüfstand `.tools/test-tasmota.php` (echter HTTP-Server mit Beispielantworten: einphasig, dreiphasig, SML, Fehlerfälle).
+- Fix: `curl_close()` in `MHUB_TasmotaClient` entfernt (seit PHP 8.0 wirkungslos, in PHP 8.5 veraltet).
+
 ## 0.35.1 (2026-11-14)
 
 - **Fix: Variablennamen „Wirkleistung L1/L2/L3“, „Wirkleistung“ und „Wirkleistung AC“ blieben in der englischen
