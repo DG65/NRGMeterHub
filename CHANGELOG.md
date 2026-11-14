@@ -2,6 +2,31 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.37.0 (2026-11-14)
+
+- **Neu (experimentell): Shelly über MQTT.** Neuer Zählertyp „Shelly (MQTT, experimentell)“ für Shelly Gen2/Gen3/Pro,
+  die per MQTT an den MQTT-Server von Symcon senden (Auftrag Dietmar 14.11.2026: „Doch, Shelly über MQTT bauen“).
+  Gen1 wird nicht unterstützt (Topic-Formate nur aus Drittquellen bekannt).
+  - **Neues Modul `MeterHubMqttBridge`** (Präfix `MHUBM`, Alias „NRG-Stack MeterHub Brücke (MQTT)“): trägt als Einziges die
+    MQTT-Schnittstellen (`parentRequirements`/`implemented` wie InverterHubMqttBridge, HeishaMon), damit bestehende
+    MeterHub-Instanzen ohne Elternteil bleiben. Sie hört nur zu (nichts wird veröffentlicht), baut ihren Empfangsfilter aus
+    den MQTT-Präfixen der zugeordneten Instanzen (maskierte und unmaskierte Schrägstriche) und führt je Gerät den letzten
+    Stand zusammen: `events/rpc` (`NotifyStatus` nur mit Änderungen, `NotifyFullStatus`), `status/<Komponente>`
+    (ersetzt vollständig) und `online` (Last Will); `null` löscht ein Feld, Listen werden ersetzt. Abfrage über
+    `MHUBM_GetDevice($id, $topic)` (Alter, online, Komponenten).
+  - **Treiber `MHUB_ShellyMqttDriver`:** bevorzugt `em` (Pro 3EM: `total_act_power`, Phasenwerte; Energie aus `emdata`
+    `total_act`/`total_act_ret`), dann `em1` (`act_power`; `em1data`), `pm1` und `switch` (`apower`, `aenergy.total`,
+    `ret_aenergy.total`), Kanal wählbar; Wh → kWh; Vorzeichen + = Bezug. Energie nur, wenn das Gerät sie gesendet hat.
+    Zustand „nicht verbunden“: keine Nachricht seit 15 Minuten, Gerät offline gemeldet oder keine passende Komponente.
+  - **Formular:** Brückenauswahl (gefiltert auf das neue Modul), MQTT-Präfix, Kanal und eine live berechnete Statuszeile
+    (⛔/⚠️/✅ mit Alter der letzten Nachricht, folgt der Eingabe per `onChange`); Host, Port, Unit-ID und Verbindungsweg
+    entfallen. Die Brücke zeigt eine Tabelle der zugeordneten Geräte mit Alter der letzten Nachricht.
+  - **Grenzen:** aus der Shelly-Dokumentation abgeleitet, nicht an einem Gerät gemessen (Nachrichtenfrequenz des
+    Pro 3EM und Energie-Meldungen unbekannt); nur der MQTT-Server von Symcon ist vorgesehen; Payload-Dekodierung
+    (`utf8_decode` ab Kernel 1670886000) wie bei InverterHubMqttBridge aus Referenzmodulen übernommen.
+  - Prüfstand `.tools/test-shelly-mqtt.php` (Zusammenführen, Filter, Fehlerzustände, alle Komponenten) und Block 65 in
+    `test-virtual.php` (Formular).
+
 ## 0.36.0 (2026-11-14)
 
 - **Neu (experimentell): Tasmota-Zähler.** Neuer Zählertyp „Tasmota (HTTP, experimentell)“ für Zähler und Steckdosen mit

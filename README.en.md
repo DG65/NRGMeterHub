@@ -3,7 +3,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Module Version](https://img.shields.io/badge/Modul_Version-0.36.0-blue)
+![Module Version](https://img.shields.io/badge/Modul_Version-0.37.0-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -40,6 +40,7 @@ A heartfelt thank-you to **Sepp Lausch** ([seppm in the Symcon forum](https://co
 | **Phoenix Contact EEM-EM375 / EEM-XM** | Total active power, average U/I, imported energy, optionally U/I/P per phase | **FC 0x04**, Float32. EM375 from reg. 4096 (unit ID often 255), EEM-XM from reg. 32774 (unit ID mostly 1). For the EEM-XM, use the WordSwap switch if necessary. |
 | **Shelly Pro 3EM** | Total active power, average U/I, frequency, energy import/export, optionally U/I/P per phase and **energy meters per phase** | **FC 0x04**, Float32 **word-swapped (CDAB)**; wire addresses = documentation − 30000 (measurements from 1011, total energy 1162/1164, per phase 1182/1184 · 1202/1204 · 1222/1224). Verified on a real device (Gen3). **Enable Modbus TCP on the device** (Settings → Modbus, port 502). |
 | **Tasmota (HTTP, experimental)** | Meters/plugs with Tasmota firmware (e.g. Nous A1T) and IR reading heads with an SML script: active power (sum for several phases), energy import/export, average U/I or per phase | **No Modbus**: one HTTP request (`Status 8`) per interval on the local network, read only. The standard `ENERGY` block is detected automatically; for SML scripts enter sensor and field names. **Derived from the Tasmota documentation, not measured on real devices; a web password on the device is not supported yet.** |
+| **Shelly (MQTT, experimental)** | Shelly Gen2/Gen3/Pro: Pro 3EM, Pro EM, Plus/Pro plugs with power metering (`em`, `em1`, `pm1`, `switch`): active power (sum for three phases), energy import/export, voltage/current, optionally per phase | **Listening, not polling:** the device sends via MQTT to the MQTT server of Symcon, the bridge `MeterHubMqttBridge` merges the change notifications (`events/rpc`). Read only, nothing is published. **Derived from the Shelly documentation, not measured on real devices.** Gen1 is not supported. For the Pro 3EM, Modbus remains the better path (energy meters per phase). |
 | **go-e Controller** | Core values from the **Grid** category (active power, energy import/export), average U/I, optionally U per phase + N, I per phase + N, **current sensors 1–6** (I/P/cos φ) and the categories **Home/Car/Relays/Solar/Battery** (power + energy in/out) | **FC 0x04**, Float32/Float64 big-endian; wire address = documentation − 30001 (voltages from 1000, sensors from 1010, category blocks in a 26-register grid from 1046). No frequency (register not implemented); unassigned registers return NaN instead of an error and are discarded. Verified on a real device. **Enable Modbus TCP on the device** (go-e app: Internet → Advanced settings → Modbus; then switch off and on once if necessary). The go-e **wallboxes** are handled by the sister module ChargerHub. |
 | **Inexogy / Discovergy** (cloud) | Import/feed-in (cumulative, kWh), total power, optionally power and voltage per phase | **No Modbus** — cloud API (`api.inexogy.com`) via **OAuth 1.0a**. E-mail/password once during setup, afterwards only access tokens (no plain-text password). If a token becomes invalid (HTTP 401, possible according to the Inexogy documentation), the form says so clearly; optionally MeterHub then logs in again by itself if the password is kept in a vault (community module "SymconSecrets") — never in MeterHub itself. For the billing-grade smart meter gateway at the grid connection point; mark it as such (checkbox above). Scaling verified against the old module and checked against real meter values; the OAuth handshake is to be confirmed with your own account. |
 | **Meteocontrol blue'Log SCADA – inverter** | Active power AC, total yield (cumulative), grid frequency, device type feedback, optionally U/I per phase (AC) and DC side (P/U/I) | **FC 0x03**, Float32 **word-swapped (CDAB)**, register block from 41000. Reads **one** device behind a blue'Log solar park data logger via its **SCADA address** (= the `UnitId` of this instance — found on the blue'Log itself: device list → column "SCADA address", NOT 1). Byte order and instantaneous value verified live on a real solar park against an independently configured wiring. |
@@ -193,6 +194,27 @@ unchanged (reading and writing) and returns the response base64-encoded. The pat
 reading against the raw code of Symcon's reference module (SymconBC, EM24-DIN), but not yet tried
 on many devices; writing (blue'Log RPC/Power Control) is an untested derivation and does not
 belong on this path.
+
+### MeterHubMqttBridge (bridge to the MQTT server, Shelly)
+
+The meter type **Shelly (MQTT, experimental)** reads Shelly Gen2/Gen3/Pro devices that send their data
+via MQTT. As with the Symbox bridge, only this small module carries the MQTT interface; the MeterHub
+instances stay without a parent.
+
+1. Create the **"MQTT Server"** of Symcon (with its server socket).
+2. On the Shelly (web interface → Settings → MQTT) switch MQTT on, enter the IP address and MQTT port of
+   the Symcon computer and note the **MQTT prefix** (by default the device ID, e.g.
+   `shellypro3em-aabbccddeeff`).
+3. Create a **"NRG-Stack MeterHub bridge (MQTT)"** and connect it to the MQTT server.
+4. In the MeterHub instance choose the meter type "Shelly (MQTT, experimental)", select the bridge and
+   enter the MQTT prefix (for devices with several channels also the channel).
+
+Shelly sends only **changes** in `NotifyStatus`; the bridge merges them per device and MeterHub picks up the
+latest state in its own interval. A device that has sent nothing for more than 15 minutes counts as not
+connected; so does one that reports itself offline via its last will. Some devices send energy counters less
+often than power — until then the variable stays empty. The bridge only listens (nothing is published). The
+MQTT **server** of Symcon is the intended path; whether an MQTT client with its own broker works has not been
+checked. Not tried on a real device.
 
 ## Function assignment (which consumer is this?)
 

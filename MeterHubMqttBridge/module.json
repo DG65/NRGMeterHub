@@ -1,0 +1,18 @@
+{
+  "id": "{EF16A82F-4B66-4722-91C7-CB9518E2F807}",
+  "name": "MeterHubMqttBridge",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "NRG-Stack MeterHub Brücke (MQTT)"
+  ],
+  "url": "https://github.com/DG65/NRGMeterHub",
+  "parentRequirements": [
+    "{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}"
+  ],
+  "childRequirements": [],
+  "implemented": [
+    "{7F7632D9-FA40-4F38-8DEA-C83CD4325A32}"
+  ],
+  "prefix": "MHUBM"
+}

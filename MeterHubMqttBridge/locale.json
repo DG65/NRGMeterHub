@@ -1,0 +1,22 @@
+{
+    "translations": {
+        "de": {
+            "%d s ago": "vor %d s",
+            "Assigned devices": "Zugeordnete Geräte",
+            "Connected to the MQTT server.": "Mit dem MQTT-Server verbunden.",
+            "How to set it up: 1) Create the \"MQTT Server\" of Symcon (with its server socket). 2) In the Shelly web interface open Settings → MQTT, switch MQTT on, enter the IP address of the Symcon computer and the MQTT port, and note the \"MQTT prefix\" (by default the device ID, e.g. shellypro3em-aabbccddeeff). 3) Create this bridge and connect it to the MQTT server. 4) In the MeterHub instance choose the meter type \"Shelly (MQTT, experimental)\", select this bridge and enter the MQTT prefix.": "So richtest du es ein: 1) Den „MQTT Server“ von Symcon anlegen (mit seinem Server-Socket). 2) In der Shelly-Weboberfläche Einstellungen → MQTT öffnen, MQTT einschalten, die IP-Adresse des Symcon-Rechners und den MQTT-Port eintragen und den „MQTT-Präfix“ notieren (standardmäßig die Geräte-ID, z. B. shellypro3em-aabbccddeeff). 3) Diese Brücke anlegen und mit dem MQTT-Server verbinden. 4) In der MeterHub-Instanz den Zählertyp „Shelly (MQTT, experimentell)“ wählen, diese Brücke auswählen und den MQTT-Präfix eintragen.",
+            "Last message": "Letzte Nachricht",
+            "MQTT ID of the device": "MQTT-ID des Geräts",
+            "MeterHub instance": "MeterHub-Instanz",
+            "No active MQTT server connected.": "Kein aktiver MQTT-Server verbunden.",
+            "This bridge connects the MQTT server of Symcon with MeterHub instances whose meter sends its data via MQTT (Shelly Gen2/Gen3/Pro). It has no settings of its own; the MQTT ID of each device is entered in the MeterHub instance. Several devices can share one bridge.": "Diese Brücke verbindet den MQTT-Server von Symcon mit MeterHub-Instanzen, deren Zähler seine Daten per MQTT sendet (Shelly Gen2/Gen3/Pro). Sie hat keine eigenen Einstellungen; die MQTT-ID jedes Geräts wird in der MeterHub-Instanz eingetragen. Mehrere Geräte können sich eine Brücke teilen.",
+            "no message yet": "noch keine Nachricht",
+            "⚠️ Not connected to an MQTT server yet — choose the MQTT server of Symcon above under the connection of this instance. Until then this bridge delivers no values.": "⚠️ Noch mit keinem MQTT-Server verbunden — oben unter der Verbindung dieser Instanz den MQTT-Server von Symcon wählen. Bis dahin liefert diese Brücke keine Werte.",
+            "⚠️ The MQTT server is not active (status %s) — check the server and its server socket.": "⚠️ Der MQTT-Server ist nicht aktiv (Status %s) — Server und Server-Socket prüfen.",
+            "✅ Connected, %d MeterHub instance(s) assigned.": "✅ Verbunden, %d MeterHub-Instanz(en) zugeordnet.",
+            "✅ Connected. No MeterHub instance with the meter type \"Shelly (MQTT, experimental)\" has chosen this bridge yet.": "✅ Verbunden. Noch keine MeterHub-Instanz mit dem Zählertyp „Shelly (MQTT, experimentell)“ hat diese Brücke gewählt.",
+            "📖  Documentation & help": "📖  Dokumentation & Hilfe",
+            "🧪 Experimental: derived from the Shelly documentation, not yet tried on a real device. The bridge only listens — it publishes nothing and switches nothing. Shelly sends only changes: until the first message arrives (for a Pro 3EM usually within seconds) the instance shows \"no message yet\".": "🧪 Experimentell: aus der Shelly-Dokumentation abgeleitet, noch an keinem echten Gerät erprobt. Die Brücke hört nur mit — sie veröffentlicht nichts und schaltet nichts. Shelly sendet nur Änderungen: bis die erste Nachricht eintrifft (beim Pro 3EM meist innerhalb von Sekunden), zeigt die Instanz „noch keine Nachricht“."
+        }
+    }
+}

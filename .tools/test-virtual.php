@@ -3182,5 +3182,27 @@ $rvs64->invoke($ht);
 $idents64 = array_map(fn($c) => IPS_GetObject($c)['ObjectIdent'], IPS_GetChildrenIDs(8640));
 check('64g: Variablen einer Tasmota-Instanz: Leistung, Bezug, Einspeisung, Verbindung', !array_diff(['power_total', 'energy_import', 'energy_export', 'connected'], $idents64), implode(',', $idents64));
 
+echo "\n65) Shelly (MQTT, experimentell, 0.37.0): Formular einer MQTT-Instanz\n";
+obj(8650, 1, 'Shelly 65', 0);
+$hs = new MeterHub(8650); $hs->Create();
+$GLOBALS['PROP'][8650]['Meter'] = 'shelly_mqtt';
+$f65 = json_decode(cf($hs), true);
+$els65 = $f65['elements'];
+check('65a: MQTT-Instanz: Brücke, MQTT-Präfix, Kanal und Statuszeile sichtbar; Host, Port, Unit ID, HTTP-Port, Verbindungsweg ausgeblendet',
+    (t64_find($els65, 'MqttBridgeID')['visible'] ?? false) === true && (t64_find($els65, 'MqttTopic')['visible'] ?? false) === true && (t64_find($els65, 'MqttChannel')['visible'] ?? false) === true && (t64_find($els65, 'MqttStatusLine')['visible'] ?? false) === true
+    && t64_find($els65, 'Host')['visible'] === false && t64_find($els65, 'Port')['visible'] === false && t64_find($els65, 'UnitId')['visible'] === false && t64_find($els65, 'HttpPort')['visible'] === false && t64_find($els65, 'ConnectionMode')['visible'] === false);
+check('65b: Statuszeile ohne Brücke ist ⛔ und nennt die Lösung', str_starts_with(t64_find($els65, 'MqttStatusLine')['caption'], '⛔') && str_contains(t64_find($els65, 'MqttStatusLine')['caption'], 'Brücke'));
+check('65c: Brücken-Auswahl filtert auf das MQTT-Brückenmodul', (t64_find($els65, 'MqttBridgeID')['moduleID'] ?? '') === '{EF16A82F-4B66-4722-91C7-CB9518E2F807}');
+check('65d: bei Tasmota und Modbus-Zählern sind die MQTT-Felder ausgeblendet', (function () use ($ht) { $f = json_decode(cf($ht), true)['elements']; return t64_find($f, 'MqttTopic')['visible'] === false && t64_find($f, 'MqttBridgeID')['visible'] === false; })());
+$GLOBALS['FORMFIELDS'] = [];
+$hs->OnChangeMeter('siemens_pac2200');
+check('65e: Wechsel auf einen Modbus-Zähler blendet die MQTT-Felder aus und Host/Unit ID ein', ($GLOBALS['FORMFIELDS']['MqttTopic']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['Host']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['UnitId']['visible'] ?? null) === true);
+$GLOBALS['FORMFIELDS'] = [];
+$hs->OnChangeMeter('shelly_mqtt');
+check('65f: Wechsel auf Shelly (MQTT) blendet die MQTT-Felder ein, Host/Port/Unit ID/Verbindungsweg aus', ($GLOBALS['FORMFIELDS']['MqttTopic']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['Host']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['Port']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['UnitId']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['ConnectionMode']['visible'] ?? null) === false);
+$GLOBALS['FORMFIELDS'] = [];
+$hs->OnChangeMqtt(0, 'shellypro3em-x', 0);
+check('65g: Änderung der Auswahl aktualisiert die Statuszeile im offenen Formular', str_starts_with($GLOBALS['FORMFIELDS']['MqttStatusLine']['caption'] ?? '', '⛔'));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

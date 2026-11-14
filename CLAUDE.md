@@ -1831,3 +1831,21 @@ daher „experimentell“ im Dropdown und in der README; Web-Passwort (liefert k
 gilt: Attribut mit eigenem Eingabefeld und Knopf, nie Property. Nicht erneut anbieten: Shelly-HTTP. Offen als Idee (Dietmar): MQTT
 für Shelly/Tasmota — wäre ein eigenes, push-basiertes Modul mit MQTT-Parent, nicht Teil von MeterHub. Prüfstand
 `.tools/test-tasmota.php` (echter `php -S`-Server, Fake-Hub).
+
+## Shelly über MQTT, experimentell (0.37.0, 14.11.2026)
+
+Auftrag Dietmar („Doch, Shelly über MQTT bauen“, gegen meinen Vorschlag „erst bei konkretem Bedarf“). Architektur wie bei der
+Symbox-Brücke: nur das neue Modul `MeterHubMqttBridge` (Präfix `MHUBM`, GUID `{EF16A82F-4B66-4722-91C7-CB9518E2F807}`) trägt
+`parentRequirements {043EA491-…}`/`implemented {7F7632D9-…}`; der Hub bleibt ohne Elternteil. **MeterHub fragt weiter selbst ab**
+— die Brücke ist nur ein Zwischenspeicher je Geräte-Topic (`MHUBM_GetDevice($id, $topic)`), deshalb funktionieren Archiv, Funktionszuordnung,
+Invers-Schalter und Vertrag unverändert. Eigenschaften am Hub: `MqttBridgeID` (nicht `BridgeInstanceID`, das ist die Gateway-Brücke),
+`MqttTopic`, `MqttChannel`. Die Brücke liest sie aus allen MeterHub-Instanzen mit `Meter = shelly_mqtt` für ihren Empfangsfilter und ruft der Hub
+über `MHUBM_Refresh()` nach jedem Übernehmen neu auf.
+
+**Shelly-Fakten (Dokumentation, nicht gemessen):** `events/rpc` (`rpc_ntf`, Standard an) enthält in `NotifyStatus` NUR GEÄNDERTE
+Felder — deshalb das Zusammenführen; `status/<Komponente>` (nur mit `status_ntf`, Standard aus) ist vollständig; Energie `emdata`/`em1data` in Wh (ob
+und wie oft per MQTT gesendet, unbekannt); `aenergy.total` in Wh. Gen1 (`shellies/<id>/emeter/0/power` …, Wh/Watt-Minuten) nicht
+umgesetzt: Formate nur aus Drittquellen. **Nicht erprobt:** Nachrichtenfrequenz des Pro 3EM, Verhalten mit MQTT-Client statt -Server, ob der Kernel die
+Slashes im Topic maskiert (Filter erlaubt beides, HeishaMon-Erfahrung), Payload-Kodierung (`utf8_decode` ab Kernel 1670886000).
+Beim ersten echten Test zuerst die Debug-Ausgabe der Brücke ansehen (`SendDebug 'Receive <topic>'`).
+Mutationsprobe: Zusammenführen durch Ersetzen → zwei Prüfungen schlagen an.

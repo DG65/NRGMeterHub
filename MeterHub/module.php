@@ -2848,6 +2848,238 @@ class MHUB_TasmotaDriver implements MHUB_MeterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// MHUB_ShellyMqttClient / MHUB_ShellyMqttDriver — Shelly Gen2+ über MQTT (experimentell)
+//
+// Nicht abgefragt, sondern mitgehört: Das Gerät sendet an den MQTT-Server von Symcon, die Brücke
+// MeterHubMqttBridge führt den letzten bekannten Zustand zusammen, der Hub holt ihn im eigenen Takt ab.
+// Komponenten und Felder (Shelly-Dokumentation, nicht an einem Gerät gemessen):
+//   em:N     total_act_power, a/b/c_act_power, a/b/c_voltage, a/b/c_current   (Pro 3EM, 3EM Gen3 …)
+//   emdata:N total_act, total_act_ret (Wh)
+//   em1:N    act_power, voltage, current;  em1data:N  total_act_energy, total_act_ret_energy (Wh)
+//   pm1:N / switch:N  apower, voltage, current, aenergy.total, ret_aenergy.total (Wh)
+// Vorzeichen: + = Bezug, − = Einspeisung (wie in MeterHub). Nur lesend: es wird nichts veröffentlicht.
+// ---------------------------------------------------------------------------
+
+class MHUB_ShellyMqttClient
+{
+    /** Ältere Nachrichten gelten als „Gerät sendet nicht mehr" (Shelly sendet nur bei Änderungen, ein Takt von Minuten ist normal). */
+    public const STALE_AFTER = 900;
+
+    private $bridgeId;
+    private $topic;
+    private $channel;
+    private $lastError = '';
+
+    public function __construct(int $bridgeId, string $topic, int $channel = 0)
+    {
+        $this->bridgeId = $bridgeId;
+        $this->topic    = trim($topic);
+        $this->channel  = max(0, $channel);
+    }
+
+    public function getLastError(): string
+    {
+        return $this->lastError;
+    }
+
+    public function setError(string $text): void
+    {
+        $this->lastError = $text;
+    }
+
+    public function getChannel(): int
+    {
+        return $this->channel;
+    }
+
+    /** Letzter Zustand des Geräts ('components', 'age', 'online') oder null mit Fehlertext. */
+    public function getDevice(): ?array
+    {
+        $this->lastError = '';
+        if ($this->bridgeId <= 0) {
+            $this->lastError = MHUB_Text::t('No MQTT bridge selected.');
+            return null;
+        }
+        if ($this->topic === '') {
+            $this->lastError = MHUB_Text::t('No MQTT ID of the device entered.');
+            return null;
+        }
+        if (!function_exists('MHUBM_GetDevice') || !@IPS_InstanceExists($this->bridgeId)) {
+            $this->lastError = MHUB_Text::t('The selected MQTT bridge does not exist.');
+            return null;
+        }
+        $r = json_decode((string)@MHUBM_GetDevice($this->bridgeId, $this->topic), true);
+        if (!is_array($r) || empty($r['ok'])) {
+            switch (is_array($r) ? (string)($r['error'] ?? '') : '') {
+                case 'not_connected':
+                    $this->lastError = MHUB_Text::t('The bridge is not connected to an MQTT server.');
+                    break;
+                case 'parent_inactive':
+                    $this->lastError = MHUB_Text::t('The MQTT server is not active.');
+                    break;
+                case 'no_topic':
+                    $this->lastError = MHUB_Text::t('No MQTT ID of the device entered.');
+                    break;
+                default:
+                    $this->lastError = MHUB_Text::t('No message from the device yet — is MQTT switched on at the Shelly, with this MQTT ID, towards the Symcon MQTT server?');
+            }
+            return null;
+        }
+        if (($r['online'] ?? null) === false) {
+            $this->lastError = MHUB_Text::t('The device reports itself offline (MQTT last will).');
+            return null;
+        }
+        if ((int)($r['age'] ?? 0) > self::STALE_AFTER) {
+            $this->lastError = MHUB_Text::t('The last message is %d s old — the device sends nothing any more.', (int)$r['age']);
+            return null;
+        }
+        return ['components' => is_array($r['components'] ?? null) ? $r['components'] : [], 'age' => (int)($r['age'] ?? 0)];
+    }
+}
+
+class MHUB_ShellyMqttDriver implements MHUB_MeterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['power_total',   'Total active power',  'F', 'NRG.Watt', true,  'total',  'Shelly em total_act_power / em1 act_power / switch apower (W)'],
+            ['energy_import', 'Active energy import', 'F', 'NRG.kWh', true,  'energy', 'Shelly emdata total_act / em1data total_act_energy / aenergy.total (Wh → kWh)'],
+            ['energy_export', 'Active energy export', 'F', 'NRG.kWh', true,  'energy', 'Shelly emdata total_act_ret / em1data total_act_ret_energy / ret_aenergy.total (Wh → kWh)'],
+            ['connected',     'Connection',           'B', '~Alert.Reversed', false, 'errors', ''],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupElectrical' => ['caption' => 'Voltage and current (average)', 'vars' => [
+                ['voltage_avg', 'Average voltage', 'F', 'NRG.Volt',   false, 'total', 'Shelly voltage (average of the phases)'],
+                ['current_avg', 'Average current', 'F', 'NRG.Ampere', false, 'total', 'Shelly current (average of the phases)'],
+            ]],
+            'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'Shelly em a_act_power'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'Shelly em b_act_power'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'Shelly em c_act_power'],
+            ]],
+            'GroupVoltagePhase' => ['caption' => 'Voltage per phase', 'vars' => [
+                ['u_l1_n', 'Voltage L1', 'F', 'NRG.Volt', false, 'voltage', 'Shelly em a_voltage'],
+                ['u_l2_n', 'Voltage L2', 'F', 'NRG.Volt', false, 'voltage', 'Shelly em b_voltage'],
+                ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'Shelly em c_voltage'],
+            ]],
+            'GroupCurrentPhase' => ['caption' => 'Current per phase', 'vars' => [
+                ['i_l1', 'Current L1', 'F', 'NRG.Ampere', false, 'current', 'Shelly em a_current'],
+                ['i_l2', 'Current L2', 'F', 'NRG.Ampere', false, 'current', 'Shelly em b_current'],
+                ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'Shelly em c_current'],
+            ]],
+        ];
+    }
+
+    public function getProfiles()    { return []; }
+    public function getEnumProfiles(){ return []; }
+
+    private static function num($v): ?float
+    {
+        return (is_int($v) || is_float($v) || (is_string($v) && is_numeric($v))) ? (float)$v : null;
+    }
+
+    private static function path(array $a, string $dotted): ?float
+    {
+        foreach (explode('.', $dotted) as $k) {
+            if (!is_array($a) || !array_key_exists($k, $a)) {
+                return null;
+            }
+            $a = $a[$k];
+        }
+        return self::num($a);
+    }
+
+    /**
+     * Welche Komponente liefert den Zähler? Bevorzugt in der Reihenfolge em → em1 → pm1 → switch (Kanal N).
+     * @return array{kind: string, data: array, energy: array}|null
+     */
+    public static function pick(array $components, int $channel): ?array
+    {
+        $n = (string)$channel;
+        foreach ([['em', 'emdata'], ['em1', 'em1data'], ['pm1', ''], ['switch', '']] as [$kind, $energyKind]) {
+            $key = $kind . ':' . $n;
+            if (isset($components[$key]) && is_array($components[$key])) {
+                $energy = $energyKind !== '' && isset($components[$energyKind . ':' . $n]) && is_array($components[$energyKind . ':' . $n])
+                    ? $components[$energyKind . ':' . $n]
+                    : ($energyKind === '' ? $components[$key] : []);
+                return ['kind' => $kind, 'data' => $components[$key], 'energy' => $energy];
+            }
+        }
+        return null;
+    }
+
+    private function device($client): ?array
+    {
+        $d = $client->getDevice();
+        if ($d === null) {
+            return null;
+        }
+        $p = self::pick($d['components'], $client->getChannel());
+        if ($p === null) {
+            $client->setError(MHUB_Text::t('The messages contain no energy meter (em, em1, pm1 or switch) for channel %d — check the channel number.', $client->getChannel()));
+        }
+        return $p;
+    }
+
+    public function readFast($client, $hub)
+    {
+        $p = $this->device($client);
+        if ($p === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+        $hub->SetVarBool('connected', true);
+        $d = $p['data'];
+        if ($p['kind'] === 'em') {
+            $power = self::num($d['total_act_power'] ?? null);
+            if ($power !== null) { $hub->SetVarFloat('power_total', $power); }
+            $volt = []; $cur = [];
+            foreach (['a' => 1, 'b' => 2, 'c' => 3] as $ph => $i) {
+                $pp = self::num($d[$ph . '_act_power'] ?? null);
+                $u  = self::num($d[$ph . '_voltage'] ?? null);
+                $c  = self::num($d[$ph . '_current'] ?? null);
+                if ($pp !== null && $hub->GroupActive('GroupPowerPhase'))   { $hub->SetVarFloat('p_l' . $i, $pp); }
+                if ($u !== null) { $volt[] = $u; if ($hub->GroupActive('GroupVoltagePhase')) { $hub->SetVarFloat('u_l' . $i . '_n', $u); } }
+                if ($c !== null) { $cur[]  = $c; if ($hub->GroupActive('GroupCurrentPhase')) { $hub->SetVarFloat('i_l' . $i, $c); } }
+            }
+            if ($volt && $hub->GroupActive('GroupElectrical')) { $hub->SetVarFloat('voltage_avg', array_sum($volt) / count($volt)); }
+            if ($cur  && $hub->GroupActive('GroupElectrical')) { $hub->SetVarFloat('current_avg', array_sum($cur) / count($cur)); }
+            return true;
+        }
+        $power = self::num($d[$p['kind'] === 'em1' ? 'act_power' : 'apower'] ?? null);
+        if ($power !== null) { $hub->SetVarFloat('power_total', $power); }
+        $u = self::num($d['voltage'] ?? null);
+        $c = self::num($d['current'] ?? null);
+        if ($hub->GroupActive('GroupElectrical')) {
+            if ($u !== null) { $hub->SetVarFloat('voltage_avg', $u); }
+            if ($c !== null) { $hub->SetVarFloat('current_avg', $c); }
+        }
+        return true;
+    }
+
+    public function readSlow($client, $hub)
+    {
+        $p = $this->device($client);
+        if ($p === null) {
+            return;
+        }
+        $e = $p['energy'];
+        switch ($p['kind']) {
+            case 'em':   $imp = self::num($e['total_act'] ?? null);              $exp = self::num($e['total_act_ret'] ?? null); break;
+            case 'em1':  $imp = self::num($e['total_act_energy'] ?? null);       $exp = self::num($e['total_act_ret_energy'] ?? null); break;
+            default:     $imp = self::path($e, 'aenergy.total');                 $exp = self::path($e, 'ret_aenergy.total');
+        }
+        // Zählerstände in Wh; nur setzen, was das Gerät tatsächlich gesendet hat (Shelly sendet sie seltener als die Leistung)
+        if ($imp !== null) { $hub->SetVarEnergykWh('energy_import', $imp / 1000.0); }
+        if ($exp !== null) { $hub->SetVarEnergykWh('energy_export', $exp / 1000.0); }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // MHUB_BlueLogScadaInverterDriver — Meteocontrol blue'Log, SCADA-Schnittstelle
 // (Lizenz 557.009), Wechselrichter-Registerblock.
 //
@@ -3405,6 +3637,7 @@ class MeterHub extends IPSModule
         'shelly_pro3em'    => 'MHUB_ShellyPro3emDriver',
         'goe_controller'   => 'MHUB_GoeControllerDriver',
         'tasmota'          => 'MHUB_TasmotaDriver',
+        'shelly_mqtt'      => 'MHUB_ShellyMqttDriver',
         'inexogy'          => 'MHUB_InexogyDriver',
         'bluelog_scada_inverter' => 'MHUB_BlueLogScadaInverterDriver',
         'bluelog_scada_meter'    => 'MHUB_BlueLogScadaMeterDriver',
@@ -3437,6 +3670,7 @@ class MeterHub extends IPSModule
         'shelly_pro3em'    => 'Shelly Pro 3EM',
         'goe_controller'   => 'go-e Controller',
         'tasmota'          => 'Tasmota (HTTP, experimental)',
+        'shelly_mqtt'      => 'Shelly (MQTT, experimental)',
         'inexogy'          => 'Inexogy / Discovergy (Cloud)',
         'bluelog_scada_inverter' => 'Meteocontrol blue\'Log SCADA – inverter',
         'bluelog_scada_meter'    => 'Meteocontrol blue\'Log SCADA – meter',
@@ -3567,6 +3801,9 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyString('TasmotaFieldImport', '');
         $this->RegisterPropertyString('TasmotaFieldExport', '');
         $this->RegisterPropertyString('TasmotaEnergyUnit', 'kwh');
+        $this->RegisterPropertyInteger('MqttBridgeID', 0);
+        $this->RegisterPropertyString('MqttTopic', '');
+        $this->RegisterPropertyInteger('MqttChannel', 0);
         $this->RegisterPropertyInteger('BridgeInstanceID', 0);
         $this->RegisterPropertyInteger('GatewayPick', 0); // nur Formular-Eingabe für CreateBridge()
 
@@ -3722,7 +3959,7 @@ class MeterHub extends IPSModule
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
     private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230', 'tasmota'];
-    private const NEWS_VERSION = '0.36.0';
+    private const NEWS_VERSION = '0.37.0';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3767,6 +4004,7 @@ class MeterHub extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  New in this version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🧪 New (experimental): Shelly via MQTT. Shelly Gen2/Gen3/Pro (e.g. Pro 3EM, Pro EM, plugs with power metering) send their data to the MQTT server of Symcon; MeterHub listens through the new module "NRG-Stack MeterHub bridge (MQTT)" and only reads. Derived from the Shelly documentation and not yet tested on a real device: please compare the values with the device display and report differences.'],
                 ['type' => 'Label', 'caption' => '• 🧪 New (experimental): Tasmota meters. MeterHub reads Tasmota devices (e.g. Nous A1T, or an IR reading head with an SML script) over the local HTTP interface — reading only, one request per interval. The format comes from the Tasmota documentation and is not yet tested on real devices: please compare the values with the device display and report differences.'],
                 ['type' => 'Label', 'caption' => '• 🌐 New: MeterHub is now available in German and English. Texts follow the Symcon language setting: the form is translated by the console, messages are shown in the set language, and variable names are set in the language that is active when you click "Apply". Identifiers, properties and functions are unchanged — nothing is lost on existing instances.'],
                 ['type' => 'Label', 'caption' => '• 📈 Important: MeterHub no longer switches archiving (logging) on by itself. Archiving and history are yours. If variables are not archived, a notice with a button "Enable archiving for these variables" appears at the top of the form. Archiving that is already running stays as it is and is never switched off. New instances only archive after you click; archive compaction and the Inexogy backfill only work on archived variables.'],
@@ -3984,13 +4222,24 @@ class MeterHub extends IPSModule
         // ändert sich unabhängig von dieser Instanz — dann scheitert der
         // Lesezyklus mit Status 201 und erklärendem Text, die Timer laufen.
         $isHttp  = in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true);
+        $isMqtt  = in_array($this->ReadPropertyString('Meter'), self::MQTT_METERS, true);
         $ready   = $isCloud
             ? ($this->ReadAttributeString('InexogyToken') !== '' && $this->ReadPropertyString('InexogyMeterID') !== '')
-            : ($isHttp
-                ? $this->ReadPropertyString('Host') !== ''
-                : ($this->ReadPropertyString('ConnectionMode') === 'gateway'
-                    ? $this->ReadPropertyInteger('BridgeInstanceID') > 0
-                    : $this->ReadPropertyString('Host') !== ''));
+            : ($isMqtt
+                ? ($this->ReadPropertyInteger('MqttBridgeID') > 0 && trim($this->ReadPropertyString('MqttTopic')) !== '')
+                : ($isHttp
+                    ? $this->ReadPropertyString('Host') !== ''
+                    : ($this->ReadPropertyString('ConnectionMode') === 'gateway'
+                        ? $this->ReadPropertyInteger('BridgeInstanceID') > 0
+                        : $this->ReadPropertyString('Host') !== '')));
+        if ($isMqtt && $this->ReadPropertyInteger('MqttBridgeID') > 0 && function_exists('MHUBM_Refresh')) {
+            // Die Brücke baut ihren Empfangsfilter aus den Topics der zugeordneten Instanzen — nach jeder Änderung hier neu
+            try {
+                @MHUBM_Refresh($this->ReadPropertyInteger('MqttBridgeID'));
+            } catch (\Throwable $e) {
+                // Brücke gerade nicht erreichbar: der Filter wird beim nächsten Übernehmen der Brücke nachgezogen
+            }
+        }
         if (!$this->ReadPropertyBoolean('Active') || !$ready) {
             // Ausfallverhalten "Default-Sollwert": beim Deaktivieren (nicht
             // beim erstmaligen Anlegen ohne Host — dort gibt es nichts zu
@@ -4237,7 +4486,7 @@ class MeterHub extends IPSModule
         if ($ok) {
             return MHUB_Text::t('✅ Connection successful, values updated (%s).', date('H:i:s'));
         }
-        if (in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true) && method_exists($mb, 'getLastError')) {
+        if (in_array($this->ReadPropertyString('Meter'), array_merge(self::HTTP_METERS, self::MQTT_METERS), true) && method_exists($mb, 'getLastError')) {
             return MHUB_Text::t('❌ Connection failed — %s', $mb->getLastError());
         }
         return $this->ReadPropertyString('ConnectionMode') === 'gateway'
@@ -4453,7 +4702,9 @@ The function is still set to "none" there — deliberately, because otherwise th
         $driver = $this->GetDriver();
         $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
         $isHttp  = in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true);
-        $connectionMode = $isHttp ? 'direct' : $this->ReadPropertyString('ConnectionMode');   // HTTP-Geräte kennen den Symbox-Weg nicht
+        $isMqtt  = in_array($this->ReadPropertyString('Meter'), self::MQTT_METERS, true);
+        $noModbus = $isHttp || $isMqtt;
+        $connectionMode = $noModbus ? 'direct' : $this->ReadPropertyString('ConnectionMode');   // HTTP-/MQTT-Geräte kennen den Symbox-Weg nicht
 
         // Vorschlagsliste für "Standort": geteilter Pool über MeterHub UND
         // MeterHubVirtual (Dietmars Auftrag 01.09.2026) — siehe
@@ -4554,7 +4805,7 @@ The function is still set to "none" there — deliberately, because otherwise th
             [
                 'type'     => 'Select',
                 'name'     => 'ConnectionMode',
-                'visible'  => !$isCloud && !$isHttp,
+                'visible'  => !$isCloud && !$noModbus,
                 'caption'  => 'Connection path',
                 'options'  => [
                     ['caption' => 'Direct (own connection)', 'value' => 'direct'],
@@ -4569,9 +4820,14 @@ The function is still set to "none" there — deliberately, because otherwise th
             ['type' => 'SelectInstance', 'name' => 'BridgeInstanceID', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => 'NRG-Stack bridge to the ModBus gateway', 'moduleID' => self::BRIDGE_GUID, 'onChange' => 'MHUB_OnChangeBridge($id, $BridgeInstanceID);'],
             ['type' => 'Label', 'name' => 'BridgeStatusLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->BridgeStatusLine($this->ReadPropertyInteger('BridgeInstanceID'))],
             ['type' => 'Label', 'name' => 'UnitIdAutoLine', 'visible' => !$isCloud && $connectionMode === 'gateway', 'caption' => $this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID')), 'color' => self::AutoLineColor($this->UnitIdAutoLine($this->ReadPropertyInteger('BridgeInstanceID')))],
-            ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && $connectionMode !== 'gateway', 'caption' => 'IP address', 'validate' => ($isCloud || $isHttp || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-            ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && !$isHttp && $connectionMode !== 'gateway', 'caption' => 'TCP port', 'minimum' => 1, 'maximum' => 65535],
-            ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && !$isHttp && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
+            ['type' => 'ValidationTextBox', 'name' => 'Host', 'visible' => !$isCloud && !$isMqtt && $connectionMode !== 'gateway', 'caption' => 'IP address', 'validate' => ($isCloud || $noModbus || $connectionMode === 'gateway') ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+            ['type' => 'NumberSpinner', 'name' => 'Port', 'visible' => !$isCloud && !$noModbus && $connectionMode !== 'gateway', 'caption' => 'TCP port', 'minimum' => 1, 'maximum' => 65535],
+            ['type' => 'NumberSpinner', 'name' => 'UnitId', 'visible' => !$isCloud && !$noModbus && $connectionMode !== 'gateway', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
+            ['type' => 'Label', 'name' => 'MqttHint', 'visible' => $isMqtt, 'caption' => '🧪 Shelly via MQTT (experimental): the device sends its data to the MQTT server of Symcon, MeterHub only listens through the bridge — nothing is published or switched. For Shelly Gen2/Gen3/Pro (e.g. Pro 3EM, Pro EM, Plus/Pro plugs with power metering). Set up MQTT in the Shelly web interface (Settings → MQTT), create the bridge, connect it to the MQTT server and enter the MQTT prefix of the device here. Shelly sends only changes and energy counters less often than power.'],
+            ['type' => 'SelectInstance', 'name' => 'MqttBridgeID', 'visible' => $isMqtt, 'caption' => 'NRG-Stack MeterHub bridge (MQTT)', 'moduleID' => self::MQTT_BRIDGE_GUID, 'onChange' => 'MHUB_OnChangeMqtt($id, $MqttBridgeID, $MqttTopic, $MqttChannel);'],
+            ['type' => 'ValidationTextBox', 'name' => 'MqttTopic', 'visible' => $isMqtt, 'caption' => 'MQTT prefix of the device (e.g. shellypro3em-aabbccddeeff)', 'onChange' => 'MHUB_OnChangeMqtt($id, $MqttBridgeID, $MqttTopic, $MqttChannel);'],
+            ['type' => 'NumberSpinner', 'name' => 'MqttChannel', 'visible' => $isMqtt, 'caption' => 'Channel (0 = first meter/switch of the device)', 'minimum' => 0, 'maximum' => 7, 'onChange' => 'MHUB_OnChangeMqtt($id, $MqttBridgeID, $MqttTopic, $MqttChannel);'],
+            ['type' => 'Label', 'name' => 'MqttStatusLine', 'visible' => $isMqtt, 'caption' => $this->MqttStatusLine($this->ReadPropertyInteger('MqttBridgeID'), $this->ReadPropertyString('MqttTopic'), $this->ReadPropertyInteger('MqttChannel'))],
             ['type' => 'NumberSpinner', 'name' => 'HttpPort', 'visible' => $isHttp, 'caption' => 'HTTP port', 'minimum' => 1, 'maximum' => 65535],
             ['type' => 'Label', 'name' => 'TasmotaHint', 'visible' => $isHttp, 'caption' => '🧪 Tasmota (experimental): MeterHub only reads — it asks the device once per interval for its sensor data (Tasmota command "Status 8") and never switches or changes anything. A web password on the device is not supported yet. The sensor name and field names below are only needed if automatic detection finds nothing (typical for an IR reading head: the names come from your own SML script).'],
             ['type' => 'ValidationTextBox', 'name' => 'TasmotaSensor', 'visible' => $isHttp, 'caption' => 'Sensor name (empty = ENERGY or the first sensor with energy fields)'],
@@ -4691,6 +4947,7 @@ The function is still set to "none" there — deliberately, because otherwise th
                         ['type' => 'Label', 'caption' => '🧪 Experimental: Socomec Countis and MBS Professional 3-75 are derived from templates and not yet tested on real hardware — please compare the measured values with the device display. If values look implausible, the WordSwap or invert switch helps.'],
                         ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP must be enabled on the device first (Settings → Modbus, port 502). Read via FC 0x04, float word-swapped (CDAB); wire addresses = documentation − 30000 (measurements from 1011, energy 1162/1164). Verified on a real device.'],
                         ['type' => 'Label', 'caption' => '🧪 Tasmota (HTTP, experimental): for meters and plugs with Tasmota firmware (e.g. Nous A1T) and for an IR reading head on a meter (SML script). MeterHub asks the device over the local network and only reads. Enter the device\'s IP address; the sensor is detected automatically (standard block ENERGY) — for an IR reading head enter the sensor and field names from your script. A web password on the device is not supported yet. Shelly meters are not read this way: they have Modbus (Shelly Pro 3EM) and are available as their own meter type.'],
+                        ['type' => 'Label', 'caption' => '🧪 Shelly (MQTT, experimental): for Shelly Gen2/Gen3/Pro that send to the MQTT server of Symcon. Needs the module "NRG-Stack MeterHub bridge (MQTT)" between the server and this instance. MeterHub only listens (nothing is published or switched); Shelly sends only changes, so values appear with the first message. Not yet tried on a real device — please compare with the device display. Older Gen1 devices are not supported this way.'],
                         ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP must be enabled on the device first (go-e app: Internet → Advanced settings → Modbus, or HTTP API men=true) — otherwise port 502 stays closed; after enabling, switch the setting off and on once if necessary. Core values come from the Grid category; sensors 1-6 and the categories Home/Car/Relays/Solar/Battery can be enabled. Verified on a real device. (The go-e wallboxes themselves are handled by the ChargerHub module.)'],
                         ['type' => 'Label', 'caption' => '⚠️ go-e Controller + surplus charging: the controller can regulate the go-e wallboxes BY ITSELF (PV surplus charging, load limiting — an on-device control loop). If an EMS is to control the wallboxes instead, this internal control must be disabled on the wallboxes — otherwise two controllers work against each other. This module only reads and is not affected; the control state is not visible via Modbus, only on the wallboxes themselves (go-e API: usePvSurplus, load management, modelStatus).'],
                         ['type' => 'Label', 'caption' => '🆕 Meteocontrol blue\'Log SCADA: a blue\'Log can offer EVERY connected device (inverter, meter …) under its own "SCADA address" — this address is the unit ID below, NOT 1. The assignment is on the blue\'Log itself (device list → column "SCADA address"); address 97 is the blue\'Log itself (total values). FC 0x03, float word-swapped (CDAB) — verified on a real solar park.'],
@@ -4751,6 +5008,7 @@ The function is still set to "none" there — deliberately, because otherwise th
                         ['caption' => 'Shelly Pro 3EM', 'value' => 'shelly_pro3em'],
                         ['caption' => 'go-e Controller', 'value' => 'goe_controller'],
                         ['caption' => 'Tasmota (HTTP, experimental)', 'value' => 'tasmota'],
+                        ['caption' => 'Shelly (MQTT, experimental)', 'value' => 'shelly_mqtt'],
                         ['caption' => 'Inexogy / Discovergy (cloud API, no Modbus)', 'value' => 'inexogy'],
                         ['caption' => 'Meteocontrol blue\'Log SCADA – inverter (SCADA address = unit ID)', 'value' => 'bluelog_scada_inverter'],
                         ['caption' => 'Meteocontrol blue\'Log SCADA – meter (SCADA address = unit ID)', 'value' => 'bluelog_scada_meter'],
@@ -5104,17 +5362,22 @@ The function is still set to "none" there — deliberately, because otherwise th
             $this->UpdateFormField('InexogyArchiveStatus', 'visible', false);
         }
         $isHttp = in_array($meter, self::HTTP_METERS, true);
-        $isGateway = !$isHttp && $this->ReadPropertyString('ConnectionMode') === 'gateway';
+        $isMqtt = in_array($meter, self::MQTT_METERS, true);
+        $noModbus = $isHttp || $isMqtt;
+        $isGateway = !$noModbus && $this->ReadPropertyString('ConnectionMode') === 'gateway';
+        foreach (['MqttHint', 'MqttBridgeID', 'MqttTopic', 'MqttChannel', 'MqttStatusLine'] as $f) {
+            $this->UpdateFormField($f, 'visible', $isMqtt);
+        }
         foreach (['HttpPort', 'TasmotaHint', 'TasmotaSensor', 'TasmotaFieldPower', 'TasmotaFieldImport', 'TasmotaFieldExport', 'TasmotaEnergyUnit'] as $f) {
             $this->UpdateFormField($f, 'visible', $isHttp);
         }
-        $this->UpdateFormField('Host', 'visible', !$isCloud && !$isGateway);
+        $this->UpdateFormField('Host', 'visible', !$isCloud && !$isMqtt && !$isGateway);
         // Nicht nur ausblenden, auch die Pflicht-Regex entschärfen — falls
         // sie an einem unsichtbaren Feld trotzdem noch griffe.
-        $this->UpdateFormField('Host', 'validate', ($isCloud || $isGateway || $isHttp) ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
-        $this->UpdateFormField('Port', 'visible', !$isCloud && !$isHttp && !$isGateway);
-        $this->UpdateFormField('UnitId', 'visible', !$isCloud && !$isHttp && !$isGateway);
-        $this->UpdateFormField('ConnectionMode', 'visible', !$isCloud && !$isHttp);
+        $this->UpdateFormField('Host', 'validate', ($isCloud || $isGateway || $noModbus) ? '' : '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$');
+        $this->UpdateFormField('Port', 'visible', !$isCloud && !$noModbus && !$isGateway);
+        $this->UpdateFormField('UnitId', 'visible', !$isCloud && !$noModbus && !$isGateway);
+        $this->UpdateFormField('ConnectionMode', 'visible', !$isCloud && !$noModbus);
         $this->UpdateFormField('ConnectionModeGatewayWarning', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('ConnectionModeGatewayUnitIdHint', 'visible', !$isCloud && $isGateway);
         $this->UpdateFormField('BridgeInstanceID', 'visible', !$isCloud && $isGateway);
@@ -5260,6 +5523,40 @@ The function is still set to "none" there — deliberately, because otherwise th
         }
         $unit = isset($st['unitId']) && $st['unitId'] !== null ? (string)(int)$st['unitId'] : MHUB_Text::t('not readable');
         return MHUB_Text::t('✅ Bridge %s → ModBus gateway %s active, unit ID %s (source: property "DeviceID" at the gateway).', $bridge, $gateway, $unit);
+    }
+
+    /** Statuszeile des MQTT-Wegs (SUITE.md: Verbund-Verbindungen sichtbar machen): live aus der Brücke berechnet. */
+    private function MqttStatusLine(int $bridgeId, string $topic, int $channel): string
+    {
+        if ($bridgeId <= 0) {
+            return MHUB_Text::t('⛔ No MQTT bridge selected — create one ("NRG-Stack MeterHub bridge (MQTT)"), connect it to the MQTT server and select it here. Without a bridge this instance reads nothing.');
+        }
+        if (!IPS_InstanceExists($bridgeId)) {
+            return MHUB_Text::t('⛔ The selected bridge #%d no longer exists — create a new one or choose another. Until then this instance reads nothing.', $bridgeId);
+        }
+        if (trim($topic) === '') {
+            return MHUB_Text::t('⛔ No MQTT ID of the device entered — enter the "MQTT prefix" from the Shelly settings (by default the device ID). Until then this instance reads nothing.');
+        }
+        $bridge = MHUB_Text::t('#%d "%s"', $bridgeId, IPS_GetName($bridgeId));
+        if (!function_exists('MHUBM_GetDevice')) {
+            return MHUB_Text::t('⚠️ Bridge %s selected, but the bridge module is not loaded — reload the library in the module management.', $bridge);
+        }
+        $client = new MHUB_ShellyMqttClient($bridgeId, $topic, $channel);
+        $dev = $client->getDevice();
+        if ($dev === null) {
+            return MHUB_Text::t('⚠️ Bridge %s: %s', $bridge, $client->getLastError());
+        }
+        $pick = MHUB_ShellyMqttDriver::pick($dev['components'], $channel);
+        if ($pick === null) {
+            return MHUB_Text::t('⚠️ Bridge %s receives the device (last message %d s ago), but its messages contain no energy meter for channel %d (em, em1, pm1 or switch).', $bridge, $dev['age'], $channel);
+        }
+        return MHUB_Text::t('✅ Bridge %s receives the device (last message %d s ago, component "%s").', $bridge, $dev['age'], $pick['kind'] . ':' . $channel);
+    }
+
+    /** Auswahl/Eingabe im offenen Formular geändert — die Zeile folgt der Eingabe, nicht dem Speicherstand. */
+    public function OnChangeMqtt(int $bridgeId, string $topic, int $channel)
+    {
+        $this->UpdateFormField('MqttStatusLine', 'caption', $this->MqttStatusLine($bridgeId, $topic, $channel));
     }
 
     /** Wird beim Ändern der Brücken-Auswahl im offenen Formular aufgerufen — die Zeile folgt der Auswahl, nicht erst dem Speicherstand. */
@@ -5781,6 +6078,9 @@ The function is still set to "none" there — deliberately, because otherwise th
                 $this->ReadAttributeString('InexogyToken'),
                 $this->ReadAttributeString('InexogyTokenSecret')
             );
+        }
+        if (in_array($this->ReadPropertyString('Meter'), self::MQTT_METERS, true)) {
+            return new MHUB_ShellyMqttClient($this->ReadPropertyInteger('MqttBridgeID'), $this->ReadPropertyString('MqttTopic'), $this->ReadPropertyInteger('MqttChannel'));
         }
         if (in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true)) {
             return new MHUB_TasmotaClient($this->ReadPropertyString('Host'), $this->ReadPropertyInteger('HttpPort'));
@@ -6460,6 +6760,9 @@ The function is still set to "none" there — deliberately, because otherwise th
     private const CLOUD_METERS = ['inexogy'];
     // Lokale HTTP-Geräte (Tasmota): Host + HTTP-Port statt Modbus-Port/Unit-ID, immer „direkt“ (kein Symbox-Gateway)
     private const HTTP_METERS = ['tasmota'];
+    // Zähler, die ihre Daten per MQTT senden: nicht abgefragt, sondern über MeterHubMqttBridge mitgehört.
+    private const MQTT_METERS = ['shelly_mqtt'];
+    private const MQTT_BRIDGE_GUID = '{EF16A82F-4B66-4722-91C7-CB9518E2F807}';
     // Zählertypen mit Sollwert-Schreibzugriff (blue'Log RPC/Power Control) —
     // steuert Formular-Sichtbarkeit des Sollwert-Panels (GetConfigurationForm()/
     // OnChangeMeter()). Ob der TREIBER tatsächlich schreibt, prüft der Code
