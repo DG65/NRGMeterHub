@@ -2,6 +2,17 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.35.1 (2026-11-14)
+
+- **Fix: Variablennamen „Wirkleistung L1/L2/L3“, „Wirkleistung“ und „Wirkleistung AC“ blieben in der englischen
+  Oberfläche deutsch.** In 0.35.0 waren diese Namen in zwölf Treibern beim Umstellen auf englische Quelltexte
+  übersehen worden (Deutsch-Nutzer sahen weiter dasselbe). Jetzt „Active power L1/L2/L3“, „Active power“, „AC active
+  power“; Deutsch kommt aus der `locale.json`. Der statische Prüfstand `.tools/test-i18n.php` hat das nicht gefunden,
+  weil eine englische Beispielformulierung das Wort „Wirkleistung“ in den englischen Wortschatz gebracht hatte — die
+  deutschen Fachwörter `wirkleistung`, `wirkenergie`, `hauptzähler` zählen dort jetzt immer als deutsch (die
+  absichtlich deutschen KNX-Suchmuster stehen in der Liste `$keepGerman`). Test 62a ignoriert Namen aus den
+  Prüfstand-Anlagen (Instanz- und Standortnamen).
+
 ## 0.35.0 (2026-11-09)
 
 - **Zweisprachig: Deutsch und Englisch (Auftrag Dietmar 05.11.2026, SUITE.md Konvention 9).** Alle vier Module
@@ -423,17 +434,4 @@
 - Prüfstand `test-virtual.php` Block 47 (Statustexte), 48 (Dropdown ohne „experimentell") und
   neu 49 (einphasiger Messmodus: ausgeblendet, ein Zuordnungsfeld, gespeichertes „je Phase"
   wirkungslos, dreiphasige Zähler unverändert).
-
-## 0.31.1-beta.1 (2026-09-19)
-
-- **MeterHubDiscovery: Hinweis „nicht automatisch gefunden" vervollständigt.** Er nannte nur
-  Socomec und MBS. Jetzt zusätzlich: Zähler an einem ModBus Gateway wie dem RS485-Port der
-  Symbox (darunter die neuen reinen RS485-Geräte Eastron SDM120/220/230 — die Suche scannt nur
-  TCP), der Phoenix EEM-XM, Inexogy (Cloud) und die schreibenden blue'Log-Typen RPC/Power
-  Control; dazu der Weg: Instanz von Hand anlegen, bei der Symbox mit dem Verbindungsweg
-  „Symbox-Gateway". Steht an beiden Stellen im Formular und in der README. Fund bei der Frage,
-  ob die Suche alle Zählertypen enthält: sie findet 12 der 28 Typen automatisch (9 per Signatur,
-  3 über den SCADA-Scan), dazu die klassischen Janitza-Modelle und den SDM630 stellvertretend.
-  Ob sich der Phoenix EEM-XM per Signatur erkennen ließe, ist offen (Herstellerunterlagen
-  fehlen).
 

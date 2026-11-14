@@ -24,7 +24,7 @@ $allowWords = ['modbus', 'symcon', 'meterhub', 'inexogy', 'discovergy', 'janitza
 // Bewusst deutsche Literale: Suchbegriffe, mit denen Objektnamen deutscher Anlagen erkannt werden — keine Anzeigetexte
 $keepGerman = [
     // Suchbegriffe/Muster, mit denen deutsche Objektnamen erkannt werden (kein Anzeigetext)
-    'wirkleistung', 'hauptzähler kwh', 'hauptzaehler kwh', 'wirkleistung p14 (w)', 'wirkleistung p23 (w)',
+    'wirkleistung', 'hauptzähler kwh', 'hauptzaehler kwh', 'wirkleistung p14 (w)', 'wirkleistung p23 (w)', 'wirkenergie a14 (kwh)', 'wirkenergie a23 (kwh)',   // Suchmuster für deutsche KNX-Instanznamen
     '/session|sitzung|ladevorgang|zwischen|heute|today|tages/u',
     // interne Schlüssel von Zählern/Zusammenfassungen
     'relais', 'akku', 'relais_power', 'akku_power', 'relais_energy_import', 'relais_energy_export', 'akku_energy_import', 'akku_energy_export',
@@ -49,6 +49,8 @@ foreach (glob("$root/../*/*/locale.json") as $f) {
     foreach (($j['translations']['de'] ?? []) as $en => $de) { foreach ($wd($de) as $w) { $allDe[$w] = true; } foreach ($wd($en) as $w) { $allEn[$w] = true; } }
 }
 $germanOnly = array_diff_key($allDe, $allEn, array_flip($allowWords));
+// Deutsche Fachwörter, die absichtlich in englischen Texten als Muster zitiert werden (KNX-Namensmuster „…Wirkleistung“): zählen trotzdem als deutsch
+foreach (['wirkleistung', 'wirkenergie', 'hauptzähler', 'hauptzaehler'] as $w) { $germanOnly[$w] = true; }
 
 foreach ($mods as $m => $p) {
     echo "\n$m\n";

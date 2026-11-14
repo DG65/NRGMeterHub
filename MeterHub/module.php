@@ -645,9 +645,9 @@ class MHUB_Pac2200Driver implements MHUB_MeterDriverInterface
                 ['i_n',  'Neutralleiterstrom', 'F', 'NRG.Ampere', false, 'current', 'FC3 71'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 25'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 27'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 29'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC3 25'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC3 27'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC3 29'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
                 ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC3 63'],
@@ -794,9 +794,9 @@ class MHUB_JanitzaClassicDriver implements MHUB_MeterDriverInterface
                 ['i_sum', 'Total current (I1+I2+I3)', 'F', 'NRG.Ampere', false, 'current', 'FC3 19018'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 19020'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 19022'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 19024'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC3 19020'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC3 19022'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC3 19024'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
                 ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC3 19034'],
@@ -976,9 +976,9 @@ class MHUB_Umg800Driver implements MHUB_MeterDriverInterface
                 ['i_sum', 'Current I4', 'F', 'NRG.Ampere', false, 'current', 'FC3 19018'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 19024'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 19026'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 19028'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC3 19024'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC3 19026'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC3 19028'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
                 ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC3 19038'],
@@ -1143,9 +1143,9 @@ class MHUB_EastronSdmDriver implements MHUB_MeterDriverInterface
                 ['i_n',  'Neutralleiterstrom', 'F', 'NRG.Ampere', false, 'current', 'FC4 224'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 12'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 14'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 16'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC4 12'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC4 14'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC4 16'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
                 ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC4 56'],
@@ -1267,7 +1267,7 @@ class MHUB_EastronSdmSinglePhaseDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung',        'F', 'NRG.Watt',   true,  'total',  'FC4 12'],
+            ['power_total',   'Active power',        'F', 'NRG.Watt',   true,  'total',  'FC4 12'],
             ['voltage_avg',   'Voltage (L-N)',      'F', 'NRG.Volt',   false, 'total',  'FC4 0'],
             ['current_avg',   'Current',               'F', 'NRG.Ampere', false, 'total',  'FC4 6'],
             ['frequency',     'Frequency',            'F', 'MHB.Hz',     false, 'total',  'FC4 70'],
@@ -1372,9 +1372,9 @@ class MHUB_WhatWattDriver implements MHUB_MeterDriverInterface
                 ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 17'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 25'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 27'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 29'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC4 25'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC4 27'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC4 29'],
             ]],
             'GroupTariff2' => ['caption' => 'Energy by tariff (T1/T2)', 'vars' => [
                 ['energy_import_t1', 'Import tariff 1',  'F', 'NRG.kWh', true, 'energy', 'FC4 801 (Wh)'],
@@ -1475,9 +1475,9 @@ class MHUB_PhoenixEem375Driver implements MHUB_MeterDriverInterface
                 ['i_l3', 'Current I3', 'F', 'NRG.Ampere', false, 'current', 'FC4 4114'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 4128'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 4130'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 4132'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC4 4128'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC4 4130'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC4 4132'],
             ]],
         ];
     }
@@ -1560,9 +1560,9 @@ class MHUB_PhoenixEemXmDriver implements MHUB_MeterDriverInterface
                 ['i_l3', 'Current I3', 'F', 'NRG.Ampere', false, 'current', 'FC4 32786'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 32798'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 32800'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 32802'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC4 32798'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC4 32800'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC4 32802'],
             ]],
         ];
     }
@@ -1648,9 +1648,9 @@ class MHUB_CarloGavazziDriver implements MHUB_MeterDriverInterface
                 ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 16'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 18'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 20'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 22'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC4 18'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC4 20'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC4 22'],
             ]],
             'GroupReactiveApparent' => ['caption' => 'Reactive/apparent power (total + per phase)', 'vars' => [
                 ['s_total', 'Total apparent power', 'F', 'MHB.VA',  false, 'power', 'FC4 42'],
@@ -1773,9 +1773,9 @@ class MHUB_SocomecCountisDriver implements MHUB_MeterDriverInterface
                 ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC3 0xC564'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC570'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC572'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC574'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC570'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC572'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC3 0xC574'],
             ]],
         ];
     }
@@ -1941,9 +1941,9 @@ class MHUB_ShellyPro3emDriver implements MHUB_MeterDriverInterface
                 ['i_l3', 'Current L3', 'F', 'NRG.Ampere', false, 'current', 'FC4 1062'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'FC4 1024'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'FC4 1044'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'FC4 1064'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'FC4 1024'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'FC4 1044'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'FC4 1064'],
             ]],
             // Eigene Energiezähler je Phase — damit lässt sich jede Phase als
             // eigenständiger Verbraucher führen (Summe der drei = Gesamtzähler).
@@ -2499,9 +2499,9 @@ class MHUB_InexogyDriver implements MHUB_MeterDriverInterface
                 ['u_l3_n', 'Voltage L3', 'F', 'NRG.Volt', false, 'voltage', 'Inexogy voltage3 /1000'],
             ]],
             'GroupPowerPhase' => ['caption' => 'Active power per phase', 'vars' => [
-                ['p_l1', 'Wirkleistung L1', 'F', 'NRG.Watt', false, 'power', 'Inexogy power1 /1000'],
-                ['p_l2', 'Wirkleistung L2', 'F', 'NRG.Watt', false, 'power', 'Inexogy power2 /1000'],
-                ['p_l3', 'Wirkleistung L3', 'F', 'NRG.Watt', false, 'power', 'Inexogy power3 /1000'],
+                ['p_l1', 'Active power L1', 'F', 'NRG.Watt', false, 'power', 'Inexogy power1 /1000'],
+                ['p_l2', 'Active power L2', 'F', 'NRG.Watt', false, 'power', 'Inexogy power2 /1000'],
+                ['p_l3', 'Active power L3', 'F', 'NRG.Watt', false, 'power', 'Inexogy power3 /1000'],
             ]],
         ];
     }
@@ -2623,7 +2623,7 @@ class MHUB_BlueLogScadaInverterDriver implements MHUB_MeterDriverInterface
     public function getBaseVars()
     {
         return [
-            ['power_total',   'Wirkleistung AC',           'F', 'NRG.Watt',   true,  'total',  'FC3 41000 (P_AC)'],
+            ['power_total',   'AC active power',           'F', 'NRG.Watt',   true,  'total',  'FC3 41000 (P_AC)'],
             ['energy_export', 'Total yield',             'F', 'NRG.kWh', true,  'energy', 'FC3 41066 (E_TOTAL, Wh)'],
             ['frequency',     'Grid frequency',              'F', 'MHB.Hz',  false, 'total',  'FC3 41012 (F_AC)'],
             ['device_type',   'Device type (SCADA message)', 'I', 'MHB.BlueLogDeviceType', false, 'total', 'FC3 40000'],

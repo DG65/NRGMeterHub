@@ -3101,9 +3101,13 @@ foreach (['siemens_pac2200', 'inexogy', 'goe_controller', 'bluelog_scada_logger'
 obj(8620, 1, 'EN-Form Virtual', 0);
 $vEn = new MeterHubVirtual(8620); $vEn->Create();
 $enForms['MeterHubVirtual'] = json_decode(cf($vEn), true);
+// Namen aus den Prüfstand-Anlagen (Instanz- und Standortnamen wie „Keller“, „Werkstatt“) sind Nutzerdaten, kein Modultext
+$fixtureNames62 = [];
+foreach ($GLOBALS['OBJ'] as $o62) { $fixtureNames62[(string)($o62['ObjectName'] ?? '')] = true; }
+foreach ($GLOBALS['PROP'] as $p62) { if (isset($p62['Location'])) { $fixtureNames62[(string)$p62['Location']] = true; } }
 foreach ($enForms as $label62 => $form62) {
     // Nutzerdaten aus den Prüfstand-Anlagen (Instanz-/Standortnamen wie „Keller“, „Hausanschluss (#100)“) sind kein Modultext
-    $left = array_values(array_filter(i18n_german_leftovers($form62), fn($t) => $t !== 'Keller' && strpos($t, '(#') === false && strpos($t, "echo 'http") !== 0 && strpos($t, '…Wirkleistung') === false   // die KNX-Namensmuster sind bewusst deutsch: sie passen auf deutsche Instanznamen
+    $left = array_values(array_filter(i18n_german_leftovers($form62), fn($t) => !isset($fixtureNames62[$t]) && !in_array($t, ['Keller', 'Backofen', 'Werkstatt'], true) && strpos($t, '(#') === false && strpos($t, "echo 'http") !== 0 && strpos($t, '…Wirkleistung') === false   // die KNX-Namensmuster sind bewusst deutsch: sie passen auf deutsche Instanznamen
         
         && ($t === ($t2 = str_replace('"Tresor"', '', $t)) || array_filter(i18n_german_leftovers(['caption' => $t2])))));
     check("62a $label62: englisches Formular enthält keinen deutschen Text", $form62 !== null && !$left, json_encode(array_slice($left, 0, 3), JSON_UNESCAPED_UNICODE));
