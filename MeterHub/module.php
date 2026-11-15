@@ -6406,6 +6406,15 @@ The function is still set to "none" there — deliberately, because otherwise th
             if (!$vid) {
                 continue;
             }
+            // Seit 0.34.0 schaltet MeterHub das Logging nie selbst ein. Für eine nicht
+            // archivierte Variable wirft AC_GetLoggedValues() eine Warnung, die im
+            // Konfigurationsformular als Text vor dem JSON landet ("Konnte
+            // Konfigurationsform nicht laden", Horst/hbraun 15.11.2026). Ohne Logging
+            // gibt es keinen Archivstand: Wasserstand 0 = "noch nichts archiviert".
+            if (!function_exists('AC_GetLoggingStatus') || !@AC_GetLoggingStatus($archiveID, $vid)) {
+                $watermark = 0;
+                continue;
+            }
             $latest = AC_GetLoggedValues($archiveID, $vid, 0, $now, 1);
             $ts = (int) ($latest[0]['TimeStamp'] ?? 0);
             if ($watermark === null || $ts < $watermark) {

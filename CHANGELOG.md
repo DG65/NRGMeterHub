@@ -2,6 +2,17 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.37.2 (2026-11-15)
+
+- **Fix: Konfigurationsformular einer neuen Inexogy-Instanz ließ sich nicht öffnen** („Konnte Konfigurationsform nicht
+  laden“, Fund hbraun 15.11.2026). Der Archiv-Wasserstand (`InexogyArchiveWatermark()`) fragte `AC_GetLoggedValues()`
+  auch für Variablen ab, die gar nicht archiviert sind. Symcon wirft dafür die Warnung „Logging ist für diese Variable
+  nicht verfügbar“, und deren Text landete im Formular vor dem JSON. Seit 0.34.0 schaltet MeterHub das Logging nicht mehr
+  selbst ein, deshalb trat es bei jeder neuen Instanz auf, solange der Nutzer die Archivierung noch nicht angeklickt hatte.
+  Betroffen war dasselbe auch bei `archiveWatermarkTs` im Vertrag `MHUB_GetFunctions` (Konsumenten wie das Dashboard). Jetzt
+  gilt eine nicht archivierte Variable als „noch nichts archiviert“ (Wasserstand 0), ohne Abfrage und ohne Warnung. Prüfstand
+  `test-auto-backfill.php` 8g, gegengeprobt (ohne den Fix schlägt er an).
+
 ## 0.37.1 (2026-11-15)
 
 - **Fix: MeterHubVirtual räumt seinen WebHook beim Löschen der Instanz auf.** Die Kachel-Registrierung

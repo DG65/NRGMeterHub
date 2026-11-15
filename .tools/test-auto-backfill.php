@@ -30,7 +30,14 @@ function IPS_GetChildrenIDs($id) {
 // per Limit=1 abgefragten neuesten Datensatz je Variable (AC_GetLoggedValues
 // ist laut SDK-Doku absteigend sortiert -- Limit=1 liefert also exakt den
 // neuesten TimeStamp, kein Scan der Historie nötig).
+$GLOBALS['NOT_LOGGED'] = [];     // vid => true: Variable ohne Logging (Symcon wirft dann eine Warnung)
+function AC_GetLoggingStatus($archiveID, $vid) { return empty($GLOBALS['NOT_LOGGED'][$vid]); }
 function AC_GetLoggedValues($archiveID, $vid, $start, $end, $limit) {
+    if (!empty($GLOBALS['NOT_LOGGED'][$vid])) {
+        // wie Symcon: Warnung, die im Konfigurationsformular als Text vor dem JSON landet
+        trigger_error('Logging ist für diese Variable nicht verfügbar', E_USER_WARNING);
+        return false;
+    }
     if (!isset($GLOBALS['ARCHIVE_LATEST'][$vid])) { return []; }
     return [['TimeStamp' => $GLOBALS['ARCHIVE_LATEST'][$vid], 'Value' => 0]];
 }
@@ -221,6 +228,28 @@ $GLOBALS['OBJ'][760] = ['ObjectType' => 1, 'ObjectIdent' => '', 'ParentID' => 0]
 $h760 = new MeterHub(760); $h760->Create();
 $gf760 = json_decode($h760->GetFunctions(), true);
 check('9d: calculatedEnergyIDs = [Ertrag-Variable]', ($gf760['calculatedEnergyIDs'] ?? null) === [761], json_encode($gf760['calculatedEnergyIDs'] ?? '(fehlt)'));
+
+echo "\n  8g) Variablen ohne Logging (Standard seit 0.34.0) -> keine Warnung, Wasserstand 0 statt Formular-Absturz (hbraun 15.11.2026)\n";
+$GLOBALS['NOT_LOGGED'] = [701 => true, 702 => true, 703 => true];
+$warns = [];
+set_error_handler(function ($no, $str) use (&$warns) { $warns[] = $str; return true; });
+$ref = new ReflectionMethod($h700, 'InexogyArchiveWatermark');
+[$wm8g, $err8g] = $ref->invoke($h700);
+$gf8g = json_decode($h700->GetFunctions(), true);
+restore_error_handler();
+check('keine Warnung ausgegeben', $warns === [], json_encode($warns));
+check('Wasserstand 0, kein Fehler', $wm8g === 0 && $err8g === null, var_export([$wm8g, $err8g], true));
+check('archiveWatermarkTs = null im Vertrag', array_key_exists('archiveWatermarkTs', $gf8g) && $gf8g['archiveWatermarkTs'] === null, json_encode($gf8g['archiveWatermarkTs'] ?? '(fehlt)'));
+echo "  8g2) Nur eine Variable nicht archiviert -> Minimum 0, die geloggten werden trotzdem nicht mit Warnung abgefragt\n";
+$GLOBALS['NOT_LOGGED'] = [703 => true];
+$GLOBALS['ARCHIVE_LATEST'] = [701 => time() - 600, 702 => time() - 600];
+$warns = [];
+set_error_handler(function ($no, $str) use (&$warns) { $warns[] = $str; return true; });
+[$wm8h] = $ref->invoke($h700);
+restore_error_handler();
+check('keine Warnung', $warns === [], json_encode($warns));
+check('Wasserstand 0 (power_total fehlt im Archiv)', $wm8h === 0, (string) $wm8h);
+$GLOBALS['NOT_LOGGED'] = [];
 
 echo "\n  8e) Kein Archiv-Modul installiert -> klare Fehlermeldung, kein Absturz\n";
 $GLOBALS['ARCHIVE_IDS'] = [];
