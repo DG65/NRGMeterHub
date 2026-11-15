@@ -4611,7 +4611,7 @@ Skipped: %d without W/kWh profile, %d already entered, %d outputs of virtual met
             // Alternative auch textlich/im Schriftstil herausstellen, z. B.
             // "Die Quick-Pick-Alternative").
             if ($tree) {
-                $meterItems[] = ['type' => 'Label', 'caption' => '🌳 Members of this instance are everything that sits directly under it in the object tree — most simply a link to a meter device, a single variable or another virtual meter instance. Order = position in the object tree. Removing = deleting the link. The three alternatives below create such links for you.'];
+                $meterItems[] = ['type' => 'Label', 'caption' => '🌳 Members of this instance are everything that sits directly under it in the object tree — most simply a link to a meter device, a single variable or another virtual meter instance. Order = position in the object tree. Removing = deleting the link. The alternatives below create such links for you.'];
             }
             $meterItems[] = ['type' => 'Label', 'caption' => $tree
                 ? MHUBV_Text::t('Four equivalent alternatives to add a member — choose the one that suits your situation:')
