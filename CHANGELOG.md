@@ -2,6 +2,16 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.37.3 (2026-11-15)
+
+- **Formular: „Automatische Neuanmeldung (optional)“ liegt jetzt in einem eigenen, eingeklappten Panel.** Die Felder für den
+  Tresor (SymconSecrets) standen bei Inexogy-Instanzen mitten im Verbindungsbereich und wirkten wie ein Pflichtteil
+  (Rückmeldung hbraun, 15.11.2026). Sie sind nur für die automatische Neuanmeldung gedacht, wenn Inexogy den Zugriff
+  ungültig macht; ohne Tresor genügt die manuelle Anmeldung. Inhalt und Verhalten unverändert, die Statuszeile bleibt live.
+  Prüfstand 54k2.
+- **Fix: Hilfetext im Bereich „Zähler“ des virtuellen Zählers.** Dort stand „die drei Alternativen unten“, gezeigt werden vier.
+  Jetzt: „die Alternativen unten“.
+
 ## 0.37.2 (2026-11-15)
 
 - **Fix: Konfigurationsformular einer neuen Inexogy-Instanz ließ sich nicht öffnen** („Konnte Konfigurationsform nicht

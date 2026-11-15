@@ -1,6 +1,7 @@
 {
     "translations": {
         "de": {
+            "🗝️ Automatic re-login (optional)": "🗝️ Automatische Neuanmeldung (optional)",
             "\nThe function is still set to \"none\" there — deliberately, because otherwise the same consumer would appear twice in the tile and in the Sankey diagram. Typically you set \"House consumption\": the remainder is then everything not accounted for by the subtracted meters.": "\nDie Funktion steht dort noch auf „keine“ — bewusst, denn sonst erschiene derselbe Verbraucher in Kachel und Sankey doppelt. Typisch ist, „Hausverbrauch“ zu setzen: der Rest ist dann alles, was nicht auf die abgezogenen Zähler entfällt.",
             "   • %s values swapped between the two variables, role (name/ident) swapped.": "   • %s Werte zwischen den beiden Variablen getauscht, Rolle (Name/Ident) getauscht.",
             "   • %s values swapped between the two variables.": "   • %s Werte zwischen den beiden Variablen getauscht.",

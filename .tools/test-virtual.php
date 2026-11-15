@@ -2713,6 +2713,13 @@ check('54k: Formular enthält die Tresor-Zeile, bei einem Cloud-Zähler sichtbar
 check('54k: bei einem Modbus-Zähler ausgeblendet', ($line50('direct', 'siemens_pac2200', 'SecretsStatusLine')['visible'] ?? null) === false);
 $fAll = json_decode(cf($hub47), true);
 check('54k: Tresor-Auswahl und Feldnamen stehen im Formular', $findEl($fAll['elements'], 'SecretsInstanceID') !== null && $findEl($fAll['elements'], 'SecretsRecord') !== null && $findEl($fAll['elements'], 'SecretsPassField') !== null && $findEl($fAll['elements'], 'SecretsUserField') !== null);
+// 0.37.3: Tresor-Felder liegen in einem eigenen, eingeklappten Panel (hbraun 15.11.2026 hielt sie für Pflicht)
+IPS_SetProperty(9200, 'Meter', 'inexogy');
+IPS_SetProperty(9200, 'ConnectionMode', 'direct');
+$secPanel = $findEl(json_decode(cf($hub47), true)['elements'], 'SecretsPanel');
+check('54k2: Panel „Automatische Neuanmeldung" existiert, bei Cloud-Zähler sichtbar und eingeklappt', $secPanel !== null && ($secPanel['visible'] ?? null) === true && ($secPanel['expanded'] ?? null) === false, json_encode($secPanel));
+check('54k2: Panel enthält Statuszeile und Tresor-Auswahl', $secPanel !== null && $findEl($secPanel['items'] ?? [], 'SecretsStatusLine') !== null && $findEl($secPanel['items'] ?? [], 'SecretsInstanceID') !== null);
+check('54k2: bei einem Modbus-Zähler ist das Panel ausgeblendet', ($line50('direct', 'siemens_pac2200', 'SecretsPanel')['visible'] ?? null) === false);
 IPS_SetProperty(9200, 'Meter', 'siemens_pac2200');
 
 echo "\n55) Logging nur über \$this->LogMessage() (Symcon-Store-Review 12.10.2026, SUITE.md Punkt 15)\n";
