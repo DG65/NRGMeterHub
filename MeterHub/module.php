@@ -2603,11 +2603,15 @@ class MHUB_TasmotaClient
     private $timeout;
     private $lastError = '';
 
-    public function __construct(string $host, int $port = 80, float $timeout = 4.0)
+    /** Web-Passwort des Geräts (leer = keines). Tasmota kennt nur den Benutzer „admin“. Taucht in keinem Fehlertext auf. */
+    private $password;
+
+    public function __construct(string $host, int $port = 80, float $timeout = 4.0, string $password = '')
     {
-        $this->host    = trim($host);
-        $this->port    = $port > 0 ? $port : 80;
-        $this->timeout = $timeout;
+        $this->host     = trim($host);
+        $this->port     = $port > 0 ? $port : 80;
+        $this->timeout  = $timeout;
+        $this->password = $password;
     }
 
     public function getLastError(): string
@@ -2632,7 +2636,10 @@ class MHUB_TasmotaClient
             $this->lastError = MHUB_Text::t('Invalid host name or IP address.');
             return null;
         }
-        $url = 'http://' . $this->host . ($this->port !== 80 ? ':' . $this->port : '') . '/cm?cmnd=' . rawurlencode('Status 8');
+        $url = 'http://' . $this->host . ($this->port !== 80 ? ':' . $this->port : '');
+        // Mit gesetztem Web-Passwort verlangt Tasmota Benutzer und Passwort als Parameter der Abfrage (Tasmota-Doku,
+        // Commands → Web Requests: /cm?user=admin&password=…&cmnd=…). Nur im Klartext auf dem lokalen Netz.
+        $url .= '/cm?' . ($this->password !== '' ? 'user=admin&password=' . rawurlencode($this->password) . '&' : '') . 'cmnd=' . rawurlencode('Status 8');
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, max(1, (int)ceil($this->timeout / 2)));
@@ -2644,20 +2651,36 @@ class MHUB_TasmotaClient
             $this->lastError = MHUB_Text::t('Network error: %s', $err);
             return null;
         }
+        if ($code === 401) {
+            $this->lastError = $this->passwordHint();
+            return null;
+        }
         if ($code !== 200) {
             $this->lastError = MHUB_Text::t('The device answered with HTTP status %d.', $code);
             return null;
         }
         $json = json_decode((string)$body, true);
+        if (is_array($json) && !isset($json['StatusSNS']) && isset($json['WARNING'])) {
+            $this->lastError = $this->passwordHint();   // „Need user=<username>&password=<password>“
+            return null;
+        }
         if (!is_array($json)) {
             $this->lastError = MHUB_Text::t('The response is not valid JSON — is this a Tasmota device?');
             return null;
         }
         if (!isset($json['StatusSNS']) || !is_array($json['StatusSNS'])) {
-            $this->lastError = MHUB_Text::t('No sensor data in the response — is a web password set on the device? (not supported yet)');
+            $this->lastError = MHUB_Text::t('No sensor data in the response — does the device have a sensor or an SML script?');
             return null;
         }
         return $json['StatusSNS'];
+    }
+
+    /** Erklärt, was bei einer Passwort-Antwort zu tun ist; ohne gespeichertes Passwort etwas anderes als mit. */
+    private function passwordHint(): string
+    {
+        return $this->password === ''
+            ? MHUB_Text::t('The device asks for a web password. Enter it in the form (field "Web password") and click "Save password".')
+            : MHUB_Text::t('The device rejected the web password — please check it in the form and save it again.');
     }
 }
 
@@ -3858,6 +3881,8 @@ class MeterHub extends IPSModule
         $this->RegisterAttributeString('InexogyMeterOptions', '');
         // Komponentenart des Shelly (MQTT): em / em1 / pm1 / switch — steuert, ob Phasen-Optionen angeboten werden.
         $this->RegisterAttributeString('ShellyKind', '');
+        // Web-Passwort der Tasmota-Geräte: nur als Attribut (nicht im Formular sichtbar, nicht in einer Einstellung).
+        $this->RegisterAttributeString('TasmotaWebPassword', '');
         // true, solange Inexogy den gespeicherten Zugriffsschlüssel mit HTTP 401
         // ablehnt — nur für die Statuszeile im Formular (InexogyStatusLine()).
         $this->RegisterAttributeBoolean('InexogyAuthRejected', false);
@@ -4917,7 +4942,7 @@ The function is still set to "none" there — deliberately, because otherwise th
             ['type' => 'NumberSpinner', 'name' => 'MqttChannel', 'visible' => $isMqtt, 'caption' => 'Channel (0 = first meter/switch of the device)', 'minimum' => 0, 'maximum' => 7, 'onChange' => 'MHUB_OnChangeMqtt($id, $MqttBridgeID, $MqttTopic, $MqttChannel);'],
             ['type' => 'Label', 'name' => 'MqttStatusLine', 'visible' => $isMqtt, 'caption' => $this->MqttStatusLine($this->ReadPropertyInteger('MqttBridgeID'), $this->ReadPropertyString('MqttTopic'), $this->ReadPropertyInteger('MqttChannel'))],
             ['type' => 'NumberSpinner', 'name' => 'HttpPort', 'visible' => $isHttp, 'caption' => 'HTTP port', 'minimum' => 1, 'maximum' => 65535],
-            ['type' => 'Label', 'name' => 'TasmotaHint', 'visible' => $isHttp, 'caption' => '🧪 Tasmota (experimental): MeterHub only reads — it asks the device once per interval for its sensor data (Tasmota command "Status 8") and never switches or changes anything. A web password on the device is not supported yet. The sensor name and field names below are only needed if automatic detection finds nothing (typical for an IR reading head: the names come from your own SML script).'],
+            ['type' => 'Label', 'name' => 'TasmotaHint', 'visible' => $isHttp, 'caption' => '🧪 Tasmota (experimental): MeterHub only reads — it asks the device once per interval for its sensor data (Tasmota command "Status 8") and never switches or changes anything. If the device has a web password, enter it below (user "admin"); it is stored out of sight and not shown again. The sensor name and field names further down are only needed if automatic detection finds nothing (typical for an IR reading head: the names come from your own SML script).'],
             ['type' => 'ValidationTextBox', 'name' => 'TasmotaSensor', 'visible' => $isHttp, 'caption' => 'Sensor name (empty = ENERGY or the first sensor with energy fields)'],
             ['type' => 'ValidationTextBox', 'name' => 'TasmotaFieldPower', 'visible' => $isHttp, 'caption' => 'Field for the active power in W (empty = automatic)'],
             ['type' => 'ValidationTextBox', 'name' => 'TasmotaFieldImport', 'visible' => $isHttp, 'caption' => 'Field for the energy import (empty = automatic)'],
@@ -4926,6 +4951,10 @@ The function is still set to "none" there — deliberately, because otherwise th
                 ['caption' => 'kWh', 'value' => 'kwh'],
                 ['caption' => 'Wh', 'value' => 'wh'],
             ]],
+            ['type' => 'Label', 'name' => 'TasmotaPasswordStatus', 'visible' => $isHttp, 'caption' => $this->TasmotaPasswordStatusLine()],
+            ['type' => 'PasswordTextBox', 'name' => 'TasmotaPasswordInput', 'visible' => $isHttp, 'caption' => 'Web password of the device (the user is always "admin"; leave empty if the device has no web password)'],
+            ['type' => 'Button', 'name' => 'TasmotaPasswordSave', 'visible' => $isHttp, 'caption' => '🔑  Save password', 'onClick' => 'echo MHUB_SetTasmotaPassword($id, $TasmotaPasswordInput);'],
+            ['type' => 'Button', 'name' => 'TasmotaPasswordClear', 'visible' => $isHttp, 'caption' => 'Delete stored password', 'onClick' => 'echo MHUB_ClearTasmotaPassword($id);'],
         ];
 
         $groupItems = [];
@@ -5031,7 +5060,7 @@ The function is still set to "none" there — deliberately, because otherwise th
                         ['type' => 'Label', 'caption' => '🔌 Eastron SDM120/SDM220/SDM230 (single-phase): confirmed on real hardware by a tester. Pure RS485 devices (Modbus address 1 by factory default) — via the connection path "Symbox gateway" or an RTU/TCP gateway. No total registers as on the SDM630: the active power is at register 12.'],
                         ['type' => 'Label', 'caption' => '🧪 Experimental: Socomec Countis and MBS Professional 3-75 are derived from templates and not yet tested on real hardware — please compare the measured values with the device display. If values look implausible, the WordSwap or invert switch helps.'],
                         ['type' => 'Label', 'caption' => '🔌 Shelly Pro 3EM: Modbus TCP must be enabled on the device first (Settings → Modbus, port 502). Read via FC 0x04, float word-swapped (CDAB); wire addresses = documentation − 30000 (measurements from 1011, energy 1162/1164). Verified on a real device.'],
-                        ['type' => 'Label', 'caption' => '🧪 Tasmota (HTTP, experimental): for meters and plugs with Tasmota firmware (e.g. Nous A1T) and for an IR reading head on a meter (SML script). MeterHub asks the device over the local network and only reads. Enter the device\'s IP address; the sensor is detected automatically (standard block ENERGY) — for an IR reading head enter the sensor and field names from your script. A web password on the device is not supported yet. Shelly meters are not read this way: they have Modbus (Shelly Pro 3EM) and are available as their own meter type.'],
+                        ['type' => 'Label', 'caption' => '🧪 Tasmota (HTTP, experimental): for meters and plugs with Tasmota firmware (e.g. Nous A1T) and for an IR reading head on a meter (SML script). MeterHub asks the device over the local network and only reads. Enter the device\'s IP address; the sensor is detected automatically (standard block ENERGY) — for an IR reading head enter the sensor and field names from your script. If the device has a web password, you enter it in the same panel (user "admin"). Shelly meters are not read this way: they have Modbus (Shelly Pro 3EM) and are available as their own meter type.'],
                         ['type' => 'Label', 'caption' => '🧪 Shelly (MQTT, experimental): for Shelly Gen2/Gen3/Pro that send to the MQTT server of Symcon. Needs the module "NRG-Stack MeterHub bridge (MQTT)" between the server and this instance. MeterHub only listens (nothing is published or switched); Shelly sends only changes, so values appear with the first message. Not yet tried on a real device — please compare with the device display. Older Gen1 devices are not supported this way.'],
                         ['type' => 'Label', 'caption' => '🔌 go-e Controller: Modbus TCP must be enabled on the device first (go-e app: Internet → Advanced settings → Modbus, or HTTP API men=true) — otherwise port 502 stays closed; after enabling, switch the setting off and on once if necessary. Core values come from the Grid category; sensors 1-6 and the categories Home/Car/Relays/Solar/Battery can be enabled. Verified on a real device. (The go-e wallboxes themselves are handled by the ChargerHub module.)'],
                         ['type' => 'Label', 'caption' => '⚠️ go-e Controller + surplus charging: the controller can regulate the go-e wallboxes BY ITSELF (PV surplus charging, load limiting — an on-device control loop). If an EMS is to control the wallboxes instead, this internal control must be disabled on the wallboxes — otherwise two controllers work against each other. This module only reads and is not affected; the control state is not visible via Modbus, only on the wallboxes themselves (go-e API: usePvSurplus, load management, modelStatus).'],
@@ -5453,7 +5482,7 @@ The function is still set to "none" there — deliberately, because otherwise th
         foreach (['MqttHint', 'MqttBridgeID', 'MqttTopic', 'MqttChannel', 'MqttStatusLine'] as $f) {
             $this->UpdateFormField($f, 'visible', $isMqtt);
         }
-        foreach (['HttpPort', 'TasmotaHint', 'TasmotaSensor', 'TasmotaFieldPower', 'TasmotaFieldImport', 'TasmotaFieldExport', 'TasmotaEnergyUnit'] as $f) {
+        foreach (['HttpPort', 'TasmotaHint', 'TasmotaSensor', 'TasmotaFieldPower', 'TasmotaFieldImport', 'TasmotaFieldExport', 'TasmotaEnergyUnit', 'TasmotaPasswordStatus', 'TasmotaPasswordInput', 'TasmotaPasswordSave', 'TasmotaPasswordClear'] as $f) {
             $this->UpdateFormField($f, 'visible', $isHttp);
         }
         $this->UpdateFormField('Host', 'visible', !$isCloud && !$isMqtt && !$isGateway);
@@ -6168,9 +6197,41 @@ The function is still set to "none" there — deliberately, because otherwise th
             return new MHUB_ShellyMqttClient($this->ReadPropertyInteger('MqttBridgeID'), $this->ReadPropertyString('MqttTopic'), $this->ReadPropertyInteger('MqttChannel'));
         }
         if (in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true)) {
-            return new MHUB_TasmotaClient($this->ReadPropertyString('Host'), $this->ReadPropertyInteger('HttpPort'));
+            return new MHUB_TasmotaClient($this->ReadPropertyString('Host'), $this->ReadPropertyInteger('HttpPort'), 4.0, $this->ReadAttributeString('TasmotaWebPassword'));
         }
         return $this->GetModbusClient();
+    }
+
+    /** Statuszeile zum Tasmota-Web-Passwort; nennt nur die Länge, nie den Inhalt. */
+    private function TasmotaPasswordStatusLine(): string
+    {
+        $n = strlen($this->ReadAttributeString('TasmotaWebPassword'));
+        return $n > 0
+            ? MHUB_Text::t('🔒 A web password is stored (%d characters) and sent with every request. It is not shown again.', $n)
+            : MHUB_Text::t('ℹ️ No web password stored — fine for devices without one.');
+    }
+
+    /**
+     * Speichert das Web-Passwort des Tasmota-Geräts als Attribut (nicht im Formular sichtbar, nicht in einer Einstellung,
+     * nicht im Protokoll) und leert das Eingabefeld. Ein leeres Feld ändert nichts.
+     */
+    public function SetTasmotaPassword(string $password): string
+    {
+        if ($password === '') {
+            return MHUB_Text::t('ℹ️ Nothing entered — the stored password stays as it is. To remove it, use "Delete stored password".');
+        }
+        $this->WriteAttributeString('TasmotaWebPassword', $password);
+        $this->UpdateFormField('TasmotaPasswordInput', 'value', '');
+        $this->UpdateFormField('TasmotaPasswordStatus', 'caption', $this->TasmotaPasswordStatusLine());
+        return MHUB_Text::t('✅ Password saved. The next reading uses it.');
+    }
+
+    public function ClearTasmotaPassword(): string
+    {
+        $this->WriteAttributeString('TasmotaWebPassword', '');
+        $this->UpdateFormField('TasmotaPasswordInput', 'value', '');
+        $this->UpdateFormField('TasmotaPasswordStatus', 'caption', $this->TasmotaPasswordStatusLine());
+        return MHUB_Text::t('✅ Stored password deleted.');
     }
 
     /**

@@ -3177,7 +3177,7 @@ check('64a: Tasmota-Instanz: Host und HTTP-Port sichtbar, Unit ID, Modbus-Port u
 check('64b: Sensor-, Feld- und Einheitsfelder sowie der Hinweis sind im Formular',
     t64_find($els, 'TasmotaSensor') !== null && t64_find($els, 'TasmotaFieldPower') !== null && t64_find($els, 'TasmotaEnergyUnit') !== null && t64_find($els, 'TasmotaHint') !== null);
 check('64c: Host-Prüfregex ist bei HTTP-Zählern leer (kein IP-Zwang, Hostnamen erlaubt)', (t64_find($els, 'Host')['validate'] ?? 'x') === '');
-check('64d: das Formular enthält kein Passwortfeld für Tasmota', t64_find($els, 'TasmotaPassword') === null);
+check('64d: das Formular enthält das Passwortfeld (PasswordTextBox) samt Speichern- und Löschknopf, bei Tasmota sichtbar', (t64_find($els, 'TasmotaPasswordInput')['type'] ?? '') === 'PasswordTextBox' && (t64_find($els, 'TasmotaPasswordInput')['visible'] ?? false) === true && t64_find($els, 'TasmotaPasswordSave') !== null && t64_find($els, 'TasmotaPasswordClear') !== null);
 $GLOBALS['FORMFIELDS'] = [];
 $ht->OnChangeMeter('siemens_pac2200');
 check('64e: Wechsel von Tasmota auf Modbus-Zähler blendet die HTTP-Felder aus und Unit ID ein',
@@ -3186,6 +3186,24 @@ $GLOBALS['FORMFIELDS'] = [];
 $ht->OnChangeMeter('tasmota');
 check('64f: Wechsel auf Tasmota blendet die HTTP-Felder ein und Unit ID aus',
     ($GLOBALS['FORMFIELDS']['HttpPort']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['TasmotaSensor']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['UnitId']['visible'] ?? null) === false);
+// 0.38.2: Web-Passwort der Tasmota-Geräte (Dirks Steckdosen) — nur als Attribut, nie sichtbar, nie in einer Einstellung
+$GLOBALS['FORMFIELDS'] = [];
+$resSet = $ht->SetTasmotaPassword('gehe!m-pw');
+check('64h: Speichern legt das Passwort als Attribut ab', ($GLOBALS['ATTR'][8640]['TasmotaWebPassword'] ?? '') === 'gehe!m-pw');
+check('64h: die Rückmeldung nennt das Passwort nicht', !str_contains($resSet, 'gehe!m-pw') && str_starts_with($resSet, '✅'), $resSet);
+check('64h: das Eingabefeld wird geleert, die Statuszeile nennt nur die Länge (9 Zeichen)', ($GLOBALS['FORMFIELDS']['TasmotaPasswordInput']['value'] ?? 'x') === '' && str_contains($GLOBALS['FORMFIELDS']['TasmotaPasswordStatus']['caption'] ?? '', '9') && !str_contains($GLOBALS['FORMFIELDS']['TasmotaPasswordStatus']['caption'] ?? '', 'gehe'), json_encode($GLOBALS['FORMFIELDS']['TasmotaPasswordStatus'] ?? null));
+check('64h: das Passwort steht in keiner Einstellung und nicht im Formular-JSON', !str_contains(json_encode($GLOBALS['PROP'][8640]), 'gehe!m-pw') && !str_contains(cf($ht), 'gehe!m-pw'));
+$gt64 = new ReflectionMethod('MeterHub', 'GetTransport'); $gt64->setAccessible(true);
+$cl64 = $gt64->invoke($ht); $pp64 = new ReflectionProperty($cl64, 'password'); $pp64->setAccessible(true);
+check('64h: der Tasmota-Client bekommt das gespeicherte Passwort', $pp64->getValue($cl64) === 'gehe!m-pw');
+$resEmpty = $ht->SetTasmotaPassword('');
+check('64h: leeres Feld ändert nichts', ($GLOBALS['ATTR'][8640]['TasmotaWebPassword'] ?? '') === 'gehe!m-pw' && str_starts_with($resEmpty, 'ℹ️'), $resEmpty);
+$ht->ClearTasmotaPassword();
+check('64h: Löschen leert das Attribut', ($GLOBALS['ATTR'][8640]['TasmotaWebPassword'] ?? 'x') === '' && str_contains($GLOBALS['FORMFIELDS']['TasmotaPasswordStatus']['caption'] ?? '', 'Kein'));
+$GLOBALS['FORMFIELDS'] = [];
+$ht->OnChangeMeter('siemens_pac2200');
+check('64h: bei einem Modbus-Zähler sind die Passwort-Elemente ausgeblendet', ($GLOBALS['FORMFIELDS']['TasmotaPasswordInput']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['TasmotaPasswordSave']['visible'] ?? null) === false);
+$ht->OnChangeMeter('tasmota');
 $rvs64 = new ReflectionMethod('MeterHub', 'RegisterVariables'); $rvs64->setAccessible(true);
 $rvs64->invoke($ht);
 $idents64 = array_map(fn($c) => IPS_GetObject($c)['ObjectIdent'], IPS_GetChildrenIDs(8640));

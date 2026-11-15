@@ -33,6 +33,13 @@ file_put_contents("$dir/router.php", <<<'PHP'
 $d = getenv('TASMOTA_DIR');
 file_put_contents("$d/count", (int)@file_get_contents("$d/count") + 1);
 file_put_contents("$d/lastquery", $_SERVER['REQUEST_URI']);
+// Web-Passwort: ist die Datei needpw vorhanden, verlangt der Server user=admin&password=<Inhalt> wie Tasmota
+if (is_file("$d/needpw") && !(($_GET['user'] ?? '') === 'admin' && ($_GET['password'] ?? null) === rtrim((string)file_get_contents("$d/needpw"), "\n"))) {
+    http_response_code((int)@file_get_contents("$d/authstatus") ?: 200);
+    header('Content-Type: application/json');
+    echo '{"WARNING":"Need user=<username>&password=<password>"}';
+    return;
+}
 $status = (int)@file_get_contents("$d/status") ?: 200;
 http_response_code($status);
 header('Content-Type: application/json');
@@ -135,7 +142,39 @@ check('5a: DRIVERS-Eintrag', preg_match("/'tasmota'\s*=>\s*'MHUB_TasmotaDriver'/
 check('5b: als HTTP-Zähler geführt', preg_match("/const HTTP_METERS\s*=\s*\['tasmota'\]/", $src) === 1);
 check('5c: Zählertyp ist als experimentell beschriftet', preg_match("/'tasmota'\s*=>\s*'Tasmota \(HTTP, experimental\)'/", $src) === 1);
 check('5d: Treiber ist reiner Leser (kein Schreibaufruf im Client)', (function () use ($src) { $a = strpos($src, 'class MHUB_TasmotaClient'); $b = strpos($src, 'class MHUB_TasmotaDriver'); $c = substr($src, $a, $b - $a); return !preg_match('/function write|cmnd=Power|Backlog|POST/', $c); })());
-check('5e: kein Passwort-Feld in v1', !preg_match("/'name' => 'Tasmota(Password|User)/", $src));
+check('5e: Passwort-Feld, Speichern- und Löschknopf im Formular, Passwort nur als Attribut (keine Einstellung)', preg_match("/'name' => 'TasmotaPasswordInput'/", $src) === 1 && preg_match("/RegisterAttributeString\('TasmotaWebPassword'/", $src) === 1 && !preg_match("/RegisterPropertyString\('Tasmota(Web)?(Password|User)/", $src));
+
+// 6) Web-Passwort (0.38.2, Dirks Steckdosen) ---------------------------------------------------------
+echo "6) Web-Passwort\n";
+$pwSpecial = 'pä&ss=wort #1';
+file_put_contents("$dir/needpw", $pwSpecial . "\n");
+serve('{"StatusSNS":{"Time":"x","ENERGY":{"Total":12.5,"Power":46,"Voltage":238}}}');
+$noPw = new MHUB_TasmotaClient('127.0.0.1', $port, 3.0);
+check('6a: Gerät mit Passwort, keines gespeichert → null, Text sagt, was zu tun ist', $noPw->getSensors() === null && str_contains($noPw->getLastError(), 'Web-Passwort') && str_contains($noPw->getLastError(), 'Passwort speichern'), $noPw->getLastError());
+$good = new MHUB_TasmotaClient('127.0.0.1', $port, 3.0, $pwSpecial);
+$sns = $good->getSensors();
+check('6b: richtiges Passwort (mit Sonderzeichen) → Sensordaten', is_array($sns) && ($sns['ENERGY']['Power'] ?? null) === 46, $good->getLastError());
+$q = (string)file_get_contents("$dir/lastquery");
+check('6c: Abfrage trägt user=admin und das URL-kodierte Passwort', str_contains($q, 'user=admin') && str_contains($q, 'password=' . rawurlencode($pwSpecial)), $q);
+$bad = new MHUB_TasmotaClient('127.0.0.1', $port, 3.0, 'falsch');
+check('6d: falsches Passwort → null, Text sagt „abgelehnt“', $bad->getSensors() === null && str_contains($bad->getLastError(), 'abgelehnt'), $bad->getLastError());
+check('6e: das Passwort steht in keinem Fehlertext', !str_contains($bad->getLastError(), 'falsch') && !str_contains($noPw->getLastError(), $pwSpecial));
+file_put_contents("$dir/authstatus", '401');
+check('6f: HTTP 401 wird wie eine Passwort-Antwort behandelt (kein „Status 401“-Text)', $bad->getSensors() === null && str_contains($bad->getLastError(), 'abgelehnt'), $bad->getLastError());
+check('6f: 401 ohne gespeichertes Passwort → Hinweis auf das Passwortfeld', $noPw->getSensors() === null && str_contains($noPw->getLastError(), 'Passwort speichern'), $noPw->getLastError());
+unlink("$dir/authstatus"); unlink("$dir/needpw");
+serve('{"StatusSNS":{"Time":"x","ENERGY":{"Total":1,"Power":2}}}');
+$plain = new MHUB_TasmotaClient('127.0.0.1', $port, 3.0);
+$plain->getSensors();
+check('6g: ohne gespeichertes Passwort schickt der Client weder user noch password', !str_contains((string)file_get_contents("$dir/lastquery"), 'password') && !str_contains((string)file_get_contents("$dir/lastquery"), 'user='));
+$drv6 = new MHUB_TasmotaDriver();
+serve('{"StatusSNS":{"Time":"x","ENERGY":{"Total":12.5,"Power":46,"Voltage":238}}}');
+file_put_contents("$dir/needpw", $pwSpecial . "\n");
+$h = run($drv6, $noPw, new FakeHub());
+check('6h: Treiber meldet ohne Passwort „nicht verbunden“', ($h->v['connected'] ?? null) === false);
+$h = run($drv6, $good, new FakeHub());
+check('6h: mit Passwort verbunden, Leistung gelesen', ($h->v['connected'] ?? null) === true && ($h->v['power_total'] ?? null) === 46.0);
+unlink("$dir/needpw");
 
 echo $fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n";
 exit($fails === 0 ? 0 : 1);

@@ -2,6 +2,17 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.38.2 (2026-11-15)
+
+- **Tasmota: Web-Passwort am Gerät wird jetzt unterstützt.** Die meisten Steckdosen im Feld haben ein Web-Passwort gesetzt (Rückmeldung
+  Dirk, 15.11.2026), und ein solches Gerät lieferte keine Messwerte. Im Formular der Tasmota-Instanz gibt es das Feld „Web-Passwort des
+  Geräts“ mit „Passwort speichern“ und „Gespeichertes Passwort löschen“. Der Benutzer ist bei Tasmota immer `admin`. Das Passwort liegt
+  als Attribut (nicht sichtbar im Formular, in keiner Einstellung, in keinem Fehlertext; die Statuszeile nennt nur die Länge) und geht als
+  Parameter `user=admin&password=…` mit jeder Abfrage, URL-kodiert. Das verlangt Tasmota laut seiner Dokumentation so; im lokalen Netz
+  läuft es im Klartext. Antwortet ein Gerät mit „Need user=…&password=…“ oder HTTP 401, sagt der Fehlertext, ob noch kein Passwort
+  gespeichert ist oder ob es abgelehnt wurde. Prüfstand `test-tasmota.php` 6 (echter Server, Sonderzeichen im Passwort) und
+  `test-virtual.php` 64h.
+
 ## 0.38.1 (2026-11-15)
 
 - **Shelly (MQTT): Geräte mit nur einem Kanal gelten als einphasig.** Eine Steckdose (Plus Plug S), ein 1PM oder ein EM50 sendet
