@@ -3033,6 +3033,9 @@ class MHUB_ShellyMqttDriver implements MHUB_MeterDriverInterface
             return false;
         }
         $hub->SetVarBool('connected', true);
+        if (method_exists($hub, 'NoteShellyKind')) {
+            $hub->NoteShellyKind($p['kind']);   // em = dreiphasig; switch/pm1/em1 = ein Kanal, eine Phase
+        }
         $d = $p['data'];
         if ($p['kind'] === 'em') {
             $power = self::num($d['total_act_power'] ?? null);
@@ -3853,6 +3856,8 @@ class MeterHub extends IPSModule
         // Formular-Reload/-Neuaufbau, anders als die rein ephemere Anzeige direkt
         // nach dem Login (siehe InexogyLogin()/GetConfigurationForm()).
         $this->RegisterAttributeString('InexogyMeterOptions', '');
+        // Komponentenart des Shelly (MQTT): em / em1 / pm1 / switch — steuert, ob Phasen-Optionen angeboten werden.
+        $this->RegisterAttributeString('ShellyKind', '');
         // true, solange Inexogy den gespeicherten Zugriffsschlüssel mit HTTP 401
         // ablehnt — nur für die Statuszeile im Formular (InexogyStatusLine()).
         $this->RegisterAttributeBoolean('InexogyAuthRejected', false);
@@ -4216,6 +4221,7 @@ class MeterHub extends IPSModule
         // sonst bis zu 30 min veraltet (live 12.09.2026: nach dem Update auf
         // 0.27.3 lieferten beide Anlagen noch das Ergebnis des alten Codes).
         $this->WriteAttributeString('DirectionDiag', '');
+        $this->RefreshShellyKind();
         $this->RegisterVariables();
         // Bereitschaft: Modbus-Zähler brauchen eine IP, Cloud-Zähler ein
         // gültiges Zugriffs-Token samt gewählter Zähler-UID.
@@ -4924,6 +4930,9 @@ The function is still set to "none" there — deliberately, because otherwise th
 
         $groupItems = [];
         foreach ($driver->getOptionalGroups() as $propName => $group) {
+            if ($this->ShellySinglePhase() && in_array($propName, self::SHELLY_PHASE_GROUPS, true)) {
+                continue;   // ein Kanal, eine Phase: diese Gruppen bleiben bei einer Steckdose immer leer
+            }
             $groupItems[] = [
                 'type'    => 'CheckBox',
                 'name'    => $propName,
@@ -5471,7 +5480,7 @@ The function is still set to "none" there — deliberately, because otherwise th
             $this->UpdateFormField($f, 'visible', $isWritable);
         }
         $this->UpdateFormField('RpcValidTimeMin', 'visible', in_array($meter, self::RPC_VALID_TIME_METERS, true));
-        $single = in_array($meter, self::SINGLE_PHASE_METERS, true);
+        $single = in_array($meter, self::SINGLE_PHASE_METERS, true) || ($meter === 'shelly_mqtt' && in_array($this->ReadAttributeString('ShellyKind'), ['switch', 'pm1', 'em1'], true));
         foreach (['MeasureMode', 'MeasureModeIntro', 'MeasureModeHint'] as $f) {
             $this->UpdateFormField($f, 'visible', !$single);
         }
@@ -6721,6 +6730,9 @@ The function is still set to "none" there — deliberately, because otherwise th
     // Gruppe aktiv ist (ReadPropertyBoolean ist protected).
     public function GroupActive(string $propName): bool
     {
+        if ($this->ShellySinglePhase() && in_array($propName, self::SHELLY_PHASE_GROUPS, true)) {
+            return false;
+        }
         return $this->ReadPropertyBoolean($propName);
     }
 
@@ -6728,9 +6740,54 @@ The function is still set to "none" there — deliberately, because otherwise th
     // Funktionszuordnung
     // -----------------------------------------------------------------------
 
+    /** Phasen-Gruppen, die nur ein dreiphasiger Shelly (em) füllt. */
+    private const SHELLY_PHASE_GROUPS = ['GroupPowerPhase', 'GroupVoltagePhase', 'GroupCurrentPhase'];
+
+    /**
+     * Der Treiber meldet je Lesezyklus, welche Komponente der Shelly sendet (0.38.1). Nur beim Wechsel schreiben.
+     * Öffentlich, weil der Treiber den Hub direkt aufruft (wie SetVarFloat()).
+     */
+    public function NoteShellyKind(string $kind): void
+    {
+        if ($this->ReadAttributeString('ShellyKind') !== $kind) {
+            $this->WriteAttributeString('ShellyKind', $kind);
+        }
+    }
+
+    /**
+     * Beim Übernehmen die Art aus der Brücke auffrischen: so greift die Einphasen-Einstellung auch, wenn seit dem
+     * letzten Lesezyklus nichts Neues kam. Ein anderer Zählertyp löscht die Art. Kennt die Brücke das Gerät noch
+     * nicht, bleibt der letzte bekannte Wert stehen.
+     */
+    private function RefreshShellyKind(): void
+    {
+        if ($this->ReadPropertyString('Meter') !== 'shelly_mqtt') {
+            $this->NoteShellyKind('');
+            return;
+        }
+        try {
+            $channel = $this->ReadPropertyInteger('MqttChannel');
+            $client  = new MHUB_ShellyMqttClient($this->ReadPropertyInteger('MqttBridgeID'), $this->ReadPropertyString('MqttTopic'), $channel);
+            $d = $client->getDevice();
+            $p = $d === null ? null : MHUB_ShellyMqttDriver::pick($d['components'], $channel);
+            if ($p !== null) {
+                $this->NoteShellyKind((string)$p['kind']);
+            }
+        } catch (\Throwable $e) {
+            // Brücke gerade nicht erreichbar: letzte bekannte Art behalten
+        }
+    }
+
+    /** Ein Shelly (MQTT) mit nur einem Kanal und einer Phase (Steckdose, 1PM, EM50): keine Phasen-Optionen. */
+    private function ShellySinglePhase(): bool
+    {
+        return $this->ReadPropertyString('Meter') === 'shelly_mqtt'
+            && in_array($this->ReadAttributeString('ShellyKind'), ['switch', 'pm1', 'em1'], true);
+    }
+
     private function IsSinglePhaseMeter(): bool
     {
-        return in_array($this->ReadPropertyString('Meter'), self::SINGLE_PHASE_METERS, true);
+        return in_array($this->ReadPropertyString('Meter'), self::SINGLE_PHASE_METERS, true) || $this->ShellySinglePhase();
     }
 
     // Einphasige Zähler kennen nur „ganzes Gerät" — ein früher gespeicherter „perphase" zählt dort nicht.
@@ -8790,7 +8847,7 @@ The function is still set to "none" there — deliberately, because otherwise th
             $defs[] = $v;
         }
         foreach ($driver->getOptionalGroups() as $propName => $group) {
-            if ($this->ReadPropertyBoolean($propName)) {
+            if ($this->GroupActive($propName)) {
                 foreach ($group['vars'] as $v) {
                     $valid[$v[0]] = true;
                     $defs[] = $v;

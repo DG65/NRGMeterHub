@@ -2,6 +2,16 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.38.1 (2026-11-15)
+
+- **Shelly (MQTT): Geräte mit nur einem Kanal gelten als einphasig.** Eine Steckdose (Plus Plug S), ein 1PM oder ein EM50 sendet
+  seine Werte in `switch:`, `pm1:` oder `em1:` und hat nur eine Phase. Der MeterHub bot dafür trotzdem die Wahl „Dreiphasig /
+  Einphasig getrennt“ und legte Wirkleistung, Spannung und Strom für L1 bis L3 an, die für immer leer blieben (Rückmeldung Dirk
+  mit der ersten echten Shelly-Nachricht, 15.11.2026). Jetzt erkennt der Treiber die Komponentenart aus den Nachrichten, und bei
+  einem Ein-Kanal-Gerät entfallen die Messmodus-Auswahl und die drei Phasen-Gruppen im Bereich „Datenpunkte“; bereits angelegte
+  leere L1–L3-Variablen räumt das nächste „Übernehmen“ ab. Der Pro 3EM (`em`) bleibt unverändert dreiphasig. Prüfstand 65h und
+  4e2/5b0/5c0/5l0, dazu die echte Nachricht des Plug S als Regressionsfall (5l–5n).
+
 ## 0.38.0 (2026-11-15)
 
 - **Neu: Assistent für virtuelle Zähler.** In MeterHubVirtual führt das Panel „Assistent“ ganz oben durch das Zusammenstellen:

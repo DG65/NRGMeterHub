@@ -134,11 +134,12 @@ rx('shellypro3em-aabbcc/events/rpc', notify(['em:0' => ['total_act_power' => 300
 // 4) Treiber ---------------------------------------------------------------------------------------
 class FakeHub
 {
-    public $v = []; public $groups = [];
+    public $v = []; public $groups = []; public $kind = '';
     public function __construct(array $groups = []) { $this->groups = $groups; }
     public function GroupActive(string $g): bool { return in_array($g, $this->groups, true); }
     public function SetVarFloat($id, $x) { $this->v[$id] = (float)$x; }
     public function SetVarBool($id, $x) { $this->v[$id] = (bool)$x; }
+    public function NoteShellyKind(string $k) { $this->kind = $k; }
     public function SetVarEnergykWh($id, $x) { $this->v[$id] = round((float)$x, 6); }
 }
 function runShelly(MHUB_ShellyMqttClient $c, FakeHub $h): FakeHub { $d = new MHUB_ShellyMqttDriver(); $d->readFast($c, $h); $d->readSlow($c, $h); return $h; }
@@ -150,6 +151,7 @@ check('4b: Bezug/Abgabe aus emdata in kWh', ($h->v['energy_import'] ?? null) ===
 check('4c: Leistung je Phase mit Vorzeichen', ($h->v['p_l1'] ?? null) === 150.5 && ($h->v['p_l3'] ?? null) === -50.0);
 check('4d: Spannung/Strom je Phase und Mittelwerte', ($h->v['u_l2_n'] ?? null) === 231.0 && ($h->v['i_l3'] ?? null) === 0.25 && abs(($h->v['voltage_avg'] ?? 0) - 230.0) < 1e-9 && abs(($h->v['current_avg'] ?? 0) - 0.58333333) < 1e-6);
 check('4e: verbunden', ($h->v['connected'] ?? null) === true);
+check('4e2: der Treiber meldet die Komponentenart „em“ (dreiphasig)', $h->kind === 'em', $h->kind);
 $h = runShelly($c, new FakeHub());
 check('4f: ohne aktive Gruppen nur die Kernwerte', !isset($h->v['p_l1']) && !isset($h->v['voltage_avg']) && isset($h->v['power_total']));
 
@@ -166,9 +168,11 @@ $h = runShelly(new MHUB_ShellyMqttClient(700, 'shellyplusplugs-112233', 0), new 
 check('5a: Steckdose (switch:0): apower, Spannung, Strom, aenergy.total in kWh', ($h->v['power_total'] ?? null) === 61.5 && ($h->v['voltage_avg'] ?? null) === 231.2 && ($h->v['current_avg'] ?? null) === 0.27 && ($h->v['energy_import'] ?? null) === 5.4321 && ($h->v['energy_export'] ?? null) === 0.012, json_encode($h->v));
 setupDevice('shellypro1pm-9', ['pm1:0' => ['apower' => 10.0, 'aenergy' => ['total' => 1000.0]]]);
 $h = runShelly(new MHUB_ShellyMqttClient(700, 'shellypro1pm-9', 0), new FakeHub());
+check('5b0: pm1 wird als Art gemeldet', $h->kind === 'pm1', $h->kind);
 check('5b: pm1:0 wird erkannt', ($h->v['power_total'] ?? null) === 10.0 && ($h->v['energy_import'] ?? null) === 1.0 && !isset($h->v['energy_export']));
 setupDevice('shellyproem50-7', ['em1:0' => ['act_power' => -420.0, 'voltage' => 229.0, 'current' => 1.9], 'em1:1' => ['act_power' => 5.0], 'em1data:0' => ['total_act_energy' => 2000.0, 'total_act_ret_energy' => 3500.0], 'em1data:1' => ['total_act_energy' => 7.0]]);
 $h = runShelly(new MHUB_ShellyMqttClient(700, 'shellyproem50-7', 0), new FakeHub());
+check('5c0: em1 wird als Art gemeldet', $h->kind === 'em1', $h->kind);
 check('5c: EM1 Kanal 0: Einspeisung negativ, Energie aus em1data', ($h->v['power_total'] ?? null) === -420.0 && ($h->v['energy_import'] ?? null) === 2.0 && ($h->v['energy_export'] ?? null) === 3.5);
 $h = runShelly(new MHUB_ShellyMqttClient(700, 'shellyproem50-7', 1), new FakeHub());
 check('5d: EM1 Kanal 1 liest em1:1 und em1data:1', ($h->v['power_total'] ?? null) === 5.0 && ($h->v['energy_import'] ?? null) === 0.007);
@@ -204,6 +208,7 @@ $GLOBALS['BUF'][700] = [];
 $GLOBALS['PROPS'][800]['MqttTopic'] = $realTopic;
 rx($realTopic . '/events/rpc', $realPayload);
 $h = runShelly(new MHUB_ShellyMqttClient(700, $realTopic, 0), new FakeHub(['GroupElectrical']));
+check('5l0: echter Plus Plug S wird als „switch“ (eine Phase) gemeldet', $h->kind === 'switch', $h->kind);
 check('5l: echter Plus Plug S: apower 46,2 W, Spannung 238,2 V, aenergy.total 197130,605 Wh = 197,130605 kWh', ($h->v['power_total'] ?? null) === 46.2 && ($h->v['voltage_avg'] ?? null) === 238.2 && abs(($h->v['energy_import'] ?? 0) - 197.130605) < 1e-9 && ($h->v['connected'] ?? null) === true, json_encode($h->v));
 // Danach nur Änderungen (NotifyStatus): Leistung wandert, der Zählerstand bleibt aus der Vollmeldung erhalten
 rx($realTopic . '/events/rpc', json_encode(['src' => $realTopic, 'method' => 'NotifyStatus', 'params' => ['ts' => 60.0, 'switch:0' => ['apower' => 47.9]]]));

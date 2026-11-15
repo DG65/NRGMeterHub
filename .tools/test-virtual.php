@@ -3213,6 +3213,30 @@ $GLOBALS['FORMFIELDS'] = [];
 $hs->OnChangeMqtt(0, 'shellypro3em-x', 0);
 check('65g: Änderung der Auswahl aktualisiert die Statuszeile im offenen Formular', str_starts_with($GLOBALS['FORMFIELDS']['MqttStatusLine']['caption'] ?? '', '⛔'));
 
+echo "  65h) Shelly mit einem Kanal und einer Phase (Steckdose, 1PM, EM50): keine Phasen-Optionen (0.38.1, Dirks Fund 15.11.2026)\n";
+foreach (['GroupPowerPhase', 'GroupVoltagePhase', 'GroupCurrentPhase', 'GroupElectrical'] as $g65) { $GLOBALS['PROP'][8650][$g65] = true; }
+$planned65 = function () use ($hs) { $r = (new ReflectionMethod('MeterHub', 'PlannedVariables'))->invoke($hs); return array_keys($r['valid']); };
+$formEls65 = function () use ($hs) { return json_decode(cf($hs), true)['elements']; };
+check('65h: ohne bekannte Komponente (noch keine Nachricht) bleibt alles wie bisher: Messmodus und Phasen-Gruppen da', (t64_find($formEls65(), 'MeasureMode')['visible'] ?? null) === true && t64_find($formEls65(), 'GroupPowerPhase') !== null && in_array('p_l1', $planned65(), true));
+$hs->NoteShellyKind('em');
+check('65h: Pro 3EM (em): unverändert dreiphasig', (t64_find($formEls65(), 'MeasureMode')['visible'] ?? null) === true && in_array('u_l2_n', $planned65(), true));
+$hs->NoteShellyKind('switch');
+check('65h: Steckdose (switch:0): Messmodus-Auswahl ausgeblendet, Hinweis „nur eine Phase“ sichtbar', (t64_find($formEls65(), 'MeasureMode')['visible'] ?? null) === false && (t64_find($formEls65(), 'MeasureModeSingle')['visible'] ?? null) === true);
+check('65h: Steckdose: die drei Phasen-Gruppen fehlen im Bereich „Datenpunkte“, die Mittelwerte bleiben', t64_find($formEls65(), 'GroupPowerPhase') === null && t64_find($formEls65(), 'GroupVoltagePhase') === null && t64_find($formEls65(), 'GroupCurrentPhase') === null && t64_find($formEls65(), 'GroupElectrical') !== null);
+$pl65 = $planned65();
+check('65h: Steckdose: keine Variablen für L1–L3 geplant (werden beim Übernehmen entfernt), Mittelwerte und Kernwerte bleiben', !array_intersect(['p_l1', 'p_l2', 'p_l3', 'u_l1_n', 'i_l1'], $pl65) && in_array('voltage_avg', $pl65, true) && in_array('power_total', $pl65, true), json_encode($pl65));
+check('65h: Treiber sieht die Gruppen als ausgeschaltet (GroupActive)', $hs->GroupActive('GroupPowerPhase') === false && $hs->GroupActive('GroupElectrical') === true);
+foreach (['pm1', 'em1'] as $k65) { $hs->NoteShellyKind($k65); check("65h: auch $k65 gilt als einphasig", (t64_find($formEls65(), 'MeasureMode')['visible'] ?? null) === false); }
+$GLOBALS['FORMFIELDS'] = [];
+$hs->OnChangeMeter('shelly_mqtt');
+check('65h: Wechsel des Zählertyps im offenen Formular blendet die Messmodus-Auswahl bei einer Steckdose aus', ($GLOBALS['FORMFIELDS']['MeasureMode']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['MeasureModeSingle']['visible'] ?? null) === true);
+$hs->NoteShellyKind('em');
+$GLOBALS['PROP'][8650]['Meter'] = 'siemens_pac2200';
+$hs->NoteShellyKind('switch');
+check('65h: bei einem anderen Zählertyp (Modbus) wirkt eine alte Shelly-Art nicht', $hs->GroupActive('GroupPowerPhase') === true && (t64_find($formEls65(), 'MeasureMode')['visible'] ?? null) === true);
+$GLOBALS['PROP'][8650]['Meter'] = 'shelly_mqtt';
+$hs->NoteShellyKind('em');
+
 echo "\n66) Löschen der Instanz räumt ihren WebHook auf (Dirks Fund 14.11.2026)\n";
 $hookCtl = IPS_CreateInstance('{015A6EB8-D6E5-4B93-B496-0D3F77AE9FE1}');
 $hookA = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
