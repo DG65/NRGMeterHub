@@ -1639,6 +1639,47 @@ The previous table is backed up. From now on: add, remove and reorder members in
         }
     }
 
+    // Beim Löschen der Instanz den eigenen Eintrag aus dem WebHook-Control
+    // entfernen (Dirks Fund 14.11.2026: gelöschte Instanzen ließen ihren
+    // Hook "/hook/mhubvtile<ID>" dauerhaft stehen — RegisterHook() schreibt
+    // ihn per IPS_SetProperty fest in die Hooks-Liste). Muster wie bei
+    // Nall-chans HookReverseProxy: Destroy() läuft auch beim Entladen des
+    // Moduls, deshalb nur entfernen, wenn die Instanz wirklich nicht mehr
+    // existiert. Bewusst eigener Name statt UnregisterHook(), damit er nicht
+    // mit der gleichnamigen Kernfunktion neuerer Symcon-Versionen kollidiert.
+    public function Destroy()
+    {
+        if (!IPS_InstanceExists($this->InstanceID)) {
+            $this->RemoveOwnHook('/hook/mhubvtile' . $this->InstanceID);
+        }
+        parent::Destroy();
+    }
+
+    /** Eigenen Eintrag aus dem WebHook-Control entfernen (nur wenn er auf diese Instanz zeigt). */
+    private function RemoveOwnHook(string $WebHook): void
+    {
+        $ids = IPS_GetInstanceListByModuleID('{015A6EB8-D6E5-4B93-B496-0D3F77AE9FE1}');
+        if (count($ids) === 0) {
+            return;
+        }
+        $hooks = json_decode(IPS_GetProperty($ids[0], 'Hooks'), true);
+        if (!is_array($hooks)) {
+            return;
+        }
+        $kept = [];
+        foreach ($hooks as $hook) {
+            if (($hook['Hook'] ?? '') === $WebHook && (int)($hook['TargetID'] ?? 0) === $this->InstanceID) {
+                continue;
+            }
+            $kept[] = $hook;
+        }
+        if (count($kept) === count($hooks)) {
+            return;
+        }
+        IPS_SetProperty($ids[0], 'Hooks', json_encode($kept));
+        IPS_ApplyChanges($ids[0]);
+    }
+
     // Standard-WebHook-Registrierungsmuster (1:1 aus OCPPHubAbrechnung
     // übernommen, generischer Symcon-Mechanismus, keine modul-eigene Logik).
     private function RegisterHook(string $WebHook): void

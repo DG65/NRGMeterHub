@@ -213,6 +213,7 @@ class IPSModule
         }
     }
     public function Create() {}
+    public function Destroy() {}
     public function ApplyChanges() {}
     protected function ConnectParent($guid) {}
     protected function RegisterPropertyString($n, $v)  { $this->defs[$n] = $v; }
@@ -3203,6 +3204,32 @@ check('65f: Wechsel auf Shelly (MQTT) blendet die MQTT-Felder ein, Host/Port/Uni
 $GLOBALS['FORMFIELDS'] = [];
 $hs->OnChangeMqtt(0, 'shellypro3em-x', 0);
 check('65g: Änderung der Auswahl aktualisiert die Statuszeile im offenen Formular', str_starts_with($GLOBALS['FORMFIELDS']['MqttStatusLine']['caption'] ?? '', '⛔'));
+
+echo "\n66) Löschen der Instanz räumt ihren WebHook auf (Dirks Fund 14.11.2026)\n";
+$hookCtl = IPS_CreateInstance('{015A6EB8-D6E5-4B93-B496-0D3F77AE9FE1}');
+$hookA = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+$hookB = IPS_CreateInstance('{ADF18291-2E60-4354-92F5-B96863C127C8}');
+IPS_SetProperty($hookCtl, 'Hooks', json_encode([
+    ['Hook' => '/hook/mhubvtile' . $hookA, 'TargetID' => $hookA],
+    ['Hook' => '/hook/mhubvtile' . $hookB, 'TargetID' => $hookB],
+    ['Hook' => '/hook/fremd', 'TargetID' => 99999],
+]));
+$mA = new MeterHubVirtual($hookA);
+$mA->Destroy();
+$left66 = array_column(json_decode(IPS_GetProperty($hookCtl, 'Hooks'), true), 'Hook');
+check('66a: Destroy() bei weiterhin existierender Instanz (Modul wird nur entladen) lässt den Hook stehen', count($left66) === 3, json_encode($left66));
+unset($GLOBALS['INSTMOD'][$hookA]);
+$mA->Destroy();
+$left66 = array_column(json_decode(IPS_GetProperty($hookCtl, 'Hooks'), true), 'Hook');
+check('66b: nach dem Löschen ist nur der eigene Hook weg', $left66 === ['/hook/mhubvtile' . $hookB, '/hook/fremd'], json_encode($left66));
+unset($GLOBALS['INSTMOD'][$hookB]);
+$mB = new MeterHubVirtual($hookB);
+IPS_SetProperty($hookCtl, 'Hooks', json_encode([['Hook' => '/hook/mhubvtile' . $hookB, 'TargetID' => 12345]]));
+$mB->Destroy();
+check('66c: ein Hook gleichen Namens, der auf eine andere Instanz zeigt, bleibt unangetastet', count(json_decode(IPS_GetProperty($hookCtl, 'Hooks'), true)) === 1);
+unset($GLOBALS['INSTMOD'][$hookCtl]);
+$mB->Destroy();
+check('66d: ohne WebHook-Control passiert nichts (kein Fehler)', true);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

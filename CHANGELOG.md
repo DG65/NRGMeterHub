@@ -2,6 +2,15 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.37.1 (2026-11-15)
+
+- **Fix: MeterHubVirtual räumt seinen WebHook beim Löschen der Instanz auf.** Die Kachel-Registrierung
+  (`/hook/mhubvtile<ID>`) schrieb ihren Eintrag fest in die Hooks-Liste des „WebHook Control“, entfernt wurde er nie.
+  Wer Instanzen anlegte und wieder löschte, behielt verwaiste Einträge (Fund des Testers dallard, 14.11.2026).
+  Neu: `Destroy()` entfernt nur den eigenen Eintrag (zeigt `TargetID` auf diese Instanz) und nur dann, wenn die Instanz
+  wirklich nicht mehr existiert (`Destroy()` läuft auch beim Entladen des Moduls). Bereits verwaiste Einträge bleiben
+  stehen und lassen sich in der Instanz „WebHook Control“ von Hand löschen. Prüfstand 66.
+
 ## 0.37.0 (2026-11-14)
 
 - **Neu (experimentell): Shelly über MQTT.** Neuer Zählertyp „Shelly (MQTT, experimentell)“ für Shelly Gen2/Gen3/Pro,
