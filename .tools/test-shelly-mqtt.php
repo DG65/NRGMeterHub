@@ -197,6 +197,24 @@ $GLOBALS['BUF'][700]['dev_' . md5('shellyplusplugs-112233')] = json_encode($st);
 $h = runShelly($c, new FakeHub());
 check('5k: seit über 15 Minuten keine Nachricht → nicht verbunden, Alter im Text', ($h->v['connected'] ?? null) === false && str_contains($c->getLastError(), '20'), $c->getLastError());
 
+// 5l) Echte Nachricht eines Shelly Plus Plug S (Dirk, 15.11.2026, erste Messung an echter Hardware)
+$realTopic = 'shellyplusplugs-e465b841a270';
+$realPayload = '{"src":"shellyplusplugs-e465b841a270","dst":"shellyplusplugs-e465b841a270/events","method":"NotifyFullStatus","params":{"ts":2.34,"ble":{},"cloud":{"connected":false},"mqtt":{"connected":true},"plugs_ui":{},"switch:0":{"id":0, "source":"init", "output":true, "apower":46.2, "voltage":238.2, "aenergy":{"total":197130.605},"temperature":{"tC":30.2, "tF":86.3}},"sys":{"mac":"E465B841A270","restart_required":false,"time":null,"unixtime":null,"uptime":2,"ram_size":245964,"ram_free":149592,"fs_size":458752,"fs_free":147456,"cfg_rev":14,"kvs_rev":0,"schedule_rev":0,"webhook_rev":0,"available_updates":{},"reset_reason":3},"wifi":{"sta_ip":"192.168.1.137","status":"got ip","ssid":"xxx","rssi":-42},"ws":{"connected":false}}}';
+$GLOBALS['BUF'][700] = [];
+$GLOBALS['PROPS'][800]['MqttTopic'] = $realTopic;
+rx($realTopic . '/events/rpc', $realPayload);
+$h = runShelly(new MHUB_ShellyMqttClient(700, $realTopic, 0), new FakeHub(['GroupElectrical']));
+check('5l: echter Plus Plug S: apower 46,2 W, Spannung 238,2 V, aenergy.total 197130,605 Wh = 197,130605 kWh', ($h->v['power_total'] ?? null) === 46.2 && ($h->v['voltage_avg'] ?? null) === 238.2 && abs(($h->v['energy_import'] ?? 0) - 197.130605) < 1e-9 && ($h->v['connected'] ?? null) === true, json_encode($h->v));
+// Danach nur Änderungen (NotifyStatus): Leistung wandert, der Zählerstand bleibt aus der Vollmeldung erhalten
+rx($realTopic . '/events/rpc', json_encode(['src' => $realTopic, 'method' => 'NotifyStatus', 'params' => ['ts' => 60.0, 'switch:0' => ['apower' => 47.9]]]));
+$h = runShelly(new MHUB_ShellyMqttClient(700, $realTopic, 0), new FakeHub(['GroupElectrical']));
+check('5m: NotifyStatus mit nur apower: neue Leistung, Spannung und Zählerstand bleiben', ($h->v['power_total'] ?? null) === 47.9 && ($h->v['voltage_avg'] ?? null) === 238.2 && abs(($h->v['energy_import'] ?? 0) - 197.130605) < 1e-9, json_encode($h->v));
+// Beginnt die Brücke ohne Vollmeldung (Symcon neu gestartet, Shelly lief weiter): nur Änderungen vorhanden
+$GLOBALS['BUF'][700] = [];
+rx($realTopic . '/events/rpc', json_encode(['src' => $realTopic, 'method' => 'NotifyStatus', 'params' => ['ts' => 120.0, 'switch:0' => ['apower' => 48.1]]]));
+$h = runShelly(new MHUB_ShellyMqttClient(700, $realTopic, 0), new FakeHub(['GroupElectrical']));
+check('5n: ohne Vollmeldung (nur NotifyStatus): Leistung kommt trotzdem, Zählerstand erst mit der nächsten Meldung', ($h->v['power_total'] ?? null) === 48.1 && !isset($h->v['energy_import']), json_encode($h->v));
+
 echo "6) Hub: Registrierung, Formular, Statuszeile\n";
 $src = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
 check('6a: DRIVERS/Beschriftung/MQTT_METERS', preg_match("/'shelly_mqtt'\s*=>\s*'MHUB_ShellyMqttDriver'/", $src) === 1 && preg_match("/'shelly_mqtt'\s*=>\s*'Shelly \(MQTT, experimental\)'/", $src) === 1 && preg_match("/const MQTT_METERS\s*=\s*\['shelly_mqtt'\]/", $src) === 1);
