@@ -2,6 +2,23 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.38.0 (2026-11-15)
+
+- **Neu: Assistent für virtuelle Zähler.** In MeterHubVirtual führt das Panel „Assistent“ ganz oben durch das Zusammenstellen:
+  „Zähler zu einer Gruppe zusammenfassen“, „Einen Rest berechnen (Zähler abziehen)“ oder „Einen Zähler anteilig aufteilen“.
+  Die Knöpfe „Als Summand verknüpfen“ und „Als Abzug verknüpfen (−100 %)“ setzen den Anteil beim Verknüpfen, er muss nicht mehr in
+  der Tabelle geändert werden (neue Funktion `MHUBV_AddDeviceAs`). Das Panel ist aufgeklappt, solange die Instanz höchstens ein
+  Mitglied hat, danach eingeklappt. Anlass: Forum-Fund hbraun (Hauptzähler minus Homematic-Unterzähler).
+- **Neu: Einstieg aus jedem MeterHub-Zähler, auch Inexogy/Discovergy.** Der Knopf „Virtuellen Zähler mit dem Assistenten anlegen“
+  im Panel „Virtueller Zähler“ legt eine neue Instanz im Objektbaum-Modus an, verknüpft diesen Zähler als ersten Summanden und
+  die gewählten weiteren Zähler als Summanden oder Abzüge (neue Funktion `MHUB_StartVirtualAssistant`). Die Partner dürfen
+  beliebige Instanzen oder Geräte sein, nicht nur MeterHub-Instanzen. `MHUB_CreateVirtual` bleibt unverändert erhalten.
+- **Fix: Ein Zähler, der Mitglied eines virtuellen Zählers im Objektbaum-Modus ist, wird jetzt als solches erkannt.** Das Panel
+  zeigte bisher nur Mitgliedschaften in Tabellen-Instanzen und bot dadurch einen zweiten virtuellen Zähler an.
+- **Neu: Geräte des Fremdmoduls „Discovergy Smartmeter“ als Mitglied.** Bezug (`energy`) und Einspeisung (`energyout`) werden über
+  ihre Idents getrennt, Leistung über `power`.
+- Hinweis im News-Panel von MeterHub und MeterHubVirtual, Beispiel in der Dokumentation, README und Anleitung ergänzt.
+
 ## 0.37.4 (2026-11-15)
 
 - **Zähler-Gruppen sichtbar gemacht.** Mehrere Zähler lassen sich als EIN aufklappbarer Knoten im NRG-Stack Dashboard

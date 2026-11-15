@@ -18,6 +18,26 @@ Auf Ebene 1 steht der Knoten **„Heizung / Klima"** unten links, mit einem Abze
 wie viele Mitglieder er enthält. Das Dashboard blendet die Mitglieder einer Gruppe auf Ebene 1 selbst aus,
 damit nichts doppelt gezählt wird.
 
+## Der Assistent führt dich durch
+
+Seit Version 0.38.0 gibt es im virtuellen Zähler ganz oben das Panel **„🧭 Assistent: virtuellen Zähler
+zusammenstellen"**. Du wählst, was du tun willst:
+
+- **Zähler zu einer Gruppe zusammenfassen (addieren):** Das ist der Fall dieser Anleitung.
+- **Einen Rest berechnen (Zähler abziehen):** zum Beispiel der Haushalt ohne den Unterzähler einer Mietpartei.
+- **Einen Zähler anteilig aufteilen:** zum Beispiel 60 % und 40 % auf zwei Mieter.
+
+Darunter wählst du einen Zähler oder ein Gerät und klickst **„Als Summand verknüpfen"** (100 %) oder
+**„Als Abzug verknüpfen"** (−100 %). Der Anteil wird für dich gesetzt, du musst ihn nicht mehr in der Tabelle
+ändern. Das Panel ist aufgeklappt, solange die Instanz höchstens ein Mitglied hat, und klappt danach zu. Du
+kannst es jederzeit wieder öffnen.
+
+**Aus jedem MeterHub-Zähler heraus:** Im Panel „Virtueller Zähler" eines MeterHub-Zählers (auch bei
+Inexogy/Discovergy) legt der Knopf **„Virtuellen Zähler mit dem Assistenten anlegen"** eine neue Instanz an.
+Dieser Zähler ist dort schon Mitglied, weitere Zähler wählst du in der Liste direkt dort oder später im
+Assistenten. Die Zähler dürfen aus **jedem Modul** stammen, zum Beispiel ein Homematic-Energiezähler, nicht nur
+aus MeterHub.
+
 ## Was du vorher brauchst
 
 - Je Gerät eine **MeterHub-Instanz**, die Leistung (und möglichst Bezug) liefert. Egal ob Modbus,
@@ -137,6 +157,15 @@ Zahl der Mitglieder nennt (siehe das Bild oben).
 
 Es entstehen keine neuen Einträge im Dashboard. Kommt ein drittes Gerät dazu, legst du den Link unter
 „Heizung / Klima", und die Kachel zieht von selbst nach.
+
+## Einen Rest berechnen (Zähler abziehen)
+
+Dieselbe Technik rechnet auch „Hauptzähler minus Unterzähler". Wähle im Assistenten **„Einen Rest berechnen"**, verknüpfe
+zuerst den Hauptzähler **„Als Summand"**, danach jeden abzuziehenden Zähler **„Als Abzug (−100 %)"**. Im Bereich
+„Prüfung & Vorschau" steht die Formel, zum Beispiel „Hauptzähler − Unterzähler". Das Ergebnis liefert Leistung, Bezug und
+Einspeisung als eigene Variablen. Hat der Unterzähler seine Energie in Wh, der Hauptzähler in kWh, meldet die Prüfung
+unterschiedliche Einheiten und rechnet bewusst nicht. Dann gleichst du die Einheiten an (beim MeterHub-Zähler gibt es die
+Einstellung „Energie in Wh statt kWh ausgeben").
 
 ## Gruppen verschachteln
 

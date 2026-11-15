@@ -105,7 +105,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.37.4';
+    private const NEWS_VERSION = '0.38.0';
 
     public function Create()
     {
@@ -423,6 +423,7 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  New in this version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🧭 New: assistant for virtual meters. In MeterHubVirtual the panel "Assistant" at the top guides you through combining meters into a group, calculating a remainder (e.g. household without the sub-meter of a tenant) or splitting a meter by shares. The buttons "Link as summand" and "Link as deduction (−100 %)" set the share for you, so you no longer change it in the table. The meters can come from any module (e.g. Homematic). You can also start it from any MeterHub meter, including Inexogy/Discovergy: panel "Virtual meter" of that meter.'],
                 ['type' => 'Label', 'caption' => '• ⭐ Highlight — meter groups: combine several meters into ONE node in the NRG-Stack Dashboard, with no formula and no dashboard entry. Create a virtual meter (MeterHubVirtual), put the meters under it as members (each 100 %), choose a "Function" and click "Apply". The group appears as a collective node; a long press unfolds it, several levels deep (e.g. "Lighting" > floor > room). Switchable devices (e.g. Z-Wave actuators) additionally give the group "Group switch" and "Group state" to switch all of them at once. The step-by-step guide with pictures is in the README, section "Meter groups".'],
                 ['type' => 'Label', 'caption' => '• 🌐 New: MeterHubVirtual is now available in German and English. Texts follow the Symcon language setting: the form is translated by the console, messages are shown in the set language, and variable names are set in the language that is active when you click "Apply". Identifiers, properties and functions are unchanged — nothing is lost on existing instances.'],
                 ['type' => 'Label', 'caption' => '• 📈 Important: MeterHubVirtual no longer switches archiving (logging) on by itself. If the outputs (power, import, feed-in, extrapolated energy) are not archived, a notice with the button "Enable archiving for these variables" appears at the top of the form. Archiving that is already running stays as it is and is never switched off. New instances only archive after you click; archive compaction only works on archived variables.'],
@@ -3007,6 +3008,8 @@ The previous table is backed up. From now on: add, remove and reorder members in
     // Feld soll auch bei echten MeterHub-Zählern existieren, mit GETEILTER
     // Vorschlagsliste über beide Modultypen hinweg).
     private const GUID_METER = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
+    // Fremdmodul „Discovergy Smartmeter“ (siehe MetersOfDevice()).
+    private const GUID_DISCOVERGY_OLD = '{C0F160B2-0B9D-2AAE-0527-C0FA4BDEE743}';
 
     /**
      * Klassifiziert eine Variable anhand ihres Profil-Suffixes.
@@ -3243,6 +3246,13 @@ The previous table is backed up. From now on: add, remove and reorder members in
         $exp   = $this->FindByIdent($deviceId, 'energy_export');
         $guid  = (int)(@IPS_GetObject($deviceId)['ObjectType'] ?? -1) === 1
             ? (string)(@IPS_GetInstance($deviceId)['ModuleInfo']['ModuleID'] ?? '') : '';
+        // Altmodul „Discovergy Smartmeter“ (elueckel, Store; GUID an einer echten Instanz abgelesen): Bezug und
+        // Einspeisung heißen dort „energy“/„energyout“ (beide kWh), nicht energy_import/energy_export — ohne diese
+        // Zuordnung wäre „Einspeisung“ von „Bezug“ nur an der Reihenfolge zu unterscheiden. Leistung: Ident „power“ (oben).
+        if ($guid === self::GUID_DISCOVERGY_OLD) {
+            $imp = $imp > 0 ? $imp : $this->FindByIdent($deviceId, 'energy');
+            $exp = $exp > 0 ? $exp : $this->FindByIdent($deviceId, 'energyout');
+        }
         // Eigene Module sind über ihre Idents vollständig beschrieben — keine
         // generische Suche (sie fände z. B. die „Energie hochgerechnet"-
         // Variablen einer virtuellen Instanz, die zu deren Mitgliedern gehören).
@@ -3400,11 +3410,24 @@ The previous table is backed up. From now on: add, remove and reorder members in
      */
     public function AddDevice(int $deviceId): string
     {
+        return $this->AddDeviceAs($deviceId, 100);
+    }
+
+    /**
+     * Wie AddDevice(), aber mit wählbarem Anteil in Prozent: 100 = addieren, −100 = abziehen, dazwischen anteilig.
+     * Einstieg des Assistenten (Knöpfe „Als Summand“/„Als Abzug“ verknüpfen) und des Assistenten im Hauptmodul.
+     * Eigene, neue Funktion statt eines zusätzlichen Parameters bei AddDevice(): PREFIX_-Funktionen haben feste Stelligkeit.
+     */
+    public function AddDeviceAs(int $deviceId, int $factor): string
+    {
         if ($deviceId <= 0 || !IPS_ObjectExists($deviceId)) {
             return MHUBV_Text::t('❌ No device selected.');
         }
+        if ($factor === 0 || abs($factor) > 1000) {
+            return MHUBV_Text::t('❌ The share must not be 0 and lies between −1000 and 1000 percent.');
+        }
         if ($this->IsTreeMode()) {
-            return $this->AddDeviceToTree($deviceId);
+            return $this->AddDeviceToTree($deviceId, $factor);
         }
         $m = $this->MetersOfDevice($deviceId);
         if ($m['power'] === 0 && $m['imp'] === 0 && $m['exp'] === 0) {
@@ -3417,7 +3440,7 @@ The previous table is backed up. From now on: add, remove and reorder members in
         $rows = json_decode((string)$this->ReadPropertyString('Nodes'), true);
         $rows = is_array($rows) ? $rows : [];
         $rows[] = [
-            'Name' => IPS_GetName($deviceId), 'Factor' => 100,
+            'Name' => IPS_GetName($deviceId), 'Factor' => $factor,
             'PowerID' => $m['power'], 'EnergyImportID' => $m['imp'], 'EnergyExportID' => $m['exp'],
             'SwitchID' => $sw,
         ];
@@ -3426,12 +3449,84 @@ The previous table is backed up. From now on: add, remove and reorder members in
 
         $parts = $this->FoundParts($m, $sw, $swNote);
         $msg = MHUBV_Text::t('✅ "%s" added as a new row — %s.', IPS_GetName($deviceId), implode(', ', $parts));
+        if ($factor !== 100) {
+            $msg .= ' ' . MHUBV_Text::t('Share: %d %%.', $factor);
+        }
         if (!empty($m['extra'])) {
             $names = array_map('IPS_GetName', $m['extra']);
             $msg .= "\n" . MHUBV_Text::t('⚠️ Further kWh data points found on this device but not assigned automatically — they could be feed-in instead of import, please check and enter them in the row by hand if needed: %s.', implode(', ', $names));
         }
         $msg .= MHUBV_Text::t(' Please check in the table and do not forget to "Apply".');
         return $msg;
+    }
+
+    // -----------------------------------------------------------------------
+    // Assistent (0.38.0): führt durch das Zusammenstellen eines virtuellen Zählers
+    // -----------------------------------------------------------------------
+
+    /** Texte je Modus (englischer Quelltext, die Konsole übersetzt über locale.json). */
+    private function AssistantTexts(string $mode): array
+    {
+        switch ($mode) {
+            case 'remainder':
+                return [
+                    'text' => '➖ Remainder: first link the MAIN meter as "summand" (it counts with 100 %), then every meter whose consumption is to be subtracted as "deduction" (−100 %). The result is the remainder, e.g. household without the sub-meter of a tenant. The meters can come from any module, not only from MeterHub.',
+                    'add' => '➕  Link as summand (100 %)', 'sub' => true, 'share' => false,
+                ];
+            case 'share':
+                return [
+                    'text' => '➗ Splitting: link the same meter with a share of your own, e.g. 60 % here and 40 % in a second virtual meter (two tenants, a feed-in tariff by quota). The share is entered below and applies to every meter you link next.',
+                    'add' => '➗  Link with this share', 'sub' => false, 'share' => true,
+                ];
+            default:
+                return [
+                    'text' => '➕ Group: link all meters that belong together as "summand" (each counts with 100 %). The result is the sum, and the NRG-Stack Dashboard shows the group as one node that unfolds on a long press. Choose the "Function" in the field above afterwards.',
+                    'add' => '➕  Link as summand (100 %)', 'sub' => false, 'share' => false,
+                ];
+        }
+    }
+
+    /** Formular: Wechsel des Modus im Assistenten (nur die offene Maske, nichts wird gespeichert). */
+    public function OnChangeAssistant(string $mode)
+    {
+        $t = $this->AssistantTexts($mode);
+        $this->UpdateFormField('AssistText', 'caption', MHUBV_Text::t($t['text']));
+        $this->UpdateFormField('AssistAdd', 'caption', MHUBV_Text::t($t['add']));
+        $this->UpdateFormField('AssistSub', 'visible', $t['sub']);
+        $this->UpdateFormField('AssistShare', 'visible', $t['share']);
+    }
+
+    /** Knopf „mit diesem Anteil verknüpfen“ — der Anteil kommt aus dem Modus, im Modus „share“ aus dem Eingabefeld. */
+    public function AssistantAdd(int $deviceId, string $mode, int $share): string
+    {
+        $factor = $mode === 'share' ? $share : 100;
+        return $this->AddDeviceAs($deviceId, $factor);
+    }
+
+    private function AssistantPanel(): array
+    {
+        $t = $this->AssistantTexts('sum');
+        // Aufgeklappt, solange erst höchstens ein Mitglied da ist (frische Instanz oder gerade vom Hauptzähler aus angelegt).
+        $few = count($this->Nodes()) < 2;
+        $pick = 'MHUBV_AssistantAdd($id, $AssistPick, $AssistMode, $AssistShare)';
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'AssistPanel', 'expanded' => $few,
+            'caption' => '🧭  Assistant: put a virtual meter together',
+            'items' => [
+                ['type' => 'Select', 'name' => 'AssistMode', 'caption' => 'What do you want to do?', 'value' => 'sum', 'options' => [
+                    ['caption' => '➕ Combine meters into a group (add up)', 'value' => 'sum'],
+                    ['caption' => '➖ Calculate a remainder (subtract meters)', 'value' => 'remainder'],
+                    ['caption' => '➗ Split a meter by shares', 'value' => 'share'],
+                ], 'onChange' => 'MHUBV_OnChangeAssistant($id, $AssistMode);'],
+                ['type' => 'Label', 'name' => 'AssistText', 'caption' => $t['text']],
+                ['type' => 'SelectObject', 'name' => 'AssistPick', 'caption' => 'Meter instance or device'],
+                ['type' => 'NumberSpinner', 'name' => 'AssistShare', 'caption' => 'Share in percent', 'value' => 50, 'minimum' => -1000, 'maximum' => 1000, 'visible' => false],
+                ['type' => 'Button', 'name' => 'AssistAdd', 'caption' => $t['add'], 'onClick' => 'echo ' . $pick . ';'],
+                ['type' => 'Button', 'name' => 'AssistSub', 'caption' => '➖  Link as deduction (−100 %)', 'visible' => false,
+                 'onClick' => 'echo MHUBV_AddDeviceAs($id, $AssistPick, -100);'],
+                ['type' => 'Label', 'caption' => 'The meter is searched for power and meter reading automatically; the result tells you what was found. Check the formula afterwards in the panel "Check & preview".'],
+            ],
+        ];
     }
 
     /** Lesbare Aufzählung, welche Datenpunkte (und welcher Schalter) für ein Gerät gefunden wurden — für die Meldungen von AddDevice()/AddDeviceToTree(). */
@@ -3456,7 +3551,7 @@ The previous table is backed up. From now on: add, remove and reorder members in
      * werden danach bei jedem Takt frisch am Ziel aufgelöst, nicht
      * eingefroren; nur der Schalter-Vorschlag wird gespeichert.
      */
-    private function AddDeviceToTree(int $deviceId): string
+    private function AddDeviceToTree(int $deviceId, int $factor = 100): string
     {
         $name = IPS_GetName($deviceId);
         if ($deviceId === $this->InstanceID) {
@@ -3485,11 +3580,14 @@ The previous table is backed up. From now on: add, remove and reorder members in
         $link = $this->CreateMemberLink($deviceId, $name);
         // Schalter nicht als Übersteuerung speichern — TreeNodes() findet ihn
         // bei jedem Takt selbst, auch wenn er am Gerät später wechselt.
-        $this->StoreMemberSettings([$link => ['Factor' => 100]]);
+        $this->StoreMemberSettings([$link => ['Factor' => $factor]]);
         $this->ReloadForm();
 
         $parts = $this->FoundParts($m, $sw, $swNote);
         $msg = MHUBV_Text::t('✅ "%s" linked as a member (link in the object tree under this instance, at the end of the order) — %s.', $name, implode(', ', $parts));
+        if ($factor !== 100) {
+            $msg .= ' ' . MHUBV_Text::t('Share: %d %%.', $factor);
+        }
         if (!empty($m['extra'])) {
             $names = array_map('IPS_GetName', $m['extra']);
             $msg .= "\n" . MHUBV_Text::t('⚠️ Further kWh data points found on this device but not assigned automatically — they could be feed-in instead of import, override them in the members table if needed: %s.', implode(', ', $names));
@@ -4729,6 +4827,7 @@ Skipped: %d without W/kWh profile, %d already entered, %d outputs of virtual met
                         ['type' => 'Label', 'caption' => 'Example "Subtracting": house connection (100 %, own meter), heat pump (−100 %) and wallbox (−100 %) give house connection minus heat pump minus wallbox — the unknown remainder of the house.'],
                         ['type' => 'Label', 'caption' => 'Example "Passing through": just ONE row (100 %) — the instance simply passes this one meter on, useful to give it a dashboard assignment via "Function" without combining it with anything else.'],
                         ['type' => 'Label', 'caption' => 'Example "Splitting": a PV system built in several stages (commissioning years) is allocated the feed-in tariff proportionally by quota — the same feed-in variable is entered with e.g. 60 % in the instance for one share, and 40 % in a second instance for the other share. The same works for a proportional allocation to several tenants.'],
+                        ['type' => 'Label', 'caption' => 'Assistant: the panel "Assistant" at the top walks you through it. Choose what you want to do (group, remainder, split), pick a meter or device and click "Link as summand" or "Link as deduction (−100 %)". It is expanded while the instance has at most one member and collapses afterwards, you can open it again any time. The same assistant starts from every MeterHub meter in its panel "Virtual meter".'],
                         ['type' => 'Label', 'caption' => 'Example "Meter group in the dashboard": put several meters (e.g. every light of a floor, or air conditioner and heat pump) as members under one instance (each 100 %) and set a "Function". The NRG-Stack Dashboard then shows ONE collective node with a badge for the number of members; a long press unfolds it. A member may itself be a virtual meter, so groups nest. If the members can also be switched (e.g. Z-Wave actuators), the group gets "Group switch" (on/off for all) and "Group state" (off / partial / on). Details with pictures: README, section "Meter groups".'],
                         ['type' => 'Image', 'image' => self::KONZEPT_DIAGRAMM, 'center' => true],
                         ['type' => 'Label', 'caption' => 'Multi-level nesting (e.g. an intermediate value from several meters from which something is then subtracted again) works across several instances: one instance calculates the intermediate value, its output is wired as an ordinary row in the next instance — no longer within a single instance.'],
@@ -4746,6 +4845,7 @@ Skipped: %d without W/kWh profile, %d already entered, %d outputs of virtual met
                         ['type' => 'Label', 'caption' => 'Rows can be reordered by drag & drop, purely for your own overview — the result does not depend on the order.'],
                     ],
                 ],
+                $migration ? null : $this->AssistantPanel(),
                 // Name der Instanz — Dietmars Frage 31.08.2026, ob sich der
                 // nicht auch direkt im eigenen Formular setzen lassen sollte
                 // (er fließt als Dashboard-Label in GetFunctions() ein).

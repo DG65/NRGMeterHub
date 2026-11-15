@@ -3,7 +3,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Module Version](https://img.shields.io/badge/Modul_Version-0.37.4-blue)
+![Module Version](https://img.shields.io/badge/Modul_Version-0.38.0-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -54,6 +54,11 @@ you like. **You need no formula and no entry in the dashboard.** The group is a 
    until the ring turns green unfolds it. A long press on the centre node goes one level back.
 
 ![Unfolded: "Heizung / Klima" in the centre, its members around it](.docs/zaehler-gruppieren/dashboard-aufgeklappt.jpg)
+
+**The assistant guides you (from 0.38.0).** At the top of the virtual meter is the panel "Assistent" (assistant): you choose
+"group", "calculate a remainder" or "split" and link meters with **"Als Summand"** (as summand) or **"Als Abzug (−100 %)"**
+(as deduction), and the share is set for you. It also starts from every MeterHub meter (including Inexogy/Discovergy), and the
+meters can come from any module, for example Homematic.
 
 **Groups can be nested.** A member may itself be a virtual meter ("Licht Gesamt" contains "OG", "EG" and
 "Außen", each with its lights). If a device is added, put a link under the group and the tile follows by itself.

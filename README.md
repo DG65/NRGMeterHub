@@ -3,7 +3,7 @@ Deutsch | [English](README.en.md)
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.37.4-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.38.0-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -55,6 +55,11 @@ von selbst.
    geht eine Ebene zurück.
 
 ![Aufgeklappt: „Heizung / Klima“ in der Mitte, die Mitglieder darum](.docs/zaehler-gruppieren/dashboard-aufgeklappt.jpg)
+
+**Der Assistent führt dich durch (ab 0.38.0).** Ganz oben im virtuellen Zähler steht das Panel „Assistent“: Du wählst
+„Gruppe“, „Rest berechnen“ oder „Aufteilen“ und verknüpfst Zähler mit **„Als Summand“** oder **„Als Abzug (−100 %)“**,
+der Anteil wird für dich gesetzt. Er startet auch aus jedem MeterHub-Zähler (auch Inexogy/Discovergy), und die Zähler dürfen
+aus jedem Modul stammen, zum Beispiel Homematic.
 
 **Gruppen lassen sich verschachteln.** Ein Mitglied darf selbst ein virtueller Zähler sein („Licht
 Gesamt“ enthält „OG“, „EG“ und „Außen“, jede davon ihre Leuchten). Kommt ein Gerät dazu, legst du einen

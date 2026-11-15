@@ -3959,7 +3959,7 @@ class MeterHub extends IPSModule
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
     private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230', 'tasmota'];
-    private const NEWS_VERSION = '0.37.4';
+    private const NEWS_VERSION = '0.38.0';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -4005,6 +4005,7 @@ class MeterHub extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  New in this version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🧭 New: assistant for virtual meters. In MeterHubVirtual the panel "Assistant" at the top guides you through combining meters into a group, calculating a remainder (e.g. household without the sub-meter of a tenant) or splitting a meter by shares. The buttons "Link as summand" and "Link as deduction (−100 %)" set the share for you, so you no longer change it in the table. The meters can come from any module (e.g. Homematic). You can also start it from any MeterHub meter, including Inexogy/Discovergy: panel "Virtual meter" of that meter.'],
                 ['type' => 'Label', 'caption' => '• ⭐ Highlight — meter groups: combine several meters into ONE node in the NRG-Stack Dashboard, with no formula and no dashboard entry. Create a virtual meter (MeterHubVirtual), put the meters under it as members (each 100 %), choose a "Function" and click "Apply". The group appears as a collective node; a long press unfolds it, several levels deep (e.g. "Lighting" > floor > room). Switchable devices (e.g. Z-Wave actuators) additionally give the group "Group switch" and "Group state" to switch all of them at once. The step-by-step guide with pictures is in the README, section "Meter groups".'],
                 ['type' => 'Label', 'caption' => '• 🧪 New (experimental): Shelly via MQTT. Shelly Gen2/Gen3/Pro (e.g. Pro 3EM, Pro EM, plugs with power metering) send their data to the MQTT server of Symcon; MeterHub listens through the new module "NRG-Stack MeterHub bridge (MQTT)" and only reads. Derived from the Shelly documentation and not yet tested on a real device: please compare the values with the device display and report differences.'],
                 ['type' => 'Label', 'caption' => '• 🧪 New (experimental): Tasmota meters. MeterHub reads Tasmota devices (e.g. Nous A1T, or an IR reading head with an SML script) over the local HTTP interface — reading only, one request per interval. The format comes from the Tasmota documentation and is not yet tested on real devices: please compare the values with the device display and report differences.'],
@@ -4583,6 +4584,19 @@ class MeterHub extends IPSModule
                     }
                 }
             }
+            // Objektbaum-Modus (seit 0.25.0 der Standard neuer Instanzen): Mitglied ist ein Link unter der virtuellen
+            // Instanz, dessen Ziel dieser Zähler (oder eine seiner Messvariablen) ist.
+            foreach (@IPS_GetChildrenIDs($iid) ?: [] as $cid) {
+                $o = @IPS_GetObject($cid);
+                if (!$o || (int)$o['ObjectType'] !== 6) {
+                    continue;
+                }
+                $target = (int)(@IPS_GetLink($cid)['TargetID'] ?? 0);
+                if ($target === $this->InstanceID || isset($mine[$target])) {
+                    $label = trim((string)($o['ObjectName'] ?? '')) ?: IPS_GetName($this->InstanceID);
+                    $out[$iid][$label] = $label;
+                }
+            }
         }
         return array_map('array_values', $out);
     }
@@ -4680,6 +4694,69 @@ The function is still set to "none" there — deliberately, because otherwise th
         if ($warn) {
             $msg .= "\n⚠️ " . implode("\n⚠️ ", $warn);
         }
+        $say($msg);
+        return $iid;
+    }
+
+    /**
+     * Assistent-Einstieg aus einem Zähler heraus (0.38.0): legt eine NEUE MeterHubVirtual-Instanz an, verknüpft diesen
+     * Zähler als ersten Summanden (100 %) und die gewählten weiteren Zähler (beliebige Instanzen/Geräte, auch fremder
+     * Module) als Summanden (role 'sibling') oder Abzüge (role 'parent', −100 %). Die neue Instanz startet im
+     * Objektbaum-Modus; ihr Assistent ist dort aufgeklappt und führt weiter. Anders als CreateVirtual() entstehen also
+     * Verknüpfungen statt einer Zeilentabelle, und die Partner dürfen aus jedem Modul stammen.
+     *
+     * Geschrieben wird nur in die NEUE Instanz, an dieser Konfiguration ändert der Knopf nichts.
+     *
+     * @return int ID der neuen Instanz, 0 bei Ablehnung
+     */
+    public function StartVirtualAssistant(string $partners = '[]', string $role = 'parent')
+    {
+        $say = function (string $m) {
+            $this->UpdateFormField('VirtualResult', 'caption', $m);
+            $this->UpdateFormField('VirtualResult', 'visible', true);
+        };
+        if (!function_exists('MHUBV_AddDeviceAs')) {
+            $say(MHUB_Text::t('❌ The module "MeterHubVirtual" is not available — it belongs to the same library, please update the library in the module management.'));
+            return 0;
+        }
+        $rows = json_decode((string)$partners, true);
+        $ids  = [];
+        foreach (is_array($rows) ? $rows : [] as $r) {
+            $oid = (int)(is_array($r) ? ($r['InstanceID'] ?? 0) : $r);
+            if ($oid > 0 && $oid !== $this->InstanceID) {
+                $ids[$oid] = $oid;
+            }
+        }
+        $ids = array_values($ids);
+        foreach ($ids as $oid) {
+            if (!IPS_ObjectExists($oid)) {
+                $say(MHUB_Text::t('❌ Object #%d does not exist (any more).', $oid));
+                return 0;
+            }
+        }
+        $member = $this->VirtualMemberships();
+        if ($member) {
+            $list = [];
+            foreach ($member as $iid => $labels) {
+                $list[] = MHUB_Text::t('"%s" (#%d, as %s)', IPS_GetName($iid), $iid, implode('/', $labels));
+            }
+            $say(MHUB_Text::t('⚠️ This meter is already part of %s. Please add further meters there, a second virtual meter with the same device easily leads to double bookkeeping.', implode('; ', $list)));
+            return 0;
+        }
+
+        $iid = IPS_CreateInstance(self::GUID_VIRTUAL);
+        IPS_SetName($iid, MHUB_Text::t('Virtual meter %s', IPS_GetName($this->InstanceID)));
+        IPS_SetParent($iid, IPS_GetObject($this->InstanceID)['ParentID']);
+        IPS_SetProperty($iid, 'Active', true);
+        IPS_ApplyChanges($iid);   // Nodes bleibt leer: neue Instanzen starten im Objektbaum-Modus
+
+        $partnerFactor = $role === 'sibling' ? 100 : -100;
+        $lines = [call_user_func('MHUBV_AddDeviceAs', $iid, $this->InstanceID, 100)];
+        foreach ($ids as $oid) {
+            $lines[] = call_user_func('MHUBV_AddDeviceAs', $iid, $oid, $partnerFactor);
+        }
+        $msg = MHUB_Text::t('✅ Virtual meter #%d created ("%s"). Open it: the assistant at the top is expanded and guides you on.', $iid, IPS_GetName($iid));
+        $msg .= "\n" . implode("\n", $lines);
         $say($msg);
         return $iid;
     }
@@ -4899,12 +4976,6 @@ The function is still set to "none" there — deliberately, because otherwise th
         $funcItems[] = ['type' => 'Label', 'caption' => MHUB_Text::t('The assignment renames the affected variables (e.g. "Heat pump — Active energy import") and sets a matching icon. Other modules (EMS, tiles) can read the assignment via MHUB_GetFunctions(%d).', $this->InstanceID)];
 
         // --- Virtueller Zähler: Hinweis und Generator ------------------------
-        $meterOptions = [['caption' => '— please select —', 'value' => 0]];
-        foreach (IPS_GetInstanceListByModuleID(self::GUID_METER) as $iid) {
-            if ($iid !== $this->InstanceID) {
-                $meterOptions[] = ['caption' => IPS_GetName($iid) . '  (#' . $iid . ')', 'value' => $iid];
-            }
-        }
         $virtualItems = [
             ['type' => 'Label', 'caption' => 'A virtual meter adds up several real meters — typically "main meter minus sub-meters = remainder". Each meter is a row with a share in percent (100 % = add, −100 % = subtract); the result is the sum of all shares.'],
         ];
@@ -4915,7 +4986,7 @@ The function is still set to "none" there — deliberately, because otherwise th
             }
             $virtualItems[] = ['type' => 'Label', 'caption' => 'Further meters are best added there — a second virtual meter with the same device easily leads to double bookkeeping.'];
         } else {
-            $virtualItems[] = ['type' => 'Label', 'caption' => 'This meter is not yet part of any virtual meter. You can create one right here: select the other meters involved, set the role, press the button. A separate "MeterHubVirtual" instance is created — nothing changes in this configuration.'];
+            $virtualItems[] = ['type' => 'Label', 'caption' => 'This meter is not yet part of any virtual meter. You can start one right here: optionally select further meters (from any module, e.g. a Homematic energy meter), set the role and press the button. A separate "MeterHubVirtual" instance is created and its assistant guides you on — nothing changes in this configuration. This works for every meter type, including Inexogy/Discovergy.'];
             $virtualItems[] = [
                 'type' => 'Select', 'name' => 'VirtualRole', 'caption' => 'Role of this meter',
                 'options' => [
@@ -4924,14 +4995,14 @@ The function is still set to "none" there — deliberately, because otherwise th
                 ],
             ];
             $virtualItems[] = [
-                'type' => 'List', 'name' => 'VirtualPartners', 'caption' => 'Other meters involved',
+                'type' => 'List', 'name' => 'VirtualPartners', 'caption' => 'Other meters involved (optional)',
                 'rowCount' => 4, 'add' => true, 'delete' => true,
                 'columns' => [
-                    ['caption' => 'MeterHub instance', 'name' => 'InstanceID', 'width' => 'auto', 'add' => 0,
-                     'edit' => ['type' => 'Select', 'options' => $meterOptions]],
+                    ['caption' => 'Meter instance or device', 'name' => 'InstanceID', 'width' => 'auto', 'add' => 0,
+                     'edit' => ['type' => 'SelectObject']],
                 ],
             ];
-            $virtualItems[] = ['type' => 'Button', 'caption' => '🧮  Create virtual meter', 'onClick' => 'MHUB_CreateVirtual($id, $VirtualPartners, $VirtualRole);'];
+            $virtualItems[] = ['type' => 'Button', 'caption' => '🧭  Create virtual meter with the assistant', 'onClick' => 'MHUB_StartVirtualAssistant($id, $VirtualPartners, $VirtualRole);'];
             $virtualItems[] = ['type' => 'Label', 'name' => 'VirtualResult', 'caption' => '', 'visible' => false];
             $virtualItems[] = ['type' => 'Label', 'caption' => 'The new instance can then be extended freely — also with meters that do not come from MeterHub at all (sockets, light and blind switches). It has its own search for that.'];
         }

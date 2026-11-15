@@ -281,6 +281,7 @@ require_once dirname(__DIR__) . '/MeterHubVirtual/module.php';
 // PREFIX_ aufgerufenen Methoden nachgebildet (OriginFunctionFor()).
 function MHUB_GetFunctions($iid)  { return $GLOBALS['MODOBJ'][$iid]->GetFunctions(); }
 function MHUBV_GetFunctions($iid) { return $GLOBALS['MODOBJ'][$iid]->GetFunctions(); }
+function MHUBV_AddDeviceAs($iid, $deviceId, $factor) { return $GLOBALS['MODOBJ'][$iid]->AddDeviceAs($deviceId, $factor); }
 // Geteiltes Ausblenden über Geschwister-Instanzen (0.29.1, Dietmar
 // 14.09.2026) — die echten Kernel-Wrapper, die MHUBV_AdoptDismissState()/
 // MHUBV_GetDismissState() auf die passende Instanz dispatchen.
@@ -3237,6 +3238,84 @@ check('66c: ein Hook gleichen Namens, der auf eine andere Instanz zeigt, bleibt 
 unset($GLOBALS['INSTMOD'][$hookCtl]);
 $mB->Destroy();
 check('66d: ohne WebHook-Control passiert nichts (kein Fehler)', true);
+
+echo "\n67) Assistent (0.38.0): Einstieg aus einem Zähler, Abziehen mit −100 %, Panel im Formular\n";
+$GLOBALS['LEGACY_LIST'] = false;
+$GLOBALS['PROFILES']['NRG.Watt'] = ['Digits' => 0, 'Suffix' => ' W'];
+$GLOBALS['PROFILES']['NRG.kWh'] = ['Digits' => 1, 'Suffix' => ' kWh'];
+meter(6100, 'Hauptzähler Inexogy', 4000.0, 90000.0, 5000.0);
+$GLOBALS['PROP'][6100]['Meter'] = 'inexogy';
+// Unterzähler eines FREMDEN Moduls (z. B. Homematic): Instanz mit Leistung (W) und Zählerstand (kWh), keine NRG-Stack-Idents
+obj(6200, 1, 'Homematic Unterzähler', 10);
+$GLOBALS['INSTMOD'][6200] = '{FREMD-HOMEMATIC}';
+vari(6201, 'Leistung', 6200, '', 'MHB.W', 800.0);
+vari(6202, 'Energiezähler', 6200, '', 'MHB.kWh', 3000.0);
+$hubA = new MeterHub(6100); $hubA->Create();
+
+echo "  67a) Einstieg aus einem Inexogy-Zähler: Rolle 'parent' mit einem fremden Gerät als Abzug\n";
+$GLOBALS['FORMFIELDS'] = [];
+$iidA = $hubA->StartVirtualAssistant(json_encode([['InstanceID' => 6200]]), 'parent');
+check('67a: neue Instanz angelegt', $iidA > 0, (string)$iidA);
+$va = $GLOBALS['MODOBJ'][$iidA] ?? null;
+check('67a: Instanz startet im Objektbaum-Modus (keine Zeilentabelle)', $va !== null && t35_call($va, 'IsTreeMode') === true && (json_decode((string)IPS_GetProperty($iidA, 'Nodes'), true) ?: []) === []);
+$va->Recalc();
+check('67a: zwei Mitglieder: Hauptzähler 100 %, Unterzähler −100 %', array_column(t35_call($va, 'Nodes'), 'factor') === [100.0, -100.0] || array_column(t35_call($va, 'Nodes'), 'factor') === [100, -100], json_encode(array_column(t35_call($va, 'Nodes'), 'factor')));
+check('67a: Leistung = 4000 − 800', abs((float)t35_out($iidA, 'power') - 3200.0) < 0.01, (string)t35_out($iidA, 'power'));
+check('67a: Meldung nennt die neue Instanz', str_contains($GLOBALS['FORMFIELDS']['VirtualResult']['caption'] ?? '', '#' . $iidA));
+
+echo "  67b) Assistenten-Panel: aufgeklappt bei höchstens einem Mitglied, sonst eingeklappt\n";
+$assistOf = function ($mod) { return t35_find(json_decode(cf($mod), true)['elements'], 'AssistPanel'); };
+check('67b: bei zwei Mitgliedern eingeklappt', ($assistOf($va)['expanded'] ?? null) === false, json_encode($assistOf($va)['expanded'] ?? null));
+$iidB = IPS_CreateInstance(T35_GV); IPS_SetParent($iidB, 10); IPS_SetName($iidB, 'Leere Gruppe');
+$vb = t35_apply($iidB);
+check('67b: frische, leere Instanz: Panel aufgeklappt', ($assistOf($vb)['expanded'] ?? null) === true);
+
+echo "  67c) AddDeviceAs: Abzug, Aufteilung und ungültige Anteile\n";
+$resSub = $vb->AddDeviceAs(6100, 100);
+$resMinus = $vb->AddDeviceAs(6200, -100);
+check('67c: Meldung nennt den Anteil −100', str_contains($resMinus, '-100') || str_contains($resMinus, '−100'), $resMinus);
+check('67c: genau zwei Mitglieder mit 100 und −100', array_column(t35_call($vb, 'Nodes'), 'factor') == [100, -100], json_encode(array_column(t35_call($vb, 'Nodes'), 'factor')));
+check('67c: Anteil 0 abgelehnt, nichts verknüpft', str_starts_with($vb->AddDeviceAs(6100, 0), '❌') && count(t35_call($vb, 'Nodes')) === 2);
+check('67c: Anteil über 1000 abgelehnt', str_starts_with($vb->AddDeviceAs(6100, 5000), '❌'));
+$iidC = IPS_CreateInstance(T35_GV); IPS_SetParent($iidC, 10); IPS_SetName($iidC, 'Aufteilung'); $vc = t35_apply($iidC);
+$vc->AssistantAdd(6200, 'share', 60);
+check('67c: Modus „share“ verknüpft mit dem eingetragenen Anteil (60 %)', array_column(t35_call($vc, 'Nodes'), 'factor') == [60], json_encode(array_column(t35_call($vc, 'Nodes'), 'factor')));
+$iidD = IPS_CreateInstance(T35_GV); IPS_SetParent($iidD, 10); IPS_SetName($iidD, 'Gruppe'); $vd = t35_apply($iidD);
+$vd->AssistantAdd(6200, 'sum', 60);
+check('67c: Modus „sum“ ignoriert das Anteilsfeld und nimmt 100 %', array_column(t35_call($vd, 'Nodes'), 'factor') == [100], json_encode(array_column(t35_call($vd, 'Nodes'), 'factor')));
+
+echo "  67d) Moduswechsel im offenen Formular blendet die passenden Elemente ein und aus\n";
+$GLOBALS['FORMFIELDS'] = [];
+$vb->OnChangeAssistant('remainder');
+check('67d: „remainder“ zeigt den Abzug-Knopf, nicht das Anteilsfeld', ($GLOBALS['FORMFIELDS']['AssistSub']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['AssistShare']['visible'] ?? null) === false);
+$vb->OnChangeAssistant('share');
+check('67d: „share“ zeigt das Anteilsfeld, nicht den Abzug-Knopf', ($GLOBALS['FORMFIELDS']['AssistShare']['visible'] ?? null) === true && ($GLOBALS['FORMFIELDS']['AssistSub']['visible'] ?? null) === false);
+$vb->OnChangeAssistant('sum');
+check('67d: „sum“ blendet beides aus', ($GLOBALS['FORMFIELDS']['AssistShare']['visible'] ?? null) === false && ($GLOBALS['FORMFIELDS']['AssistSub']['visible'] ?? null) === false);
+check('67d: der Erklärtext wird je Modus ausgetauscht', str_contains($GLOBALS['FORMFIELDS']['AssistText']['caption'] ?? '', 'Gruppe'), $GLOBALS['FORMFIELDS']['AssistText']['caption'] ?? '');
+
+echo "  67e) Hauptmodul-Formular: Knopf ruft den Assistenten, auch bei einem Cloud-Zähler (Inexogy)\n";
+meter(6300, 'Zweiter Inexogy-Zähler', 1000.0, 20000.0, 0.0);
+$GLOBALS['PROP'][6300]['Meter'] = 'inexogy';
+$hubE = new MeterHub(6300); $hubE->Create();
+$jsonE = cf($hubE);
+check('67e: Knopf zum Assistenten im Formular eines Inexogy-Zählers', str_contains($jsonE, 'MHUB_StartVirtualAssistant'), substr($jsonE, 0, 80));
+check('67e: Partner-Liste lässt beliebige Objekte zu (SelectObject statt nur MeterHub-Instanzen)', str_contains($jsonE, '"type":"SelectObject"'));
+$jsonA = cf($hubA);
+check('67e: ein Zähler, der schon in einem virtuellen Zähler (Objektbaum-Modus) steckt, zeigt stattdessen den Hinweis', !str_contains($jsonA, 'MHUB_StartVirtualAssistant') && str_contains($jsonA, '#' . $iidA), 'Hinweis fehlt');
+
+echo "  67g) Gerät des alten Discovergy-Moduls als Mitglied: Bezug und Einspeisung werden über ihre Idents getrennt\n";
+obj(6400, 1, 'Discovergy Altmodul', 10);
+$GLOBALS['INSTMOD'][6400] = '{C0F160B2-0B9D-2AAE-0527-C0FA4BDEE743}';
+vari(6401, 'Energy Bought', 6400, 'energy', 'MHB.kWh', 12000.0);
+vari(6402, 'Energy Sold', 6400, 'energyout', 'MHB.kWh', 4000.0);
+vari(6403, 'Current Power', 6400, 'power', 'MHB.W', 700.0);
+$m67 = (new ReflectionMethod('MeterHubVirtual', 'MetersOfDevice'))->invoke($vc, 6400);
+check('67g: Bezug = „energy“, Einspeisung = „energyout“, Leistung = „power“', $m67['imp'] === 6401 && $m67['exp'] === 6402 && $m67['power'] === 6403, json_encode($m67));
+
+echo "  67f) Zähler, der schon in einem virtuellen Zähler steckt, startet keinen zweiten\n";
+$GLOBALS['FORMFIELDS'] = [];
+check('67f: Ablehnung', $hubA->StartVirtualAssistant('[]', 'parent') === 0);
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
