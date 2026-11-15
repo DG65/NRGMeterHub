@@ -3959,7 +3959,7 @@ class MeterHub extends IPSModule
 
     // Einphasige Zähler: der Messmodus „dreiphasig/je Phase" ergibt dort keinen Sinn (Forum-Feedback 20.09.2026).
     private const SINGLE_PHASE_METERS = ['eastron_sdm120', 'eastron_sdm220', 'eastron_sdm230', 'tasmota'];
-    private const NEWS_VERSION = '0.37.0';
+    private const NEWS_VERSION = '0.37.4';
     // Brücken-Modul (MeterHubBridge/module.json) — Gegenstelle des Verbindungswegs „Symbox-Gateway".
     private const BRIDGE_GUID = '{39E4438F-FE02-4025-973E-318355C6DC82}';
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-nrg-stack-meterhub-energiezaehler-ein-modbus-tcp-modul-fuer-siemens-janitza-eastron-shelly-go-e-meteocontrol-bluelog-u-a-discovery-virtuelle-zaehler/144395';
@@ -3982,6 +3982,7 @@ class MeterHub extends IPSModule
                 ['type' => 'Label', 'caption' => 'MeterHub reads real energy meters from various manufacturers directly — via Modbus TCP or cloud API — and makes power, import and feed-in available as normal Symcon variables.'],
                 ['type' => 'Label', 'caption' => 'The benefit: real measurements instead of estimates — as a basis for dashboards, load management, an energy management system (EMS), or simply to see what a device really consumes.'],
                 ['type' => 'Label', 'caption' => 'Is the right meter missing from the list, or do you want to set up several at once? MeterHubDiscovery searches the local network for them. If you would rather calculate a new number from existing values (e.g. the remainder of a house connection), MeterHubVirtual is the right module.'],
+                ['type' => 'Label', 'caption' => '⭐ Highlight — meter groups: combine several meters into ONE node that unfolds in the NRG-Stack Dashboard, with no formula. How: MeterHubVirtual, see the README, section "Meter groups".'],
                 ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUB_AckPurposeIntro($id);'],
             ],
         ];
@@ -4004,6 +4005,7 @@ class MeterHub extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  New in this version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• ⭐ Highlight — meter groups: combine several meters into ONE node in the NRG-Stack Dashboard, with no formula and no dashboard entry. Create a virtual meter (MeterHubVirtual), put the meters under it as members (each 100 %), choose a "Function" and click "Apply". The group appears as a collective node; a long press unfolds it, several levels deep (e.g. "Lighting" > floor > room). Switchable devices (e.g. Z-Wave actuators) additionally give the group "Group switch" and "Group state" to switch all of them at once. The step-by-step guide with pictures is in the README, section "Meter groups".'],
                 ['type' => 'Label', 'caption' => '• 🧪 New (experimental): Shelly via MQTT. Shelly Gen2/Gen3/Pro (e.g. Pro 3EM, Pro EM, plugs with power metering) send their data to the MQTT server of Symcon; MeterHub listens through the new module "NRG-Stack MeterHub bridge (MQTT)" and only reads. Derived from the Shelly documentation and not yet tested on a real device: please compare the values with the device display and report differences.'],
                 ['type' => 'Label', 'caption' => '• 🧪 New (experimental): Tasmota meters. MeterHub reads Tasmota devices (e.g. Nous A1T, or an IR reading head with an SML script) over the local HTTP interface — reading only, one request per interval. The format comes from the Tasmota documentation and is not yet tested on real devices: please compare the values with the device display and report differences.'],
                 ['type' => 'Label', 'caption' => '• 🌐 New: MeterHub is now available in German and English. Texts follow the Symcon language setting: the form is translated by the console, messages are shown in the set language, and variable names are set in the language that is active when you click "Apply". Identifiers, properties and functions are unchanged — nothing is lost on existing instances.'],

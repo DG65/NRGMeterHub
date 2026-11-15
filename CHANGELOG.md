@@ -2,6 +2,16 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.37.4 (2026-11-15)
+
+- **Zähler-Gruppen sichtbar gemacht.** Mehrere Zähler lassen sich als EIN aufklappbarer Knoten im NRG-Stack Dashboard
+  darstellen, ohne Formel und ohne Eintrag im Dashboard: virtuellen Zähler anlegen, Zähler als Mitglieder darunter
+  einsortieren, Funktion wählen. Die Funktion bestand schon, wurde aber kaum entdeckt. Neu: README-Abschnitt „Zähler-Gruppen“
+  ganz oben (deutsch und englisch) und eine ausführliche Anleitung mit Bildern (`Anleitung-Zaehler-Gruppen.md`); im Formular
+  ein Highlight-Hinweis im News-Panel von MeterHub und MeterHubVirtual und im Zweck-Panel von MeterHub; in der Dokumentation
+  von MeterHubVirtual ein Beispiel „Zähler-Gruppe im Dashboard“. Schaltbare Mitglieder (z. B. Z-Wave) geben der Gruppe
+  „Gruppe schalten“ und „Gruppenstatus“, auch das ist jetzt erklärt. Keine Änderung an der Rechenlogik.
+
 ## 0.37.3 (2026-11-15)
 
 - **Formular: „Automatische Neuanmeldung (optional)“ liegt jetzt in einem eigenen, eingeklappten Panel.** Die Felder für den

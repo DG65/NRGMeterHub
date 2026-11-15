@@ -3,7 +3,7 @@ Deutsch | [English](README.en.md)
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.37.3-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.37.4-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -21,6 +21,54 @@ Hersteller (Siemens Gerätehandbuch L1V30415167A, Janitza Modbus-Adressenliste U
 wurden teils an echten Geräten bestätigt; Zähler, die noch nicht an echter Hardware geprüft sind,
 stehen unten ausdrücklich als experimentell. Rückmeldungen zu falschen/fehlenden Werten sind
 weiter willkommen — bitte mit Zählertyp und betroffenem Register melden.
+
+## Zähler-Gruppen: viele Zähler, ein Knoten im Energiefluss
+
+> **Der schnellste Weg zu einem aufgeräumten Energiefluss.** Statt dutzende Einzelzähler im Dashboard zu
+> zeigen, fasst du sie zu Gruppen zusammen — und klappst sie bei Bedarf wieder auf. Verbrauch je Raum,
+> Geschoss, Mietpartei oder Gerätegruppe auf einen Blick, Licht oder Steckdosen einer Gruppe mit einem
+> Klick schalten. Ohne Formel, ohne Konfiguration im Dashboard.
+
+
+Mehrere Zähler, die zusammengehören (zum Beispiel jede Leuchte eines Geschosses, eine Klimaanlage und
+eine Wärmepumpe, alle Zähler einer Mietpartei), lassen sich zu **einem** Knoten im Energiefluss des
+NRG-Stack Dashboards zusammenfassen. Ein langer Druck darauf klappt die Gruppe auf und zeigt die
+einzelnen Geräte, auf Wunsch mehrere Ebenen tief. **Dafür brauchst du keine Formel und keinen Eintrag
+im Dashboard.** Die Gruppe ist ein virtueller Zähler (`MeterHubVirtual`); das Dashboard findet ihn
+von selbst.
+
+![Der Sammelknoten „Heizung / Klima“ im Energiefluss](.docs/zaehler-gruppieren/dashboard-ebene-1.jpg)
+
+**In vier Schritten:**
+
+1. **Virtuellen Zähler anlegen:** Instanz hinzufügen, im Schnellfilter „Virtueller“ eintippen, das Modul
+   „NRG-Stack MeterHub Virtueller Zähler“ wählen. Unter „Zählerbezeichnung“ den Namen der Gruppe eintragen.
+2. **Die Zähler einsortieren:** Im Bereich „Zähler“ bei „Zähler-Instanz oder Gerät“ den ersten Zähler wählen
+   und „Als Mitglied verknüpfen“ klicken, für jeden weiteren Zähler ebenso. Das legt Verknüpfungen
+   (Links) unter der Gruppe im Objektbaum an. Alles, was dort hängt, ist Mitglied; jedes zählt mit 100 %,
+   die Gruppe ist also die Summe. Ein Anteil von −100 % zieht ab.
+3. **Funktion wählen:** Bei „Funktion (fürs Dashboard)“ die passende Funktion einstellen (Wärmepumpe,
+   Beleuchtung, Klimaanlage …). Danach „Übernehmen“. Im Bereich „Prüfung & Vorschau“ steht die fertige
+   Formel mit den aktuellen Werten.
+4. **Im Dashboard** steht die Gruppe als Knoten mit einem Abzeichen, das die Zahl der Mitglieder zeigt.
+   Ein **langer Druck**, bis der Ring grün wird, klappt sie auf. Ein langer Druck auf den Mittelknoten
+   geht eine Ebene zurück.
+
+![Aufgeklappt: „Heizung / Klima“ in der Mitte, die Mitglieder darum](.docs/zaehler-gruppieren/dashboard-aufgeklappt.jpg)
+
+**Gruppen lassen sich verschachteln.** Ein Mitglied darf selbst ein virtueller Zähler sein („Licht
+Gesamt“ enthält „OG“, „EG“ und „Außen“, jede davon ihre Leuchten). Kommt ein Gerät dazu, legst du einen
+Link unter die Gruppe, die Kachel zieht von selbst nach.
+
+![Objektbaum mit zwei Ebenen](.docs/zaehler-gruppieren/objektbaum-zwei-ebenen.png)
+
+**Gruppen schalten.** Messen die Geräte nicht nur, sondern lassen sich auch schalten (zum Beispiel ein
+Z-Wave-Aktor je Leuchte), bekommt die Gruppe von selbst zwei Variablen: **„Gruppe schalten“** (Ein/Aus
+für alle Mitglieder) und **„Gruppenstatus“** (aus, teilweise, an). Im Dashboard erscheint unter dem
+Knoten ein kleiner Ein/Aus-Knopf. Mitgeschaltet werden nur Mitglieder mit positivem Anteil.
+
+Die vollständige Anleitung mit allen Bildern, den Spalten der Mitglieder-Tabelle und den typischen
+Stolpersteinen steht in der [Anleitung: Zähler-Gruppen](Anleitung-Zaehler-Gruppen.md).
 
 ## Dank
 
@@ -307,6 +355,9 @@ den unbekannten Rest des Hauses — alles, was weder Wärmepumpe noch Wallbox ve
 Muster: *Sammeln* (Kühlschrank + Brunnenpumpe, je +100 %), *Durchreichen* (nur eine Zeile) und
 *Aufteilen* (dieselbe Variable mit 60 % in der einen und 40 % in einer zweiten Instanz, z. B. für
 zwei Mieter).
+
+**Neu entdecken:** Eine Gruppe aus mehreren Zählern erscheint im NRG-Stack Dashboard als ein
+aufklappbarer Knoten, ganz ohne Formel — siehe [Zähler-Gruppen](#zähler-gruppen-viele-zähler-ein-knoten-im-energiefluss).
 
 **Mitglieder:** Neue Instanzen beziehen ihre Mitglieder aus dem **Objektbaum**: Alles, was als
 Verknüpfung (Link) oder direkt unter der Instanz hängt, ist Mitglied, in der Reihenfolge seiner

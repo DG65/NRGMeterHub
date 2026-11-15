@@ -3,7 +3,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Module Version](https://img.shields.io/badge/Modul_Version-0.37.3-blue)
+![Module Version](https://img.shields.io/badge/Modul_Version-0.37.4-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -21,6 +21,53 @@ documents (Siemens manual L1V30415167A, Janitza Modbus address list UMG 604-PRO)
 been confirmed on real devices; meters that have not yet been tested on real hardware are
 explicitly marked as experimental below. Feedback on wrong or missing values is still welcome —
 please report it with the meter type and the register concerned.
+
+## Meter groups: many meters, one node in the energy flow
+
+> **The quickest way to a tidy energy flow.** Instead of showing dozens of individual meters in the
+> dashboard you combine them into groups — and unfold them again when needed. Consumption per room, floor,
+> tenant or device group at a glance, and the lights or sockets of a group switched with one click. No
+> formula, no configuration in the dashboard.
+
+
+Several meters that belong together (for example every light of a floor, an air conditioner and a heat
+pump, all the meters of one tenant) can be combined into **one** node in the energy flow of the NRG-Stack
+Dashboard. A long press on it unfolds the group and shows the individual devices, several levels deep if
+you like. **You need no formula and no entry in the dashboard.** The group is a virtual meter
+(`MeterHubVirtual`); the dashboard finds it by itself.
+
+![The collective node "Heizung / Klima" in the energy flow](.docs/zaehler-gruppieren/dashboard-ebene-1.jpg)
+
+**In four steps:**
+
+1. **Create a virtual meter:** add an instance, type "Virtueller" into the quick filter, choose the module
+   "NRG-Stack MeterHub Virtueller Zähler" (virtual meter). Enter the name of the group under "Zählerbezeichnung"
+   (meter name).
+2. **Sort in the meters:** in the "Zähler" (meters) section choose the first meter under "Zähler-Instanz oder
+   Gerät" and click "Als Mitglied verknüpfen" (link as member), and the same for every further meter. This creates
+   links under the group in the object tree. Everything hanging there is a member; each counts with 100 %,
+   so the group is the sum. A share of −100 % subtracts.
+3. **Choose the function:** under "Funktion (fürs Dashboard)" set the matching function (heat pump, lighting,
+   air conditioning …). Then "Übernehmen" (apply). The "Prüfung & Vorschau" (check & preview) section shows the
+   finished formula with the current values.
+4. **In the dashboard** the group appears as a node with a badge showing the number of members. A **long press**
+   until the ring turns green unfolds it. A long press on the centre node goes one level back.
+
+![Unfolded: "Heizung / Klima" in the centre, its members around it](.docs/zaehler-gruppieren/dashboard-aufgeklappt.jpg)
+
+**Groups can be nested.** A member may itself be a virtual meter ("Licht Gesamt" contains "OG", "EG" and
+"Außen", each with its lights). If a device is added, put a link under the group and the tile follows by itself.
+
+![Object tree with two levels](.docs/zaehler-gruppieren/objektbaum-zwei-ebenen.png)
+
+**Switching groups.** If the devices do not only measure but can also be switched (for example one Z-Wave
+actuator per light), the group gets two variables by itself: **"Gruppe schalten"** (group switch: on/off for
+all members) and **"Gruppenstatus"** (group state: off, partial, on). In the dashboard a small on/off button
+appears under the node. Only members with a positive share are switched together.
+
+The full guide with all pictures, the columns of the member table and the typical pitfalls is in the
+[guide "Zähler-Gruppen"](Anleitung-Zaehler-Gruppen.md) (German only for now). The screenshots show the
+German interface.
 
 ## Thanks
 
@@ -302,6 +349,9 @@ unknown remainder of the house — everything that neither the heat pump nor the
 Further patterns: *collecting* (refrigerator + well pump, each +100 %), *passing through* (just one
 row) and *splitting* (the same variable with 60 % in one instance and 40 % in a second one, e.g.
 for two tenants).
+
+**Worth discovering:** a group of several meters appears in the NRG-Stack Dashboard as one node that can
+be unfolded, without any formula — see [Grouping meters](#meter-groups-many-meters-one-node-in-the-energy-flow).
 
 **Members:** New instances take their members from the **object tree**: everything that hangs as
 a link or directly under the instance is a member, in the order of its position there. A link to
