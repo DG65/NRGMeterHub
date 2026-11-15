@@ -2,6 +2,16 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.38.3 (2026-11-15)
+
+- **Doku und Formular nennen jetzt, was an echter Hardware bestätigt ist.** Dirk (dallard) hat am 15.11.2026 Tasmota-Steckdosen (mit und ohne
+  Web-Passwort), einen IR-Lesekopf mit SML-Skript und eine Shelly Plus Plug S per MQTT durchgespielt. Deshalb:
+  - **Tasmota:** Der Zählertyp heißt „Tasmota (HTTP)“ ohne den Zusatz „experimentell“. Die Hinweise im Formular und die READMEs nennen die
+    bestätigten Geräte; andere Geräte und Firmware-Stände können abweichen.
+  - **Shelly (MQTT):** bleibt „experimentell“, weil nur die Plus Plug S bestätigt ist. Die Hinweise sagen das jetzt ausdrücklich; Pro 3EM, Pro EM und
+    die übrigen Modelle sind weiter aus der Shelly-Dokumentation abgeleitet.
+  - Keine Änderung an der Logik. Prüfstand `test-tasmota.php` 5c angepasst.
+
 ## 0.38.2 (2026-11-15)
 
 - **Tasmota: Web-Passwort am Gerät wird jetzt unterstützt.** Die meisten Steckdosen im Feld haben ein Web-Passwort gesetzt (Rückmeldung

@@ -140,7 +140,7 @@ echo "5) Registrierung\n";
 $src = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
 check('5a: DRIVERS-Eintrag', preg_match("/'tasmota'\s*=>\s*'MHUB_TasmotaDriver'/", $src) === 1);
 check('5b: als HTTP-Zähler geführt', preg_match("/const HTTP_METERS\s*=\s*\['tasmota'\]/", $src) === 1);
-check('5c: Zählertyp ist als experimentell beschriftet', preg_match("/'tasmota'\s*=>\s*'Tasmota \(HTTP, experimental\)'/", $src) === 1);
+check('5c: Zählertyp „Tasmota (HTTP)“ trägt nach der Bestätigung an echten Geräten (Dirk, 15.11.2026) kein „experimentell“ mehr', preg_match("/'tasmota'\s*=>\s*'Tasmota \(HTTP\)'/", $src) === 1);
 check('5d: Treiber ist reiner Leser (kein Schreibaufruf im Client)', (function () use ($src) { $a = strpos($src, 'class MHUB_TasmotaClient'); $b = strpos($src, 'class MHUB_TasmotaDriver'); $c = substr($src, $a, $b - $a); return !preg_match('/function write|cmnd=Power|Backlog|POST/', $c); })());
 check('5e: Passwort-Feld, Speichern- und Löschknopf im Formular, Passwort nur als Attribut (keine Einstellung)', preg_match("/'name' => 'TasmotaPasswordInput'/", $src) === 1 && preg_match("/RegisterAttributeString\('TasmotaWebPassword'/", $src) === 1 && !preg_match("/RegisterPropertyString\('Tasmota(Web)?(Password|User)/", $src));
 
