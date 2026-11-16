@@ -26,6 +26,7 @@ $keepGerman = [
     // Suchbegriffe/Muster, mit denen deutsche Objektnamen erkannt werden (kein Anzeigetext)
     'wirkleistung', 'hauptzähler kwh', 'hauptzaehler kwh', 'wirkleistung p14 (w)', 'wirkleistung p23 (w)', 'wirkenergie a14 (kwh)', 'wirkenergie a23 (kwh)',   // Suchmuster für deutsche KNX-Instanznamen
     '/session|sitzung|ladevorgang|zwischen|heute|today|tages/u',
+    '/zähler|zaehler|zählerstand|counter|energie|energy|verbrauch|bezug|total|gesamt/u', '/zeitraum|zeitspanne|consumption period|period consumption/u',   // Namensmuster für deutsche Variablennamen (0.38.4)
     // interne Schlüssel von Zählern/Zusammenfassungen
     'relais', 'akku', 'relais_power', 'akku_power', 'relais_energy_import', 'relais_energy_export', 'akku_energy_import', 'akku_energy_export',
     'energie', 'leistung', 'meterhub_sicherung_',   // Idents der go-e-Kategorien, Dateinamen der Sicherungen (technische Kennungen)

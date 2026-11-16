@@ -3,7 +3,7 @@ Deutsch | [English](README.en.md)
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.38.3-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.38.4-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -379,7 +379,8 @@ in zwei Zeilen derselben Instanz (würde doppelt gezählt), ein Mitglied, das au
 zeigt, Kreisverweise und **gemischte Einheiten** (W neben kW ergäbe still falsche Werte). Über
 mehrere Instanzen hinweg darf dieselbe Variable bewusst anteilig vorkommen (*Aufteilen*). Ist
 dasselbe Gerät zweimal Mitglied (z. B. eine Wallbox über ChargerHub **und** OCPPHub), nennt die
-Prüfung beide samt Grund; bis zur Entscheidung zählt nur die erste Anbindung. Bei blockierenden
+Prüfung beide samt Grund; bis zur Entscheidung zählt nur die erste Anbindung. Zieht eine Formel einen Unterzähler von einem **Zähler am Netzanschluss** ab (Cloud-Zähler wie Inexogy oder ein MeterHub mit der Funktion „Netzanschluss“) und gibt es im System PV oder eine Batterie, weist die Prüfung darauf hin: Der Netzzähler misst netto und steht bei Deckung durch PV bei etwa 0 W, die Differenz wird dann negativ. Als Ausgangswert eignet sich der Gesamtverbrauch besser. Ein Hinweis, keine Sperre.
+Bei blockierenden
 Fehlern wird bewusst **nicht gerechnet** — lieber kein Wert als ein falscher.
 
 Die Instanz kann eine **Funktion** bekommen (Netzanschluss, Hausverbrauch, Wärmepumpe …), einmal für

@@ -3,7 +3,7 @@
 # MeterHub
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Module Version](https://img.shields.io/badge/Modul_Version-0.38.3-blue)
+![Module Version](https://img.shields.io/badge/Modul_Version-0.38.4-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGMeterHub/actions/workflows/check-style.yml)
@@ -373,7 +373,8 @@ points to the instance itself, circular references and **mixed units** (W next t
 silently give wrong values). Across several instances the same variable may deliberately occur
 proportionally (*splitting*). If the same device is a member twice (e.g. a wallbox via ChargerHub
 **and** OCPPHub), the check names both with the reason; until you decide, only the first
-connection counts. For blocking errors the module deliberately **does not calculate** — better no
+connection counts. If a formula subtracts a sub-meter from a **meter at the grid connection** (a cloud meter such as Inexogy, or a MeterHub with the function "Grid connection") and the system has PV or a battery, the check points it out: the grid meter measures net and shows about 0 W when PV covers the consumption, so the difference turns negative. The total consumption of the house is a better starting value. A hint, not a block.
+For blocking errors the module deliberately **does not calculate** — better no
 value than a wrong one.
 
 The instance can be given a **function** (grid connection, house consumption, heat pump …), once

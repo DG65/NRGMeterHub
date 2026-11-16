@@ -645,6 +645,7 @@ class MeterHubVirtual extends IPSModule
             $s = $settings[$m['member']] ?? [];
             $auto = ['power' => 0, 'imp' => 0, 'exp' => 0];
             $meterNote = '';
+            $counterNote = '';
             if (!$m['broken']) {
                 if ((int)IPS_GetObject($m['target'])['ObjectType'] === 2) {
                     $role = (string)($s['Role'] ?? '');
@@ -660,6 +661,11 @@ class MeterHubVirtual extends IPSModule
                     $auto = ['power' => $met['power'], 'imp' => $met['imp'], 'exp' => $met['exp']];
                     if (!empty($met['extraPower']) && (int)($s['PowerID'] ?? 0) <= 0) {
                         $meterNote = MHUBV_Text::t('several equivalent power values on the device (%s) — chosen: "%s"', implode(', ', array_map('IPS_GetName', array_merge([$met['power']], $met['extraPower']))), IPS_GetName($met['power']));
+                        foreach ($met['extraPower'] as $cand) {
+                            if ($this->LooksLikeCounterWithPowerUnit((int)$cand)) {
+                                $counterNote = MHUBV_Text::t('"%s" has a kW profile but is named like a meter. If it is a meter reading in kWh, set the profile of that variable to kWh — then it is recognized as import.', IPS_GetName((int)$cand));
+                            }
+                        }
                     }
                 }
             }
@@ -675,6 +681,7 @@ class MeterHubVirtual extends IPSModule
             $out[] = [
                 'switchNote' => $switchNote,
                 'meterNote'  => $meterNote,
+                'counterNote' => $counterNote,
                 // Mitglied-Einstellung „aktiv" (0.28.0) — abgewählt zählt es
                 // nicht mit, siehe ApplyDuplicateRules().
                 'active' => !array_key_exists('Active', $s) || !empty($s['Active']),
@@ -2026,6 +2033,9 @@ The previous table is backed up. From now on: add, remove and reorder members in
             if (($n['meterNote'] ?? '') !== '') {
                 $warnings[] = MHUBV_Text::t('%s: %s — if this is not the total power, set "Override power" in the members table.', $label, $n['meterNote']);
             }
+            if (($n['counterNote'] ?? '') !== '') {
+                $warnings[] = $label . ': ' . $n['counterNote'];
+            }
             if (($n['switchNote'] ?? '') !== '') {
                 $warnings[] = MHUBV_Text::t('%s: switch ambiguous — %s (column "Override switch", or "do not switch").', $label, $n['switchNote']);
             }
@@ -2082,7 +2092,53 @@ The previous table is backed up. From now on: add, remove and reorder members in
                 $warnings[] = MHUBV_Text::t('%s: switch set, but the share is subtracted or 0 — subtracted rows are deliberately not switched by the group switch (the row itself stays switchable).', $prefix);
             }
         }
+        // Netzzähler minus Unterzähler bei vorhandener PV/Batterie (Forum hbraun 16.11.2026: Leistung −224 W): Der Zähler am
+        // Netzanschluss misst netto. Deckt PV oder Batterie den Verbrauch, steht er bei etwa 0 W, der Unterzähler dahinter
+        // aber nicht, die Differenz wird negativ. Nur ein Hinweis, nichts wird blockiert; gemeldet wird nur, wenn ein
+        // Netzzähler UND PV/Batterie belegbar sind, nichts davon wird geraten.
+        $gridRow = null;
+        $subRow  = null;
+        foreach ($nodes as $i => $n) {
+            if (empty($n['target']) || $n['power'] <= 0 || !($n['active'] ?? true)) {
+                continue;
+            }
+            if ($gridRow === null && $n['factor'] > 0 && $this->IsGridMeterInstance((int)$n['target'])) {
+                $gridRow = $i;
+            }
+            if ($subRow === null && $n['factor'] < 0) {
+                $subRow = $i;
+            }
+        }
+        if ($gridRow !== null && $subRow !== null) {
+            $evidence = $this->PvOrBatteryEvidence();
+            if ($evidence !== '') {
+                $warnings[] = MHUBV_Text::t('%s is a grid connection meter, and "%s" is subtracted from it — and there is PV or a battery in this system (%s). The grid meter measures net: when PV or the battery covers the consumption, it shows about 0 W while the sub-meter behind it does not, and the difference turns negative. The total consumption of the house is a better starting value than the grid meter.', $this->RowLabel($gridRow, $nodes[$gridRow]), $nodes[$subRow]['name'], $evidence);
+            }
+        }
         return $warnings;
+    }
+
+    /** Ist das Ziel ein MeterHub am Netzanschluss: Cloud-Zähler (Inexogy/Discovergy, der Zähler des Messstellenbetreibers) oder ausdrücklich mit der Funktion „Netzanschluss“? */
+    private function IsGridMeterInstance(int $iid): bool
+    {
+        if (!IPS_InstanceExists($iid) || (string)(@IPS_GetInstance($iid)['ModuleInfo']['ModuleID'] ?? '') !== self::GUID_METER) {
+            return false;
+        }
+        return (string)@IPS_GetProperty($iid, 'Meter') === 'inexogy' || (string)@IPS_GetProperty($iid, 'FuncTotal') === 'grid';
+    }
+
+    /** Beleg für PV oder Batterie im System: ein Wechselrichter-Hub oder ein MeterHub mit Funktion PV/Batterie. Leer = nichts belegbar. */
+    private function PvOrBatteryEvidence(): string
+    {
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_INVERTERHUB) as $iid) {
+            return IPS_GetName($iid);
+        }
+        foreach (IPS_GetInstanceListByModuleID(self::GUID_METER) as $iid) {
+            if (in_array((string)@IPS_GetProperty($iid, 'FuncTotal'), ['pv', 'battery'], true)) {
+                return IPS_GetName($iid);
+            }
+        }
+        return '';
     }
 
     /** Hat die Instanz schon mindestens eine registrierte Ausgabevariable? */
@@ -3008,6 +3064,8 @@ The previous table is backed up. From now on: add, remove and reorder members in
     // Feld soll auch bei echten MeterHub-Zählern existieren, mit GETEILTER
     // Vorschlagsliste über beide Modultypen hinweg).
     private const GUID_METER = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
+    // InverterHub: nur als Beleg „PV/Batterie vorhanden“ für den Netzzähler-Hinweis.
+    private const GUID_INVERTERHUB = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
     // Fremdmodul „Discovergy Smartmeter“ (siehe MetersOfDevice()).
     private const GUID_DISCOVERGY_OLD = '{C0F160B2-0B9D-2AAE-0527-C0FA4BDEE743}';
 
@@ -3276,7 +3334,7 @@ The previous table is backed up. From now on: add, remove and reorder members in
                     $kind = $this->Classify($cid);
                     if ($kind === 'power') {
                         $powers[] = [$cid, $depth, $this->MeterPenalty($o), (int)($o['ObjectPosition'] ?? 0)];
-                    } elseif ($kind === 'import') {
+                    } elseif ($kind === 'import' && !$this->IsPeriodValue($o)) {
                         $kwh[] = [$cid, $depth, $this->MeterPenalty($o), (int)($o['ObjectPosition'] ?? 0)];
                     }
                 } elseif ($o['ObjectType'] === 0) {
@@ -3308,6 +3366,23 @@ The previous table is backed up. From now on: add, remove and reorder members in
             $extra = array_column(array_slice($kwh, 1), 0);
         }
         return ['power' => $power, 'imp' => $imp, 'exp' => $exp, 'extra' => $extra, 'extraPower' => $extraPower];
+    }
+
+    /** Variable mit kW-Einheit (Leistung), deren Name nach Zählerstand klingt — wahrscheinlich ein Zählerstand mit falschem Profil. Nur für einen Hinweis. */
+    private function LooksLikeCounterWithPowerUnit(int $vid): bool
+    {
+        $u = strtolower(str_replace(' ', '', $this->UnitOf($vid)));
+        return $u === 'kw' && preg_match('/zähler|zaehler|zählerstand|counter|energie|energy|verbrauch|bezug|total|gesamt/u', mb_strtolower(IPS_GetName($vid))) === 1;
+    }
+
+    /**
+     * Eine Zeitraum-Auswertung („Verbrauch Zeitraum“, Verbrauchszeitspanne) ist ein Wert für einen Zeitraum und springt
+     * zurück: kein kumulativer Zählerstand, also nie als Bezug vorschlagen (Forum hbraun 16.11.2026: das Modul hatte
+     * „Verbrauch Zeitraum“ als Bezug genommen). Fehlt dann der Bezug, trägt ihn der Nutzer in „Bezug übersteuern“ ein.
+     */
+    private function IsPeriodValue(array $o): bool
+    {
+        return preg_match('/zeitraum|zeitspanne|consumption period|period consumption/u', mb_strtolower((string)$o['ObjectIdent'] . ' ' . (string)$o['ObjectName'])) === 1;
     }
 
     /**

@@ -3359,5 +3359,52 @@ echo "  67f) Zähler, der schon in einem virtuellen Zähler steckt, startet kein
 $GLOBALS['FORMFIELDS'] = [];
 check('67f: Ablehnung', $hubA->StartVirtualAssistant('[]', 'parent') === 0);
 
+echo "\n68) Fall hbraun (16.11.2026): Netzzähler minus Unterzähler bei PV, kW-Profil am Zählerstand, Zeitraum-Variable\n";
+$GLOBALS['LEGACY_LIST'] = false;
+$GLOBALS['PROFILES']['T68.kW'] = ['Digits' => 2, 'Suffix' => ' kW'];
+meter(7000, 'Hauptstromzähler', 0.0, 439.1, 75.1);
+$GLOBALS['PROP'][7000]['Meter'] = 'inexogy';
+obj(7100, 1, 'Stromzähler Michaela', 10);
+$GLOBALS['INSTMOD'][7100] = '{FREMD-HOMEMATIC}';
+vari(7101, 'Strom Ela', 7100, '', 'MHB.W', 224.0);
+vari(7102, 'Stromzähler Michaela', 7100, '', 'T68.kW', 1022.9);
+vari(7103, 'Verbrauch Zeitraum', 7100, '', 'MHB.kWh', 1022.0);
+$warn68 = function ($v) { return (new ReflectionMethod('MeterHubVirtual', 'Warnings'))->invoke($v, t35_call($v, 'Nodes')); };
+$iid68 = IPS_CreateInstance(T35_GV); IPS_SetParent($iid68, 10); IPS_SetName($iid68, 'Haushalt ohne Ela'); $v68 = t35_apply($iid68);
+$v68->AddDeviceAs(7000, 100);
+$v68->AddDeviceAs(7100, -100);
+
+echo "  68a) Zeitraum-Variable wird nicht als Bezug vorgeschlagen\n";
+$m68 = (new ReflectionMethod('MeterHubVirtual', 'MetersOfDevice'))->invoke($v68, 7100);
+check('68a: „Verbrauch Zeitraum“ ist nicht der Bezug (kein Zählerstand)', $m68['imp'] !== 7103, json_encode($m68));
+check('68a: die Leistung bleibt „Strom Ela“', $m68['power'] === 7101, json_encode($m68));
+
+echo "  68b) Hinweis bei kW-Profil mit zählerartigem Namen\n";
+$w68 = implode("\n", $warn68($v68));
+check('68b: Hinweis nennt „Stromzähler Michaela“ und das kW-Profil', str_contains($w68, 'kW-Profil') && str_contains($w68, 'Stromzähler Michaela'), $w68);
+
+echo "  68c) Netzzähler minus Unterzähler bei PV/Batterie\n";
+check('68c: ohne PV/Batterie im System keine Netzzähler-Warnung', !str_contains($w68, 'Netzanschluss'), $w68);
+obj(7200, 1, 'FoxESS H3 Smart', 10);
+$GLOBALS['INSTMOD'][7200] = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+$w68 = implode("\n", $warn68($v68));
+check('68c: mit Wechselrichter im System: Hinweis, Name des Wechselrichters und des Unterzählers genannt', str_contains($w68, 'Netzanschluss') && str_contains($w68, 'FoxESS H3 Smart') && str_contains($w68, 'Stromzähler Michaela') && str_contains($w68, 'Gesamtverbrauch'), $w68);
+$GLOBALS['PROP'][7000]['Meter'] = 'siemens_pac2200';
+check('68c: ein Zähler, der nicht am Netzanschluss liegt (kein Cloud-Zähler, keine Netz-Funktion), löst nichts aus', !str_contains(implode("\n", $warn68($v68)), 'Netzanschluss'));
+$GLOBALS['PROP'][7000]['FuncTotal'] = 'grid';
+check('68c: ausdrücklich als „Netzanschluss“ eingestellt: Hinweis', str_contains(implode("\n", $warn68($v68)), 'Netzanschluss'));
+$GLOBALS['PROP'][7000]['Meter'] = 'inexogy'; $GLOBALS['PROP'][7000]['FuncTotal'] = 'none';
+unset($GLOBALS['INSTMOD'][7200]);
+obj(7300, 1, 'PV Strang', 10); $GLOBALS['INSTMOD'][7300] = G_METER; $GLOBALS['PROP'][7300]['FuncTotal'] = 'pv';
+check('68c: auch ein MeterHub mit Funktion „PV“ gilt als Beleg', str_contains(implode("\n", $warn68($v68)), 'PV Strang'));
+unset($GLOBALS['INSTMOD'][7300]);
+
+echo "  68d) Gruppe aus Summanden bekommt die Netzzähler-Warnung nicht\n";
+$iid68b = IPS_CreateInstance(T35_GV); IPS_SetParent($iid68b, 10); IPS_SetName($iid68b, 'Summe'); $v68b = t35_apply($iid68b);
+$GLOBALS['INSTMOD'][7200] = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+$v68b->AddDeviceAs(7000, 100);
+check('68d: nur Summanden, nichts abgezogen → keine Warnung', !str_contains(implode("\n", $warn68($v68b)), 'Netzanschluss'));
+unset($GLOBALS['INSTMOD'][7200]);
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

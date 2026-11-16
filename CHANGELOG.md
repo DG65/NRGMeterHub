@@ -2,6 +2,23 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.38.4 (2026-11-16)
+
+Drei Verbesserungen der Prüfung im virtuellen Zähler, ausgelöst durch den Fall hbraun im Forum (16.11.2026: Hauptzähler minus Unterzähler
+ergab −224 W, beim Bezug war die falsche Variable gewählt):
+
+- **Hinweis „Netzzähler minus Unterzähler bei PV/Batterie“.** Zieht eine Formel einen Unterzähler von einem Zähler am Netzanschluss ab (Inexogy-Zähler
+  oder MeterHub mit der Funktion „Netzanschluss“) und gibt es im System einen Wechselrichter (InverterHub) oder einen MeterHub mit der Funktion
+  PV/Batterie, weist die Prüfung darauf hin: Der Netzzähler misst netto, bei Deckung durch PV steht er bei etwa 0 W, die Differenz wird negativ. Nur ein
+  Hinweis, nichts wird gesperrt; gemeldet wird nur, wenn Netzzähler und PV/Batterie belegbar sind.
+- **Zeitraum-Auswertungen sind kein Bezug mehr.** Eine Variable mit „Zeitraum“ oder „Zeitspanne“ im Namen (zum Beispiel „Verbrauch Zeitraum“) wird bei der
+  automatischen Suche am Gerät nicht mehr als Zählerstand (Bezug) vorgeschlagen. Fehlt dann der Bezug, trägt ihn der Nutzer unter „Bezug übersteuern“ ein.
+- **Hinweis bei kW-Profil an einem zählerartig benannten Wert.** Bei mehreren gleichwertigen Leistungswerten am Gerät nennt die Prüfung jetzt, wenn eine
+  davon ein kW-Profil trägt, aber wie ein Zähler heißt („Stromzähler …“): Ist es ein Zählerstand in kWh, das Profil der Variable auf kWh stellen, dann wird sie
+  als Bezug erkannt.
+
+Prüfstand `test-virtual.php` Block 68 mit dem Fall nachgebaut; die Proben ohne den jeweiligen Schutz schlagen an.
+
 ## 0.38.3 (2026-11-15)
 
 - **Doku und Formular nennen jetzt, was an echter Hardware bestätigt ist.** Dirk (dallard) hat am 15.11.2026 Tasmota-Steckdosen (mit und ohne
