@@ -30,6 +30,8 @@ interface MHUB_ModbusClientInterface
     public function writeHolding($startReg, array $regs): bool;
     public function close(): void;
     public function setWordSwap(bool $s);
+    /** Grund des letzten Fehlschlags als Text ('' = kein Fehler bzw. keine genauere Auskunft, z. B. beim Gateway-Weg). */
+    public function failureText(): string;
 }
 
 /**
@@ -99,6 +101,22 @@ class MHUB_ModbusTcpClient implements MHUB_ModbusClientInterface
     public $connects = 0;
     /** Grund des letzten Fehlschlags: 'connect' | 'write' | 'eof' | 'timeout' | 'frame' | '' */
     public $lastError = '';
+    /** Fehlernummer und -text von fsockopen() beim letzten Verbindungsfehler (Stolperstein 31, Punkt d). */
+    public $lastErrno = 0;
+    public $lastErrstr = '';
+
+    /** Grund des letzten Fehlschlags als Text, bei Verbindungsfehlern mit errno/errstr ('' = kein Fehler). */
+    public function failureText(): string
+    {
+        if ($this->lastError === '') {
+            return '';
+        }
+        $t = $this->lastError;
+        if ($this->lastError === 'connect' && ($this->lastErrno !== 0 || $this->lastErrstr !== '')) {
+            $t .= ' (' . $this->lastErrno . ': ' . $this->lastErrstr . ')';
+        }
+        return $t;
+    }
 
     public function close(): void
     {
@@ -121,6 +139,8 @@ class MHUB_ModbusTcpClient implements MHUB_ModbusClientInterface
         $s = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
         if ($s === false) {
             $this->lastError = 'connect';
+            $this->lastErrno = (int)$errno;
+            $this->lastErrstr = (string)$errstr;
             return false;
         }
         stream_set_timeout($s, 3);
@@ -464,6 +484,12 @@ class MHUB_ModbusGatewayClient implements MHUB_ModbusClientInterface
     {
     }
 
+    /** Der Gateway-Weg hat keine eigene Fehlerauskunft; die Modulklasse nimmt dafür BridgeErrorText(). */
+    public function failureText(): string
+    {
+        return '';
+    }
+
     public function setWordSwap(bool $s)
     {
         $this->wordSwap = $s;
@@ -599,8 +625,8 @@ interface MHUB_CalculatedEnergyDriverInterface
 
 interface MHUB_WritableMeterDriverInterface
 {
-    /** Schreibt den aktuellen Zielwert (Property „TargetSetpoint") auf das Gerät. */
-    public function writeSetpoint($mb, $hub): void;
+    /** Schreibt den aktuellen Zielwert (Property „TargetSetpoint") auf das Gerät. true = alle Schreibvorgänge angekommen. */
+    public function writeSetpoint($mb, $hub): bool;
 
     /** Schreibt den Ausfall-/Rückfallwert (Property „FailsafeDefaultPercent"), einmalig beim Deaktivieren. */
     public function writeFailsafe($mb, $hub): void;
@@ -3516,6 +3542,12 @@ class MHUB_BlueLogRpcDriver implements MHUB_MeterDriverInterface, MHUB_WritableM
             ['active_setpoint_rel', 'Effective setpoint (actual, %)',    'F', 'NRG.Percent', false, 'total', 'FC3 8 (PPC_P_SET_RPC_REL)'],
             ['frequency',          'Grid frequency',                   'F', 'MHB.Hz',   false, 'total', 'FC3 42 (PPC_F_AC)'],
             ['connected',          'Connection',                     'B', '~Alert.Reversed', false, 'errors', ''],
+            // Schreibstatus (SUITE.md Stolperstein 31 e): das EMS wertet diese vier Idents generisch aus.
+            // „hängt" heißt fail_time > ok_time.
+            ['ctl_write_fail_count', 'Failed commands (count)', 'I', '', false, 'errors', 'Counts the setpoint writes that did not arrive (after both attempts), since the variable was created'],
+            ['ctl_write_fail_time',  'Last failed command',     'I', '~UnixTimestamp', false, 'errors', 'Time of the last setpoint write that did not arrive'],
+            ['ctl_write_fail_text',  'Last failure',            'S', '', false, 'errors', 'Reason of the last failure (connection error with errno/errstr)'],
+            ['ctl_write_ok_time',    'Last successful command', 'I', '~UnixTimestamp', false, 'errors', 'Time of the last setpoint write that went through'],
         ];
     }
 
@@ -3545,14 +3577,15 @@ class MHUB_BlueLogRpcDriver implements MHUB_MeterDriverInterface, MHUB_WritableM
 
     public function readSlow($mb, $hub) { /* keine kumulativen Energiezähler im RPC-Leseblock */ }
 
-    public function writeSetpoint($mb, $hub): void
+    public function writeSetpoint($mb, $hub): bool
     {
         $mb->setWordSwap(true);
         $reg = $hub->SetpointMode() === 'abs' ? 5002 : 5000; // ABS bzw. REL
-        $mb->writeHolding($reg, $mb->packFloat32($hub->TargetSetpoint()));
+        $ok = $mb->writeHolding($reg, $mb->packFloat32($hub->TargetSetpoint()));
         // Gültigkeitszeit (Minuten) mitschreiben — unabhängig vom Poll-Takt
         // dieser Instanz auf dem vom Nutzer gewünschten Wert gehalten.
-        $mb->writeHolding(5006, $mb->packFloat32((float)$hub->RpcValidTimeMin()));
+        $ok2 = $mb->writeHolding(5006, $mb->packFloat32((float)$hub->RpcValidTimeMin()));
+        return $ok && $ok2;
     }
 
     public function writeFailsafe($mb, $hub): void
@@ -3586,6 +3619,11 @@ class MHUB_BlueLogPowerControlDriver implements MHUB_MeterDriverInterface, MHUB_
             ['power_total', 'Active power (actual, grid connection point)', 'F', 'NRG.Watt', true,  'total', 'FC3 90 (PPC_P_AC)'],
             ['frequency',   'Grid frequency',                          'F', 'MHB.Hz',   false, 'total', 'FC3 98 (PPC_F_AC)'],
             ['connected',   'Connection',                            'B', '~Alert.Reversed', false, 'errors', ''],
+            // Schreibstatus, siehe MHUB_BlueLogRpcDriver (SUITE.md Stolperstein 31 e).
+            ['ctl_write_fail_count', 'Failed commands (count)', 'I', '', false, 'errors', 'Counts the setpoint writes that did not arrive (after both attempts), since the variable was created'],
+            ['ctl_write_fail_time',  'Last failed command',     'I', '~UnixTimestamp', false, 'errors', 'Time of the last setpoint write that did not arrive'],
+            ['ctl_write_fail_text',  'Last failure',            'S', '', false, 'errors', 'Reason of the last failure (connection error with errno/errstr)'],
+            ['ctl_write_ok_time',    'Last successful command', 'I', '~UnixTimestamp', false, 'errors', 'Time of the last setpoint write that went through'],
         ];
     }
 
@@ -3611,11 +3649,11 @@ class MHUB_BlueLogPowerControlDriver implements MHUB_MeterDriverInterface, MHUB_
 
     public function readSlow($mb, $hub) { /* keine kumulativen Energiezähler im gelesenen Block */ }
 
-    public function writeSetpoint($mb, $hub): void
+    public function writeSetpoint($mb, $hub): bool
     {
         $mb->setWordSwap(true);
         $reg = $hub->SetpointMode() === 'abs' ? 5006 : 5000; // ABS bzw. REL
-        $mb->writeHolding($reg, $mb->packFloat32($hub->TargetSetpoint()));
+        return $mb->writeHolding($reg, $mb->packFloat32($hub->TargetSetpoint()));
     }
 
     public function writeFailsafe($mb, $hub): void
@@ -4283,7 +4321,14 @@ class MeterHub extends IPSModule
             // bewusst nichts weiter.
             $driver = $this->GetDriver();
             if ($ready && $driver instanceof MHUB_WritableMeterDriverInterface && $this->FailsafeMode() === 'default') {
-                $driver->writeFailsafe($this->GetTransport(), $this);
+                // Auch der Rückfallwert ist ein Schreibzugriff: unter der Sperre (Stolperstein 31).
+                $this->RunLocked(self::LOCK_WAIT_WRITE_MS, true, function () use ($driver) {
+                    $mb = $this->GetTransport();
+                    $driver->writeFailsafe($mb, $this);
+                    if (method_exists($mb, 'close')) {
+                        $mb->close();
+                    }
+                });
             }
             $this->SetStatus(104);
             $this->SetTimerInterval('FastTimer', 0);
@@ -4327,24 +4372,33 @@ class MeterHub extends IPSModule
             return;
         }
         $driver = $this->GetDriver();
-        $mb     = $this->GetTransport();
-        $ok     = $driver->readFast($mb, $this);
-        // Schreibzyklus direkt im Anschluss an den Lesezyklus — kein
-        // eigener Timer nötig. Läuft bei JEDEM Takt, auch ohne geänderten
-        // Zielwert (siehe Klassenkommentar MHUB_BlueLogRpcDriver: das
-        // Nachschreiben IST das Sicherheitsnetz gegen das Ablaufen der
-        // Gültigkeitszeit am blue'Log).
-        if ($driver instanceof MHUB_WritableMeterDriverInterface) {
-            $driver->writeSetpoint($mb, $this);
-            $this->FlushTransportNotices($mb);
-        }
-        if ($ok && $driver instanceof MHUB_CalculatedEnergyDriverInterface) {
-            $this->AdvanceCalculatedEnergy($driver->calculatedEnergy());
-        }
-        // Eine Verbindung je Zyklus: Lesen UND Sollwert-Schreiben liefen über
-        // denselben Client, jetzt einmal schließen (siehe MHUB_ModbusTcpClient).
-        if (method_exists($mb, 'close')) {
-            $mb->close();
+        $ok     = false;
+        // Stolperstein 31: Lesen und Sollwert-Schreiben laufen unter derselben Sperre je Instanz (Modbus-Zähler);
+        // bekommt der Lesezyklus die Sperre nicht, fällt er aus — ohne Fehlermeldung.
+        $ran = $this->RunLocked(self::LOCK_WAIT_READ_MS, false, function () use ($driver, &$ok) {
+            $mb = $this->GetTransport();
+            $ok = $driver->readFast($mb, $this);
+            // Schreibzyklus direkt im Anschluss an den Lesezyklus — kein
+            // eigener Timer nötig. Läuft bei JEDEM Takt, auch ohne geänderten
+            // Zielwert (siehe Klassenkommentar MHUB_BlueLogRpcDriver: das
+            // Nachschreiben IST das Sicherheitsnetz gegen das Ablaufen der
+            // Gültigkeitszeit am blue'Log).
+            if ($driver instanceof MHUB_WritableMeterDriverInterface) {
+                $this->WriteSetpointChecked($driver, $mb, 'setpoint');
+                $this->FlushTransportNotices($mb);
+            }
+            if ($ok && $driver instanceof MHUB_CalculatedEnergyDriverInterface) {
+                $this->AdvanceCalculatedEnergy($driver->calculatedEnergy());
+            }
+            // Eine Verbindung je Zyklus: Lesen UND Sollwert-Schreiben liefen über
+            // denselben Client, jetzt einmal schließen (siehe MHUB_ModbusTcpClient).
+            if (method_exists($mb, 'close')) {
+                $mb->close();
+            }
+        });
+        if (!$ran) {
+            $this->SendDebug('Lock', 'Read cycle skipped, the device is being written to', 0);
+            return;
         }
         $this->SetStatus($ok ? 102 : 201);
         $this->UpdateMirrors();
@@ -4360,6 +4414,163 @@ class MeterHub extends IPSModule
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Sperre je Instanz (SUITE.md Stolperstein 31, Vorlage InverterHub 0.86.0). Viele Geräte und Logger nehmen nur EINE
+    // Modbus-TCP-Verbindung gleichzeitig an (blue'Log, Solis-Logger, RS485-Gateways). Öffnet ein Schreibbefehl
+    // (SetBlueLogTarget(), aus einem anderen Skript-Thread) eine zweite Verbindung, während der Lese-Timer liest, weist
+    // das Gerät eine der beiden ab. Deshalb laufen Lesen UND Schreiben unter einer Sperre MHUB_IO_<ID>. Schreiben wartet
+    // länger (20 s) als Lesen (8 s); ein Lesezyklus, der die Sperre nicht bekommt, fällt einfach aus; ein Schreibbefehl
+    // wird nach der Wartezeit trotzdem geschrieben (ein verlorener Sollwert ist teurer als eine Überlappung).
+    // Nicht wiedereintrittsfähig in IPS, daher der Tiefenzähler; hält ein Lauf die Sperre länger als LOCK_STALE_SEC,
+    // gilt sie als verwaist. Die Sperre gilt nur für Modbus-Zähler — Cloud-, HTTP- und MQTT-Zähler kennen das Problem
+    // nicht und dürfen nicht an einem langen Inexogy-Nachtrag hängen.
+    // -----------------------------------------------------------------------
+    const LOCK_WAIT_READ_MS  = 8000;
+    const LOCK_WAIT_WRITE_MS = 20000;
+    const LOCK_STALE_SEC     = 45;
+    /** Pause vor dem Wiederholversuch eines Sollwert-Schreibvorgangs nach einem Verbindungsfehler (µs). */
+    const WRITE_RETRY_PAUSE_US = 1500000;
+    private $mhubLockDepth = 0;
+
+    private function LockName(): string
+    {
+        return 'MHUB_IO_' . $this->InstanceID;
+    }
+
+    private function LockEnter(int $waitMs): bool
+    {
+        if ($this->mhubLockDepth > 0) {
+            $this->mhubLockDepth++;
+            return true;
+        }
+        if (!function_exists('IPS_SemaphoreEnter') || !IPS_SemaphoreEnter($this->LockName(), $waitMs)) {
+            return false;
+        }
+        $this->mhubLockDepth = 1;
+        $this->SetBuffer('IoLockSince', (string)time());
+        return true;
+    }
+
+    private function LockLeave(): void
+    {
+        if ($this->mhubLockDepth <= 0) {
+            return;
+        }
+        $this->mhubLockDepth--;
+        if ($this->mhubLockDepth === 0) {
+            $this->SetBuffer('IoLockSince', '');
+            IPS_SemaphoreLeave($this->LockName());
+        }
+    }
+
+    private function LockIsStale(): bool
+    {
+        $since = (int)$this->GetBuffer('IoLockSince');
+        return $since > 0 && (time() - $since) > self::LOCK_STALE_SEC;
+    }
+
+    /** Läuft dieser Zählertyp über Modbus (und kennt damit das Ein-Verbindungs-Problem)? */
+    private function UsesModbus(): bool
+    {
+        $meter = $this->ReadPropertyString('Meter');
+        return !in_array($meter, self::CLOUD_METERS, true)
+            && !in_array($meter, self::HTTP_METERS, true)
+            && !in_array($meter, self::MQTT_METERS, true);
+    }
+
+    /**
+     * Führt $fn unter der Sperre dieser Instanz aus. Rückgabe: false = die Sperre war nicht zu bekommen und $fn lief NICHT
+     * (nur bei Lesezyklen, $mustRun = false). Schreibvorgänge ($mustRun = true) laufen nach der Wartezeit trotzdem. Eine
+     * verwaiste Sperre (älter als LOCK_STALE_SEC) wird ignoriert. `finally` gibt die Sperre immer frei.
+     */
+    private function RunLocked(int $waitMs, bool $mustRun, callable $fn): bool
+    {
+        if (!$this->UsesModbus() || !function_exists('IPS_SemaphoreEnter')) {
+            $fn();
+            return true;
+        }
+        $held = $this->LockEnter($waitMs);
+        if (!$held) {
+            if ($mustRun) {
+                $this->LogMessage(MHUB_Text::t('The read cycle did not release the device within %s s, the setpoint is written anyway.', (int)($waitMs / 1000)), KL_WARNING);
+            } elseif (!$this->LockIsStale()) {
+                return false;
+            }
+        }
+        try {
+            $fn();
+        } finally {
+            if ($held) {
+                $this->LockLeave();
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Sollwert schreiben mit EINEM Wiederholversuch nach kurzer Pause bei einem Verbindungsfehler (Stolperstein 31 c),
+     * Fehlergrund samt errno/errstr ins Protokoll (d) und Ergebnis in die Variablen ctl_write_* (e). Rückgabe: angekommen?
+     */
+    private function WriteSetpointChecked($driver, $mb, string $what): bool
+    {
+        $ok = (bool)$driver->writeSetpoint($mb, $this);
+        if (!$ok && $this->WriteRetryable($mb)) {
+            $this->SendDebug('Setpoint', 'Write failed (' . $this->WriteFailureText($mb) . '), retrying in 1.5 s', 0);
+            if (method_exists($mb, 'close')) {
+                $mb->close();
+            }
+            usleep(self::WRITE_RETRY_PAUSE_US);
+            $ok = (bool)$driver->writeSetpoint($mb, $this);
+        }
+        $failure = $ok ? '' : $this->WriteFailureText($mb);
+        $this->RecordWriteResult($what, $failure);
+        if (!$ok) {
+            // Höchstens einmal je Minute ins Protokoll, sonst füllt ein dauerhaft getrenntes Gerät es im 5-s-Takt.
+            if (time() - (int)$this->GetBuffer('WriteFailLogTs') >= 60) {
+                $this->SetBuffer('WriteFailLogTs', (string)time());
+                $this->LogMessage(MHUB_Text::t('Setpoint write did not arrive (after two attempts): %s', $failure), KL_WARNING);
+            }
+        }
+        return $ok;
+    }
+
+    /** Lohnt ein zweiter Versuch? Ja bei Verbindungsfehlern; nicht bei einer Modbus-Exception (gültige Antwort, das Gerät lehnt den Wert ab). */
+    private function WriteRetryable($mb): bool
+    {
+        if (!is_object($mb) || !property_exists($mb, 'lastError')) {
+            return true; // Gateway-Weg: keine genauere Auskunft, ein Wiederholversuch schadet nicht (derselbe Wert, FC 16)
+        }
+        return in_array($mb->lastError, ['connect', 'write', 'eof', 'timeout'], true);
+    }
+
+    private function WriteFailureText($mb): string
+    {
+        if ($this->ReadPropertyString('ConnectionMode') === 'gateway') {
+            return $this->BridgeErrorText();
+        }
+        $t = (is_object($mb) && method_exists($mb, 'failureText')) ? $mb->failureText() : '';
+        return $t !== '' ? $t : MHUB_Text::t('the device rejected the value');
+    }
+
+    /** Schreibstatus für das EMS: ctl_write_ok_time bei Erfolg, sonst Zähler, Zeit und Text des Fehlers (nur wenn die Variablen existieren). */
+    private function RecordWriteResult(string $what, string $failure): void
+    {
+        $count = $this->FindVarByIdent('ctl_write_fail_count');
+        if (!$count) {
+            return;
+        }
+        if ($failure === '') {
+            $this->SetVarInt('ctl_write_ok_time', time());
+            return;
+        }
+        SetValueInteger($count, (int)GetValueInteger($count) + 1);
+        $this->SetVarInt('ctl_write_fail_time', time());
+        $vid = $this->FindVarByIdent('ctl_write_fail_text');
+        if ($vid) {
+            SetValueString($vid, mb_substr($what . ': ' . $failure, 0, 250));
+        }
+    }
+
     public function ReadSlow()
     {
         if (!$this->InstanceReady()) {
@@ -4368,10 +4579,19 @@ class MeterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('Active')) {
             return;
         }
-        $mb = $this->GetTransport();
-        $this->GetDriver()->readSlow($mb, $this);
-        if (method_exists($mb, 'close')) {
-            $mb->close();
+        // Die Sperre gilt nur für den Gerätezugriff selbst (Stolperstein 31); die Nacharbeiten unten (Inexogy-Nachtrag,
+        // Richtungsprüfung, Verdichtung) können lange dauern und dürfen den Lesezyklus nicht blockieren.
+        $driver = $this->GetDriver();
+        $ran = $this->RunLocked(self::LOCK_WAIT_READ_MS, false, function () use ($driver) {
+            $mb = $this->GetTransport();
+            $driver->readSlow($mb, $this);
+            if (method_exists($mb, 'close')) {
+                $mb->close();
+            }
+        });
+        if (!$ran) {
+            $this->SendDebug('Lock', 'Slow read cycle skipped, the device is being written to', 0);
+            return;
         }
         $this->UpdateMirrors();
         $this->MaybeAutoBackfillInexogy();
@@ -4509,12 +4729,19 @@ class MeterHub extends IPSModule
      */
     public function TestConnection(): string
     {
-        $mb = $this->GetTransport();
-        $ok = $this->GetDriver()->readFast($mb, $this);
-        $this->SetStatus($ok ? 102 : 201);
-        $this->GetDriver()->readSlow($mb, $this);
-        if (method_exists($mb, 'close')) {
-            $mb->close();
+        $mb = null;
+        $ok = false;
+        $ran = $this->RunLocked(self::LOCK_WAIT_READ_MS, false, function () use (&$mb, &$ok) {
+            $mb = $this->GetTransport();
+            $ok = $this->GetDriver()->readFast($mb, $this);
+            $this->SetStatus($ok ? 102 : 201);
+            $this->GetDriver()->readSlow($mb, $this);
+            if (method_exists($mb, 'close')) {
+                $mb->close();
+            }
+        });
+        if (!$ran) {
+            return MHUB_Text::t('ℹ️ Read cycle skipped: a command is being written to the device. Try again in a moment.');
         }
         $this->UpdateMirrors();
         if ($ok) {
@@ -4550,10 +4777,22 @@ class MeterHub extends IPSModule
         if (!$this->ReadPropertyBoolean('Active')) {
             return MHUB_Text::t('⚠️ Target value saved, but the instance is inactive — nothing is written.');
         }
-        $mb = $this->GetTransport();
-        $driver->writeSetpoint($mb, $this);
-        $this->FlushTransportNotices($mb);
-        return MHUB_Text::t('✅ Target value %s (%s) set and written immediately.', $value, $this->SetpointMode() === 'abs' ? 'W' : '%');
+        // Stolperstein 31: unter der Sperre je Instanz (wartet bis zu 20 s auf einen laufenden Lesezyklus), mit
+        // Wiederholversuch bei Verbindungsfehler und Ergebnis in den Variablen ctl_write_*.
+        $ok = false;
+        $this->RunLocked(self::LOCK_WAIT_WRITE_MS, true, function () use ($driver, &$ok) {
+            $mb = $this->GetTransport();
+            $ok = $this->WriteSetpointChecked($driver, $mb, 'setpoint');
+            $this->FlushTransportNotices($mb);
+            if (method_exists($mb, 'close')) {
+                $mb->close();
+            }
+        });
+        $unit = $this->SetpointMode() === 'abs' ? 'W' : '%';
+        if (!$ok) {
+            return MHUB_Text::t('❌ Target value %s (%s) saved, but writing to the device failed — see the variable "Last failure". It is tried again with the next cycle.', $value, $unit);
+        }
+        return MHUB_Text::t('✅ Target value %s (%s) set and written immediately.', $value, $unit);
     }
 
     // -----------------------------------------------------------------------

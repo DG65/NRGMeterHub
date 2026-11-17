@@ -2,6 +2,31 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.38.5 (2026-11-17)
+
+Sperre je Instanz für Modbus-Zähler (Verbund-Regel SUITE.md Stolperstein 31, Vorlage InverterHub 0.86.0). Anlass: Viele Geräte und Logger nehmen nur
+EINE Modbus-TCP-Verbindung gleichzeitig an. Beim Solis kamen deshalb 30 Ladebefehle nicht an, weil der Lese-Timer und ein Schreibbefehl gleichzeitig je eine
+eigene Verbindung öffneten. MeterHub liest überwiegend; geschrieben wird nur der Sollwert der blue'Log-Zähler (Direktvermarktung im Solarpark), und der
+Schreibaufruf `MHUB_SetBlueLogTarget()` öffnete bisher eine eigene Verbindung neben dem laufenden Lese-Timer.
+
+- **Lesen und Schreiben laufen unter einer Sperre je Instanz** (`MHUB_IO_<ID>`). `ReadFast`, `ReadSlow` und „Verbindung testen“ warten bis zu 8 s; bekommt ein
+  Lesezyklus die Sperre nicht, fällt er ohne Fehlermeldung aus. `MHUB_SetBlueLogTarget()` und der Rückfallwert beim Deaktivieren warten bis zu 20 s und
+  schreiben danach trotzdem (ein verlorener Sollwert ist teurer als eine Überlappung; dann steht eine Warnung im Protokoll). Eine Sperre, die länger als 45 s
+  gehalten wird, gilt als verwaist und wird ignoriert; `finally` gibt sie immer frei. Die Sperre gilt nur für Modbus-Zähler: Inexogy, Tasmota und Shelly
+  (MQTT) kennen das Problem nicht und warten auch nicht auf einen langen Inexogy-Nachtrag. Die Nacharbeiten in `ReadSlow` (Nachtrag, Richtungsprüfung,
+  Verdichtung) liegen bewusst außerhalb der Sperre.
+- **Ein Wiederholversuch beim Sollwert-Schreiben** nach 1,5 s Pause, nur bei einem Verbindungsfehler (nicht, wenn das Gerät den Wert mit einer
+  Modbus-Exception ablehnt: das ist eine gültige Antwort).
+- **Fehlergrund im Protokoll:** bei einem Verbindungsfehler stehen `errno` und `errstr` von `fsockopen` im Text („connect (111: Connection refused)“). Der
+  Eintrag erscheint höchstens einmal je Minute.
+- **Schreibstatus als Variablen** (nur blue'Log RPC und blue'Log Power Control): `ctl_write_fail_count`, `ctl_write_fail_time`, `ctl_write_fail_text`,
+  `ctl_write_ok_time` (Unixzeit). „Hängt“ heißt `fail_time > ok_time`. Das EMS wertet diese Idents generisch aus; für den Solarpark sind sie der Beleg, ob
+  Sollwerte ankommen.
+- Die Brücke `MeterHubBridge` zu Symcons ModBus-Gateway bleibt unverändert; die Reihenfolge der Anfragen regelt dort das Gateway.
+
+Prüfstand `.tools/test-iolock.php` (echter Modbus-Server, nachgebildete Sperre mit fremdem Halter) mit Mutationsprobe `--mutations` (20 Mutationen, alle erkannt).
+Nicht abgedeckt im Prüfstand: der Rückfallwert beim Deaktivieren (`ApplyChanges`); die Sperre dort ist derselbe `RunLocked`-Aufruf.
+
 ## 0.38.4 (2026-11-16)
 
 Drei Verbesserungen der Prüfung im virtuellen Zähler, ausgelöst durch den Fall hbraun im Forum (16.11.2026: Hauptzähler minus Unterzähler
