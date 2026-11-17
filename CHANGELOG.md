@@ -2,6 +2,21 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.38.6 (2026-11-17)
+
+Fehlerbehebung beim Inexogy-Archiv-Nachtrag mit gesetztem Haken „Bezug/Einspeisung vertauscht“ (Befund Forum, Tester hbraun). Der Live-Pfad leitet bei diesem
+Haken das Bezugsregister in die jeweils andere Energie-Variable um und dreht das Vorzeichen der Wirkleistung; der Nachtrag (`MHUB_BackfillInexogyArchive()`
+und der automatische Lauf) schrieb dagegen ohne beides.
+
+- **Folge des Fehlers:** Bezug und Abgabe wurden vom Nachtrag in der jeweils falschen Variable abgelegt, also lagen in jeder Energie-Variable zwei
+  Zählerreihen gemischt (Live-Werte der einen, Nachtragswerte der anderen), und die archivierte Wirkleistung der Nachträge hatte das umgekehrte Vorzeichen
+  der Live-Werte.
+- **Jetzt:** Der Nachtrag schreibt in dieselbe Variable wie der Live-Pfad und mit demselben Vorzeichen. Ohne den Haken ändert sich nichts.
+- **Bereits betroffene Archive:** das Panel „Richtung im Archiv prüfen / korrigieren“ erkennt die Kreuzsprünge der Energiezähler und
+  richtet sie aus; zuerst die Prüfung (Probelauf) ausführen.
+- **Prüfstand:** `.tools/test-backfill-invert.php` prüft, dass Live- und Nachtragswert desselben Zählerregisters in derselben Variable landen und die
+  Leistung dasselbe Vorzeichen hat; gegen den Stand 0.38.5 schlägt er an.
+
 ## 0.38.5 (2026-11-17)
 
 Sperre je Instanz für Modbus-Zähler (Verbund-Regel SUITE.md Stolperstein 31, Vorlage InverterHub 0.86.0). Anlass: Viele Geräte und Logger nehmen nur

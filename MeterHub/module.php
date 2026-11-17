@@ -6422,7 +6422,7 @@ The function is still set to "none" there — deliberately, because otherwise th
      * den gespeicherten Tokens), sonst der Modbus-Client. Der Treiber bekommt
      * diesen als ersten Parameter und weiß, wie er ihn benutzt.
      */
-    private function GetTransport()
+    protected function GetTransport()
     {
         if (in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
             return new MHUB_InexogyClient(
@@ -6863,10 +6863,18 @@ The function is still set to "none" there — deliberately, because otherwise th
         // Feld → [Ziel-Ident, Rohwert-Skalierung] — dieselben Skalen wie
         // MHUB_InexogyDriver::readFast()/readSlow(), damit live abgefragte
         // und nachgetragene Werte konsistent bleiben.
+        //
+        // PowerInvert (0.38.6, Befund hbraun 17.11.2026): der Live-Pfad leitet
+        // das Bezugsregister bei gesetztem Haken in die andere Energie-Variable
+        // um (EnergyIdentForInvert()) und dreht die Leistung (SetVarFloat()).
+        // Der Nachtrag schrieb bisher ohne beides — Bezug und Abgabe landeten in
+        // der jeweils falschen Variable, die Leistung mit umgekehrtem Vorzeichen,
+        // und Live- und Nachtragswerte mischten sich zu Sprungreihen. Deshalb
+        // dasselbe Ziel und dasselbe Vorzeichen wie der Live-Pfad.
         $fields = [
-            'energy'    => ['ident' => 'energy_import', 'scale' => 1e10],
-            'energyOut' => ['ident' => 'energy_export', 'scale' => 1e10],
-            'power'     => ['ident' => 'power_total',   'scale' => 1000.0],
+            'energy'    => ['ident' => $this->EnergyIdentForInvert('energy_import'), 'scale' => 1e10],
+            'energyOut' => ['ident' => $this->EnergyIdentForInvert('energy_export'), 'scale' => 1e10],
+            'power'     => ['ident' => 'power_total', 'scale' => $this->ReadPropertyBoolean('PowerInvert') ? -1000.0 : 1000.0],
         ];
         $vids = [];
         foreach ($fields as $field => $t) {
