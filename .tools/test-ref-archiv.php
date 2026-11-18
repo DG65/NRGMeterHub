@@ -169,6 +169,7 @@ function IPS_ApplyChanges($iid) {
 }
 function AC_SetLoggingStatus($a, $b, $c) { if ($c) { $GLOBALS['ARCHIVED'][$b] = true; } else { unset($GLOBALS['ARCHIVED'][$b]); } }
 function AC_SetAggregationType($a, $vid, $type) { $GLOBALS['AGGTYPE'][$vid] = $type; }
+function AC_GetAggregationType($a, $vid) { return $GLOBALS['AGGTYPE'][$vid] ?? 0; }
 // Bildet Sepps zweiten Fund vom 01.09.2026 nach ("Verdichtungseinträge, die
 // näher an der Gegenwart sind, müssen lockerer als die vorherigen sein"),
 // live an Dietmars Archiv nachgestellt: der Verdichtungstyp darf mit

@@ -989,52 +989,6 @@ trait MHUB_ArchiveRepair
         return $out;
     }
 
-    /**
-     * Verdichtung einer Variable neu bilden. Symcon erlaubt nur EINE
-     * Neuberechnung zur selben Zeit — der zweite Aufruf direkt danach
-     * scheitert mit „Eine andere Aggregation wird aktuell durchgeführt"
-     * (live 13.09.2026 bei jedem Inexogy-Nachtrag mit mehr als einer neuen
-     * Reihe; die Verdichtung der übrigen Variablen blieb veraltet). Dann kommt
-     * die Variable in eine Warteschlange, die ReadSlow() nach und nach abarbeitet.
-     */
-    private function ReAggregate(int $ac, int $vid): void
-    {
-        if ($this->TryReAggregate($ac, $vid)) {
-            return;
-        }
-        $q = json_decode((string)$this->ReadAttributeString('ReAggQueue'), true);
-        $q = is_array($q) ? $q : [];
-        if (!in_array($vid, $q, true)) {
-            $q[] = $vid;
-            $this->WriteAttributeString('ReAggQueue', (string)json_encode($q));
-        }
-    }
-
-    private function TryReAggregate(int $ac, int $vid): bool
-    {
-        error_clear_last();
-        $ok = @AC_ReAggregateVariable($ac, $vid);
-        return $ok !== false && error_get_last() === null;
-    }
-
-    /** Wartende Neuberechnungen: je Lesezyklus höchstens eine — gleichzeitig läuft ohnehin nur eine. */
-    private function ProcessReAggQueue(): void
-    {
-        $q = json_decode((string)$this->ReadAttributeString('ReAggQueue'), true);
-        if (!is_array($q) || !$q) {
-            return;
-        }
-        $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
-        if (count($acs) === 0) {
-            return;
-        }
-        $vid = (int)$q[0];
-        if (!IPS_VariableExists($vid) || $this->TryReAggregate($acs[0], $vid)) {
-            array_shift($q);
-            $this->WriteAttributeString('ReAggQueue', (string)json_encode($q));
-        }
-    }
-
     private function CountRows(int $ac, int $vid, int $from, int $to): int
     {
         $n = 0;

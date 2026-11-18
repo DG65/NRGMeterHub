@@ -423,6 +423,13 @@ correctly integrated there, and a calculated value (e.g. a house load determined
 could otherwise accidentally flow back into a calculation it originates from. In addition it is
 reported if an energy meter is not archived or a power has not been updated for more than a week.
 
+**Protection against meter readings running backwards (since 0.40.0).** A cumulative meter never decreases. If a member
+suddenly reports a lower reading anyway (typically a Z-Wave plug that drops to 0 for a while), the virtual meter holds the last
+reading instead of counting the drop in the total — otherwise the archive sees consumption in it. If the reading stays lower
+for 6 hours without interruption, the meter counts as replaced and the total continues without a jump; the consumption of
+those hours is lost. The protection applies to import and feed-in only, never to power. You can switch it off in the panel
+"Calculation", for example for a member that deliberately restarts (a daily counter).
+
 In a grown installation the search quickly finds three-digit numbers of data points. Four
 **filters** narrow it down — search area (only below an object), name component, "only devices
 with an energy meter" (hides switches that merely report the instantaneous power) and "only

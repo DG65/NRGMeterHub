@@ -431,6 +431,13 @@ Berechnung zurückfließen, aus der er selbst stammt. Zusätzlich wird gemeldet,
 Energiezähler nicht archiviert ist oder eine Leistung seit über einer Woche nicht aktualisiert
 wurde.
 
+**Schutz vor rückwärts laufenden Zählerständen (seit 0.40.0).** Ein kumulativer Zähler sinkt nie. Meldet ein Mitglied
+trotzdem plötzlich einen niedrigeren Stand (typisch: eine Z-Wave-Steckdose, die zeitweise auf 0 fällt), hält der virtuelle
+Zähler den letzten Stand, statt den Rückgang in die Summe zu rechnen — sonst sieht das Archiv daraus Verbrauch. Bleibt der
+Stand 6 Stunden lang ununterbrochen niedriger, gilt der Zähler als getauscht, und die Summe läuft ohne Sprung weiter; der
+Verbrauch dieser Stunden geht dabei verloren. Der Schutz gilt nur für Bezug und Einspeisung, nie für die Leistung. Im Panel
+„Berechnung“ lässt er sich abschalten, etwa für ein Mitglied, das absichtlich neu startet (ein Tageszähler).
+
 In einer gewachsenen Installation findet der Suchlauf schnell dreistellig viele Datenpunkte.
 Vier **Filter** engen ihn ein — Suchbereich (nur unterhalb eines Objekts), Namensbestandteil,
 „nur Geräte mit Energiezähler" (blendet Schalter aus, die bloß die Momentanleistung melden) und

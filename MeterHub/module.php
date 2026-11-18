@@ -6912,7 +6912,14 @@ The function is still set to "none" there — deliberately, because otherwise th
             if (!AC_GetLoggingStatus($archiveIDs[0], $vid)) {
                 return;
             }
-            AC_SetAggregationType($archiveIDs[0], $vid, $counter ? 1 : 0);
+            // Typwechsel (z. B. Standard → Zähler): die schon verdichteten Archivwerte stammen noch aus dem alten Typ und die
+            // Zusammenfassung bliebe leer oder falsch — nur bei echter Änderung neu aggregieren (EMS-Hinweis 18.11.2026).
+            $wantedType = $counter ? 1 : 0;
+            $oldType = @AC_GetAggregationType($archiveIDs[0], $vid);
+            AC_SetAggregationType($archiveIDs[0], $vid, $wantedType);
+            if ($oldType !== $wantedType) {
+                $this->ReAggregate($archiveIDs[0], $vid);
+            }
             $plan = $this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power');
             if ($plan === []) {
                 return; // Verdichtung aus und nie angewendet — Archiv unangetastet lassen

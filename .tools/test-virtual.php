@@ -162,6 +162,8 @@ function IPS_ApplyChanges($iid) {
 }
 function AC_SetLoggingStatus($a, $b, $c) { if ($c) { $GLOBALS['ARCHIVED'][$b] = true; } else { unset($GLOBALS['ARCHIVED'][$b]); } }
 function AC_SetAggregationType($a, $vid, $type) { $GLOBALS['AGGTYPE'][$vid] = $type; }
+function AC_GetAggregationType($a, $vid) { return $GLOBALS['AGGTYPE'][$vid] ?? 0; }
+function AC_ReAggregateVariable($ac, $vid) { if (!empty($GLOBALS['AGG_FAIL'])) { return false; } $GLOBALS['REAGG'][] = $vid; return true; }
 // Bildet Sepps zweiten Fund vom 01.09.2026 nach ("Verdichtungseinträge, die
 // näher an der Gegenwart sind, müssen lockerer als die vorherigen sein"),
 // live an Dietmars Archiv nachgestellt: der Verdichtungstyp darf mit
@@ -356,6 +358,85 @@ check('Einspeisung bekommt Aggregationstyp "Zähler" (1)', ($GLOBALS['AGGTYPE'][
 // Werte") die volle Staffelung — direkt 1×/Minute, nach 1 Monat 1×/5 Min,
 // nach 12 Monaten 1×/Stunde.
 check('Verdichtungs-Staffelung bei Interval=10s vollständig gesetzt', ($GLOBALS['COMPACTION'][$outs['power']] ?? null) === [[-1, 0], [1, 1], [12, 2]], json_encode($GLOBALS['COMPACTION'][$outs['power']] ?? null));
+
+// EMS-Hinweis 18.11.2026: nach einem Wechsel des Aggregationstyps muss die Archiv-Zusammenfassung neu gebildet werden, sonst bleibt sie
+// leer. Nur bei echter Änderung — bei jedem „Übernehmen“ eine Neuberechnung des ganzen Archivs wäre unnötige Last.
+$reagg = fn($v) => count(array_keys($GLOBALS['REAGG'] ?? [], $v, true));
+check('2a Typwechsel Standard → Zähler: Bezug und Einspeisung werden neu aggregiert, die Leistung (bleibt Standard) nicht', $reagg($outs['energy_import']) >= 1 && $reagg($outs['energy_export']) >= 1 && $reagg($outs['power']) === 0, json_encode($GLOBALS['REAGG'] ?? null));
+$before = [$reagg($outs['energy_import']), $reagg($outs['energy_export'])];
+IPS_ApplyChanges($new);
+check('2b erneutes Übernehmen ohne Typwechsel: keine neue Aggregation', [$reagg($outs['energy_import']), $reagg($outs['energy_export'])] === $before, json_encode($GLOBALS['REAGG'] ?? null));
+$GLOBALS['AGGTYPE'][$outs['energy_import']] = 0;   // jemand hat den Typ von Hand zurückgestellt
+IPS_ApplyChanges($new);
+check('2c der Typ wird zurückgesetzt und genau diese Variable neu aggregiert', ($GLOBALS['AGGTYPE'][$outs['energy_import']] ?? null) === 1 && $reagg($outs['energy_import']) === $before[0] + 1 && $reagg($outs['energy_export']) === $before[1], json_encode($GLOBALS['REAGG'] ?? null));
+$GLOBALS['AGG_FAIL'] = true;     // „Eine andere Aggregation wird aktuell durchgeführt“
+$GLOBALS['AGGTYPE'][$outs['energy_export']] = 0;
+IPS_ApplyChanges($new);
+$queue = json_decode($virt->ReadAttributeString('ReAggQueue'), true);
+check('2c2 Aggregation gerade belegt: die Variable kommt in die Warteschlange (nicht verloren)', $queue === [$outs['energy_export']], json_encode($queue));
+$GLOBALS['AGG_FAIL'] = false;
+$cnt = $reagg($outs['energy_export']);
+$virt->Recalc();
+check('2c3 der nächste Berechnungstakt arbeitet die Warteschlange ab', json_decode($virt->ReadAttributeString('ReAggQueue'), true) === [] && $reagg($outs['energy_export']) === $cnt + 1, json_encode($GLOBALS['REAGG'] ?? null));
+
+// EMS-Fund 18.11.2026 (Privat „Außen“): ein Z-Wave-Zähler fiel jede Stunde von 0,01 auf 0 und zurück; die Summe folgte, das Archiv zählte daraus
+// Verbrauch. Mitgliedszähler laufen nie rückwärts (Rückschrittschutz); bleibt ein Stand 6 Stunden lang niedriger, gilt er als Zählertausch.
+echo "\n2d) Rückschrittschutz für Mitgliedszähler (MemberGuardStep, 0.40.0)\n";
+$gs = new ReflectionMethod('MeterHubVirtual', 'MemberGuardStep');
+$step = fn(?array $st, float $raw, int $now) => $gs->invoke(null, $st, $raw, $now);
+[$v1, $st1, $e1] = $step(null, 100.0, 1000);
+check('2d-1 erster Wert wird übernommen und gemerkt', $v1 === 100.0 && $st1 === ['a' => 100.0, 'o' => 0.0, 't' => 0] && $e1 === '');
+[$v2, $st2, $e2] = $step($st1, 100.5, 1010);
+check('2d-2 höherer Wert wird übernommen', $v2 === 100.5 && $st2['a'] === 100.5 && $st2['t'] === 0);
+[$v3, $st3, $e3] = $step($st2, 0.0, 1020);
+check('2d-3 niedrigerer Wert (Aussetzer auf 0): alter Stand wird gehalten, „niedriger seit“ gemerkt', $v3 === 100.5 && $st3['a'] === 100.5 && $st3['t'] === 1020 && $e3 === 'hold', json_encode([$v3, $st3, $e3]));
+[$v4, $st4, $e4] = $step($st3, 0.0, 1020 + 21599);
+check('2d-4 eine Sekunde vor Ablauf der Haltezeit: weiter gehalten', $v4 === 100.5 && $e4 === 'hold');
+[$v5, $st5, $e5] = $step($st3, 0.0, 1020 + 21600);
+check('2d-5 Haltezeit (6 h) abgelaufen: Zählertausch, die Summe läuft nahtlos weiter (Ausgleich)', $v5 === 100.5 && $st5 === ['a' => 0.0, 'o' => 100.5, 't' => 0] && $e5 === 'rebase', json_encode([$v5, $st5, $e5]));
+[$v6, $st6, ] = $step($st5, 2.0, 30000);
+check('2d-6 danach zählt der neue Zähler mit Ausgleich weiter', abs($v6 - 102.5) < 1e-9 && $st6['a'] === 2.0);
+[$v7, $st7, $e7] = $step($st3, 100.5, 1500);
+check('2d-7 der Stand kommt zurück (Aussetzer vorbei): „niedriger seit“ wird gelöscht, nichts gezählt', $v7 === 100.5 && $st7['t'] === 0 && $e7 === '');
+[$vA, $stA, $eA] = $step($st2, 100.5, 1500);
+check('2d-10 gleicher Stand ist kein Rückschritt', $vA === 100.5 && $stA['t'] === 0 && $eA === '');
+[$v8b, $st8b, ] = $step($st2, NAN, 1500);
+check('2d-8b nicht verfügbar bei unverändertem Stand: auch „niedriger seit“ bleibt unberührt', $v8b === 100.5 && $st8b === $st2, json_encode($st8b));
+[$v8, $st8, ] = $step($st3, NAN, 1500);
+check('2d-8 nicht verfügbar (NaN): alter Stand gehalten, Zustand unverändert', $v8 === 100.5 && $st8 === $st3);
+[$v9, $st9, ] = $step(null, NAN, 1500);
+check('2d-9 nicht verfügbar ohne Vorgeschichte: kein Zustand', is_nan($v9) && $st9 === null);
+
+echo "\n2e) Rückschrittschutz im Durchlauf (Recalc), Bezug = 40000 − 9000 − 5000\n";
+$memberImp = $nodes[0]['EnergyImportID'];
+$bez = fn() => GetValue($outs['energy_import']);
+SetValueFloat($memberImp, 40000.0); $virt->Recalc();
+$base = $bez();
+SetValueFloat($memberImp, 0.0); $virt->Recalc();
+check('2e-1 Mitglied fällt auf 0: der Bezug fällt NICHT mit', abs($bez() - $base) < 1e-9, 'vorher ' . $base . ', jetzt ' . $bez());
+SetValueFloat($memberImp, 40010.0); $virt->Recalc();
+check('2e-2 Mitglied kommt zurück und zählt weiter: nur der echte Zuwachs (+10)', abs($bez() - ($base + 10.0)) < 1e-9, 'jetzt ' . $bez());
+$GLOBALS['PROP_BACKUP'] = $GLOBALS['PROP'][$new]['MemberCounterGuard'] ?? null;
+$GLOBALS['PROP'][$new]['MemberCounterGuard'] = false;
+SetValueFloat($memberImp, 39000.0); $virt->Recalc();
+check('2e-3 Schalter aus: der Rückgang geht durch (altes Verhalten)', abs($bez() - ($base + 10.0 - 1010.0)) < 1e-9, 'jetzt ' . $bez());
+$GLOBALS['PROP'][$new]['MemberCounterGuard'] = true;
+SetValueFloat($memberImp, 40010.0); $virt->Recalc();
+$stored = json_decode($virt->ReadAttributeString('MemberGuard'), true);
+check('2e-4 Zustand wird je Mitglied gespeichert', isset($stored[(string)$memberImp]) && (float)$stored[(string)$memberImp]['a'] === 40010.0, json_encode($stored));
+$stored[(string)$memberImp] = ['a' => 40010.0, 'o' => 0.0, 't' => time() - 7 * 3600];
+$virt->WriteAttributeString('MemberGuard', json_encode($stored));
+$beforeRebase = $bez();
+SetValueFloat($memberImp, 39000.0); $virt->Recalc();
+check('2e-5 nach 6 Stunden niedriger: Zählertausch, die Summe springt nicht', abs($bez() - $beforeRebase) < 1e-9, 'vorher ' . $beforeRebase . ', jetzt ' . $bez());
+SetValueFloat($memberImp, 39005.0); $virt->Recalc();
+check('2e-6 der neue Zähler zählt weiter (+5)', abs($bez() - ($beforeRebase + 5.0)) < 1e-9, 'jetzt ' . $bez());
+SetValueFloat($memberImp, 40000.0);
+$pw = $nodes[0]['PowerID'];
+$vorher = GetValue($pw); $pwOut = GetValue($outs['power']);
+SetValueFloat($pw, $vorher - 1000.0); $virt->Recalc();
+check('2e-7 Leistung wird nie geschützt: ein niedrigerer Leistungswert geht sofort durch', abs(GetValue($outs['power']) - ($pwOut - 1000.0)) < 1e-9, 'jetzt ' . GetValue($outs['power']));
+SetValueFloat($pw, $vorher); $virt->Recalc();
 
 echo "\n3) Prüfung verhindert den zweiten virtuellen Zähler\n";
 $GLOBALS['FORMFIELDS'] = [];
@@ -3053,6 +3134,13 @@ $GLOBALS['ARCHIVED'][$pw61] = true;
 $msg61 = $h61->EnableArchiving();
 $missing61 = new ReflectionMethod('MeterHub', 'ArchivingMissing');
 check('61i (19) MeterHub: Klick schaltet die fehlenden Variablen ein (danach fehlt keine mehr), Aggregationstyp wird gesetzt', $missing61->invoke($h61) === [] && isset($GLOBALS['ARCHIVED'][$en61]) && ($GLOBALS['AGGTYPE'][$en61] ?? -1) === 1 && str_contains($msg61, 'eingeschaltet'), $msg61);
+$reagg61 = fn($v) => count(array_keys($GLOBALS['REAGG'] ?? [], $v, true));
+check('61i2 (0.40.0) MeterHub: der Klick stellt den Aggregationstyp auf „Zähler“ und aggregiert diese Variable neu, genau einmal', $reagg61($en61) === 1 && $reagg61($pw61) === 0, json_encode($GLOBALS['REAGG'] ?? null));
+$h61->ApplyChanges();
+check('61i3 (0.40.0) MeterHub: erneutes Übernehmen ohne Typwechsel aggregiert nicht noch einmal', $reagg61($en61) === 1);
+$GLOBALS['AGGTYPE'][$en61] = 0;
+$h61->ApplyChanges();
+check('61i4 (0.40.0) MeterHub: wurde der Typ von Hand zurückgestellt, wird er gesetzt und neu aggregiert', ($GLOBALS['AGGTYPE'][$en61] ?? -1) === 1 && $reagg61($en61) === 2, json_encode($GLOBALS['REAGG'] ?? null));
 check('61i (19) MeterHub: danach verschwindet das Panel (UpdateFormField) und im Formular fehlt es', ($GLOBALS['FORMFIELDS']['PanelLogging']['visible'] ?? true) === false);
 $f61b = json_decode(cf($h61), true);
 check('61i (19) MeterHub: nach dem Einschalten zeigt das Formular das Panel nicht mehr', !in_array('PanelLogging', array_column($f61b['elements'], 'name'), true));

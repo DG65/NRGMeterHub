@@ -12,7 +12,7 @@ $root = dirname(__DIR__, 2);
 $target = 'libs/MeterHubShared.php';
 $orig = file_get_contents("$root/$target");
 $m = [];
-$add = function (string $name, string $find, string $replace) use (&$m) { $m[] = [$name, $find, $replace]; };
+$add = function (string $name, string $find, string $replace, ?string $file = null) use (&$m, $target) { $m[] = [$name, $find, $replace, $file ?? $target]; };
 // Registerdekodierung
 $add('Codec: u16 maskiert falsch', '$regs[$offset] & 0xFFFF', '$regs[$offset] & 0x7FFF');
 $add('Codec: u32 Wortbreite', '$this->u16($regs, $offset) << 16) | $this->u16($regs, $offset + 1)', '$this->u16($regs, $offset) << 15) | $this->u16($regs, $offset + 1)');
@@ -65,6 +65,22 @@ $add('Verdichtungsplan: „löschen“ hängt am Intervall', "\$type === 7 || se
 $add('Verdichtungsplan: nie angewendet setzt trotzdem zurück', "if (!\$this->ReadAttributeBoolean('CompactionApplied' . \$kind)) {\n                return [];", "if (false) {\n                return [];");
 $add('Verdichtungsplan: Zurücksetzen ohne zweite Stufe', "[(int)\$this->ReadPropertyInteger('CompactStage2Months' . \$kind), -1],\n                [(int)\$this->ReadPropertyInteger('CompactStage3Months' . \$kind), -1],", "[(int)\$this->ReadPropertyInteger('CompactStage3Months' . \$kind), -1],\n                [(int)\$this->ReadPropertyInteger('CompactStage3Months' . \$kind), -1],");
 
+// Rückschrittschutz der Mitgliedszähler und Neuaggregation (0.40.0), in MeterHubVirtual / MeterHub
+$V = 'MeterHubVirtual/module.php';
+$add('Rückschrittschutz: Gleichstand zählt als Rückschritt', "if (\$raw >= \$a) {", "if (\$raw > \$a) {", $V);
+$add('Rückschrittschutz: Haltezeit nur „länger als“', "\$now - \$t >= self::MEMBER_RESET_HOLD_SEC", "\$now - \$t > self::MEMBER_RESET_HOLD_SEC", $V);
+$add('Rückschrittschutz: Haltezeit nur 1 Stunde', "MEMBER_RESET_HOLD_SEC = 21600;", "MEMBER_RESET_HOLD_SEC = 3600;", $V);
+$add('Rückschrittschutz: Tausch ohne Ausgleich (Sprung)', "\$o = \$a + \$o - \$raw;", "\$o = \$o;", $V);
+$add('Rückschrittschutz: „niedriger seit“ wird nie gemerkt', "if (\$t === 0) {\n            \$t = \$now;\n        }", ";", $V);
+$add('Rückschrittschutz: NaN verändert den Stand', "if (!is_finite(\$raw)) {\n            return [\$a + \$o, \$st, ''];", "if (false) {\n            return [\$a + \$o, \$st, ''];", $V);
+$add('Rückschrittschutz: gilt auch für die Leistung', "if (\$guardOn && \$field !== 'power') {", "if (\$guardOn) {", $V);
+$add('Rückschrittschutz: Zustand wird nicht gespeichert', "if (\$guardOn && \$guardNew !== \$guard) {", "if (false && \$guardNew !== \$guard) {", $V);
+$add('Rückschrittschutz: Schalter wird ignoriert', "\$guardOn = \$this->ReadPropertyBoolean('MemberCounterGuard');", "\$guardOn = true;", $V);
+$add('Neuaggregation: bei jedem Übernehmen (virtueller Zähler)', "if (\$oldType !== \$wantedType) {", "if (true) {", $V);
+$add('Neuaggregation: nie (virtueller Zähler)', "if (\$oldType !== \$wantedType) {", "if (false) {", $V);
+$add('Neuaggregation: Warteschlange wird nicht abgearbeitet', "        \$this->ProcessReAggQueue();\n        \$this->AdvanceCalculatedEnergy(\$nodes);", "        \$this->AdvanceCalculatedEnergy(\$nodes);", $V);
+$add('Neuaggregation: bei jedem Übernehmen (MeterHub)', "if (\$oldType !== \$wantedType) {", "if (true) {", 'MeterHub/module.php');
+$add('Neuaggregation: nie (MeterHub)', "if (\$oldType !== \$wantedType) {", "if (false) {", 'MeterHub/module.php');
 $tests = array_map('basename', glob("$root/.tools/test-*.php"));
 $jobs = [];
 function copyAll(string $root, string $dest, string $target, string $content): void
@@ -85,10 +101,13 @@ foreach ($tests as $t) {
 shell_exec('rm -rf ' . escapeshellarg($tree));
 echo 'Kontrolle: ' . count($tests) . " Prüfstände bestehen mit unveränderter Kopie\n";
 $caught = 0; $missed = []; $na = [];
-foreach ($m as $i => [$name, $find, $replace]) {
+$only = $argv[1] ?? null;   // nur Proben, deren Name den Text enthält (php mutate-shared.php Neuaggregation)
+foreach ($m as $i => [$name, $find, $replace, $file]) {
+    if ($only !== null && stripos($name, $only) === false) { continue; }
+    $orig = file_get_contents("$root/$file");
     if (substr_count($orig, $find) !== 1) { $na[] = $name . ' (Fundstellen: ' . substr_count($orig, $find) . ')'; continue; }
     $tree = sys_get_temp_dir() . '/mhshared_' . getmypid() . '_' . $i;
-    copyAll($root, $tree, $target, str_replace($find, $replace, $orig));
+    copyAll($root, $tree, $file, str_replace($find, $replace, $orig));
     $hit = null;
     foreach ($tests as $t) {
         $out = (string)shell_exec('cd ' . escapeshellarg($tree) . ' && php ' . escapeshellarg(".tools/$t") . ' 2>&1');
@@ -97,7 +116,7 @@ foreach ($m as $i => [$name, $find, $replace]) {
     shell_exec('rm -rf ' . escapeshellarg($tree));
     if ($hit) { $caught++; echo "  erkannt ($hit)  $name\n"; } else { $missed[] = $name; echo "  NICHT ERKANNT  $name\n"; }
 }
-echo 'Mutationen: ' . (count($m) - count($na)) . " angewendet, $caught erkannt, " . count($missed) . ' nicht erkannt, ' . count($na) . " nicht anwendbar\n";
+echo 'Mutationen: ' . ($caught + count($missed)) . " angewendet, $caught erkannt, " . count($missed) . ' nicht erkannt, ' . count($na) . " nicht anwendbar\n";
 foreach ($na as $n) { echo "  n/a: $n\n"; }
 echo ($missed || $na) ? "NICHT ALLE MUTATIONEN ERKANNT\n" : "ALLE MUTATIONEN ERKANNT\n";
 exit(($missed || $na) ? 1 : 0);

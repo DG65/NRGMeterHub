@@ -125,7 +125,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.38.0';
+    private const NEWS_VERSION = '0.40.0';
 
     public function Create()
     {
@@ -154,6 +154,8 @@ class MeterHubVirtual extends IPSModule
         // Merker: das EIGENE alte benutzerdefinierte Profil wird genau einmal geleert (Checkliste 28, EMS-Ausnahmeregel 09.11.2026)
         $this->RegisterAttributeBoolean('OwnCustomProfileCleared', false);
         $this->RegisterPropertyInteger('Interval', 10);
+        // Rückschrittschutz für Mitgliedszähler (0.40.0), siehe MemberGuardStep()
+        $this->RegisterPropertyBoolean('MemberCounterGuard', true);
         // Archiv-Verdichtung, konfigurierbar statt fest im Code (Dietmars
         // Einwand 31.08.2026: "ich bin nicht der einzigste Nutzer, andere
         // haben vielleicht andere Vorstellungen" — seine eigenen Werte
@@ -228,6 +230,10 @@ class MeterHubVirtual extends IPSModule
         // Zählerstetigkeit der Energie-Summen (0.28.3): je Ausgabe
         // {sig: Zusammensetzung, offset: Ausgleich}, siehe ContinuityStep().
         $this->RegisterAttributeString('EnergyContinuity', '{}');
+        // Letzter angenommener Stand je Mitglieds-Zähler {<id>: {a: Stand, o: Ausgleich, t: seit wann niedriger}}, siehe MemberGuardStep()
+        $this->RegisterAttributeString('MemberGuard', '{}');
+        // Warteschlange der Archiv-Neuberechnungen (nach einem Wechsel des Aggregationstyps), siehe ReAggregate()
+        $this->RegisterAttributeString('ReAggQueue', '[]');
         // Gewählte Zählquelle je unmarkiertem Doppel-Paar (0.28.5):
         // {"<id>-<id>": {count: Ziel-ID, since: Zeitpunkt}}, siehe ChooseCounting().
         $this->RegisterAttributeString('DupChoice', '{}');
@@ -354,6 +360,7 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  New in this version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 🛡️ New: protection against meter readings running backwards. If a member meter suddenly reports a lower reading (e.g. a Z-Wave plug that drops to 0 every hour), the last reading is held instead of counting the drop in the total; after 6 hours of staying lower it counts as a replaced meter and the total continues seamlessly. Previously such a member made the total and the archive jump up and down. Can be switched off in the panel "Calculation".'],
                 ['type' => 'Label', 'caption' => '• 🧭 New: assistant for virtual meters. In MeterHubVirtual the panel "Assistant" at the top guides you through combining meters into a group, calculating a remainder (e.g. household without the sub-meter of a tenant) or splitting a meter by shares. The buttons "Link as summand" and "Link as deduction (−100 %)" set the share for you, so you no longer change it in the table. The meters can come from any module (e.g. Homematic). You can also start it from any MeterHub meter, including Inexogy/Discovergy: panel "Virtual meter" of that meter.'],
                 ['type' => 'Label', 'caption' => '• ⭐ Highlight — meter groups: combine several meters into ONE node in the NRG-Stack Dashboard, with no formula and no dashboard entry. Create a virtual meter (MeterHubVirtual), put the meters under it as members (each 100 %), choose a "Function" and click "Apply". The group appears as a collective node; a long press unfolds it, several levels deep (e.g. "Lighting" > floor > room). Switchable devices (e.g. Z-Wave actuators) additionally give the group "Group switch" and "Group state" to switch all of them at once. The step-by-step guide with pictures is in the README, section "Meter groups".'],
                 ['type' => 'Label', 'caption' => '• 🌐 New: MeterHubVirtual is now available in German and English. Texts follow the Symcon language setting: the form is translated by the console, messages are shown in the set language, and variable names are set in the language that is active when you click "Apply". Identifiers, properties and functions are unchanged — nothing is lost on existing instances.'],
@@ -2638,7 +2645,14 @@ The previous table is backed up. From now on: add, remove and reorder members in
             if (!AC_GetLoggingStatus($ids[0], $vid)) {
                 return;
             }
-            AC_SetAggregationType($ids[0], $vid, $counter ? 1 : 0);
+            // Typwechsel (z. B. Standard → Zähler): die schon verdichteten Archivwerte stammen noch aus dem alten Typ und die
+            // Zusammenfassung bliebe leer oder falsch — nur bei echter Änderung neu aggregieren (EMS-Hinweis 18.11.2026).
+            $wantedType = $counter ? 1 : 0;
+            $oldType = @AC_GetAggregationType($ids[0], $vid);
+            AC_SetAggregationType($ids[0], $vid, $wantedType);
+            if ($oldType !== $wantedType) {
+                $this->ReAggregate($ids[0], $vid);
+            }
             $plan = $this->CompactionPlan($intervalSeconds, $counter ? 'Energy' : 'Power');
             if ($plan === []) {
                 return; // Verdichtung aus und nie angewendet — Archiv unangetastet lassen
@@ -2737,19 +2751,40 @@ The previous table is backed up. From now on: add, remove and reorder members in
             $this->ApplyChanges();
             return MHUBV_Text::t('✅ Members applied again from the object tree and calculated (%s).', date('H:i:s'));
         }
+        $this->ProcessReAggQueue();
         $this->AdvanceCalculatedEnergy($nodes);
 
         $count = 0;
         $cont = json_decode((string)$this->ReadAttributeString('EnergyContinuity'), true);
         $cont = is_array($cont) ? $cont : [];
         $contChanged = false;
+        // Rückschrittschutz der Mitgliedszähler (0.40.0): ein Zählerstand läuft nie rückwärts, ein niedrigerer Wert wird
+        // gehalten (siehe MemberGuardStep()); nur für Zählerstände, nie für die Leistung.
+        $guardOn = $this->ReadPropertyBoolean('MemberCounterGuard');
+        $guard = json_decode((string)$this->ReadAttributeString('MemberGuard'), true);
+        $guard = is_array($guard) ? $guard : [];
+        $guardNew = [];
+        $now = time();
         foreach ($this->OutputDefs() as [$ident, , , $field]) {
             $sum = 0.0;
             $parts = [];
             foreach ($nodes as $n) {
                 $vid = $n[$field];
                 if ($vid > 0 && IPS_VariableExists($vid)) {
-                    $sum += ($n['factor'] / 100.0) * (float)GetValue($vid);
+                    $value = (float)GetValue($vid);
+                    if ($guardOn && $field !== 'power') {
+                        $raw = $value;
+                        [$value, $gs, $ev] = self::MemberGuardStep($guard[(string)$vid] ?? null, $raw, $now);
+                        if ($gs !== null) {
+                            $guardNew[(string)$vid] = $gs;
+                        }
+                        if ($ev === 'rebase') {
+                            $this->LogMessage(MHUBV_Text::t('%s: meter reading stayed lower for %d hours (%s → %s) — accepted as a meter replacement, the total continues seamlessly.', IPS_GetName($vid), intdiv(self::MEMBER_RESET_HOLD_SEC, 3600), (float)($guard[(string)$vid]['a'] ?? 0.0), $raw), KL_WARNING);
+                        } elseif ($ev === 'hold' && (int)($guard[(string)$vid]['t'] ?? 0) === 0) {
+                            $this->SendDebug('Zählerschutz', IPS_GetName($vid) . ": Stand $raw liegt unter " . ($guard[(string)$vid]['a'] ?? '?') . ' — alter Stand wird gehalten', 0);
+                        }
+                    }
+                    $sum += ($n['factor'] / 100.0) * $value;
                     if ((float)$n['factor'] !== 0.0) {
                         $parts[] = $vid . '*' . $n['factor'];
                     }
@@ -2774,6 +2809,9 @@ The previous table is backed up. From now on: add, remove and reorder members in
         if ($contChanged) {
             $this->WriteAttributeString('EnergyContinuity', (string)json_encode($cont));
         }
+        if ($guardOn && $guardNew !== $guard) {
+            $this->WriteAttributeString('MemberGuard', (string)json_encode($guardNew));
+        }
 
         // Gruppenstatus im selben Takt nachführen — ein von Hand oder von
         // einer anderen Automatik geschaltetes Mitglied ändert „teilweise/an"
@@ -2783,6 +2821,43 @@ The previous table is backed up. From now on: add, remove and reorder members in
         return $count > 0
             ? MHUBV_Text::t('✅ Recalculated: %d output(s) updated (%s).', $count, date('H:i:s'))
             : MHUBV_Text::t('ℹ️ No output to calculate — first enter meters above and apply.');
+    }
+
+    // Wie lange der Stand eines Mitgliedszählers ununterbrochen niedriger bleiben muss, bevor er als Zählertausch gilt.
+    private const MEMBER_RESET_HOLD_SEC = 21600;
+
+    /**
+     * Rückschrittschutz für den Zählerstand eines Mitglieds (0.40.0, EMS-Fund 18.11.2026: ein Z-Wave-Zähler sprang jede Stunde von
+     * 0,01 auf 0 und zurück, die Summe und das Archiv zählten daraus 0,14 kWh „Verbrauch“ am Tag). Ein kumulativer Zählerstand läuft
+     * nie rückwärts: Ein niedrigerer Wert als der zuletzt angenommene wird nicht übernommen, der alte Stand wird gehalten. Bleibt der
+     * Zähler MEMBER_RESET_HOLD_SEC lang ununterbrochen niedriger, gilt er als getauscht oder zurückgesetzt; dann läuft die Summe
+     * nahtlos weiter (Ausgleich o), ohne Sprung. Der Verbrauch dieser Stunden geht dabei verloren, das ist der Preis, wenn man einen
+     * echten Zählertausch nicht von einem Aussetzer unterscheiden kann. Frei von Symcon-Aufrufen (Prüfstand).
+     * Zustand: a = höchster angenommener Rohwert, o = Ausgleich, t = seit wann der Rohwert niedriger ist (0 = nicht niedriger).
+     * Rückgabe: [Wert für die Summe, neuer Zustand (null = keiner), Ereignis ('' | 'hold' | 'rebase')].
+     */
+    private static function MemberGuardStep(?array $st, float $raw, int $now): array
+    {
+        if ($st === null || !isset($st['a'])) {
+            return is_finite($raw) ? [$raw, ['a' => $raw, 'o' => 0.0, 't' => 0], ''] : [$raw, null, ''];
+        }
+        $a = (float)$st['a'];
+        $o = (float)($st['o'] ?? 0.0);
+        $t = (int)($st['t'] ?? 0);
+        if (!is_finite($raw)) {
+            return [$a + $o, $st, ''];
+        }
+        if ($raw >= $a) {
+            return [$raw + $o, ['a' => $raw, 'o' => $o, 't' => 0], ''];
+        }
+        if ($t === 0) {
+            $t = $now;
+        }
+        if ($now - $t >= self::MEMBER_RESET_HOLD_SEC) {
+            $o = $a + $o - $raw;
+            return [$raw + $o, ['a' => $raw, 'o' => $o, 't' => 0], 'rebase'];
+        }
+        return [$a + $o, ['a' => $a, 'o' => $o, 't' => $t], 'hold'];
     }
 
     /**
@@ -4745,6 +4820,8 @@ Skipped: %d without W/kWh profile, %d already entered, %d outputs of virtual met
                     'type' => 'ExpansionPanel', 'caption' => '⏱️  Calculation', 'expanded' => false,
                     'items' => [
                         ['type' => 'NumberSpinner', 'name' => 'Interval', 'caption' => 'Recalculate every', 'minimum' => 2, 'maximum' => 3600, 'suffix' => 's'],
+                        ['type' => 'CheckBox', 'name' => 'MemberCounterGuard', 'caption' => '🆕 Protect against meter readings running backwards'],
+                        ['type' => 'Label', 'caption' => 'A cumulative meter never decreases. If a member suddenly reports a LOWER reading (a device that drops to 0 for a while, a short outage), the last reading is held instead of counting the drop in the total. If the reading stays lower for 6 hours it counts as a replaced meter and the total continues seamlessly; the consumption of those hours is lost. Switch off if a member deliberately counts down or restarts (e.g. a daily counter).'],
                     ],
                 ],
                 'archPower' => [

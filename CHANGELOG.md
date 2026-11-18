@@ -2,6 +2,14 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.40.0 (2026-11-18)
+
+Zwei Änderungen aus dem Fund von EMS an Dietmars Privat-System (Symcon-Energie-Dashboard, 18.11.2026).
+
+- **Neu (virtueller Zähler): Rückschrittschutz für Mitgliedszähler.** Ein kumulativer Zählerstand läuft nie rückwärts. Meldet ein Mitglied einen niedrigeren Stand als zuletzt, wird der letzte Stand gehalten, statt den Rückgang in die Summe zu rechnen. Bleibt der Stand 6 Stunden lang ununterbrochen niedriger, gilt der Zähler als getauscht oder zurückgesetzt, und die Summe läuft ohne Sprung weiter (der Verbrauch dieser Stunden geht dabei verloren). Anlass: ein Z-Wave-Zähler fiel jede Stunde von 0,01 auf 0 und zurück, die Summe und das Archiv rechneten daraus 0,14 kWh Verbrauch am Tag. Der Schutz gilt nur für Zählerstände (Bezug, Einspeisung), nie für die Leistung, und ist im Panel „Berechnung“ abschaltbar (Standard: an), z. B. für ein Mitglied, das absichtlich neu startet (Tageszähler). Er ändert die Rechnung bestehender Instanzen nur, wenn ein Mitglied tatsächlich rückwärts springt.
+- **Neu (MeterHub und MeterHubVirtual): nach einem Wechsel des Archiv-Aggregationstyps wird die Variable neu aggregiert.** MeterHub setzt bei jedem Übernehmen den Typ „Zähler“ (Bezug, Einspeisung) bzw. „Standard“ (Leistung) für archivierte Variablen. Stand der Typ vorher anders, blieb die Zusammenfassung des Archivs leer oder falsch. Jetzt wird nur bei einer echten Änderung neu aggregiert, nie bei jedem Übernehmen. Läuft gerade eine andere Aggregation, kommt die Variable in eine Warteschlange und wird im nächsten Takt nachgeholt (die Warteschlange stand schon im Hauptmodul und ist jetzt für beide Module gemeinsam).
+- **Prüfung:** `test-virtual.php` um 2a bis 2e erweitert (Schutz als reine Rechnung mit Randwerten und im Durchlauf, Neuaggregation nur bei Typwechsel, Warteschlange). 14 neue Mutationsproben in `mutate-shared.php` (jetzt 52). Die Hinweise im „Neu in“-Panel des virtuellen Zählers nennen den Schutz (NEWS_VERSION 0.40.0).
+
 ## 0.39.9 (2026-11-18)
 
 Interner Umbau, kein Verhalten geändert (Umbau 5 der Code-Bestandsaufnahme vom 18.11.2026): Der Rest der Formularbausteine, die in MeterHub, MeterHubVirtual und MeterHubDiscovery bisher fast gleich standen, liegt jetzt ebenfalls in `libs/MeterHubShared.php`.
