@@ -9634,8 +9634,12 @@ The function is still set to "none" there — deliberately, because otherwise th
 
     public function SetVarFloat(string $ident, float $value)
     {
+        // „Nicht verfügbar“ (NaN/INF, z. B. 0xFFFFFFFF im Float32-Register) wird NICHT geschrieben: Die Variable behält ihren
+        // letzten Wert samt Zeitstempel, statt als 0 W/0 V/0 A zu erscheinen (0.38.7, Fund 1 der Code-Bestandsaufnahme 18.11.2026;
+        // ein Strom von 0 A statt „unbekannt“ machte z. B. den Phasenwächter des EMS blind). Veraltet ist dann erkennbar.
         if (!is_finite($value)) {
-            $value = 0.0;
+            $this->SendDebug('Messwert', $ident . ': nicht verfügbar — nicht geschrieben', 0);
+            return;
         }
         // Zentraler Invers-Schalter für die Gesamt-Wirkleistung.
         if ($ident === 'power_total' && $this->ReadPropertyBoolean('PowerInvert')) {
@@ -9652,7 +9656,8 @@ The function is still set to "none" there — deliberately, because otherwise th
     public function SetVarEnergyWh(string $ident, float $wh)
     {
         if (!is_finite($wh)) {
-            $wh = 0.0;
+            $this->SendDebug('Messwert', $ident . ': nicht verfügbar — nicht geschrieben', 0);
+            return;   // siehe SetVarFloat(): kein 0-Stand, die Variable behält den letzten gültigen Zählerstand
         }
         $vid = $this->FindVarByIdent($this->EnergyIdentForInvert($ident));
         if (!$vid) {
@@ -9669,7 +9674,8 @@ The function is still set to "none" there — deliberately, because otherwise th
     public function SetVarEnergykWh(string $ident, float $kwh)
     {
         if (!is_finite($kwh)) {
-            $kwh = 0.0;
+            $this->SendDebug('Messwert', $ident . ': nicht verfügbar — nicht geschrieben', 0);
+            return;   // siehe SetVarFloat(): kein 0-Stand, die Variable behält den letzten gültigen Zählerstand
         }
         $vid = $this->FindVarByIdent($this->EnergyIdentForInvert($ident));
         if (!$vid) {

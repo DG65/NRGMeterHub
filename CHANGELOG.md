@@ -2,6 +2,22 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.38.7 (2026-11-18)
+
+„Nicht verfügbar“ wird nicht mehr als 0 geschrieben (Fund 1 der Code-Bestandsaufnahme vom 18.11.2026, Anlass: EMS-Phasenwächter).
+
+- **Vorher:** Meldet ein Zähler einen Messwert als „nicht verfügbar“ (Float32 `0xFFFFFFFF` = NaN, oder unendlich), gaben 11 von 15 Treibern den Wert so an den
+  Hauptmodul-Setter weiter, und dieser machte daraus **0**. Eine Leistung, Spannung oder ein Strom stand dann als 0 W, 0 V oder 0 A in der Variablen, statt
+  „unbekannt“ zu sein; für ein Energiemanagement ist 0 A kein Messwert, sondern eine falsche Aussage.
+- **Jetzt:** `SetVarFloat`, `SetVarEnergyWh` und `SetVarEnergykWh` schreiben einen nicht endlichen Wert **gar nicht**. Die Variable behält ihren letzten Wert samt
+  Zeitstempel (veraltet ist dann an der Aktualisierungszeit erkennbar). Im Debug-Fenster steht „<Ident>: nicht verfügbar — nicht geschrieben“. Eine echte 0
+  wird weiterhin geschrieben. Die Energiezähler waren schon vorher über den Zählerschutz vor einem 0-Stand geschützt; sie ändern sich nicht.
+- **Betroffen:** alle Zählertypen, deren Treiber einen Float32 ohne eigene Prüfung weiterreichen (PAC2200, Janitza, Eastron, WhatWatt, Phoenix, Shelly Pro 3EM,
+  blue'Log SCADA Wechselrichter/Zähler und Power Control). Der go-e Controller prüfte schon selbst.
+- **Nicht Teil dieser Version:** die Warnung „The float NAN is not representable as an int“ beim Drehfeld der klassischen Janitza-Karte (Fund 2) bleibt.
+- **Prüfstand:** `.tools/test-powerinvert.php` Abschnitt 12 (NaN, INF, −INF, mit und ohne PowerInvert, gültiger Wert danach, echte 0 bleibt); gegen den Stand 0.38.6
+  schlägt die Leistungsprüfung an.
+
 ## 0.38.6 (2026-11-17)
 
 Fehlerbehebung beim Inexogy-Archiv-Nachtrag mit gesetztem Haken „Bezug/Einspeisung vertauscht“ (Befund Forum, Tester hbraun). Der Live-Pfad leitet bei diesem

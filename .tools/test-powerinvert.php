@@ -93,7 +93,7 @@ class IPSModule
     public function WriteAttributeBoolean($n, $v) { $GLOBALS['ATTR'][$this->InstanceID][$n] = $v; }
 }
 
-require_once dirname(__DIR__) . '/MeterHub/module.php';
+require_once getenv('MHUB_MODULE') ?: dirname(__DIR__) . '/MeterHub/module.php';
 
 $fails = 0;
 function check($label, $cond, $detail = '') {
@@ -316,6 +316,37 @@ check('11d: beide Richtungen über der Auffällig-Schwelle, aber unter Kritisch 
 check('11e: beide Richtungen deutlich vertreten → kritisch (sieht nach Netzanschluss aus)', $m11(0.5, 0.5) === 'kritisch');
 check('11f: genau an der Auffällig-Schwelle zählt schon mit', $m11(0.05, 0.05) === 'auffaellig');
 check('11g: genau an der Kritisch-Schwelle zählt schon als kritisch', $m11(0.2, 0.2) === 'kritisch');
+
+
+echo "\n12) „Nicht verfügbar“ (NaN/INF) wird nicht geschrieben (0.38.7, Fund 1 der Code-Bestandsaufnahme): die Variable behält ihren letzten Wert\n";
+foreach ([false, true] as $inv12) {
+    $id12 = $inv12 ? 1300 : 1200;
+    obj($id12, 1, 'Zähler NaN' . ($inv12 ? ' invertiert' : ''), 0);
+    $cT = obj($id12 + 1, 0, 'Summe', $id12, 'cat_total');
+    $cE = obj($id12 + 2, 0, 'Energie', $id12, 'cat_energy');
+    vari($id12 + 3, 'Wirkleistung', $cT, 'power_total', 812.0);
+    vari($id12 + 4, 'Bezug', $cE, 'energy_import', 1000.0);
+    vari($id12 + 5, 'Abgabe', $cE, 'energy_export', 200.0);
+    $GLOBALS['PROP'][$id12]['PowerInvert'] = $inv12;
+    $h12 = new MeterHub($id12);
+    $h12->Create();
+    $tag = $inv12 ? ' (mit PowerInvert)' : '';
+    $imp = $inv12 ? $id12 + 5 : $id12 + 4;   // mit PowerInvert landet der Bezugs-Aufruf in der Abgabe-Variable
+    $h12->SetVarFloat('power_total', NAN);
+    $h12->SetVarFloat('power_total', INF);
+    $h12->SetVarFloat('power_total', -INF);
+    check("12a: Leistung NaN/INF/−INF lässt den letzten Wert stehen$tag", GetValue($id12 + 3) === 812.0, 'ist ' . GetValue($id12 + 3));
+    $h12->SetVarEnergyWh('energy_import', NAN);
+    $h12->SetVarEnergykWh('energy_import', NAN);
+    $h12->SetVarEnergykWh('energy_import', INF);
+    check("12b: Energie (Wh und kWh) NaN/INF lässt den letzten Zählerstand stehen$tag", GetValue($imp) === ($inv12 ? 200.0 : 1000.0), 'ist ' . GetValue($imp));
+    check("12c: der Zählerschutz hat nichts zu verwerfen gehabt (kein Stand von 0 gemeldet)$tag", ($GLOBALS['ATTR'][$id12]['CounterGuard'] ?? '') === '' || ($GLOBALS['ATTR'][$id12]['CounterGuard'] ?? '') === '[]', (string)($GLOBALS['ATTR'][$id12]['CounterGuard'] ?? ''));
+    $h12->SetVarFloat('power_total', 530.0);
+    $h12->SetVarEnergykWh('energy_import', 1001.5);
+    check("12d: ein gültiger Wert danach wird wieder geschrieben$tag", abs(GetValue($id12 + 3) - ($inv12 ? -530.0 : 530.0)) < 1e-9 && abs(GetValue($imp) - 1001.5) < 1e-9);
+    $h12->SetVarFloat('power_total', 0.0);
+    check("12e: eine echte 0 W wird weiterhin geschrieben (nur „nicht verfügbar“ fällt aus)$tag", GetValue($id12 + 3) === 0.0 || GetValue($id12 + 3) === -0.0);
+}
 
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
