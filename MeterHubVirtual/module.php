@@ -125,7 +125,7 @@ class MeterHubVirtual extends IPSModule
     // Formular-Konvention des Verbunds (SUITE.md „Einheitliche Formular-
     // Optik", Referenz InverterHub). NEWS_VERSION korrespondiert mit dem
     // CHANGELOG-Eintrag, der den jeweiligen Sprung erklärt.
-    private const NEWS_VERSION = '0.40.0';
+    private const NEWS_VERSION = '0.40.2';
 
     public function Create()
     {
@@ -156,6 +156,8 @@ class MeterHubVirtual extends IPSModule
         $this->RegisterPropertyInteger('Interval', 10);
         // Rückschrittschutz für Mitgliedszähler (0.40.0), siehe MemberGuardStep()
         $this->RegisterPropertyBoolean('MemberCounterGuard', true);
+        // Zählerstände laufen nie rückwärts (0.40.2), siehe MonotoneStep()
+        $this->RegisterPropertyBoolean('MonotoneOutput', true);
         // Archiv-Verdichtung, konfigurierbar statt fest im Code (Dietmars
         // Einwand 31.08.2026: "ich bin nicht der einzigste Nutzer, andere
         // haben vielleicht andere Vorstellungen" — seine eigenen Werte
@@ -360,6 +362,7 @@ class MeterHubVirtual extends IPSModule
             'type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'expanded' => true,
             'caption' => '🆕  New in this version',
             'items' => [
+                ['type' => 'Label', 'caption' => '• 📈 Fix: import and feed-in no longer run backwards. A virtual meter that subtracts meters (e.g. house minus wallboxes) wobbled by a few Wh because the source meters update at different times; the archive aggregation "Counter" counted every drop a second time, so daily and monthly values came out far too high (e.g. 16.9 instead of 8.9 kWh). Now a lower result is held until it is exceeded again. Can be switched off in the panel "Calculation". Values already in the archive stay as they were.'],
                 ['type' => 'Label', 'caption' => '• 🛡️ New: protection against meter readings running backwards. If a member meter suddenly reports a lower reading (e.g. a Z-Wave plug that drops to 0 every hour), the last reading is held instead of counting the drop in the total; after 6 hours of staying lower it counts as a replaced meter and the total continues seamlessly. Previously such a member made the total and the archive jump up and down. Can be switched off in the panel "Calculation".'],
                 ['type' => 'Label', 'caption' => '• 🧭 New: assistant for virtual meters. In MeterHubVirtual the panel "Assistant" at the top guides you through combining meters into a group, calculating a remainder (e.g. household without the sub-meter of a tenant) or splitting a meter by shares. The buttons "Link as summand" and "Link as deduction (−100 %)" set the share for you, so you no longer change it in the table. The meters can come from any module (e.g. Homematic). You can also start it from any MeterHub meter, including Inexogy/Discovergy: panel "Virtual meter" of that meter.'],
                 ['type' => 'Label', 'caption' => '• ⭐ Highlight — meter groups: combine several meters into ONE node in the NRG-Stack Dashboard, with no formula and no dashboard entry. Create a virtual meter (MeterHubVirtual), put the meters under it as members (each 100 %), choose a "Function" and click "Apply". The group appears as a collective node; a long press unfolds it, several levels deep (e.g. "Lighting" > floor > room). Switchable devices (e.g. Z-Wave actuators) additionally give the group "Group switch" and "Group state" to switch all of them at once. The step-by-step guide with pictures is in the README, section "Meter groups".'],
@@ -2796,10 +2799,17 @@ The previous table is backed up. From now on: add, remove and reorder members in
                 // wenn sich die Zusammensetzung ändert; die Leistung nicht.
                 if ($field !== 'power') {
                     sort($parts);
+                    $hadState = isset($cont[$ident]['sig']);
                     [$sum, $st] = self::ContinuityStep($cont[$ident] ?? null, implode(',', $parts), $sum, (float)GetValue($vid));
                     if (($cont[$ident] ?? null) !== $st) {
                         $cont[$ident] = $st;
                         $contChanged = true;
+                    }
+                    // Ein Zählerstand läuft nie rückwärts (0.40.2): Die Summe ist eine Differenz mehrerer Zähler, die zu leicht
+                    // verschiedenen Zeiten aktualisieren, und wippt deshalb um wenige Wh. Symcons Zähler-Aggregation zählt nur
+                    // Anstiege, jeder Rückgang würde beim nächsten Anstieg ein zweites Mal gezählt (Privat: Tageswert 16,9 statt 8,9 kWh).
+                    if ($this->ReadPropertyBoolean('MonotoneOutput')) {
+                        $sum = self::MonotoneStep($hadState, $sum, (float)GetValue($vid));
                     }
                 }
                 SetValueFloat($vid, $sum);
@@ -2821,6 +2831,22 @@ The previous table is backed up. From now on: add, remove and reorder members in
         return $count > 0
             ? MHUBV_Text::t('✅ Recalculated: %d output(s) updated (%s).', $count, date('H:i:s'))
             : MHUBV_Text::t('ℹ️ No output to calculate — first enter meters above and apply.');
+    }
+
+    /**
+     * Monotone Ausgabe eines Energie-Zählerstands (0.40.2): fällt die neu berechnete Summe unter den zuletzt ausgegebenen Stand, bleibt der
+     * alte Stand stehen, bis die Summe ihn wieder übersteigt. Damit zählt die Archiv-Aggregation „Zähler“ (sie summiert nur Anstiege) den
+     * echten Zuwachs und nicht das Auf und Ab zwischen zwei verschieden schnell aktualisierten Quellzählern. Der Stand weicht höchstens um
+     * die Größe dieses Wippens (wenige Wh) nach oben von der reinen Summe ab. Ohne bisherigen Zustand ($hadState false: erster Lauf, noch
+     * kein Ausgabewert) wird nichts gehalten, auch ein negativer Anfangsstand ist gültig. Zusammensetzungswechsel (ContinuityStep) und
+     * Zählertausch eines Mitglieds (MemberGuardStep) laufen davor und halten die Summe ohnehin stetig. Frei von Symcon-Aufrufen (Prüfstand).
+     */
+    private static function MonotoneStep(bool $hadState, float $sum, float $prev): float
+    {
+        if (!$hadState || !is_finite($prev)) {
+            return $sum;
+        }
+        return $sum < $prev ? $prev : $sum;
     }
 
     // Wie lange der Stand eines Mitgliedszählers ununterbrochen niedriger bleiben muss, bevor er als Zählertausch gilt.
@@ -4823,6 +4849,8 @@ Skipped: %d without W/kWh profile, %d already entered, %d outputs of virtual met
                     'type' => 'ExpansionPanel', 'caption' => '⏱️  Calculation', 'expanded' => false,
                     'items' => [
                         ['type' => 'NumberSpinner', 'name' => 'Interval', 'caption' => 'Recalculate every', 'minimum' => 2, 'maximum' => 3600, 'suffix' => 's'],
+                        ['type' => 'CheckBox', 'name' => 'MonotoneOutput', 'caption' => '🆕 Never let import and feed-in run backwards'],
+                        ['type' => 'Label', 'caption' => 'The result is a difference of several meters that update at slightly different times, so it wobbles by a few Wh. The archive aggregation "Counter" only counts increases and would count every drop a second time (daily values up to twice as high). With this switch on, a lower result is not output: the last reading stays until the result exceeds it again. Switch off only if you need the raw difference.'],
                         ['type' => 'CheckBox', 'name' => 'MemberCounterGuard', 'caption' => '🆕 Protect against meter readings running backwards'],
                         ['type' => 'Label', 'caption' => 'A cumulative meter never decreases. If a member suddenly reports a LOWER reading (a device that drops to 0 for a while, a short outage), the last reading is held instead of counting the drop in the total. If the reading stays lower for 6 hours it counts as a replaced meter and the total continues seamlessly; the consumption of those hours is lost. Switch off if a member deliberately counts down or restarts (e.g. a daily counter).'],
                     ],

@@ -423,6 +423,12 @@ correctly integrated there, and a calculated value (e.g. a house load determined
 could otherwise accidentally flow back into a calculation it originates from. In addition it is
 reported if an energy meter is not archived or a power has not been updated for more than a week.
 
+**Import and feed-in never run backwards (since 0.40.2).** If a virtual meter subtracts meters (e.g. house minus
+wallboxes), its reading is a difference of several meters that update at slightly different times and wobbles by a few Wh. The
+archive aggregation "Counter" only counts increases and would count every drop a second time at the next increase — daily and
+monthly values would come out about twice as high. So the virtual meter does not output a lower value: the last reading stays
+until the sum exceeds it again. Values already in the archive stay as they were. Can be switched off in the panel "Calculation".
+
 **Protection against meter readings running backwards (since 0.40.0).** A cumulative meter never decreases. If a member
 suddenly reports a lower reading anyway (typically a Z-Wave plug that drops to 0 for a while), the virtual meter holds the last
 reading instead of counting the drop in the total — otherwise the archive sees consumption in it. If the reading stays lower

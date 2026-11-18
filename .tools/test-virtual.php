@@ -418,9 +418,11 @@ SetValueFloat($memberImp, 40010.0); $virt->Recalc();
 check('2e-2 Mitglied kommt zurück und zählt weiter: nur der echte Zuwachs (+10)', abs($bez() - ($base + 10.0)) < 1e-9, 'jetzt ' . $bez());
 $GLOBALS['PROP_BACKUP'] = $GLOBALS['PROP'][$new]['MemberCounterGuard'] ?? null;
 $GLOBALS['PROP'][$new]['MemberCounterGuard'] = false;
+$GLOBALS['PROP'][$new]['MonotoneOutput'] = false;   // hier nur den Schutz der Mitglieder prüfen, nicht die monotone Ausgabe (2f)
 SetValueFloat($memberImp, 39000.0); $virt->Recalc();
 check('2e-3 Schalter aus: der Rückgang geht durch (altes Verhalten)', abs($bez() - ($base + 10.0 - 1010.0)) < 1e-9, 'jetzt ' . $bez());
 $GLOBALS['PROP'][$new]['MemberCounterGuard'] = true;
+$GLOBALS['PROP'][$new]['MonotoneOutput'] = true;
 SetValueFloat($memberImp, 40010.0); $virt->Recalc();
 $stored = json_decode($virt->ReadAttributeString('MemberGuard'), true);
 check('2e-4 Zustand wird je Mitglied gespeichert', isset($stored[(string)$memberImp]) && (float)$stored[(string)$memberImp]['a'] === 40010.0, json_encode($stored));
@@ -436,6 +438,47 @@ $pw = $nodes[0]['PowerID'];
 $vorher = GetValue($pw); $pwOut = GetValue($outs['power']);
 SetValueFloat($pw, $vorher - 1000.0); $virt->Recalc();
 check('2e-7 Leistung wird nie geschützt: ein niedrigerer Leistungswert geht sofort durch', abs(GetValue($outs['power']) - ($pwOut - 1000.0)) < 1e-9, 'jetzt ' . GetValue($outs['power']));
+SetValueFloat($pw, $vorher); $virt->Recalc();
+
+// Privat 18.11.2026: „Hausverbrauch ohne Wallboxen“ (Haus minus Abzüge) wippte um wenige Wh, die Zähler-Aggregation zählte jeden Rückgang
+// beim nächsten Anstieg erneut: Tageswert 16,9 statt 8,9 kWh. Die Ausgabe läuft deshalb nie rückwärts.
+echo "\n2f) Monotone Ausgabe der Zählerstände (MonotoneStep, 0.40.2)\n";
+$ms = new ReflectionMethod('MeterHubVirtual', 'MonotoneStep');
+$mono = fn(bool $had, float $sum, float $prev) => $ms->invoke(null, $had, $sum, $prev);
+check('2f-1 niedrigere Summe: alter Stand bleibt', $mono(true, 99.97, 100.0) === 100.0);
+check('2f-2 höhere Summe: wird übernommen', $mono(true, 100.2, 100.0) === 100.2);
+check('2f-3 gleiche Summe: unverändert', $mono(true, 100.0, 100.0) === 100.0);
+check('2f-4 erster Lauf (kein Zustand): nichts gehalten, auch wenn der Ausgabewert noch 0 ist und die Summe negativ', $mono(false, -35584.0, 0.0) === -35584.0);
+check('2f-5 ungültiger bisheriger Wert: Summe gilt', $mono(true, 50.0, NAN) === 50.0);
+check('2f-6 negative Stände: der höhere (näher an 0) gilt', $mono(true, -35584.2, -35584.3) === -35584.2 && $mono(true, -35584.4, -35584.3) === -35584.3);
+
+echo "\n2g) Monotone Ausgabe im Durchlauf (Recalc)\n";
+$GLOBALS['PROP'][$new]['MemberCounterGuard'] = false;   // nur die monotone Ausgabe prüfen
+$GLOBALS['PROP'][$new]['MonotoneOutput'] = true;
+$base2 = GetValue($outs['energy_import']);
+$m0 = $base2 + 14000.0 + 1.0;                     // Abzüge 9000 + 5000 sind konstant: Summe = Mitgliedsstand − 14000
+SetValueFloat($memberImp, $m0); $virt->Recalc();
+$hoch = GetValue($outs['energy_import']);
+check('2g-0 Vorbereitung: die Summe liegt 1 kWh über dem bisherigen Stand und wird übernommen', abs($hoch - ($base2 + 1.0)) < 1e-9, 'vorher ' . $base2 . ', jetzt ' . $hoch);
+SetValueFloat($memberImp, $m0 - 0.03); $virt->Recalc();
+check('2g-1 die Summe wippt um 30 Wh nach unten: der Bezug bleibt stehen', abs(GetValue($outs['energy_import']) - $hoch) < 1e-9, 'vorher ' . $hoch . ', jetzt ' . GetValue($outs['energy_import']));
+SetValueFloat($memberImp, $m0 + 0.02); $virt->Recalc();
+check('2g-2 steigt die Summe über den gehaltenen Stand, folgt der Bezug wieder', abs(GetValue($outs['energy_import']) - ($hoch + 0.02)) < 1e-9, 'jetzt ' . GetValue($outs['energy_import']));
+$GLOBALS['PROP'][$new]['MonotoneOutput'] = false;
+SetValueFloat($memberImp, $m0 - 100.0); $virt->Recalc();
+check('2g-3 Schalter aus: der Rückgang geht durch (rohe Differenz)', abs(GetValue($outs['energy_import']) - ($hoch - 100.0)) < 1e-9, 'jetzt ' . GetValue($outs['energy_import']));
+$GLOBALS['PROP'][$new]['MonotoneOutput'] = true;
+$GLOBALS['PROP'][$new]['MemberCounterGuard'] = true;
+SetValueFloat($memberImp, 40000.0); $virt->Recalc();
+$pwOut2 = GetValue($outs['power']); SetValueFloat($pw, $vorher - 500.0); $virt->Recalc();
+$GLOBALS['PROP'][$new]['MemberCounterGuard'] = false;   // der Schutz der Mitglieder würde den niedrigen Mitgliedsstand halten
+$virt->WriteAttributeString('EnergyContinuity', '{}');   // wie eine frisch angelegte Instanz: noch kein Zustand
+SetValueFloat($outs['energy_import'], 0.0);
+SetValueFloat($memberImp, 14000.0 - 5.0); $virt->Recalc();
+check('2g-5 frische Instanz mit negativer Summe: der Anfangsstand wird nicht auf 0 gehalten', abs(GetValue($outs['energy_import']) - (-5.0)) < 1e-9, 'jetzt ' . GetValue($outs['energy_import']));
+$GLOBALS['PROP'][$new]['MemberCounterGuard'] = true;
+SetValueFloat($memberImp, 40000.0); $virt->Recalc();
+check('2g-4 die Leistung wird nie gehalten (nur Zählerstände)', abs(GetValue($outs['power']) - ($pwOut2 - 500.0)) < 1e-9, 'jetzt ' . GetValue($outs['power']));
 SetValueFloat($pw, $vorher); $virt->Recalc();
 
 echo "\n3) Prüfung verhindert den zweiten virtuellen Zähler\n";

@@ -431,6 +431,13 @@ Berechnung zurückfließen, aus der er selbst stammt. Zusätzlich wird gemeldet,
 Energiezähler nicht archiviert ist oder eine Leistung seit über einer Woche nicht aktualisiert
 wurde.
 
+**Bezug und Einspeisung laufen nie rückwärts (seit 0.40.2).** Zieht ein virtueller Zähler Zähler ab (z. B. Haus minus
+Wallboxen), ist sein Stand eine Differenz mehrerer Zähler, die zu leicht verschiedenen Zeiten aktualisieren, und wippt um
+wenige Wh. Die Archiv-Aggregation „Zähler“ zählt nur Anstiege und würde jeden Rückgang beim nächsten Anstieg ein zweites
+Mal zählen — Tages- und Monatswerte kämen etwa doppelt so hoch heraus. Deshalb gibt der virtuelle Zähler einen niedrigeren
+Wert nicht aus: Der letzte Stand bleibt, bis die Summe ihn wieder übersteigt. Werte, die schon im Archiv stehen, bleiben, wie
+sie waren. Im Panel „Berechnung“ abschaltbar.
+
 **Schutz vor rückwärts laufenden Zählerständen (seit 0.40.0).** Ein kumulativer Zähler sinkt nie. Meldet ein Mitglied
 trotzdem plötzlich einen niedrigeren Stand (typisch: eine Z-Wave-Steckdose, die zeitweise auf 0 fällt), hält der virtuelle
 Zähler den letzten Stand, statt den Rückgang in die Summe zu rechnen — sonst sieht das Archiv daraus Verbrauch. Bleibt der

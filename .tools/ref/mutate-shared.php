@@ -83,6 +83,12 @@ $add('Neuaggregation: bei jedem Übernehmen (MeterHub)', "if (\$oldType !== \$wa
 $add('Neuaggregation: nie (MeterHub)', "if (\$oldType !== \$wantedType) {", "if (false) {", 'MeterHub/module.php');
 $add('Stetigkeit: nur für positive Ausgabewerte', "\$state['sig'] !== \$sig && \$prev != 0.0", "\$state['sig'] !== \$sig && \$prev > 0", $V);
 $add('Stetigkeit: auch ohne bisherigen Ausgabewert', "\$state['sig'] !== \$sig && \$prev != 0.0", "\$state['sig'] !== \$sig", $V);
+// Monotone Ausgabe der Zählerstände (0.40.2)
+$add('Monotone Ausgabe: niedrigere Summe wird nicht gehalten', "return \$sum < \$prev ? \$prev : \$sum;", "return \$sum;", $V);
+$add('Monotone Ausgabe: auch der erste Lauf wird gehalten', "if (!\$hadState || !is_finite(\$prev)) {", "if (!is_finite(\$prev)) {", $V);
+$add('Monotone Ausgabe: Zustand wird im Durchlauf immer als vorhanden gewertet', "\$hadState = isset(\$cont[\$ident]['sig']);", "\$hadState = true;", $V);
+$add('Monotone Ausgabe: Schalter wird ignoriert (immer an)', "if (\$this->ReadPropertyBoolean('MonotoneOutput')) {", "if (true) {", $V);
+$add('Monotone Ausgabe: Schalter wird ignoriert (immer aus)', "if (\$this->ReadPropertyBoolean('MonotoneOutput')) {", "if (false) {", $V);
 $tests = array_map('basename', glob("$root/.tools/test-*.php"));
 $jobs = [];
 function copyAll(string $root, string $dest, string $target, string $content): void
