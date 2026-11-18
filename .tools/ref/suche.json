@@ -1,0 +1,315 @@
+{
+    "_hinweis": "Gerätesuche gegen einen lokalen Modbus-TCP-Server; Registerwerte aus den Plausibilitätsprüfungen abgeleitet, nicht am Gerät gemessen. Referenz des heutigen Verhaltens.",
+    "suche_kein_Server": {
+        "ergebnisse": [],
+        "status": 102,
+        "letzte_Suche_gesetzt": true,
+        "meldungen": [
+            "Durchsuche 1 IP-Adressen auf Port 1 …",
+            "Fertig: 0 Zähler gefunden (von 0 offenen Ports)."
+        ],
+        "zusammenfassung": "⚠️ 0 Zähler gefunden (zuletzt HH:MM:SS Uhr).",
+        "warnungen": []
+    },
+    "suche_Bereich_leer": {
+        "ergebnisse": [],
+        "status": 104,
+        "letzte_Suche_gesetzt": false,
+        "meldungen": [],
+        "zusammenfassung": "❌ Start-/End-IP fehlt — bitte beide Felder ausfüllen und übernehmen.",
+        "warnungen": []
+    },
+    "suche_Ausschlussliste_trifft": {
+        "ergebnisse": [],
+        "status": 102,
+        "letzte_Suche_gesetzt": true,
+        "meldungen": [
+            "Durchsuche 1 IP-Adressen auf Port PORT …",
+            "Fertig: 0 Zähler gefunden (von 0 offenen Ports)."
+        ],
+        "zusammenfassung": "⚠️ 0 Zähler gefunden (zuletzt HH:MM:SS Uhr).",
+        "warnungen": []
+    },
+    "suche_Eastron_gefunden": {
+        "ergebnisse": [
+            {
+                "ip": "127.0.0.1",
+                "port": "PORT",
+                "unitId": 1,
+                "meter": "eastron_sdm72d",
+                "label": "Eastron SDM72D/SDM630"
+            }
+        ],
+        "status": 102,
+        "letzte_Suche_gesetzt": true,
+        "meldungen": [
+            "Durchsuche 1 IP-Adressen auf Port PORT …",
+            "Prüfe Zählertyp: 127.0.0.1 (1 von 1 offenen Ports) …",
+            "Fertig: 1 Zähler gefunden (von 1 offenen Ports)."
+        ],
+        "zusammenfassung": "✅ 1 Zähler gefunden (zuletzt HH:MM:SS Uhr).",
+        "warnungen": []
+    },
+    "suche_nichts_antwortet": {
+        "ergebnisse": [],
+        "status": 102,
+        "letzte_Suche_gesetzt": true,
+        "meldungen": [
+            "Durchsuche 1 IP-Adressen auf Port PORT …",
+            "Prüfe Zählertyp: 127.0.0.1 (1 von 1 offenen Ports) …",
+            "Fertig: 0 Zähler gefunden (von 1 offenen Ports)."
+        ],
+        "zusammenfassung": "⚠️ 0 Zähler gefunden (zuletzt HH:MM:SS Uhr).",
+        "warnungen": []
+    },
+    "suche_blueLog_Logger_und_Geraete": {
+        "ergebnisse": [
+            {
+                "ip": "127.0.0.1",
+                "port": "PORT",
+                "unitId": 97,
+                "meter": "bluelog_scada_logger",
+                "label": "Datenlogger – Summe aller Wechselrichter (blue'Log XC)",
+                "busAddr": 97
+            },
+            {
+                "ip": "127.0.0.1",
+                "port": "PORT",
+                "unitId": 101,
+                "meter": "bluelog_scada_inverter",
+                "label": "Wechselrichter (AE 3TL 20-IEC (Gen 2))",
+                "busAddr": 3
+            }
+        ],
+        "status": 102,
+        "letzte_Suche_gesetzt": true,
+        "meldungen": [
+            "Durchsuche 1 IP-Adressen auf Port PORT …",
+            "Prüfe Zählertyp: 127.0.0.1 (1 von 1 offenen Ports) …",
+            "blue'Log 127.0.0.1 gefunden — SCADA-Adressen 97–118 …",
+            "blue'Log 127.0.0.1 gefunden — SCADA-Adressen 119–119 …",
+            "Fertig: 2 Zähler gefunden (von 1 offenen Ports) (davon 1 blue'Log(s) samt SCADA-Geräten)."
+        ],
+        "zusammenfassung": "✅ 2 Zähler gefunden (zuletzt HH:MM:SS Uhr).",
+        "warnungen": [
+            "Implicit conversion from float 1.5 to int loses precision",
+            "Implicit conversion from float 1.5 to int loses precision"
+        ]
+    },
+    "suche_Abbruch_waehrend_der_Suche": {
+        "ergebnisse": [],
+        "status": 102,
+        "letzte_Suche_gesetzt": true,
+        "meldungen": [
+            "Durchsuche 1 IP-Adressen auf Port PORT …",
+            "Prüfe Zählertyp: 127.0.0.1 (1 von 1 offenen Ports) …",
+            "Scan abgebrochen – 0 Zähler bis dahin gefunden."
+        ],
+        "zusammenfassung": "⚠️ 0 Zähler gefunden (zuletzt HH:MM:SS Uhr).",
+        "warnungen": []
+    },
+    "erkennung_pac2200_Unit247": {
+        "ip": "127.0.0.1",
+        "port": "PORT",
+        "unitId": 247,
+        "meter": "siemens_pac2200",
+        "label": "Siemens PAC2200"
+    },
+    "erkennung_janitza_klassisch": {
+        "ip": "127.0.0.1",
+        "port": "PORT",
+        "unitId": 1,
+        "meter": "janitza_umg604",
+        "label": "Janitza UMG (klassische Map)"
+    },
+    "erkennung_janitza_umg800": {
+        "ip": "127.0.0.1",
+        "port": "PORT",
+        "unitId": 1,
+        "meter": "janitza_umg800",
+        "label": "Janitza UMG 800"
+    },
+    "erkennung_shelly_pro3em": {
+        "ip": "127.0.0.1",
+        "port": "PORT",
+        "unitId": 1,
+        "meter": "shelly_pro3em",
+        "label": "Shelly Pro 3EM"
+    },
+    "erkennung_carlo_gavazzi": {
+        "ip": "127.0.0.1",
+        "port": "PORT",
+        "unitId": 1,
+        "meter": "carlo_gavazzi_em",
+        "label": "Carlo Gavazzi EM24/ET340"
+    },
+    "erkennung_whatwatt": {
+        "ip": "127.0.0.1",
+        "port": "PORT",
+        "unitId": 1,
+        "meter": "whatwatt",
+        "label": "WhatWatt"
+    },
+    "erkennung_phoenix_Unit255": {
+        "ip": "127.0.0.1",
+        "port": "PORT",
+        "unitId": 255,
+        "meter": "phoenix_eem375",
+        "label": "Phoenix EEM-EM375"
+    },
+    "erkennung_eastron_sdm": {
+        "ip": "127.0.0.1",
+        "port": "PORT",
+        "unitId": 1,
+        "meter": "eastron_sdm72d",
+        "label": "Eastron SDM72D/SDM630"
+    },
+    "erkennung_goe_controller": {
+        "ip": "127.0.0.1",
+        "port": "PORT",
+        "unitId": 1,
+        "meter": "goe_controller",
+        "label": "go-e Controller"
+    },
+    "erkennung_frequenz_unplausibel": null,
+    "erkennung_spannung_unplausibel": null,
+    "erkennung_unbelegte_Register_NaN": null,
+    "erkennung_nichts_antwortet": null,
+    "erkennung_kein_Server": null,
+    "bluelog_Host_bluelog_Logger_und_Wechselrichter": true,
+    "bluelog_Host_bluelog_nur_Power_Control": true,
+    "bluelog_Host_bluelog_nur_RPC": true,
+    "bluelog_Host_bluelog_Logger_unter_falscher_Adresse": false,
+    "bluelog_Host_nichts_antwortet": false,
+    "bluelog_Geraete_Bündel": [
+        {
+            "ip": "127.0.0.1",
+            "port": "PORT",
+            "unitId": 97,
+            "meter": "bluelog_scada_logger",
+            "label": "Datenlogger – Summe aller Wechselrichter (blue'Log XC)",
+            "busAddr": 97
+        },
+        {
+            "ip": "127.0.0.1",
+            "port": "PORT",
+            "unitId": 101,
+            "meter": "bluelog_scada_inverter",
+            "label": "Wechselrichter (AE 3TL 20-IEC (Gen 2))",
+            "busAddr": 3
+        },
+        {
+            "ip": "127.0.0.1",
+            "port": "PORT",
+            "unitId": 150,
+            "meter": "bluelog_scada_meter",
+            "label": "Zähler (Janitza UMG 604)",
+            "busAddr": 9
+        }
+    ],
+    "hilfsfunktionen": {
+        "expandRange(192.168.1.250,192.168.2.3)": [
+            "192.168.1.250",
+            "192.168.1.251",
+            "192.168.1.252",
+            "192.168.1.253",
+            "192.168.1.254",
+            "192.168.1.255",
+            "192.168.2.0",
+            "192.168.2.1",
+            "192.168.2.2",
+            "192.168.2.3"
+        ],
+        "expandRange(10.0.0.5,10.0.0.5)": [
+            "10.0.0.5"
+        ],
+        "expandRange(10.0.0.9,10.0.0.1)": [],
+        "expandRange(x,10.0.0.1)": [],
+        "expandRange(255.255.255.254,255.255.255.255)": [
+            "255.255.255.254",
+            "255.255.255.255"
+        ],
+        "ParseIgnoreIPs(10.0.0.5, 10.0.0.6;10.0.0.7 10.0.0.5)": [
+            "10.0.0.5",
+            "10.0.0.6",
+            "10.0.0.7"
+        ],
+        "ParseIgnoreIPs(kein.ip, 10.0.0.300, 192.168.1.1)": [
+            "192.168.1.1"
+        ],
+        "ParseIgnoreIPs()": [],
+        "blueLogScadaSampleIds(100,119)": [
+            97,
+            100,
+            110
+        ],
+        "blueLogScadaSampleIds(119,100)": [
+            97,
+            100,
+            110
+        ],
+        "blueLogScadaSampleIds(97,97)": [
+            97
+        ],
+        "blueLogScadaSampleIds(1,247)": [
+            97,
+            1,
+            124
+        ],
+        "blueLogScadaSampleIds(0,3)": [
+            97,
+            2
+        ],
+        "wordSwappedFloat(16968,0)": "2.37772323e-41",
+        "wordSwappedFloat(0,16968)": "50",
+        "wordSwappedFloat(32704,0)": "4.5828065e-41",
+        "wordSwappedFloat(65535,65535)": null
+    },
+    "Lizenzpruefung_nur_SCADA": [
+        "❌ Power Control (Netzbetreiber) (Slave-ID 1)",
+        "❌ RPC (Direktvermarkter) (Slave-ID 10)",
+        "✅ SCADA (alle Geräte) (Slave-ID 97)"
+    ],
+    "Lizenzpruefung_Exception_zaehlt": [
+        "✅ Power Control (Netzbetreiber) (Slave-ID 1)",
+        "✅ RPC (Direktvermarkter) (Slave-ID 10)",
+        "✅ SCADA (alle Geräte) (Slave-ID 97)"
+    ],
+    "Lizenzpruefung_ohne_Host": [
+        "❌ Bitte zuerst die blue'Log-IP-Adresse eintragen."
+    ],
+    "DiscoverBlueLog_Logger_und_Geraete": {
+        "ergebnisse": [
+            {
+                "ip": "127.0.0.1",
+                "port": "PORT",
+                "unitId": 97,
+                "meter": "bluelog_scada_logger",
+                "label": "Datenlogger – Summe aller Wechselrichter (blue'Log XC)",
+                "busAddr": 97
+            },
+            {
+                "ip": "127.0.0.1",
+                "port": "PORT",
+                "unitId": 101,
+                "meter": "bluelog_scada_inverter",
+                "label": "Wechselrichter (AE 3TL 20-IEC (Gen 2))",
+                "busAddr": 3
+            }
+        ],
+        "meldungen": [
+            "Prüfe 21 SCADA-Adressen an 127.0.0.1:PORT …",
+            "SCADA-Adressen 97–118 (0 von 21) …",
+            "SCADA-Adressen 119–119 (20 von 21) …",
+            "Fertig: 2 Geräte gefunden (von 21 geprüften Adressen)."
+        ]
+    },
+    "DiscoverBlueLog_ohne_Host": {
+        "ergebnisse": [],
+        "meldungen": []
+    },
+    "php_hinweise": [
+        "Implicit conversion from float 1.5 to int loses precision (module.php)",
+        "fsockopen(): Unable to connect to 127.0.0.1:1 (Connection refused) (module.php)"
+    ]
+}

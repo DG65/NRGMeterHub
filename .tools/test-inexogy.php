@@ -22,7 +22,7 @@ class IPSModule {
 function IPS_GetInstanceListByModuleID($g) { return []; }
 function IPS_GetKernelDate() { return time(); }
 
-require '/Users/dietmar/Nextcloud/Claude/MeterHub/MeterHub/module.php';
+require getenv('MHUB_MODULE') ?: dirname(__DIR__) . '/MeterHub/module.php';
 
 $fails = 0;
 function check($label, $cond, $detail = '') {

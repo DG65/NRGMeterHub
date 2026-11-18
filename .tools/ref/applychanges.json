@@ -1,0 +1,5694 @@
+{
+    "_hinweis": "Referenz des heutigen Verhaltens von MeterHub::ApplyChanges(); Variablenlisten je Zaehlertyp bei Standardeinstellungen (alle optionalen Gruppen aus).",
+    "zaehlertypen": {
+        "siemens_pac2200": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe (Tarif 1)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_export_t2": [
+                    "Wirkarbeit Abgabe (Tarif 2)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_34"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug (Tarif 1)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "energy_import_t2": [
+                    "Wirkarbeit Bezug (Tarif 2)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_33"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_n": [
+                    "Neutralleiterstrom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "Leistungsfaktor L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "Leistungsfaktor L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "Leistungsfaktor L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "janitza_umg604": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_sum": [
+                    "Strom Summe (I1+I2+I3)",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "cos φ L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "cos φ L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "cos φ L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "phase_seq": [
+                    "Drehfeld",
+                    1,
+                    "MHB.PhaseSeq",
+                    "angelegt_als_39"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "thd_i_l1": [
+                    "THD Strom L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_36"
+                ],
+                "thd_i_l2": [
+                    "THD Strom L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_37"
+                ],
+                "thd_i_l3": [
+                    "THD Strom L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_38"
+                ],
+                "thd_u_l1": [
+                    "THD Spannung L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_33"
+                ],
+                "thd_u_l2": [
+                    "THD Spannung L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_34"
+                ],
+                "thd_u_l3": [
+                    "THD Spannung L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_35"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "janitza_umg605": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_sum": [
+                    "Strom Summe (I1+I2+I3)",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "cos φ L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "cos φ L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "cos φ L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "phase_seq": [
+                    "Drehfeld",
+                    1,
+                    "MHB.PhaseSeq",
+                    "angelegt_als_39"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "thd_i_l1": [
+                    "THD Strom L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_36"
+                ],
+                "thd_i_l2": [
+                    "THD Strom L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_37"
+                ],
+                "thd_i_l3": [
+                    "THD Strom L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_38"
+                ],
+                "thd_u_l1": [
+                    "THD Spannung L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_33"
+                ],
+                "thd_u_l2": [
+                    "THD Spannung L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_34"
+                ],
+                "thd_u_l3": [
+                    "THD Spannung L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_35"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "janitza_umg509": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_sum": [
+                    "Strom Summe (I1+I2+I3)",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "cos φ L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "cos φ L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "cos φ L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "phase_seq": [
+                    "Drehfeld",
+                    1,
+                    "MHB.PhaseSeq",
+                    "angelegt_als_39"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "thd_i_l1": [
+                    "THD Strom L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_36"
+                ],
+                "thd_i_l2": [
+                    "THD Strom L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_37"
+                ],
+                "thd_i_l3": [
+                    "THD Strom L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_38"
+                ],
+                "thd_u_l1": [
+                    "THD Spannung L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_33"
+                ],
+                "thd_u_l2": [
+                    "THD Spannung L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_34"
+                ],
+                "thd_u_l3": [
+                    "THD Spannung L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_35"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "janitza_umg512": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_sum": [
+                    "Strom Summe (I1+I2+I3)",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "cos φ L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "cos φ L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "cos φ L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "phase_seq": [
+                    "Drehfeld",
+                    1,
+                    "MHB.PhaseSeq",
+                    "angelegt_als_39"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "thd_i_l1": [
+                    "THD Strom L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_36"
+                ],
+                "thd_i_l2": [
+                    "THD Strom L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_37"
+                ],
+                "thd_i_l3": [
+                    "THD Strom L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_38"
+                ],
+                "thd_u_l1": [
+                    "THD Spannung L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_33"
+                ],
+                "thd_u_l2": [
+                    "THD Spannung L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_34"
+                ],
+                "thd_u_l3": [
+                    "THD Spannung L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_35"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "janitza_umg806": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_sum": [
+                    "Strom Summe (I1+I2+I3)",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "cos φ L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "cos φ L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "cos φ L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "phase_seq": [
+                    "Drehfeld",
+                    1,
+                    "MHB.PhaseSeq",
+                    "angelegt_als_39"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "thd_i_l1": [
+                    "THD Strom L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_36"
+                ],
+                "thd_i_l2": [
+                    "THD Strom L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_37"
+                ],
+                "thd_i_l3": [
+                    "THD Strom L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_38"
+                ],
+                "thd_u_l1": [
+                    "THD Spannung L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_33"
+                ],
+                "thd_u_l2": [
+                    "THD Spannung L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_34"
+                ],
+                "thd_u_l3": [
+                    "THD Spannung L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_35"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "janitza_umg96pa": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_sum": [
+                    "Strom Summe (I1+I2+I3)",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "cos φ L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "cos φ L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "cos φ L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "phase_seq": [
+                    "Drehfeld",
+                    1,
+                    "MHB.PhaseSeq",
+                    "angelegt_als_39"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "thd_i_l1": [
+                    "THD Strom L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_36"
+                ],
+                "thd_i_l2": [
+                    "THD Strom L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_37"
+                ],
+                "thd_i_l3": [
+                    "THD Strom L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_38"
+                ],
+                "thd_u_l1": [
+                    "THD Spannung L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_33"
+                ],
+                "thd_u_l2": [
+                    "THD Spannung L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_34"
+                ],
+                "thd_u_l3": [
+                    "THD Spannung L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_35"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "janitza_umg801": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_sum": [
+                    "Strom Summe (I1+I2+I3)",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "cos φ L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "cos φ L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "cos φ L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "phase_seq": [
+                    "Drehfeld",
+                    1,
+                    "MHB.PhaseSeq",
+                    "angelegt_als_39"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "thd_i_l1": [
+                    "THD Strom L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_36"
+                ],
+                "thd_i_l2": [
+                    "THD Strom L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_37"
+                ],
+                "thd_i_l3": [
+                    "THD Strom L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_38"
+                ],
+                "thd_u_l1": [
+                    "THD Spannung L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_33"
+                ],
+                "thd_u_l2": [
+                    "THD Spannung L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_34"
+                ],
+                "thd_u_l3": [
+                    "THD Spannung L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_35"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "janitza_umg800": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_sum": [
+                    "Strom I4",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "cos φ L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "pf_l2": [
+                    "cos φ L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l3": [
+                    "cos φ L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "phase_seq": [
+                    "Drehfeld",
+                    1,
+                    "MHB.PhaseSeq",
+                    "angelegt_als_38"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "thd_i_l1": [
+                    "THD Strom L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_35"
+                ],
+                "thd_i_l2": [
+                    "THD Strom L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_36"
+                ],
+                "thd_i_l3": [
+                    "THD Strom L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_37"
+                ],
+                "thd_u_l1": [
+                    "THD Spannung L1",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_32"
+                ],
+                "thd_u_l2": [
+                    "THD Spannung L2",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_33"
+                ],
+                "thd_u_l3": [
+                    "THD Spannung L3",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_34"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "eastron_sdm72d": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_n": [
+                    "Neutralleiterstrom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "Leistungsfaktor L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "Leistungsfaktor L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "Leistungsfaktor L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "eastron_sdm630": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_n": [
+                    "Neutralleiterstrom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "Leistungsfaktor L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "Leistungsfaktor L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "Leistungsfaktor L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "eastron_sdm120": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_10"
+                ],
+                "power_total": [
+                    "Wirkleistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_total": [
+                    "Blindleistung",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_9"
+                ],
+                "s_total": [
+                    "Scheinleistung",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_8"
+                ],
+                "voltage_avg": [
+                    "Spannung (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "eastron_sdm220": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_10"
+                ],
+                "power_total": [
+                    "Wirkleistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_total": [
+                    "Blindleistung",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_9"
+                ],
+                "s_total": [
+                    "Scheinleistung",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_8"
+                ],
+                "voltage_avg": [
+                    "Spannung (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "eastron_sdm230": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_10"
+                ],
+                "power_total": [
+                    "Wirkleistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_total": [
+                    "Blindleistung",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_9"
+                ],
+                "s_total": [
+                    "Scheinleistung",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_8"
+                ],
+                "voltage_avg": [
+                    "Spannung (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "whatwatt": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_6"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "energy_export_t1": [
+                    "Abgabe Tarif 1",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_18"
+                ],
+                "energy_export_t2": [
+                    "Abgabe Tarif 2",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_19"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_4"
+                ],
+                "energy_import_t1": [
+                    "Bezug Tarif 1",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_16"
+                ],
+                "energy_import_t2": [
+                    "Bezug Tarif 2",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_17"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_10"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_11"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_12"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_13"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_14"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_15"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_l1_n": [
+                    "Spannung L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_7"
+                ],
+                "u_l2_n": [
+                    "Spannung L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l3_n": [
+                    "Spannung L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "phoenix_eem375": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_5"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom I1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_9"
+                ],
+                "i_l2": [
+                    "Strom I2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_10"
+                ],
+                "i_l3": [
+                    "Strom I3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_11"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_12"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_13"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_14"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_6"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_7"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "phoenix_eemxm": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_5"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom I1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_9"
+                ],
+                "i_l2": [
+                    "Strom I2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_10"
+                ],
+                "i_l3": [
+                    "Strom I3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_11"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_12"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_13"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_14"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_6"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_7"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "carlo_gavazzi_em": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_11"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_12"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_13"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_14"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_15"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_16"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_23"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_24"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_18"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_19"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_20"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_17"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "socomec_countis": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_11"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_12"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_13"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_14"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_15"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_16"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "mbs_professional": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_6"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_4"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_3"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_l1_n": [
+                    "Spannung L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_7"
+                ],
+                "u_l2_n": [
+                    "Spannung L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l3_n": [
+                    "Spannung L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "shelly_pro3em": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_export_l1": [
+                    "Wirkarbeit Abgabe L1",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_18"
+                ],
+                "energy_export_l2": [
+                    "Wirkarbeit Abgabe L2",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_20"
+                ],
+                "energy_export_l3": [
+                    "Wirkarbeit Abgabe L3",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_22"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "energy_import_l1": [
+                    "Wirkarbeit Bezug L1",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_17"
+                ],
+                "energy_import_l2": [
+                    "Wirkarbeit Bezug L2",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_19"
+                ],
+                "energy_import_l3": [
+                    "Wirkarbeit Bezug L3",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_21"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_11"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_12"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_13"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_14"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_15"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_16"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_l1_n": [
+                    "Spannung L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_n": [
+                    "Spannung L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_n": [
+                    "Spannung L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "goe_controller": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "akku_energy_export": [
+                    "Akku Energie Aus",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_47"
+                ],
+                "akku_energy_import": [
+                    "Akku Energie Ein",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_46"
+                ],
+                "akku_power": [
+                    "Akku Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_45"
+                ],
+                "car_energy_export": [
+                    "Car Energie Aus",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_38"
+                ],
+                "car_energy_import": [
+                    "Car Energie Ein",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_37"
+                ],
+                "car_power": [
+                    "Car Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_36"
+                ],
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_6"
+                ],
+                "current_avg": [
+                    "Strom Ø (Grid)",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_4"
+                ],
+                "home_energy_export": [
+                    "Home Energie Aus",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_35"
+                ],
+                "home_energy_import": [
+                    "Home Energie Ein",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_34"
+                ],
+                "home_power": [
+                    "Home Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_33"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_11"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_12"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_13"
+                ],
+                "i_n": [
+                    "Strom N",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt (Grid)",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "relais_energy_export": [
+                    "Relais Energie Aus",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_41"
+                ],
+                "relais_energy_import": [
+                    "Relais Energie Ein",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_40"
+                ],
+                "relais_power": [
+                    "Relais Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_39"
+                ],
+                "sens1_i": [
+                    "Sensor 1 Strom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "sens1_p": [
+                    "Sensor 1 Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_16"
+                ],
+                "sens1_pf": [
+                    "Sensor 1 Leistungsfaktor",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_17"
+                ],
+                "sens2_i": [
+                    "Sensor 2 Strom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_18"
+                ],
+                "sens2_p": [
+                    "Sensor 2 Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "sens2_pf": [
+                    "Sensor 2 Leistungsfaktor",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_20"
+                ],
+                "sens3_i": [
+                    "Sensor 3 Strom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_21"
+                ],
+                "sens3_p": [
+                    "Sensor 3 Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_22"
+                ],
+                "sens3_pf": [
+                    "Sensor 3 Leistungsfaktor",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_23"
+                ],
+                "sens4_i": [
+                    "Sensor 4 Strom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_24"
+                ],
+                "sens4_p": [
+                    "Sensor 4 Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_25"
+                ],
+                "sens4_pf": [
+                    "Sensor 4 Leistungsfaktor",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_26"
+                ],
+                "sens5_i": [
+                    "Sensor 5 Strom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_27"
+                ],
+                "sens5_p": [
+                    "Sensor 5 Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_28"
+                ],
+                "sens5_pf": [
+                    "Sensor 5 Leistungsfaktor",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "sens6_i": [
+                    "Sensor 6 Strom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_30"
+                ],
+                "sens6_p": [
+                    "Sensor 6 Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_31"
+                ],
+                "sens6_pf": [
+                    "Sensor 6 Leistungsfaktor",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "solar_energy_export": [
+                    "Solar Energie Aus",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_44"
+                ],
+                "solar_energy_import": [
+                    "Solar Energie Ein",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_43"
+                ],
+                "solar_power": [
+                    "Solar Leistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_42"
+                ],
+                "u_l1_n": [
+                    "Spannung L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_7"
+                ],
+                "u_l2_n": [
+                    "Spannung L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l3_n": [
+                    "Spannung L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_n": [
+                    "Spannung N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "tasmota": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_4"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_6"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_3"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_2"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_13"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_7"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_8"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_9"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_l1_n": [
+                    "Spannung L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "u_l2_n": [
+                    "Spannung L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l3_n": [
+                    "Spannung L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_5"
+                ]
+            }
+        },
+        "shelly_mqtt": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_4"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_6"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_3"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_2"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_13"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_7"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_8"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_9"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_l1_n": [
+                    "Spannung L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "u_l2_n": [
+                    "Spannung L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l3_n": [
+                    "Spannung L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_5"
+                ]
+            }
+        },
+        "inexogy": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_4"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_3"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_2"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_8"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_9"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_10"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_l1_n": [
+                    "Spannung L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_5"
+                ],
+                "u_l2_n": [
+                    "Spannung L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_6"
+                ],
+                "u_l3_n": [
+                    "Spannung L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_7"
+                ]
+            }
+        },
+        "bluelog_scada_inverter": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_5"
+                ],
+                "device_type": [
+                    "Gerätetyp (SCADA-Meldung)",
+                    1,
+                    "MHB.BlueLogDeviceType",
+                    "angelegt_als_4"
+                ],
+                "energy_export": [
+                    "Ertrag gesamt",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_2"
+                ],
+                "frequency": [
+                    "Netzfrequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_3"
+                ],
+                "i_dc": [
+                    "Strom DC",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_9"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_10"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_11"
+                ],
+                "p_dc": [
+                    "Leistung DC",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_12"
+                ],
+                "power_total": [
+                    "Wirkleistung AC",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "u_dc": [
+                    "Spannung DC",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l1_n": [
+                    "Spannung L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_6"
+                ],
+                "u_l2_n": [
+                    "Spannung L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_7"
+                ],
+                "u_l3_n": [
+                    "Spannung L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ]
+            }
+        },
+        "bluelog_scada_meter": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_6"
+                ],
+                "device_type": [
+                    "Gerätetyp (SCADA-Meldung)",
+                    1,
+                    "MHB.BlueLogDeviceType",
+                    "angelegt_als_5"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_3"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_2"
+                ],
+                "frequency": [
+                    "Netzfrequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_10"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_11"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_12"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_15"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_13"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_14"
+                ],
+                "u_l1_n": [
+                    "Spannung L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_7"
+                ],
+                "u_l2_n": [
+                    "Spannung L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l3_n": [
+                    "Spannung L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ]
+            }
+        },
+        "bluelog_scada_logger": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_6"
+                ],
+                "device_type": [
+                    "Gerätetyp (SCADA-Meldung)",
+                    1,
+                    "MHB.BlueLogDeviceType",
+                    "angelegt_als_5"
+                ],
+                "energy_export": [
+                    "Ertrag gesamt (hochgerechnet)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_2"
+                ],
+                "inv_active": [
+                    "Wechselrichter aktiv",
+                    1,
+                    "",
+                    "angelegt_als_4"
+                ],
+                "inv_installed": [
+                    "Wechselrichter installiert",
+                    1,
+                    "",
+                    "angelegt_als_3"
+                ],
+                "p_available": [
+                    "Verfügbare Wirkleistung",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_7"
+                ],
+                "p_setpoint_rel": [
+                    "Wirkleistungs-Sollwert",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_9"
+                ],
+                "power_total": [
+                    "Wirkleistung AC (Summe aller Wechselrichter)",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_available": [
+                    "Verfügbare Blindleistung",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_8"
+                ]
+            }
+        },
+        "bluelog_rpc": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "active_setpoint_rel": [
+                    "Wirksamer Sollwert (Ist, %)",
+                    2,
+                    "NRG.Percent",
+                    "angelegt_als_2"
+                ],
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_4"
+                ],
+                "ctl_write_fail_count": [
+                    "Fehlgeschlagene Befehle (Anzahl)",
+                    1,
+                    "",
+                    "angelegt_als_5"
+                ],
+                "ctl_write_fail_text": [
+                    "Letzter Fehler",
+                    3,
+                    "",
+                    "angelegt_als_7"
+                ],
+                "ctl_write_fail_time": [
+                    "Letzter fehlgeschlagener Befehl",
+                    1,
+                    "~UnixTimestamp",
+                    "angelegt_als_6"
+                ],
+                "ctl_write_ok_time": [
+                    "Letzter erfolgreicher Befehl",
+                    1,
+                    "~UnixTimestamp",
+                    "angelegt_als_8"
+                ],
+                "frequency": [
+                    "Netzfrequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_3"
+                ],
+                "power_total": [
+                    "Einspeiseleistung (Ist)",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ]
+            }
+        },
+        "bluelog_powercontrol": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_3"
+                ],
+                "ctl_write_fail_count": [
+                    "Fehlgeschlagene Befehle (Anzahl)",
+                    1,
+                    "",
+                    "angelegt_als_4"
+                ],
+                "ctl_write_fail_text": [
+                    "Letzter Fehler",
+                    3,
+                    "",
+                    "angelegt_als_6"
+                ],
+                "ctl_write_fail_time": [
+                    "Letzter fehlgeschlagener Befehl",
+                    1,
+                    "~UnixTimestamp",
+                    "angelegt_als_5"
+                ],
+                "ctl_write_ok_time": [
+                    "Letzter erfolgreicher Befehl",
+                    1,
+                    "~UnixTimestamp",
+                    "angelegt_als_7"
+                ],
+                "frequency": [
+                    "Netzfrequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_2"
+                ],
+                "power_total": [
+                    "Wirkleistung (Ist, Netzübergabepunkt)",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ]
+            }
+        }
+    },
+    "zustaende": {
+        "aktiv_mit_host": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "deaktiviert": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "aktiv_ohne_host": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "gateway_ohne_bruecke": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "gateway_mit_bruecke": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "http_ohne_host": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "http_mit_host": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "mqtt_ohne_bruecke": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "mqtt_ohne_topic": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "mqtt_vollstaendig": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "intervalle_5_und_300": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 5000,
+                "SlowTimer": 300000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "cloud_ohne_token": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "cloud_ohne_zaehler": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "cloud_vollstaendig": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        }
+    },
+    "rueckfallwert": {
+        "bluelog_rpc_default_deaktiviert": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 1,
+            "schreibzugriffe": [
+                {
+                    "reg": 5000,
+                    "werte": [
+                        0,
+                        16928
+                    ],
+                    "wortreihenfolge_getauscht": true
+                }
+            ],
+            "sperre": "enter MHUB_IO_ID 20000 | leave MHUB_IO_ID",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_rpc_default_aktiv": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_rpc_default_deaktiviert_ohne_host": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_rpc_hold_deaktiviert": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_rpc_hold_aktiv": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_rpc_hold_deaktiviert_ohne_host": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_powercontrol_default_deaktiviert": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 1,
+            "schreibzugriffe": [
+                {
+                    "reg": 5000,
+                    "werte": [
+                        0,
+                        16928
+                    ],
+                    "wortreihenfolge_getauscht": true
+                }
+            ],
+            "sperre": "enter MHUB_IO_ID 20000 | leave MHUB_IO_ID",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_powercontrol_default_aktiv": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_powercontrol_default_deaktiviert_ohne_host": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_powercontrol_hold_deaktiviert": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_powercontrol_hold_aktiv": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_powercontrol_hold_deaktiviert_ohne_host": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "siemens_pac2200_default_deaktiviert": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "siemens_pac2200_default_aktiv": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "siemens_pac2200_default_deaktiviert_ohne_host": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "siemens_pac2200_hold_deaktiviert": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "siemens_pac2200_hold_aktiv": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "siemens_pac2200_hold_deaktiviert_ohne_host": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": []
+        },
+        "bluelog_rpc_default_100_Prozent": {
+            "status": 104,
+            "timers": {
+                "FastTimer": 0,
+                "SlowTimer": 0
+            },
+            "transporte": 1,
+            "schreibzugriffe": [
+                {
+                    "reg": 5000,
+                    "werte": [
+                        0,
+                        17096
+                    ],
+                    "wortreihenfolge_getauscht": true
+                }
+            ],
+            "sperre": "enter MHUB_IO_ID 20000 | leave MHUB_IO_ID",
+            "protokoll": [],
+            "warnungen": []
+        }
+    },
+    "powerinvert": {
+        "aus_1": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe (Tarif 1)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_export_t2": [
+                    "Wirkarbeit Abgabe (Tarif 2)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_34"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug (Tarif 1)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "energy_import_t2": [
+                    "Wirkarbeit Bezug (Tarif 2)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_33"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_n": [
+                    "Neutralleiterstrom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "Leistungsfaktor L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "Leistungsfaktor L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "Leistungsfaktor L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "an": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [
+                "„Bezug/Einspeisung vertauscht\" eingeschaltet — die Energiezähler-Variablen haben ihre Rolle getauscht (#10312 ↔ #10313, #10340 ↔ #10341). Jede zählt ohne Sprung weiter, die Bezeichnungen passen zur neuen Richtung. Skripte mit fest eingetragenen Variablen-IDs bitte prüfen."
+            ],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe (Tarif 1)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "energy_export_t2": [
+                    "Wirkarbeit Abgabe (Tarif 2)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_33"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug (Tarif 1)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_import_t2": [
+                    "Wirkarbeit Bezug (Tarif 2)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_34"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_n": [
+                    "Neutralleiterstrom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "Leistungsfaktor L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "Leistungsfaktor L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "Leistungsfaktor L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        },
+        "aus_2": {
+            "status": 102,
+            "timers": {
+                "FastTimer": 10000,
+                "SlowTimer": 60000
+            },
+            "transporte": 0,
+            "schreibzugriffe": [],
+            "sperre": "",
+            "protokoll": [
+                "„Bezug/Einspeisung vertauscht\" ausgeschaltet — die Energiezähler-Variablen haben ihre Rolle getauscht (#10313 ↔ #10312, #10341 ↔ #10340). Jede zählt ohne Sprung weiter, die Bezeichnungen passen zur neuen Richtung. Skripte mit fest eingetragenen Variablen-IDs bitte prüfen."
+            ],
+            "warnungen": [],
+            "variablen": {
+                "connected": [
+                    "Verbindung",
+                    0,
+                    "~Alert.Reversed",
+                    "angelegt_als_7"
+                ],
+                "current_avg": [
+                    "Strom Ø",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_3"
+                ],
+                "energy_export": [
+                    "Wirkarbeit Abgabe (Tarif 1)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_6"
+                ],
+                "energy_export_t2": [
+                    "Wirkarbeit Abgabe (Tarif 2)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_34"
+                ],
+                "energy_import": [
+                    "Wirkarbeit Bezug (Tarif 1)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_5"
+                ],
+                "energy_import_t2": [
+                    "Wirkarbeit Bezug (Tarif 2)",
+                    2,
+                    "NRG.kWh",
+                    "angelegt_als_33"
+                ],
+                "frequency": [
+                    "Frequenz",
+                    2,
+                    "MHB.Hz",
+                    "angelegt_als_4"
+                ],
+                "i_l1": [
+                    "Strom L1",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_14"
+                ],
+                "i_l2": [
+                    "Strom L2",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_15"
+                ],
+                "i_l3": [
+                    "Strom L3",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_16"
+                ],
+                "i_n": [
+                    "Neutralleiterstrom",
+                    2,
+                    "NRG.Ampere",
+                    "angelegt_als_17"
+                ],
+                "p_l1": [
+                    "Wirkleistung L1",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_18"
+                ],
+                "p_l2": [
+                    "Wirkleistung L2",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_19"
+                ],
+                "p_l3": [
+                    "Wirkleistung L3",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_20"
+                ],
+                "pf_l1": [
+                    "Leistungsfaktor L1",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_30"
+                ],
+                "pf_l2": [
+                    "Leistungsfaktor L2",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_31"
+                ],
+                "pf_l3": [
+                    "Leistungsfaktor L3",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_32"
+                ],
+                "pf_total": [
+                    "Leistungsfaktor gesamt",
+                    2,
+                    "MHB.PF",
+                    "angelegt_als_29"
+                ],
+                "power_total": [
+                    "Wirkleistung gesamt",
+                    2,
+                    "NRG.Watt",
+                    "angelegt_als_1"
+                ],
+                "q_l1": [
+                    "Blindleistung L1",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_26"
+                ],
+                "q_l2": [
+                    "Blindleistung L2",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_27"
+                ],
+                "q_l3": [
+                    "Blindleistung L3",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_28"
+                ],
+                "q_total": [
+                    "Blindleistung gesamt",
+                    2,
+                    "MHB.var",
+                    "angelegt_als_22"
+                ],
+                "s_l1": [
+                    "Scheinleistung L1",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_23"
+                ],
+                "s_l2": [
+                    "Scheinleistung L2",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_24"
+                ],
+                "s_l3": [
+                    "Scheinleistung L3",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_25"
+                ],
+                "s_total": [
+                    "Scheinleistung gesamt",
+                    2,
+                    "MHB.VA",
+                    "angelegt_als_21"
+                ],
+                "u_l1_l2": [
+                    "Spannung L1-L2",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_11"
+                ],
+                "u_l1_n": [
+                    "Spannung L1-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_8"
+                ],
+                "u_l2_l3": [
+                    "Spannung L2-L3",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_12"
+                ],
+                "u_l2_n": [
+                    "Spannung L2-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_9"
+                ],
+                "u_l3_l1": [
+                    "Spannung L3-L1",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_13"
+                ],
+                "u_l3_n": [
+                    "Spannung L3-N",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_10"
+                ],
+                "voltage_avg": [
+                    "Spannung Ø (L-N)",
+                    2,
+                    "NRG.Volt",
+                    "angelegt_als_2"
+                ]
+            }
+        }
+    }
+}
