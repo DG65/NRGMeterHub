@@ -164,6 +164,20 @@ $sm('Lizenzprüfung: Symbole vertauscht', 'CheckBlueLogLicenses', "(\$ok ? '✅ 
 $sm('Lizenzprüfung: Exception zählt nicht mehr', 'probeUnitResponds', 'strlen($response) >= 8;', 'strlen($response) >= 10;');
 $sm('Modbus-Lesen: Exception wird als Daten gelesen', 'modbusRead', '$rfc & 0x80 || $rfc !== $fc', '$rfc !== $fc');
 
+// ---- phaseCurrentIDs ------------------------------------------------------------------------------------------------
+$tp = 'test-phasecurrent.php';
+$pm = function (string $name, string $method, string $find, string $replace) use (&$mutations, $tp) {
+    $mutations[] = ['phase', $name, $tp, fn($s) => mutateMethod($s, $method, '/' . preg_quote($find, '/') . '/', str_replace('$', '\$', $replace))];
+};
+$pm('Phasenströme auch an Nicht-Netz-Zuordnungen', 'GetFunctions', "\$a['key'] === 'grid' && ", '');
+$pm('Phasenströme auch in der Je-Phase-Zuordnung', 'GetFunctions', "\$a['slot'] === 'total' && ", '');
+$pm('Phasenströme fehlen immer', 'GetFunctions', '$phaseCurrentIDs !== null ?', 'false ?');
+$pm('Vertragsversion bleibt 1.4', 'GetFunctions', "'contractVersion' => '1.5'", "'contractVersion' => '1.4'");
+$pm('Gruppe „Strom je Phase“ wird nicht geprüft', 'PhaseCurrentIDs', " || !\$this->GroupActive('GroupCurrentPhase')", '');
+$pm('Einphasige Zähler werden nicht ausgeschlossen', 'PhaseCurrentIDs', '$this->IsSinglePhaseMeter() || ', '');
+$pm('Phasenreihenfolge L2 vor L1', 'PhaseCurrentIDs', "['i_l1', 'i_l2', 'i_l3']", "['i_l2', 'i_l1', 'i_l3']");
+$pm('Fehlende Phase wird als 0 geliefert', 'PhaseCurrentIDs', "if (!\$vid) {\n                return null;\n            }", "if (!\$vid) {\n                \$vid = 0;\n            }");
+
 // ---- Ablauf ---------------------------------------------------------------------------------------------------
 $only = $argv[1] ?? null;
 $jobs = [];

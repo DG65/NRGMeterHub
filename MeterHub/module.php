@@ -9018,6 +9018,9 @@ The function is still set to "none" there — deliberately, because otherwise th
         }
         $calculatedEnergyIDs = array_values($calculatedEnergyIDs);
 
+        // 1.5: Phasenströme des Netzanschlusses für den Phasenwächter des EMS (SUITE.md „Vertragsfeld phaseCurrentIDs“).
+        $phaseCurrentIDs = $this->PhaseCurrentIDs();
+
         $list = [];
         foreach ($this->FunctionAssignments() as $a) {
             $list[] = [
@@ -9042,7 +9045,7 @@ The function is still set to "none" there — deliberately, because otherwise th
                 'authority'       => $authority,
                 'pollInterval'    => $pollInterval,
                 'archiveWatermarkTs' => $archiveWatermarkTs,
-            ];
+            ] + ($a['key'] === 'grid' && $a['slot'] === 'total' && $phaseCurrentIDs !== null ? ['phaseCurrentIDs' => $phaseCurrentIDs] : []);
         }
         return json_encode([
             // Vertragsversion (Verbund-Konvention): 1.0 = Ur-Vertrag,
@@ -9056,7 +9059,9 @@ The function is still set to "none" there — deliberately, because otherwise th
             // Energie beim blue'Log-Datenlogger). Fehlt es, gilt true.
             // 1.4 = calculatedEnergyIDs auf Instanz-Ebene (21.09.2026): die
             // Variablen-IDs mit hochgerechnetem Zählerstand, auch ohne Funktion.
-            'contractVersion' => '1.4',
+            // 1.5 = phaseCurrentIDs je Zuordnung (0.39.0, 18.11.2026): [L1, L2, L3] der echt gemessenen Phasenströme in A,
+            // nur an der Netzanschluss-Zuordnung im kombinierten Modus; fehlt, wenn der Zähler keine Phasenströme liefert.
+            'contractVersion' => '1.5',
             'instanceID'  => $this->InstanceID,
             'meter'       => $this->ReadPropertyString('Meter'),
             'measureMode' => $this->IsPerPhaseMode() ? 'perphase' : 'combined',
@@ -9067,6 +9072,29 @@ The function is still set to "none" there — deliberately, because otherwise th
             'calculatedEnergyIDs' => $calculatedEnergyIDs,
             'assignments' => $list,
         ]);
+    }
+
+    /**
+     * Variablen-IDs der drei Phasenströme [L1, L2, L3] (Float, A) dieses Zählers — oder null, wenn es sie nicht gibt.
+     * Gemessene Werte des Zählers (Treiber lesen sie aus eigenen Registern, bei jedem schnellen Lesezyklus), nie aus
+     * Leistung durch Spannung geschätzt. Voraussetzung: die Gruppe „Strom je Phase“ ist aktiv und alle drei Variablen
+     * existieren. Ein nicht verfügbarer Strom wird seit 0.38.7 nicht mehr als 0 A geschrieben (SetVarFloat), die Variable
+     * wird dann alt und der Konsument kann das an der Aktualisierungszeit erkennen.
+     */
+    private function PhaseCurrentIDs(): ?array
+    {
+        if ($this->IsSinglePhaseMeter() || !$this->GroupActive('GroupCurrentPhase')) {
+            return null;
+        }
+        $ids = [];
+        foreach (['i_l1', 'i_l2', 'i_l3'] as $ident) {
+            $vid = $this->FindVarByIdent($ident);
+            if (!$vid) {
+                return null;
+            }
+            $ids[] = $vid;
+        }
+        return $ids;
     }
 
     /**

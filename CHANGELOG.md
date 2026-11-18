@@ -2,6 +2,20 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.0 (2026-11-18)
+
+Vertragsfeld `phaseCurrentIDs` für den Phasenwächter des EMS (`MHUB_GetFunctions` **1.5**, additiv; Anlass: Ausfall bei Paul am 15.11.2026, L1 mit 57,7 A an einem 50-A-SLS).
+
+- **Neu:** An der Netzanschluss-Zuordnung (`function = grid`, kombinierter Modus) liefert `MHUB_GetFunctions` jetzt `phaseCurrentIDs` = `[L1, L2, L3]`, die Variablen-IDs der
+  drei Phasenströme in A. Das sind die vom Zähler **gemessenen** Ströme (die Treiber lesen sie aus eigenen Registern, bei jedem schnellen Lesezyklus), nie aus Leistung
+  durch Spannung geschätzt. Das Vorzeichen ist egal, das EMS rechnet mit dem Betrag.
+- **Wann das Feld fehlt:** bei einphasigen Zählern (SDM120/220/230, MBS, Tasmota, Shelly mit einem Kanal), bei Inexogy (nur Phasenleistung), bei ausgeschalteter
+  Gruppe „Strom je Phase“, im Je-Phase-Modus und bei jeder Zuordnung außer „Netzanschluss“. Es gibt dann keinen Eintrag, nicht 0 und keine leere Liste.
+- **Zusammenspiel mit 0.38.7:** Meldet ein Zähler einen Strom als „nicht verfügbar“, wird er nicht als 0 A geschrieben; die Variable wird alt, und das EMS ignoriert Werte
+  über 120 s. Ein 0-A-Wert würde den Wächter blind machen.
+- **Voraussetzung am Zähler:** Die Gruppe „Strom je Phase“ muss in der Instanz eingeschaltet sein (Bereich „Datenpunkte“).
+- **Prüfstand:** `.tools/test-phasecurrent.php` (12 Prüfungen) und 8 Mutationsproben (`php .tools/ref/mutate.php phase`).
+
 ## 0.38.7 (2026-11-18)
 
 „Nicht verfügbar“ wird nicht mehr als 0 geschrieben (Fund 1 der Code-Bestandsaufnahme vom 18.11.2026, Anlass: EMS-Phasenwächter).

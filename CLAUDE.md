@@ -468,7 +468,7 @@ measured), **1.1** = die latency/authority/pollInterval/energyKind/sourceCount-E
 **1.2** = `archiveWatermarkTs` (MeterHub, 27.08.2026), **1.3** = `energyMeasured` je
 Zuordnung (MeterHub 0.26.4, 11.09.2026 — `false` = Zählerstand aus der Leistung
 hochgerechnet, fehlt das Feld, gilt `true`).
-**MHUB 1.4** = `calculatedEnergyIDs` (Instanz-Ebene, MeterHub 0.31.5: IDs der Variablen mit hochgerechnetem
+**MHUB 1.5** = `phaseCurrentIDs` je Zuordnung (0.39.0, 18.11.2026, EMS-Phasenwächter, SUITE.md „Vertragsfeld phaseCurrentIDs“): `[L1, L2, L3]` der echt gemessenen Phasenströme (Float, A), nur an der Netzanschluss-Zuordnung (`grid`) im kombinierten Modus, nur bei aktiver Gruppe „Strom je Phase“ und allen drei Variablen `i_l1/i_l2/i_l3`; sonst fehlt das Feld (nicht 0, nicht leer). Je Lesezyklus geschrieben (`readFast`), ein nicht verfügbarer Strom wird seit 0.38.7 nicht als 0 A geschrieben. Prüfstand `test-phasecurrent.php`. **MHUB 1.4** = `calculatedEnergyIDs` (Instanz-Ebene, MeterHub 0.31.5: IDs der Variablen mit hochgerechnetem
 Zählerstand, auch ohne Funktion — Grundlage für den virtuellen Zähler). **MHUBV 1.5** = `energyMeasured`
 (Instanz-Ebene UND je Zuordnung, 0.31.5; die MHUBV-Zählung läuft eigen: 1.3 members, 1.4 switchID).
 **Major nur bei Bruch;** volle Kompatibilität ist nur innerhalb derselben Major garantiert
