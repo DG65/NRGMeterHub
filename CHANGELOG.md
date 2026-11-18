@@ -2,6 +2,11 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.40.1 (2026-11-18)
+
+- **Fix (virtueller Zähler): Die Stetigkeit der Zählerstände galt nur für positive Stände.** Ändert sich die Zusammensetzung (ein Mitglied kommt hinzu oder fällt weg, eine Quelle wird umgehängt), gleicht der virtuelle Zähler den Unterschied aus, damit Bezug und Einspeisung nahtlos weiterlaufen. Das tat er bisher nur bei einem Ausgabewert über 0. Stand die Summe im Minus (z. B. „Hausverbrauch ohne Wallboxen“: die Lebenszeit-Zähler der Abzüge sind größer als der Hauszähler), sprang der Stand beim Umhängen zweier Wallbox-Zähler um 403,9 kWh und legte einen Sprung ins Archiv. Jetzt gilt nur ein Stand von genau 0 als „noch kein Ausgabewert“.
+- **Prüfung:** `test-virtual.php` Block 40 um drei Fälle mit negativen Ständen erweitert, zwei neue Mutationsproben in `mutate-shared.php`.
+
 ## 0.40.0 (2026-11-18)
 
 Zwei Änderungen aus dem Fund von EMS an Dietmars Privat-System (Symcon-Energie-Dashboard, 18.11.2026).

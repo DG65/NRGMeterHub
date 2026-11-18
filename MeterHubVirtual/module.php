@@ -2879,7 +2879,10 @@ The previous table is backed up. From now on: add, remove and reorder members in
             return [$raw, ['sig' => $sig, 'offset' => 0.0]];
         }
         $offset = (float)($state['offset'] ?? 0.0);
-        if ($state['sig'] !== $sig && $prev > 0) {
+        // Auch ein negativer Ausgabewert muss stetig weiterlaufen (0.40.1): „Hausverbrauch ohne Wallboxen“ steht im Minus, weil die
+        // Lebenszeit-Zähler der Abzüge größer sind als der Hauszähler; mit „$prev > 0“ sprang dort beim Umhängen zweier Wallbox-
+        // Zähler der Stand um 403,9 kWh. Nur ein Stand von genau 0 gilt als „noch kein Ausgabewert“.
+        if ($state['sig'] !== $sig && $prev != 0.0) {
             $offset = $prev - $raw;
         }
         return [$raw + $offset, ['sig' => $sig, 'offset' => $offset]];

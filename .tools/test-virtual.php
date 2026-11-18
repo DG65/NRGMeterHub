@@ -2140,6 +2140,14 @@ check('40: danach zählt jede echte kWh normal weiter', abs($o40 - 42224.0) < 1e
 check('40: neues Mitglied mit hohem Stand → kein Riesensprung nach oben', abs($o40 - 42224.0) < 1e-9);
 [$o40b] = $m40(['sig' => 'A', 'offset' => 5.0], 'B', 100.0, 0.0);
 check('40: ohne bisherigen Ausgabewert (0) bleibt der Ausgleich unverändert', abs($o40b - 105.0) < 1e-9);
+// Privat 18.11.2026: „Hausverbrauch ohne Wallboxen“ (Stand −35.584,6 kWh) sprang beim Umhängen zweier Wallbox-Zähler um −403,9 kWh,
+// weil die Stetigkeit nur für positive Ausgabewerte galt.
+[$o40n, $s40n] = $m40(['sig' => 'A', 'offset' => 0.0], 'B', -35988.4832, -35584.5844);
+check('40: negativer Ausgabewert, Zusammensetzung wechselt: Stand läuft stetig weiter (kein Sprung um 403,9)', abs($o40n - (-35584.5844)) < 1e-9 && abs($s40n['offset'] - 403.8988) < 1e-4, json_encode([$o40n, $s40n]));
+[$o40n2] = $m40($s40n, 'B', -35987.4832, $o40n);
+check('40: danach zählt der negative Stand normal weiter (+1 kWh)', abs($o40n2 - (-35583.5844)) < 1e-9);
+[$o40n3] = $m40(['sig' => 'A', 'offset' => 5.0], 'B', -100.0, 0.0);
+check('40: Ausgabewert genau 0 bleibt „noch kein Wert“, auch bei negativer Rohsumme', abs($o40n3 - (-95.0)) < 1e-9);
 
 echo "\n41) Doppelte Anbindung: Haltezeit, damit die Zählquelle nicht pendelt (0.28.5, EMS-Anmerkung 13.09.2026)\n";
 $m41 = fn(...$a) => (new ReflectionMethod('MeterHubVirtual', 'ChooseCounting'))->invoke(null, ...$a);

@@ -81,6 +81,8 @@ $add('Neuaggregation: nie (virtueller Zähler)', "if (\$oldType !== \$wantedType
 $add('Neuaggregation: Warteschlange wird nicht abgearbeitet', "        \$this->ProcessReAggQueue();\n        \$this->AdvanceCalculatedEnergy(\$nodes);", "        \$this->AdvanceCalculatedEnergy(\$nodes);", $V);
 $add('Neuaggregation: bei jedem Übernehmen (MeterHub)', "if (\$oldType !== \$wantedType) {", "if (true) {", 'MeterHub/module.php');
 $add('Neuaggregation: nie (MeterHub)', "if (\$oldType !== \$wantedType) {", "if (false) {", 'MeterHub/module.php');
+$add('Stetigkeit: nur für positive Ausgabewerte', "\$state['sig'] !== \$sig && \$prev != 0.0", "\$state['sig'] !== \$sig && \$prev > 0", $V);
+$add('Stetigkeit: auch ohne bisherigen Ausgabewert', "\$state['sig'] !== \$sig && \$prev != 0.0", "\$state['sig'] !== \$sig", $V);
 $tests = array_map('basename', glob("$root/.tools/test-*.php"));
 $jobs = [];
 function copyAll(string $root, string $dest, string $target, string $content): void
