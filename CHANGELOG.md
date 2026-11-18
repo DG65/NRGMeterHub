@@ -2,6 +2,16 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.2 (2026-11-18)
+
+Gerätesuche: Eine Modbus-Exception lässt die Suche nicht mehr bis zum Ende der Zeitgrenze warten (Fund 3 der Code-Bestandsaufnahme vom 18.11.2026).
+
+- **Vorher:** Antwortet ein Gerät auf eine Probeabfrage mit einer Modbus-Exception (9 Byte: Kopf, Funktionscode mit gesetztem Bit 7, Fehlercode), erwartete `modbusRead()` zusätzlich
+  zwei Datenbyte, die nie kommen, und las bis zum Ablauf der Zeitgrenze (1,0 s bei den Zählerproben, 1,5 s bei den Textproben des blue'Log). Jede Probe an einer
+  Adresse, die ein Gerät nicht kennt, kostete deshalb die volle Zeit: ein Eastron wurde nach rund 8 Sekunden erkannt, weil sechs vorherige Proben je eine Sekunde warteten.
+- **Jetzt:** Die Exception wird an Bit 7 des Funktionscodes erkannt, die Abfrage endet sofort und gilt wie bisher als „keine Antwort“. Das Ergebnis der Suche ändert sich nicht, sie wird schneller.
+- **Prüfstand:** `test-ref-suche.php` (Modbus-Server mit offen bleibender Verbindung nach der Exception, wie ein echtes Gerät) und eine Mutationsprobe; gegen 0.39.1 dauern die zwei Proben 2 s, jetzt unter 0,1 s.
+
 ## 0.39.1 (2026-11-18)
 
 Janitza (klassische Registerkarte): Das Drehfeld („Phasenfolge“, `phase_seq`) wird bei einem nicht verfügbaren Wert nicht mehr geschrieben (Fund 2 der Code-Bestandsaufnahme vom 18.11.2026).

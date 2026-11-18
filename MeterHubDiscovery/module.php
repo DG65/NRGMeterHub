@@ -1894,6 +1894,12 @@ class MeterHubDiscovery extends IPSModule
             }
             $response .= $chunk;
             if (strlen($response) >= 9) {
+                // Eine Modbus-Exception ist nur 9 Byte lang (MBAP 7 + Funktionscode mit gesetztem Bit 7 + Fehlercode): Byte 8
+                // ist dort der Fehlercode, kein Byte-Count. Ohne diese Abkürzung wartete die Suche auf 9 + 2 Byte, die nie
+                // kommen, und blockierte bis zum Ende der Zeitgrenze (0.39.2, Fund 3 der Code-Bestandsaufnahme).
+                if (ord($response[7]) & 0x80) {
+                    break;
+                }
                 $byteCount = ord($response[8]);
                 if (strlen($response) >= 9 + $byteCount) {
                     break;

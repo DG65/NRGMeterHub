@@ -196,6 +196,17 @@ foreach ($profiles as $name => $make) {
 }
 $result['erkennung_kein_Server'] = $priv('identifyMeter', '127.0.0.1', 1);
 
+// Modbus-Exception bei offen bleibender Verbindung (so verhält sich ein echtes Gerät): die Suche darf nicht bis zur Zeitgrenze warten (0.39.2, Fund 3)
+$exc = $serverCall(['units' => ['1' => ['3' => [], '4' => []]], 'keepOpenOnException' => true], function ($port) use ($priv) {
+    $t = microtime(true);
+    $v = $priv('readFloat', '127.0.0.1', $port, 1, 55, 1.0);   // FC3, Adresse 55: nicht vorhanden → Exception 02
+    $input = $priv('readFloatInput', '127.0.0.1', $port, 1, 1, 1.0);
+    $elapsed = microtime(true) - $t;
+    return ['wert' => $v, 'wert_input' => $input, 'schnell' => $elapsed < 0.7, 'dauer_s' => round($elapsed, 1)];
+});
+$result['exception_ohne_warten'] = ['wert' => $exc['wert'], 'wert_input' => $exc['wert_input'], 'schnell' => $exc['schnell']];
+$excSlow = $exc['dauer_s'];
+
 // blue'Log-Erkennung des Hosts und der Geräte (identifyBlueLogHost()/identifyBlueLogDevicesBatch() direkt)
 foreach (['bluelog_Logger_und_Wechselrichter', 'bluelog_nur_Power_Control', 'bluelog_nur_RPC', 'bluelog_Logger_unter_falscher_Adresse', 'nichts_antwortet'] as $name) {
     $result['bluelog_Host_' . $name] = $serverCall($profiles[$name](), fn($port) => $priv('identifyBlueLogHost', '127.0.0.1', $port));
@@ -267,6 +278,7 @@ foreach (array_keys($ref) as $k) { if (!array_key_exists($k, $result)) { $bad[] 
 check('Gerätesuche: ' . (count($result) - 1) . ' Fälle stimmen mit der Referenz überein', $bad === [], implode(', ', array_slice($bad, 0, 5)));
 $names = fn(string $k) => array_column($result[$k]['ergebnisse'] ?? [], 'meter');
 $idm = fn(string $k) => $result[$k]['meter'] ?? null;
+check('Fund 3: eine Modbus-Exception bei offen bleibender Verbindung kostet keine Sekunde Wartezeit (zwei Proben in ' . $excSlow . ' s statt 2 × 1,0 s)', $result['exception_ohne_warten']['schnell'] === true && $result['exception_ohne_warten']['wert'] === null && $result['exception_ohne_warten']['wert_input'] === null);
 check('Siemens PAC2200 wird unter Unit-ID 247 erkannt', $idm('erkennung_pac2200_Unit247') === 'siemens_pac2200' && $result['erkennung_pac2200_Unit247']['unitId'] === 247);
 check('jeder der 9 Zählertypen wird an seinem Profil erkannt (Janitza klassisch als UMG 604)', array_map($idm, array_combine(['pac','j','j8','sh','cg','ww','ph','ea','go'], ['erkennung_pac2200_Unit247','erkennung_janitza_klassisch','erkennung_janitza_umg800','erkennung_shelly_pro3em','erkennung_carlo_gavazzi','erkennung_whatwatt','erkennung_phoenix_Unit255','erkennung_eastron_sdm','erkennung_goe_controller'])) === ['pac' => 'siemens_pac2200', 'j' => 'janitza_umg604', 'j8' => 'janitza_umg800', 'sh' => 'shelly_pro3em', 'cg' => 'carlo_gavazzi_em', 'ww' => 'whatwatt', 'ph' => 'phoenix_eem375', 'ea' => 'eastron_sdm72d', 'go' => 'goe_controller']);
 check('ohne Server und bei unplausiblen Werten wird nichts erkannt', $idm('erkennung_kein_Server') === null && $idm('erkennung_frequenz_unplausibel') === null && $idm('erkennung_spannung_unplausibel') === null);

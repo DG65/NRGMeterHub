@@ -163,6 +163,7 @@ $sm('Suche: Abbruch wird im Lauf nicht beachtet', 'Discover', 'if ($this->scanAb
 $sm('Suche: Ausschlussliste wird nicht angewendet', 'Discover', '$ips = array_values(array_diff($ips, $ignore));', ';');
 $sm('Lizenzprüfung: Symbole vertauscht', 'CheckBlueLogLicenses', "(\$ok ? '✅ ' : '❌ ')", "(\$ok ? '❌ ' : '✅ ')");
 $sm('Lizenzprüfung: Exception zählt nicht mehr', 'probeUnitResponds', 'strlen($response) >= 8;', 'strlen($response) >= 10;');
+$sm('Modbus-Lesen: Exception-Abkürzung entfällt (wartet bis zur Zeitgrenze)', 'modbusRead', "if (ord(\$response[7]) & 0x80) {\n                    break;\n                }", ';');
 $sm('Modbus-Lesen: Exception wird als Daten gelesen', 'modbusRead', '$rfc & 0x80 || $rfc !== $fc', '$rfc !== $fc');
 
 // ---- phaseCurrentIDs ------------------------------------------------------------------------------------------------

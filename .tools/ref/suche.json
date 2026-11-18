@@ -176,6 +176,11 @@
     "erkennung_unbelegte_Register_NaN": null,
     "erkennung_nichts_antwortet": null,
     "erkennung_kein_Server": null,
+    "exception_ohne_warten": {
+        "wert": null,
+        "wert_input": null,
+        "schnell": true
+    },
     "bluelog_Host_bluelog_Logger_und_Wechselrichter": true,
     "bluelog_Host_bluelog_nur_Power_Control": true,
     "bluelog_Host_bluelog_nur_RPC": true,

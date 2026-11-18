@@ -6,8 +6,9 @@
  *
  * Meldet auf der Standardausgabe "PORT <n>" und beantwortet danach FC 3 und FC 4 aus dem Profil:
  *   {"units": {"<Unit-ID>": {"3": {"<Adresse>": <Wort>, …}, "4": {…}}}}
- * Fehlt ein Wort des angefragten Bereichs, kommt die Exception 02. Eine Unit-ID ohne Eintrag bekommt keine Antwort
- * (Verbindung wird geschlossen). Mehrere Verbindungen gleichzeitig sind erlaubt.
+ * Fehlt ein Wort des angefragten Bereichs, kommt die Exception 02 (danach wird die Verbindung geschlossen; mit
+ * "keepOpenOnException": true bleibt sie offen wie bei einem echten Gerät). Eine Unit-ID ohne Eintrag bekommt keine
+ * Antwort (Verbindung wird geschlossen). Mehrere Verbindungen gleichzeitig sind erlaubt.
  */
 $profile = json_decode(file_get_contents($argv[1]), true);
 $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
@@ -44,7 +45,7 @@ while (true) {
             // Ein echtes Gerät lässt die Verbindung nach einer Exception offen; die Suche wartet dann bis zum Ende ihrer
             // Zeitgrenze (siehe Funde in MeterHub.md). Der Prüfserver schließt, damit der Lauf nicht minutenlang dauert —
             // für die Suche ist beides „keine Antwort“.
-            if (!$ok) { fclose($s); unset($clients[$id], $buf[$id]); }
+            if (!$ok && empty($profile['keepOpenOnException'])) { fclose($s); unset($clients[$id], $buf[$id]); }
             break;
         }
     }
