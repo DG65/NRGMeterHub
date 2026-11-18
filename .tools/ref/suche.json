@@ -181,6 +181,24 @@
         "wert_input": null,
         "schnell": true
     },
+    "parallel_geschlossene_gegenseite": {
+        "nur_geschlossen": [
+            null,
+            null,
+            null
+        ],
+        "schnell": true,
+        "wenig_cpu": true,
+        "gemischt": [
+            [
+                0
+            ],
+            null,
+            null,
+            null
+        ],
+        "gemischt_schnell": true
+    },
     "bluelog_Host_bluelog_Logger_und_Wechselrichter": true,
     "bluelog_Host_bluelog_nur_Power_Control": true,
     "bluelog_Host_bluelog_nur_RPC": true,

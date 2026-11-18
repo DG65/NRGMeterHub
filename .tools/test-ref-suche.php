@@ -207,6 +207,22 @@ $exc = $serverCall(['units' => ['1' => ['3' => [], '4' => []]], 'keepOpenOnExcep
 $result['exception_ohne_warten'] = ['wert' => $exc['wert'], 'wert_input' => $exc['wert_input'], 'schnell' => $exc['schnell']];
 $excSlow = $exc['dauer_s'];
 
+// Gegenseite schließt die Verbindung (unbekannte Unit-ID): die parallele Probe darf nicht bis zur Zeitgrenze mit voller CPU drehen (0.39.3, Fund 4)
+$closedCase = $serverCall(['units' => ['97' => ['3' => ['40000' => 0]]]], function ($port) use ($priv) {
+    $targets = [];
+    foreach ([200, 201, 202] as $u) { $targets[] = ['host' => '127.0.0.1', 'port' => $port, 'unitId' => $u, 'reg' => 40000, 'count' => 1]; }
+    $t0 = microtime(true); $c0 = getrusage();
+    $res = $priv('probeManyParallel', $targets, 0.7);
+    $wall = microtime(true) - $t0; $c1 = getrusage();
+    $cpu = ($c1['ru_utime.tv_sec'] - $c0['ru_utime.tv_sec']) + ($c1['ru_utime.tv_usec'] - $c0['ru_utime.tv_usec']) / 1e6 + ($c1['ru_stime.tv_sec'] - $c0['ru_stime.tv_sec']) + ($c1['ru_stime.tv_usec'] - $c0['ru_stime.tv_usec']) / 1e6;
+    $mixed = array_merge([['host' => '127.0.0.1', 'port' => $port, 'unitId' => 97, 'reg' => 40000, 'count' => 1]], $targets);
+    $t1 = microtime(true);
+    $resMixed = $priv('probeManyParallel', $mixed, 0.7);
+    $wall2 = microtime(true) - $t1;
+    return ['nur_geschlossen' => $res, 'schnell' => $wall < 0.4, 'wenig_cpu' => $cpu < 0.3, 'gemischt' => $resMixed, 'gemischt_schnell' => $wall2 < 0.4, 'wand_s' => round($wall, 2), 'cpu_s' => round($cpu, 2)];
+});
+$result['parallel_geschlossene_gegenseite'] = ['nur_geschlossen' => $closedCase['nur_geschlossen'], 'schnell' => $closedCase['schnell'], 'wenig_cpu' => $closedCase['wenig_cpu'], 'gemischt' => $closedCase['gemischt'], 'gemischt_schnell' => $closedCase['gemischt_schnell']];
+
 // blue'Log-Erkennung des Hosts und der Geräte (identifyBlueLogHost()/identifyBlueLogDevicesBatch() direkt)
 foreach (['bluelog_Logger_und_Wechselrichter', 'bluelog_nur_Power_Control', 'bluelog_nur_RPC', 'bluelog_Logger_unter_falscher_Adresse', 'nichts_antwortet'] as $name) {
     $result['bluelog_Host_' . $name] = $serverCall($profiles[$name](), fn($port) => $priv('identifyBlueLogHost', '127.0.0.1', $port));
@@ -278,6 +294,7 @@ foreach (array_keys($ref) as $k) { if (!array_key_exists($k, $result)) { $bad[] 
 check('Gerätesuche: ' . (count($result) - 1) . ' Fälle stimmen mit der Referenz überein', $bad === [], implode(', ', array_slice($bad, 0, 5)));
 $names = fn(string $k) => array_column($result[$k]['ergebnisse'] ?? [], 'meter');
 $idm = fn(string $k) => $result[$k]['meter'] ?? null;
+check('Fund 4: geschlossene Gegenseite in der parallelen Probe: ' . $closedCase['wand_s'] . ' s Wartezeit, ' . $closedCase['cpu_s'] . ' s CPU (vorher bis zur Zeitgrenze mit voller CPU), gemischt mit einer antwortenden Unit richtig ausgewertet', $result['parallel_geschlossene_gegenseite']['schnell'] === true && $result['parallel_geschlossene_gegenseite']['wenig_cpu'] === true && $result['parallel_geschlossene_gegenseite']['gemischt_schnell'] === true && $result['parallel_geschlossene_gegenseite']['gemischt'][0] === [0] && $result['parallel_geschlossene_gegenseite']['gemischt'][1] === null);
 check('Fund 3: eine Modbus-Exception bei offen bleibender Verbindung kostet keine Sekunde Wartezeit (zwei Proben in ' . $excSlow . ' s statt 2 × 1,0 s)', $result['exception_ohne_warten']['schnell'] === true && $result['exception_ohne_warten']['wert'] === null && $result['exception_ohne_warten']['wert_input'] === null);
 check('Siemens PAC2200 wird unter Unit-ID 247 erkannt', $idm('erkennung_pac2200_Unit247') === 'siemens_pac2200' && $result['erkennung_pac2200_Unit247']['unitId'] === 247);
 check('jeder der 9 Zählertypen wird an seinem Profil erkannt (Janitza klassisch als UMG 604)', array_map($idm, array_combine(['pac','j','j8','sh','cg','ww','ph','ea','go'], ['erkennung_pac2200_Unit247','erkennung_janitza_klassisch','erkennung_janitza_umg800','erkennung_shelly_pro3em','erkennung_carlo_gavazzi','erkennung_whatwatt','erkennung_phoenix_Unit255','erkennung_eastron_sdm','erkennung_goe_controller'])) === ['pac' => 'siemens_pac2200', 'j' => 'janitza_umg604', 'j8' => 'janitza_umg800', 'sh' => 'shelly_pro3em', 'cg' => 'carlo_gavazzi_em', 'ww' => 'whatwatt', 'ph' => 'phoenix_eem375', 'ea' => 'eastron_sdm72d', 'go' => 'goe_controller']);

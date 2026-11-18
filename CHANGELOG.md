@@ -2,6 +2,17 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.3 (2026-11-18)
+
+Gerätesuche: Die parallele blue'Log-Probe dreht nicht mehr mit voller CPU, wenn die Gegenseite die Verbindung schließt (Fund 4 der Code-Bestandsaufnahme vom 18.11.2026).
+
+- **Vorher:** `probeManyParallel()` öffnet mehrere Verbindungen gleichzeitig und liest, bis je Verbindung 9 Byte da sind oder die Zeitgrenze (0,7 s) abläuft. Schließt die Gegenseite eine
+  Verbindung (ein Gerät, das eine unbekannte Unit-ID nicht beantwortet, sondern die Verbindung beendet), bleibt der Socket für `stream_select()` dauerhaft „lesbar“, der Puffer
+  bleibt aber leer. Die Schleife lief dann bis zur Zeitgrenze ohne zu warten mit voller CPU, bei jeder Runde der blue'Log-Erkennung.
+- **Jetzt:** Wer die Verbindung schließt, wird erkannt (`feof`) und aus der Lesemenge genommen; ist keine Verbindung mehr offen, endet die Probe sofort und gilt wie bisher als „keine Antwort“. Antwortende
+  Verbindungen werden unverändert ausgewertet.
+- **Prüfstand:** `test-ref-suche.php` (drei geschlossene Unit-IDs, dazu gemischt mit einer antwortenden): gegen 0.39.2 0,7 s Wartezeit und 0,7 s CPU, jetzt unter 0,05 s; zwei Mutationsproben.
+
 ## 0.39.2 (2026-11-18)
 
 Gerätesuche: Eine Modbus-Exception lässt die Suche nicht mehr bis zum Ende der Zeitgrenze warten (Fund 3 der Code-Bestandsaufnahme vom 18.11.2026).

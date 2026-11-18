@@ -1773,10 +1773,14 @@ class MeterHubDiscovery extends IPSModule
             $buffers[$i] = '';
         }
         $deadline = microtime(true) + $timeout;
+        // Von der Gegenseite geschlossene Verbindungen: ein geschlossener Socket bleibt für stream_select() ewig „lesbar“,
+        // der Puffer bliebe unter 9 Byte und die Schleife drehte bis zur Zeitgrenze mit voller CPU (0.39.3, Fund 4 der
+        // Code-Bestandsaufnahme). Wer geschlossen hat, kommt aus der Menge und gilt als „keine Antwort“.
+        $closed = [];
         while (microtime(true) < $deadline) {
             $read = [];
             foreach ($sockets as $i => $s) {
-                if ($s !== false && strlen($buffers[$i]) < 9) {
+                if ($s !== false && !isset($closed[$i]) && strlen($buffers[$i]) < 9) {
                     $read[$i] = $s;
                 }
             }
@@ -1794,6 +1798,9 @@ class MeterHubDiscovery extends IPSModule
                     $chunk = @fread($s, 512);
                     if ($chunk !== false) {
                         $buffers[$i] .= $chunk;
+                    }
+                    if (($chunk === '' || $chunk === false) && feof($s)) {
+                        $closed[$i] = true;
                     }
                 }
             }

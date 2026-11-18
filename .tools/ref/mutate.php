@@ -164,6 +164,8 @@ $sm('Suche: Ausschlussliste wird nicht angewendet', 'Discover', '$ips = array_va
 $sm('Lizenzprüfung: Symbole vertauscht', 'CheckBlueLogLicenses', "(\$ok ? '✅ ' : '❌ ')", "(\$ok ? '❌ ' : '✅ ')");
 $sm('Lizenzprüfung: Exception zählt nicht mehr', 'probeUnitResponds', 'strlen($response) >= 8;', 'strlen($response) >= 10;');
 $sm('Modbus-Lesen: Exception-Abkürzung entfällt (wartet bis zur Zeitgrenze)', 'modbusRead', "if (ord(\$response[7]) & 0x80) {\n                    break;\n                }", ';');
+$sm('Parallele Probe: geschlossene Gegenseite wird nicht erkannt (dreht bis zur Zeitgrenze)', 'probeManyParallel', "if ((\$chunk === '' || \$chunk === false) && feof(\$s)) {\n                        \$closed[\$i] = true;\n                    }", ';');
+$sm('Parallele Probe: Ergebnis der antwortenden Unit geht verloren', 'probeManyParallel', '$buffers[$i] .= $chunk;', ';');
 $sm('Modbus-Lesen: Exception wird als Daten gelesen', 'modbusRead', '$rfc & 0x80 || $rfc !== $fc', '$rfc !== $fc');
 
 // ---- phaseCurrentIDs ------------------------------------------------------------------------------------------------
