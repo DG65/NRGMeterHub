@@ -929,7 +929,11 @@ class MHUB_JanitzaClassicDriver implements MHUB_MeterDriverInterface
         }
         if ($hub->GroupActive('GroupQuality')) {
             // Drehfeld: 1=rechts, 0=keins, -1=links (Float, auf Integer runden).
-            $hub->SetVarInt('phase_seq', (int)round($mb->readFloat32($r, 52))); // 19052
+            // „Nicht verfügbar“ (NaN, 0xFFFFFFFF) nicht in eine Ganzzahl wandeln: PHP 8 warnt bei (int)NAN, und eine 0 hieße „keins“ (0.39.1).
+            $seq = $mb->readFloat32($r, 52); // 19052
+            if (is_finite($seq)) {
+                $hub->SetVarInt('phase_seq', (int)round($seq));
+            }
         }
 
         // THD-Block 19110..19121 nur bei aktiver Netzqualitäts-Gruppe lesen.

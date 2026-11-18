@@ -2,6 +2,14 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.1 (2026-11-18)
+
+Janitza (klassische Registerkarte): Das Drehfeld („Phasenfolge“, `phase_seq`) wird bei einem nicht verfügbaren Wert nicht mehr geschrieben (Fund 2 der Code-Bestandsaufnahme vom 18.11.2026).
+
+- **Vorher:** Lieferte ein Gerät dort `0xFFFFFFFF` (NaN, „nicht verfügbar“), wandelte der Treiber den Wert mit `(int)round(...)` in eine Ganzzahl. PHP 8 meldet dabei „The float NAN is not representable as an int“ in jedem Lesezyklus, und die Variable bekam 0, das im Drehfeld „kein Drehfeld“ bedeutet.
+- **Jetzt:** Ein nicht endlicher Wert wird nicht geschrieben, die Variable behält ihren letzten Wert; keine PHP-Warnung. Das ist dieselbe Regel wie seit 0.38.7 für Leistung, Spannung und Strom. Gültige Werte (1, 0, −1) werden wie bisher geschrieben.
+- **Prüfstand:** `test-ref-treiber.php` (Referenz für Janitza klassisch neu geschrieben: nur `phase_seq` und die Warnung fallen im Szenario „ungültig“ weg, sonst nichts) plus zwei ausdrückliche Prüfungen und eine Mutationsprobe.
+
 ## 0.39.0 (2026-11-18)
 
 Vertragsfeld `phaseCurrentIDs` für den Phasenwächter des EMS (`MHUB_GetFunctions` **1.5**, additiv; Anlass: Ausfall bei Paul am 15.11.2026, L1 mit 57,7 A an einem 50-A-SLS).

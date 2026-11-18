@@ -77,5 +77,10 @@ foreach ($result as $cls => $sc) {
     check("$short: Lesepfad schreibt im Normalfall mindestens eine Variable", count($sc['positiv']['vars']) > 0);
 }
 
+$jz = $result['MHUB_JanitzaClassicDriver']['ungueltig'];
+check('Janitza klassisch: Drehfeld „nicht verfügbar“ (0xFFFF…) erzeugt keine PHP-Warnung und schreibt phase_seq nicht (0.39.1, Fund 2)', $jz['warnungen'] === [] && !isset($jz['vars']['phase_seq']));
+$jz2 = $result['MHUB_JanitzaClassicDriver']['positiv'];
+check('Janitza klassisch: bei gültigem Wert wird phase_seq weiterhin geschrieben', isset($jz2['vars']['phase_seq']));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

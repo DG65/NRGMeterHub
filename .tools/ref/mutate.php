@@ -71,6 +71,7 @@ foreach ($drivers as $d) {
     }];
     $mutations[] = ['treiber', "$short: Gruppenbedingung umgekehrt", $t, fn($s) => mutateIn($s, $d, '/\$hub->GroupActive\(/', '!$hub->GroupActive(')];
 }
+$mutations[] = ['treiber', 'Janitza klassisch: Drehfeld ohne is_finite-Prüfung (Fund 2)', 'test-ref-treiber.php', fn($s) => mutateIn($s, 'MHUB_JanitzaClassicDriver', '/is_finite\(\$seq\)/', 'true')];
 $mutations[] = ['treiber', 'GoeController: Ungültig-Marke (is_finite) entfernt', 'test-ref-treiber.php', fn($s) => mutateIn($s, 'MHUB_GoeControllerDriver', '/is_finite\(\$v\)/', 'true')];
 
 // ---- ApplyChanges und Rückfallwert -------------------------------------------------------------------------------

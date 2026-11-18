@@ -3636,9 +3636,7 @@
                 "readFast": true,
                 "readSlow": null
             },
-            "warnungen": [
-                "The float NAN is not representable as an int, cast occurred"
-            ],
+            "warnungen": [],
             "requests": [
                 "3/19000/54",
                 "3/19636/2",
@@ -3709,10 +3707,6 @@
                 "pf_total": [
                     "F",
                     "NaN"
-                ],
-                "phase_seq": [
-                    "I",
-                    "0"
                 ],
                 "power_total": [
                     "F",
@@ -3803,7 +3797,7 @@
                     "NaN"
                 ]
             },
-            "order": 39,
+            "order": 38,
             "calls": []
         },
         "keine_Antwort": {
