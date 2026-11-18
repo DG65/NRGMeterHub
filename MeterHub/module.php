@@ -4137,13 +4137,13 @@ class MeterHub extends IPSModule
         $this->RegisterVariables();
         // Bereitschaft: Modbus-Zähler brauchen eine IP, Cloud-Zähler ein
         // gültiges Zugriffs-Token samt gewählter Zähler-UID.
-        $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
+        $isCloud = $this->IsCloudMeter();
         // Symbox-Gateway: Host/Port entfallen, bereit ist die Instanz mit einer
         // gewählten Brücke. Ob die Brücke selbst mit einem Gateway verbunden ist,
         // ändert sich unabhängig von dieser Instanz — dann scheitert der
         // Lesezyklus mit Status 201 und erklärendem Text, die Timer laufen.
-        $isHttp  = in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true);
-        $isMqtt  = in_array($this->ReadPropertyString('Meter'), self::MQTT_METERS, true);
+        $isHttp  = $this->IsHttpMeter();
+        $isMqtt  = $this->IsMqttMeter();
         $ready   = $isCloud
             ? ($this->ReadAttributeString('InexogyToken') !== '' && $this->ReadPropertyString('InexogyMeterID') !== '')
             : ($isMqtt
@@ -4300,9 +4300,9 @@ class MeterHub extends IPSModule
     private function UsesModbus(): bool
     {
         $meter = $this->ReadPropertyString('Meter');
-        return !in_array($meter, self::CLOUD_METERS, true)
-            && !in_array($meter, self::HTTP_METERS, true)
-            && !in_array($meter, self::MQTT_METERS, true);
+        return !$this->IsCloudMeter($meter)
+            && !$this->IsHttpMeter($meter)
+            && !$this->IsMqttMeter($meter);
     }
 
     /**
@@ -4574,7 +4574,7 @@ class MeterHub extends IPSModule
         if ($ok) {
             return MHUB_Text::t('✅ Connection successful, values updated (%s).', date('H:i:s'));
         }
-        if (in_array($this->ReadPropertyString('Meter'), array_merge(self::HTTP_METERS, self::MQTT_METERS), true) && method_exists($mb, 'getLastError')) {
+        if (($this->IsHttpMeter() || $this->IsMqttMeter()) && method_exists($mb, 'getLastError')) {
             return MHUB_Text::t('❌ Connection failed — %s', $mb->getLastError());
         }
         return $this->ReadPropertyString('ConnectionMode') === 'gateway'
@@ -4764,7 +4764,7 @@ class MeterHub extends IPSModule
             if ($p === 0 && $i === 0) {
                 $warn[] = MHUB_Text::t('"%s" delivers neither total power nor import — the row stays without a data point.', IPS_GetName($iid));
             }
-            if ((string)@IPS_GetProperty($iid, 'MeasureMode') === 'perphase' && !in_array((string)@IPS_GetProperty($iid, 'Meter'), self::SINGLE_PHASE_METERS, true)) {
+            if ((string)@IPS_GetProperty($iid, 'MeasureMode') === 'perphase' && !$this->IsSinglePhaseType((string)@IPS_GetProperty($iid, 'Meter'))) {
                 $warn[] = MHUB_Text::t('"%s" measures three separate consumers per phase; the sum over all phases is taken.', IPS_GetName($iid));
             }
             return ['Name' => IPS_GetName($iid), 'Factor' => $factor, 'PowerID' => $p, 'EnergyImportID' => $i, 'EnergyExportID' => $e];
@@ -4876,9 +4876,9 @@ The function is still set to "none" there — deliberately, because otherwise th
             $this->AdoptDismissFromSibling();
         }
         $driver = $this->GetDriver();
-        $isCloud = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true);
-        $isHttp  = in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true);
-        $isMqtt  = in_array($this->ReadPropertyString('Meter'), self::MQTT_METERS, true);
+        $isCloud = $this->IsCloudMeter();
+        $isHttp  = $this->IsHttpMeter();
+        $isMqtt  = $this->IsMqttMeter();
         $noModbus = $isHttp || $isMqtt;
         $connectionMode = $noModbus ? 'direct' : $this->ReadPropertyString('ConnectionMode');   // HTTP-/MQTT-Geräte kennen den Symbox-Weg nicht
 
@@ -5476,7 +5476,7 @@ The function is still set to "none" there — deliberately, because otherwise th
      */
     public function OnChangeMeter(string $meter)
     {
-        $isCloud = in_array($meter, self::CLOUD_METERS, true);
+        $isCloud = $this->IsCloudMeter($meter);
         foreach (['InexogyIntro', 'InexogyStatusLine', 'SecretsPanel', 'SecretsIntro', 'SecretsEnabled', 'SecretsInstanceID', 'SecretsRecord', 'SecretsPassField', 'SecretsUserField', 'SecretsStatusLine', 'InexogyEmail', 'InexogyPassword', 'InexogyLoginButton', 'InexogyMeterID', 'InexogyHintPoll', 'InexogyHintMigration', 'InexogyHintBackfill', 'InexogyBackfillDays', 'InexogyBackfillButton', 'InexogyHintAutoBackfill', 'InexogyAutoBackfillEnabled', 'InexogyAutoBackfillIntervalMin', 'InexogyAutoBackfillDays', 'InexogyHintCleanup', 'InexogyCleanupDays', 'InexogyCleanupCheck', 'InexogyCleanupRun'] as $f) {
             $this->UpdateFormField($f, 'visible', $isCloud);
         }
@@ -5485,8 +5485,8 @@ The function is still set to "none" there — deliberately, because otherwise th
             $this->UpdateFormField('InexogyBackfillResult', 'visible', false);
             $this->UpdateFormField('InexogyArchiveStatus', 'visible', false);
         }
-        $isHttp = in_array($meter, self::HTTP_METERS, true);
-        $isMqtt = in_array($meter, self::MQTT_METERS, true);
+        $isHttp = $this->IsHttpMeter($meter);
+        $isMqtt = $this->IsMqttMeter($meter);
         $noModbus = $isHttp || $isMqtt;
         $isGateway = !$noModbus && $this->ReadPropertyString('ConnectionMode') === 'gateway';
         foreach (['MqttHint', 'MqttBridgeID', 'MqttTopic', 'MqttChannel', 'MqttStatusLine'] as $f) {
@@ -5512,14 +5512,14 @@ The function is still set to "none" there — deliberately, because otherwise th
 
         // Sollwert-Panel (blue'Log RPC/Power Control) — nur bei den beiden
         // schreibenden Zählertypen sichtbar.
-        $isWritable = in_array($meter, self::WRITABLE_METERS, true);
+        $isWritable = $this->IsWritableMeter($meter);
         $this->UpdateFormField('WriteWarningPanel', 'visible', $isWritable);
         $this->UpdateFormField('WriteWarningGridop', 'visible', $meter === 'bluelog_powercontrol');
         foreach (['SetpointMode', 'TargetSetpoint', 'FailsafeMode', 'FailsafeDefaultPercent', 'BtnWriteNow'] as $f) {
             $this->UpdateFormField($f, 'visible', $isWritable);
         }
-        $this->UpdateFormField('RpcValidTimeMin', 'visible', in_array($meter, self::RPC_VALID_TIME_METERS, true));
-        $single = in_array($meter, self::SINGLE_PHASE_METERS, true) || ($meter === 'shelly_mqtt' && in_array($this->ReadAttributeString('ShellyKind'), ['switch', 'pm1', 'em1'], true));
+        $this->UpdateFormField('RpcValidTimeMin', 'visible', $this->HasRpcValidTime($meter));
+        $single = $this->IsSinglePhaseType($meter) || ($meter === 'shelly_mqtt' && in_array($this->ReadAttributeString('ShellyKind'), ['switch', 'pm1', 'em1'], true));
         foreach (['MeasureMode', 'MeasureModeIntro', 'MeasureModeHint'] as $f) {
             $this->UpdateFormField($f, 'visible', !$single);
         }
@@ -5857,7 +5857,7 @@ The function is still set to "none" there — deliberately, because otherwise th
      */
     protected function GetTransport()
     {
-        if (in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+        if ($this->IsCloudMeter()) {
             return new MHUB_InexogyClient(
                 $this->ReadAttributeString('InexogyConsumerKey'),
                 $this->ReadAttributeString('InexogyConsumerSecret'),
@@ -5865,10 +5865,10 @@ The function is still set to "none" there — deliberately, because otherwise th
                 $this->ReadAttributeString('InexogyTokenSecret')
             );
         }
-        if (in_array($this->ReadPropertyString('Meter'), self::MQTT_METERS, true)) {
+        if ($this->IsMqttMeter()) {
             return new MHUB_ShellyMqttClient($this->ReadPropertyInteger('MqttBridgeID'), $this->ReadPropertyString('MqttTopic'), $this->ReadPropertyInteger('MqttChannel'));
         }
-        if (in_array($this->ReadPropertyString('Meter'), self::HTTP_METERS, true)) {
+        if ($this->IsHttpMeter()) {
             return new MHUB_TasmotaClient($this->ReadPropertyString('Host'), $this->ReadPropertyInteger('HttpPort'), 4.0, $this->ReadAttributeString('TasmotaWebPassword'));
         }
         return $this->GetModbusClient();
@@ -6037,7 +6037,7 @@ The function is still set to "none" there — deliberately, because otherwise th
      */
     public function DiagnoseInexogyReadings()
     {
-        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+        if (!$this->IsCloudMeter()) {
             trigger_error(MHUB_Text::t('DiagnoseInexogyReadings: no Inexogy instance.'), E_USER_WARNING);
             return;
         }
@@ -6149,7 +6149,7 @@ The function is still set to "none" there — deliberately, because otherwise th
 
     private function IsSinglePhaseMeter(): bool
     {
-        return in_array($this->ReadPropertyString('Meter'), self::SINGLE_PHASE_METERS, true) || $this->ShellySinglePhase();
+        return $this->IsSinglePhaseType() || $this->ShellySinglePhase();
     }
 
     // Einphasige Zähler kennen nur „ganzes Gerät" — ein früher gespeicherter „perphase" zählt dort nicht.
@@ -6276,6 +6276,50 @@ The function is still set to "none" there — deliberately, because otherwise th
     // Nur bei diesem einen Zählertyp existiert das Gültigkeitszeit-/Watchdog-
     // Register (5006/5008) laut Herstellerdoku — Power Control hat keins.
     private const RPC_VALID_TIME_METERS = ['bluelog_rpc'];
+
+    // Weichen nach Zählerart (0.39.8): die EINE Stelle, an der entschieden wird, zu welcher Gruppe ein Zählertyp gehört. Ohne Angabe gilt
+    // der eingestellte Zählertyp, mit Angabe der übergebene Schlüssel (z. B. der gerade im Formular gewählte). Neue Zählertypen werden
+    // nur in der passenden Konstante oben eingetragen; die Aufrufer fragen ausschließlich diese Methoden.
+    private function MeterTypeIn(array $group, ?string $meter): bool
+    {
+        return in_array($meter ?? $this->ReadPropertyString('Meter'), $group, true);
+    }
+
+    /** Cloud-Zähler (Zugangsdaten statt Host, Werte mit Latenz). */
+    private function IsCloudMeter(?string $meter = null): bool
+    {
+        return $this->MeterTypeIn(self::CLOUD_METERS, $meter);
+    }
+
+    /** Lokales HTTP-Gerät (Host und HTTP-Port statt Modbus). */
+    private function IsHttpMeter(?string $meter = null): bool
+    {
+        return $this->MeterTypeIn(self::HTTP_METERS, $meter);
+    }
+
+    /** Zähler, der seine Werte per MQTT sendet (über die MQTT-Brücke mitgehört). */
+    private function IsMqttMeter(?string $meter = null): bool
+    {
+        return $this->MeterTypeIn(self::MQTT_METERS, $meter);
+    }
+
+    /** Zählertyp mit Sollwert-Schreibzugriff (blue'Log). */
+    private function IsWritableMeter(?string $meter = null): bool
+    {
+        return $this->MeterTypeIn(self::WRITABLE_METERS, $meter);
+    }
+
+    /** Zählertyp mit Gültigkeitszeit-Register (nur blue'Log RPC). */
+    private function HasRpcValidTime(?string $meter = null): bool
+    {
+        return $this->MeterTypeIn(self::RPC_VALID_TIME_METERS, $meter);
+    }
+
+    /** Einphasiger Zählertyp nach Typschlüssel allein (ohne die Shelly-Erkennung aus IsSinglePhaseMeter()). */
+    private function IsSinglePhaseType(?string $meter = null): bool
+    {
+        return $this->MeterTypeIn(self::SINGLE_PHASE_METERS, $meter);
+    }
 
     /**
      * Öffentliche Abfrage der Zuordnung für andere Module (EMS, Kacheln):
@@ -6429,7 +6473,7 @@ The function is still set to "none" there — deliberately, because otherwise th
         // Zähler-Eigenschaften einmal bestimmen — sie gelten für die ganze
         // Instanz (ein Zähler ist als Ganzes echtzeitnah/träge bzw. abrechnungs-
         // verbindlich, auch im Drei-Phasen-Modus mit drei Zuordnungen).
-        $latency      = in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true) ? 'delayed' : 'realtime';
+        $latency      = $this->IsCloudMeter() ? 'delayed' : 'realtime';
         $authority    = $this->ReadPropertyBoolean('BillingGrade') ? 'billing' : 'auxiliary';
         $pollInterval = $this->ReadPropertyInteger('IntervalFast');
         // Nur für 'delayed' (Cloud-)Zähler sinnvoll — ein lokaler Echtzeit-

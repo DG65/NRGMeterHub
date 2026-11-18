@@ -580,7 +580,7 @@ trait MHUB_ArchiveRepair
         $evid = $this->FindVarByIdent('energy_export');
         if (!$pvid || !$ivid || !$evid || !AC_GetLoggingStatus($ac, $pvid) || !AC_GetLoggingStatus($ac, $ivid) || !AC_GetLoggingStatus($ac, $evid)) {
             $lines[] = MHUB_Text::t('Power: no comparison possible (needs the archived total power and both energy meters).');
-        } elseif (in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+        } elseif ($this->IsCloudMeter()) {
             // Live an Dietmars Inexogy (12.09.2026): 14 „Abschnitte" aus je
             // 2–5 Werten, alles Zeitversatz zwischen Leistung und Zählerstand.
             $lines[] = MHUB_Text::t('Power (#%d): no comparison — with cloud meters, power and meter readings arrive with a time offset, so a direction per quarter hour is not reliable.', $pvid);
@@ -1150,7 +1150,7 @@ trait MHUB_ArchiveRepair
                 'powerID' => $pid, 'referencePowerID' => 0, 'referenceLabel' => '', 'relation' => '',
                 'correlation' => null, 'samples' => 0, 'checkedAt' => $now,
             ];
-            if (in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+            if ($this->IsCloudMeter()) {
                 $entry['reason'] = MHUB_Text::t('Cloud meter: power arrives with a time offset — no direction check.');
                 $out['entries'][] = $entry;
                 continue;
@@ -1581,7 +1581,7 @@ trait MHUB_ArchiveRepair
 
     private function InexogyCleanup(int $days, bool $apply): string
     {
-        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+        if (!$this->IsCloudMeter()) {
             return MHUB_Text::t('ℹ️ Only for Inexogy meters.');
         }
         $acs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');

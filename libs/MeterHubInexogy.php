@@ -158,7 +158,7 @@ trait MHUB_InexogyCloud
      */
     private function MaybeAutoRelogin(): void
     {
-        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+        if (!$this->IsCloudMeter()) {
             return;
         }
         // Erst die billige Wartezeit-Prüfung, dann die Tresor-Suche (die liest ggf. Einträge) —
@@ -369,7 +369,7 @@ trait MHUB_InexogyCloud
      */
     private function MaybeAutoBackfillInexogy(): void
     {
-        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+        if (!$this->IsCloudMeter()) {
             return;
         }
         if (!$this->ReadPropertyBoolean('InexogyAutoBackfillEnabled')) {
@@ -514,7 +514,7 @@ trait MHUB_InexogyCloud
      */
     private function UpdateInexogyArchiveStatusField(): void
     {
-        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+        if (!$this->IsCloudMeter()) {
             return;
         }
         [$watermark, $error] = $this->InexogyArchiveWatermark();
@@ -546,7 +546,7 @@ trait MHUB_InexogyCloud
      */
     private function DoBackfillInexogyArchive(int $fromOverall, int $toOverall): string
     {
-        if (!in_array($this->ReadPropertyString('Meter'), self::CLOUD_METERS, true)) {
+        if (!$this->IsCloudMeter()) {
             return MHUB_Text::t('❌ No Inexogy instance.');
         }
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');

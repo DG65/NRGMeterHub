@@ -2,6 +2,14 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.8 (2026-11-18)
+
+Interner Umbau, kein Verhalten geändert (Umbau 4 der Code-Bestandsaufnahme vom 18.11.2026): Die Entscheidung „zu welcher Art gehört dieser Zählertyp“ fällt jetzt an einer Stelle.
+
+- Bisher stand an 30 Stellen in der Hauptklasse und in den ausgelagerten Dateien ein eigener Vergleich gegen die Gruppenlisten (Cloud, HTTP, MQTT, schreibend, einphasig, Gültigkeitszeit), oft mit dem Zählertyp frisch aus den Einstellungen gelesen. Jetzt gibt es dafür je eine Methode (`IsCloudMeter()`, `IsHttpMeter()`, `IsMqttMeter()`, `IsWritableMeter()`, `HasRpcValidTime()`, `IsSinglePhaseType()`), die alle Aufrufer fragen. Ein neuer Zählertyp wird nur noch in der passenden Liste eingetragen.
+- **Prüfung:** Neuer Prüfstand `test-meter-groups.php` nagelt für jeden der 30 Zählertypen aus der Treiberliste fest, zu welcher Gruppe er gehört, und prüft das Umschalten im Formular (Sollwert-Panel, Gültigkeitszeit, Messmodus), die Cloud-Weichen im Archivpfad und die Fehlertexte des Verbindungstests. Zehn Mutationsproben auf die Methoden selbst und `.tools/ref/mutate-weichen-stellen.php`: Dort wird an jeder der 30 Aufrufstellen die Antwort umgedreht, und jede Stelle lässt mindestens einen Prüfstand rot werden. Beim ersten Lauf waren acht Stellen ungeprüft (Messmodus beim Umschalten, Sollwert-Panel, Verbindungstest, Richtungsprüfung der Cloud-Zähler, Diagnose-Knopf, Archivstatus); sie sind jetzt abgedeckt.
+- Die MQTT-Brücke führt weiter ihre eigene Liste der MQTT-Zählertypen, weil sie ein eigenes Modul ist.
+
 ## 0.39.7 (2026-11-18)
 
 Interner Umbau, kein Verhalten geändert (Umbau 3 der Code-Bestandsaufnahme vom 18.11.2026): Gleicher Code, der bisher mehrfach im Repository stand, liegt jetzt einmal in `libs/MeterHubShared.php` und wird von dort eingebunden.

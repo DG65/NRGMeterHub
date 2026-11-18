@@ -123,7 +123,7 @@ $ar('Richtung: Ungültig-Marke (Wert <= 0) entfällt', 'RetrackStep', '!is_finit
 $ar('Richtung: unklares Paar wird doch korrigiert', 'DirectionArchive', "\$dry['on'][0] === \$dry['on'][1]", 'false');
 $ar('Richtung: Abschnitt bis heute wird nicht erkannt', 'DirectionArchive', "\$swapEnd = \$dry['on'][0] === 1;", "\$swapEnd = false;");
 $ar('Richtung: Sicherung der Energie unter anderem Namen', 'DirectionArchive', "'energie'", "'energie_x'");
-$ar('Richtung: Cloudzähler bekommt Leistungsabgleich', 'DirectionArchive', 'self::CLOUD_METERS, true)) {', 'self::CLOUD_METERS, true) && false) {');
+$ar('Richtung: Cloudzähler bekommt Leistungsabgleich', 'DirectionArchive', '$this->IsCloudMeter()) {', '$this->IsCloudMeter() && false) {');
 $ar('Richtung: Leistungsfenster wird nicht gedreht', 'FlipPowerWindow', '$new[$ts] = -$v;', '$new[$ts] = $v;');
 $ar('Leistung: Wh/kWh-Faktor', 'PowerMismatch', '? 4.0 : 4000.0;', '? 4.0 : 400.0;');
 $ar('Leistung: Kantenbestimmung ohne Vorzeichenvergleich', 'RefineEdge', '($net > 0) !== ($p > 0)', '($net > 0) === ($p > 0)');
@@ -132,6 +132,22 @@ $ar('Live-Werte: Abdeckungsfenster', 'SelectStaleLivePoints', '$ts - $prev <= 18
 $ar('Live-Werte: Überzählung ohne Nettoabzug', 'CounterOvercount', '$net = max(0.0, $pts[count($pts) - 1][1] - $pts[0][1]);', '$net = 0.0;');
 $ar('Live-Werte: Tage-Obergrenze', 'InexogyCleanup', 'min(45, $days)', 'min(90, $days)');
 $ar('Live-Werte: Löschen entfällt', 'CleanStaleLivePoints', 'AC_DeleteVariableData($ac, $vid, $ts, $ts);', ';');
+
+// ---- Weichen nach Zählerart (Umbau 4, 0.39.8) -----------------------------------------------------------------------
+$tg = 'test-meter-groups.php';
+$gm = function (string $name, string $method, string $find, string $replace) use (&$mutations, $tg) {
+    $mutations[] = ['weichen', $name, $tg, fn($s) => mutateMethod($s, $method, '/' . preg_quote($find, '/') . '/', str_replace('$', '\$', $replace))];
+};
+$gm('Cloud-Gruppe nimmt die HTTP-Liste', 'IsCloudMeter', 'self::CLOUD_METERS', 'self::HTTP_METERS');
+$gm('HTTP-Gruppe nimmt die MQTT-Liste', 'IsHttpMeter', 'self::HTTP_METERS', 'self::MQTT_METERS');
+$gm('MQTT-Gruppe nimmt die Cloud-Liste', 'IsMqttMeter', 'self::MQTT_METERS', 'self::CLOUD_METERS');
+$gm('Schreibend nimmt die Gültigkeitszeit-Liste', 'IsWritableMeter', 'self::WRITABLE_METERS', 'self::RPC_VALID_TIME_METERS');
+$gm('Gültigkeitszeit nimmt die Schreib-Liste', 'HasRpcValidTime', 'self::RPC_VALID_TIME_METERS', 'self::WRITABLE_METERS');
+$gm('Einphasig nimmt die Cloud-Liste', 'IsSinglePhaseType', 'self::SINGLE_PHASE_METERS', 'self::CLOUD_METERS');
+$gm('Übergebener Schlüssel wird ignoriert', 'MeterTypeIn', '$meter ?? ', '');
+$gm('Eingestellter Zählertyp wird ignoriert', 'MeterTypeIn', "\$meter ?? \$this->ReadPropertyString('Meter')", "\$meter ?? ''");
+$gm('Modbus-Weg: HTTP-Zähler zählen als Modbus', 'UsesModbus', '            && !$this->IsHttpMeter($meter)' . "\n", '');
+$gm('Modbus-Weg: MQTT-Zähler zählen als Modbus', 'UsesModbus', "\n            && !\$this->IsMqttMeter(\$meter);", ';');
 
 // ---- Gerätesuche ----------------------------------------------------------------------------------------------------
 $ts = 'test-ref-suche.php';
