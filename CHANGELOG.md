@@ -2,6 +2,17 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.5 (2026-11-18)
+
+Interner Umbau, kein Verhalten geändert (Umbau 2 der Code-Bestandsaufnahme vom 18.11.2026, erster Teil): Zwei große Methodengruppen sind aus der Klasse `MeterHub` in Dateien unter `libs/` gewandert.
+
+- **`libs/MeterHubInexogy.php`** (Trait `MHUB_InexogyCloud`, 19 Methoden, 731 Zeilen): Anmeldung und automatische Neuanmeldung über einen Tresor, Archiv-Nachtrag der Inexogy-Viertelstundenwerte samt Wasserstand.
+- **`libs/MeterHubArchive.php`** (Trait `MHUB_ArchiveRepair`, 47 Methoden, 1.618 Zeilen): Zählerschutz, Energie-Archiv prüfen/reparieren, Richtung im Archiv, Live-Zwischenwerte bereinigen, Diagnose und Rollenprüfung.
+- `MeterHub/module.php` sinkt von 9.853 auf 7.537 Zeilen und bindet die beiden Traits ein. Die Methoden stehen **wörtlich** so da wie vorher (Prüfung: keine Zeile des alten Stands fehlt, nur die
+  Trait-Köpfe und die zwei `require_once`/`use`-Zeilen sind neu). Öffentliche Funktionen und Formular-Handler bleiben in der Klasse, damit die von Symcon erzeugten `MHUB_…`-Funktionen unverändert sind.
+- **Prüfstände:** Alle 18 laufen unverändert grün gegen den Umbau, die Referenzdateien blieben unberührt. Prüfstände, die den Quelltext lesen, und die Mutationsproben kennen die neue Aufteilung; dabei wurden
+  zwei Lücken der Gerätesuche-Prüfung geschlossen, die vorher von einem Namensunterschied der Prüfdatei verdeckt waren (Carlo-Gavazzi-Frequenzgrenze, Logger-Typ nur unter Adresse 97).
+
 ## 0.39.4 (2026-11-18)
 
 Gerätesuche: Zeitgrenzen mit Nachkommaanteil werden nicht mehr abgeschnitten und erzeugen keine PHP-Meldung mehr (Fund 5 der Code-Bestandsaufnahme vom 18.11.2026).

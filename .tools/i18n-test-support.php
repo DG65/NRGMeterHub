@@ -98,3 +98,19 @@ function i18n_german_leftovers(array $node, array &$out = []): array
     }
     return array_keys($out);
 }
+
+/**
+ * Quelltext eines Moduls für die Prüfstände, die den Quelltext lesen: module.php, beim Hauptmodul MeterHub zusätzlich die aus der
+ * Klasse ausgelagerten Methodengruppen (libs/MeterHub*.php, ab 0.40.0, Umbau 2 der Code-Bestandsaufnahme).
+ */
+function mhub_source(string $module): string
+{
+    $root = dirname(__DIR__);
+    $src = (string)file_get_contents("$root/$module/module.php");
+    if ($module === 'MeterHub') {
+        $files = glob("$root/libs/MeterHub*.php") ?: [];
+        sort($files);
+        foreach ($files as $f) { $src .= "\n" . file_get_contents($f); }
+    }
+    return $src;
+}

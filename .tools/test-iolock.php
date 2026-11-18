@@ -111,7 +111,12 @@ if (in_array('--mutations', $argv ?? [], true)) {
     $i = 0;
     foreach ($mutations as $name => [$find, $replace]) {
         if (substr_count($src, $find) !== 1) { echo "  ?? Mutation „$name“: Fundstelle " . substr_count($src, $find) . "x (muss genau 1x vorkommen)\n"; $survived++; continue; }
-        $tmp = sys_get_temp_dir() . '/mhub_mut_' . getmypid() . '_' . (++$i) . '.php';
+        // module.php braucht ../libs (ausgelagerte Methodengruppen, ab 0.40.0): Mutation in einer Kopie der Ordnerstruktur
+        $dir = sys_get_temp_dir() . '/mhub_mut_' . getmypid() . '_' . (++$i);
+        @mkdir("$dir/MeterHub", 0777, true);
+        @mkdir("$dir/libs", 0777, true);
+        foreach (glob(dirname(__DIR__) . '/libs/*.php') as $lib) { copy($lib, "$dir/libs/" . basename($lib)); }
+        $tmp = "$dir/MeterHub/module.php";
         file_put_contents($tmp, str_replace($find, $replace, $src));
         $procs[$name] = [$tmp, proc_open([PHP_BINARY, __FILE__], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, ['MHUB_MODULE' => $tmp] + getenv()), $pipes];
         if (count($procs) >= 6) { foreach ($procs as $n => $pr) { $survived += mutDone($n, $pr); } $procs = []; }
@@ -124,7 +129,7 @@ function mutDone(string $name, array $pr): int
 {
     $out = stream_get_contents($pr[2][1]) . stream_get_contents($pr[2][2]);
     $code = proc_close($pr[1]);
-    @unlink($pr[0]);
+    shell_exec('rm -rf ' . escapeshellarg(dirname($pr[0], 2)));
     if ($code === 0) { echo "  ÜBERLEBT  $name\n"; return 1; }
     // „erkannt“ zählt nur, wenn die Mutante wirklich an einer Prüfung scheitert und nicht schlicht abstürzt.
     $broken = substr_count($out, 'FEHLT');

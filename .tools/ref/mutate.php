@@ -167,7 +167,7 @@ $sm('Modbus-Lesen: Exception-Abkürzung entfällt (wartet bis zur Zeitgrenze)', 
 $sm('Parallele Probe: geschlossene Gegenseite wird nicht erkannt (dreht bis zur Zeitgrenze)', 'probeManyParallel', "if ((\$chunk === '' || \$chunk === false) && feof(\$s)) {\n                        \$closed[\$i] = true;\n                    }", ';');
 $sm('Parallele Probe: Ergebnis der antwortenden Unit geht verloren', 'probeManyParallel', '$buffers[$i] .= $chunk;', ';');
 $sm('Zeitgrenze: Nachkommaanteil wird abgeschnitten (Fund 5)', 'setSocketTimeout', 'stream_set_timeout($sock, $sec, (int)round(((float)$timeout - $sec) * 1000000));', 'stream_set_timeout($sock, $sec);');
-$sm('Modbus-Lesen: Exception wird als Daten gelesen', 'modbusRead', '$rfc & 0x80 || $rfc !== $fc', '$rfc !== $fc');
+// (Mutation „Exception wird als Daten gelesen“ entfällt: seit 0.39.2 beendet die Exception-Abkürzung die Abfrage, und `$rfc !== $fc` allein fängt die Exception genauso ab, gleichwertige Mutante.)
 
 // ---- phaseCurrentIDs ------------------------------------------------------------------------------------------------
 $tp = 'test-phasecurrent.php';
@@ -186,30 +186,51 @@ $pm('Fehlende Phase wird als 0 geliefert', 'PhaseCurrentIDs', "if (!\$vid) {\n  
 // ---- Ablauf ---------------------------------------------------------------------------------------------------
 $only = $argv[1] ?? null;
 $jobs = [];
+// Quelltext-Dateien, in denen eine Mutation ihre Fundstelle haben kann: module.php und die aus der Klasse ausgelagerten Methodengruppen
+// (libs/MeterHub*.php, ab 0.40.0). Jede Mutation läuft in einer Kopie der ganzen Ordnerstruktur (module.php braucht ../libs).
+$mainFiles = ['MeterHub/module.php', 'libs/MeterHubInexogy.php', 'libs/MeterHubArchive.php'];
+$sources = [];
+foreach ($mainFiles as $f) { $sources[$f] = file_get_contents("$root/$f"); }
+function copyTree(string $root, string $dest, array $override): void
+{
+    foreach (['MeterHub', 'MeterHubDiscovery', 'libs'] as $dir) {
+        @mkdir("$dest/$dir", 0777, true);
+        foreach (glob("$root/$dir/*.php") as $f) { copy($f, "$dest/$dir/" . basename($f)); }
+    }
+    foreach ($override as $rel => $content) { file_put_contents("$dest/$rel", $content); }
+}
+function tempTree(): string { $d = sys_get_temp_dir() . '/mhmut_' . getmypid() . '_' . bin2hex(random_bytes(3)); mkdir($d); return $d; }
 // Kontrolle: unveränderte Kopie des Moduls muss jeden Referenzlauf bestehen (sonst beweist ein rotes Ergebnis nichts)
 foreach (array_unique(array_column($mutations, 2)) as $test) {
     if ($only && !in_array($only, array_column(array_filter($mutations, fn($m) => $m[2] === $test), 0), true)) { continue; }
-    $file = tempnam(sys_get_temp_dir(), 'mhctl') . '.php';
-    file_put_contents($file, $orig);
-    $text = (string)shell_exec('MHUB_MODULE=' . escapeshellarg($file) . ' php ' . escapeshellarg("$root/.tools/$test") . ' 2>&1');
-    @unlink($file);
-    if (!str_contains($text, 'ALLE PRÜFUNGEN BESTANDEN')) { echo "KONTROLLE FEHLGESCHLAGEN: $test besteht mit unverändertem Modul nicht\n" . substr($text, -400) . "\n"; exit(2); }
+    $tree = tempTree();
+    copyTree($root, $tree, []);
+    $text = (string)shell_exec('MHUB_MODULE=' . escapeshellarg("$tree/MeterHub/module.php") . ' MHUB_DISCOVERY=' . escapeshellarg("$tree/MeterHubDiscovery/module.php") . ' php ' . escapeshellarg("$root/.tools/$test") . ' 2>&1');
+    shell_exec('rm -rf ' . escapeshellarg($tree));
+    if (!str_contains($text, 'ALLE PRÜFUNGEN BESTANDEN')) { echo "KONTROLLE FEHLGESCHLAGEN: $test besteht mit unveränderter Kopie nicht\n" . substr($text, -400) . "\n"; exit(2); }
     echo "Kontrolle: $test besteht mit unveränderter Kopie\n";
 }
 foreach ($mutations as $i => $mu) {
     [$group, $name, $test, $fn] = $mu;
-    $target = $mu[4] ?? 'M';   // 'M' = MeterHub/module.php, 'D' = MeterHubDiscovery/module.php
+    $target = $mu[4] ?? 'M';   // 'M' = MeterHub (module.php + libs), 'D' = MeterHubDiscovery/module.php
     if ($only && $group !== $only) { continue; }
-    $base = $target === 'D' ? $origD : $orig;
-    $mod = $fn($base);
-    if ($mod === null) { $jobs[] = ['name' => $name, 'na' => true]; continue; }
-    if ($mod === $base) { $jobs[] = ['name' => $name, 'na' => true]; continue; }
-    $file = tempnam(sys_get_temp_dir(), 'mhmut') . '.php';
-    file_put_contents($file, $mod);
+    $override = [];
+    if ($target === 'D') {
+        $mod = $fn($origD);
+        if ($mod !== null && $mod !== $origD) { $override['MeterHubDiscovery/module.php'] = $mod; }
+    } else {
+        foreach ($sources as $rel => $src) {
+            $mod = $fn($src);
+            if ($mod !== null && $mod !== $src) { $override[$rel] = $mod; break; }
+        }
+    }
+    if (!$override) { $jobs[] = ['name' => $name, 'na' => true]; continue; }
+    $tree = tempTree();
+    copyTree($root, $tree, $override);
     $out = tempnam(sys_get_temp_dir(), 'mhout');
-    $env = [($target === 'D' ? 'MHUB_DISCOVERY' : 'MHUB_MODULE') => $file] + getenv();
+    $env = ['MHUB_MODULE' => "$tree/MeterHub/module.php", 'MHUB_DISCOVERY' => "$tree/MeterHubDiscovery/module.php"] + getenv();
     $proc = proc_open(['php', "$root/.tools/$test"], [1 => ['file', $out, 'w'], 2 => ['file', $out, 'a']], $pipes, $root, $env);
-    $jobs[] = ['name' => $name, 'proc' => $proc, 'file' => $file, 'out' => $out];
+    $jobs[] = ['name' => $name, 'proc' => $proc, 'tree' => $tree, 'out' => $out];
 }
 $caught = 0; $missed = []; $na = []; $crash = [];
 foreach ($jobs as $j) {
@@ -221,7 +242,7 @@ foreach ($jobs as $j) {
     if ($hit) { $caught++; }
     elseif ($hardFail) { $crash[] = $j['name']; }
     else { $missed[] = $j['name']; }
-    @unlink($j['file']); @unlink($j['out']);
+    shell_exec('rm -rf ' . escapeshellarg($j['tree'])); @unlink($j['out']);
 }
 $total = count($jobs) - count($na);
 echo "Mutationen: $total angewendet, $caught erkannt, " . count($missed) . ' nicht erkannt, ' . count($crash) . ' nur Absturz, ' . count($na) . " nicht anwendbar\n";

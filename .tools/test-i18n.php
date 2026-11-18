@@ -7,6 +7,7 @@
  *  - keine toten Einträge in locale.json
  *  - Platzhalter (%s, %d) stimmen zwischen Englisch und Deutsch überein
  */
+require_once __DIR__ . '/i18n-test-support.php';
 $fails = 0;
 function check($label, $cond, $detail = '') {
     global $fails;
@@ -55,7 +56,7 @@ foreach (['wirkleistung', 'wirkenergie', 'hauptzähler', 'hauptzaehler'] as $w) 
 
 foreach ($mods as $m => $p) {
     echo "\n$m\n";
-    $src = file_get_contents("$root/$m/module.php");
+    $src = mhub_source($m);
     $tokens = token_get_all($src);
     $lits = []; $tCalls = [];
     $n = count($tokens);

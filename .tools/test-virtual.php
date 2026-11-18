@@ -2439,7 +2439,7 @@ IPS_SetProperty(9200, 'InexogyMeterID', 'm3');
 $el = $meterOptsEl();
 check('50b2: gewählter Wert fehlt im Cache (z. B. Zähler beim Anbieter seither entfernt): wird trotzdem angeboten, nicht verworfen', ($el['options'] ?? null) === [['caption' => 'SN12345 (SGM)', 'value' => 'm1'], ['caption' => 'SN67890 (SGM)', 'value' => 'm2'], ['caption' => 'm3', 'value' => 'm3']], json_encode($el['options'] ?? 'fehlt'));
 unset($GLOBALS['ATTR'][9200]['InexogyMeterOptions']);
-$src = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
+$src = mhub_source('MeterHub');
 $loginSrc = substr($src, strpos($src, 'public function InexogyLogin()'), strpos($src, "\n    public function", strpos($src, 'public function InexogyLogin()') + 10) - strpos($src, 'public function InexogyLogin()'));
 check('50b2: im Quelltext steht IPS_ApplyChanges() NACH jedem UpdateFormField()-Aufruf in InexogyLogin() (nicht davor)', strpos($loginSrc, 'IPS_ApplyChanges($this->InstanceID)') > strrpos($loginSrc, '$this->UpdateFormField('), $loginSrc);
 
@@ -2725,10 +2725,10 @@ IPS_SetProperty(9200, 'Meter', 'siemens_pac2200');
 
 echo "\n55) Logging nur über \$this->LogMessage() (Symcon-Store-Review 12.10.2026, SUITE.md Punkt 15)\n";
 foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge'] as $mod55) {
-    $src55 = file_get_contents(dirname(__DIR__) . "/$mod55/module.php");
+    $src55 = mhub_source($mod55);
     check("55: $mod55/module.php enthält kein IPS_LogMessage(", strpos($src55, 'IPS_LogMessage(') === false);
 }
-$src55 = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
+$src55 = mhub_source('MeterHub');
 $withType55 = preg_match_all('/->LogMessage\((?:(?!->LogMessage\().)*?KL_(?:WARNING|ERROR|NOTIFY|MESSAGE|DEBUG|CUSTOM)\);/s', $src55);
 $all55 = substr_count($src55, '->LogMessage(');
 check('55: jeder LogMessage()-Aufruf trägt eine KL_*-Konstante als Typ (kein nacktes Zahlenliteral)', $all55 >= 9 && $withType55 === $all55, "$withType55 von $all55");
@@ -2756,7 +2756,7 @@ check('56d: danach mit voller Verdrahtung werden die Ausgaben wieder angelegt', 
 
 echo "\n57) Darstellungen: keine Presentation-OPTIONS in den Modulen (EMS 18.10.2026, SUITE.md Punkt 16: Farb-Schlüssel hängen von der Darstellung ab, ein falscher bricht das Anlegen der Instanz ab)\n";
 foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge'] as $mod57) {
-    $src57 = file_get_contents(dirname(__DIR__) . "/$mod57/module.php");
+    $src57 = mhub_source($mod57);
     check("57: $mod57/module.php baut keine OPTIONS/ColorValue/ColorActive-Darstellung (kommt eine hinzu, diesen Test bewusst gegen die Symcon-Doku prüfen)", !preg_match("/'(OPTIONS|ColorValue|ColorActive)'/", $src57));
 }
 
@@ -2765,7 +2765,7 @@ $newV = new MeterHubVirtual(8200); $newV->Create();
 $newH = new MeterHub(8201); $newH->Create();
 check('58a: neue Instanz, Standard aus: MeterHubVirtual plant nichts (Archiv unangetastet)', $plan->invoke($newV, 10, 'Power') === [] && $plan->invoke($newV, 10, 'Energy') === [], json_encode($plan->invoke($newV, 10, 'Power')));
 check('58a: neue Instanz, Standard aus: MeterHub plant nichts', $planHub->invoke($newH, 10, 'Power') === [] && $planHub->invoke($newH, 10, 'Energy') === []);
-$src58 = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php') . file_get_contents(dirname(__DIR__) . '/MeterHubVirtual/module.php');
+$src58 = mhub_source('MeterHub') . file_get_contents(dirname(__DIR__) . '/MeterHubVirtual/module.php');
 check('58a: der Standard im Code ist „false" (Checkliste 9k), kein RegisterPropertyBoolean(AutoCompaction…, true) mehr', !preg_match("/RegisterPropertyBoolean\\('AutoCompaction' \\. \\$kind, true\\)/", $src58));
 
 meter(5400, 'Verdichtungs-Zähler', 100.0, 10.0);   // Leistung 5403
@@ -2922,7 +2922,7 @@ foreach ($t59 as [$cls, $iid, $keys, $probe, $pfx]) {
 }
 // Quelltext: Property registriert, Neu-Eintrag vorhanden
 foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery'] as $cls) {
-    $src = file_get_contents(dirname(__DIR__) . "/$cls/module.php");
+    $src = mhub_source($cls);
     check("59l $cls: Property FormLayout (String, '[]') registriert", strpos($src, "RegisterPropertyString('FormLayout', '[]')") !== false);
     check("59l $cls: Neu-Panel erwähnt „Formular-Aufbau selbst wählen“ (englischer Quelltext, Deutsch in locale.json)", mb_strpos($src, 'New: choose the form layout yourself') !== false && mb_strpos((string)file_get_contents(dirname(__DIR__) . "/$cls/locale.json"), 'Neu: Formular-Aufbau selbst wählen') !== false);
 }
@@ -2971,7 +2971,7 @@ $remainingCats = array_filter(IPS_GetChildrenIDs(8410), function ($c) { return I
 check('60c: leere Alt-Kategorien sind entfernt; nur die Kategorie mit dem Objekt des Nutzers bleibt, samt Inhalt', array_values($remainingCats) === [$catIds[$userCat]] && ($GLOBALS['OBJ'][$userObj]['ParentID'] ?? 0) === $catIds[$userCat], json_encode(array_values($remainingCats)));
 $rvs->invoke($h60b);
 check('60d: erneuter Durchlauf ist stabil — keine neue Kategorie, Variablen bleiben direkt unter der Instanz', count(array_filter(IPS_GetChildrenIDs(8410), function ($c) { return IPS_GetObject($c)['ObjectType'] === 0; })) === 1 && $GLOBALS['CATEGORIES_CREATED'] === $cats0);
-$src60 = file_get_contents(dirname(__DIR__) . '/MeterHub/module.php');
+$src60 = mhub_source('MeterHub');
 check('60e: Quelltext legt nirgends mehr Kategorien an (kein IPS_CreateCategory in MeterHub, MeterHubVirtual, MeterHubDiscovery, MeterHubBridge)',
     strpos($src60, 'IPS_CreateCategory') === false
     && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubVirtual/module.php'), 'IPS_CreateCategory') === false
@@ -2987,7 +2987,7 @@ function t61_code($file) {
     }
     return $out;
 }
-$srcMH61 = t61_code(dirname(__DIR__) . '/MeterHub/module.php');
+$srcMH61 = t61_code(dirname(__DIR__) . '/MeterHub/module.php') . t61_code(dirname(__DIR__) . '/libs/MeterHubInexogy.php') . t61_code(dirname(__DIR__) . '/libs/MeterHubArchive.php');
 $srcV61  = t61_code(dirname(__DIR__) . '/MeterHubVirtual/module.php');
 $srcD61  = t61_code(dirname(__DIR__) . '/MeterHubDiscovery/module.php');
 // 26

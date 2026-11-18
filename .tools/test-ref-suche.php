@@ -114,6 +114,11 @@ $profiles = [
     'phoenix_Unit255'   => fn() => ['units' => ['255' => ['4' => (function () { $w = []; f32($w, 4096, 231.0); f32($w, 4098, 232.0); return $w; })()]]],
     'eastron_sdm'       => fn() => ['units' => ['1' => ['4' => (function () { $w = []; f32($w, 0, 231.0); f32($w, 70, 50.0); return $w; })()]]],
     'goe_controller'    => fn() => ['units' => ['1' => ['4' => (function () { $w = []; f32($w, 1000, 231.0); f32($w, 1002, 232.0); return $w; })()]]],
+    'carlo_frequenz_zu_niedrig' => fn() => ['units' => ['1' => ['4' => (function () { $w = []; $v = 2310; $w['0'] = $v & 0xFFFF; $w['1'] = $v >> 16; $w['51'] = 300; return $w; })()]]],   // 30 Hz: unter der Grenze
+    'bluelog_Typ_Adresse_widerspruch' => fn() => ['units' => [
+        '97'  => ['3' => ['40000' => 1]],    // Wechselrichter-Typ unter der Logger-Adresse
+        '102' => ['3' => ['40000' => 0]],    // Logger-Typ unter einer Geräteadresse
+    ]],
     'frequenz_unplausibel' => fn() => ['units' => ['247' => ['3' => (function () { $w = []; f32($w, 55, 71.0); f32($w, 1, 231.0); return $w; })()]]],
     'spannung_unplausibel' => fn() => ['units' => ['247' => ['3' => (function () { $w = []; f32($w, 55, 50.0); f32($w, 1, 12.0); return $w; })()]]],
     'unbelegte_Register_NaN' => fn() => ['units' => ['1' => ['4' => ['1000' => 0xFFFF, '1001' => 0xFFFF, '1002' => 0xFFFF, '1003' => 0xFFFF, '0' => 0xFFFF, '1' => 0xFFFF, '2' => 0xFFFF, '3' => 0xFFFF]]]],
@@ -236,6 +241,7 @@ $result['parallel_geschlossene_gegenseite'] = ['nur_geschlossen' => $closedCase[
 foreach (['bluelog_Logger_und_Wechselrichter', 'bluelog_nur_Power_Control', 'bluelog_nur_RPC', 'bluelog_Logger_unter_falscher_Adresse', 'nichts_antwortet'] as $name) {
     $result['bluelog_Host_' . $name] = $serverCall($profiles[$name](), fn($port) => $priv('identifyBlueLogHost', '127.0.0.1', $port));
 }
+$result['bluelog_Geraete_Typ_Adresse_widerspruch'] = $serverCall($profiles['bluelog_Typ_Adresse_widerspruch'](), fn($port) => $priv('identifyBlueLogDevicesBatch', '127.0.0.1', $port, [97, 102]));
 $result['bluelog_Geraete_Bündel'] = $serverCall($profiles['bluelog_Logger_und_Wechselrichter'](), function ($port) use ($priv) {
     $found = $priv('identifyBlueLogDevicesBatch', '127.0.0.1', $port, [97, 101, 150, 160, 170]);
     foreach ($found as &$f) { $f['port'] = $f['port'] === $port ? 'PORT' : $f['port']; }
@@ -306,6 +312,7 @@ $idm = fn(string $k) => $result[$k]['meter'] ?? null;
 check('Fund 5: Zeitgrenze 1,5 s wird voll genutzt (' . $timeoutDauer . ' s statt abgeschnitten auf 1,0 s), keine PHP-Meldung zur Fließkomma-Umwandlung', $result['zeitgrenze_nachkommaanteil']['volle_zeitgrenze_gewartet'] === true && $result['zeitgrenze_nachkommaanteil']['wert'] === null && !preg_grep('/Implicit conversion/', $result['php_hinweise']));
 check('Fund 4: geschlossene Gegenseite in der parallelen Probe: ' . $closedCase['wand_s'] . ' s Wartezeit, ' . $closedCase['cpu_s'] . ' s CPU (vorher bis zur Zeitgrenze mit voller CPU), gemischt mit einer antwortenden Unit richtig ausgewertet', $result['parallel_geschlossene_gegenseite']['schnell'] === true && $result['parallel_geschlossene_gegenseite']['wenig_cpu'] === true && $result['parallel_geschlossene_gegenseite']['gemischt_schnell'] === true && $result['parallel_geschlossene_gegenseite']['gemischt'][0] === [0] && $result['parallel_geschlossene_gegenseite']['gemischt'][1] === null);
 check('Fund 3: eine Modbus-Exception bei offen bleibender Verbindung kostet keine Sekunde Wartezeit (zwei Proben in ' . $excSlow . ' s statt 2 × 1,0 s)', $result['exception_ohne_warten']['schnell'] === true && $result['exception_ohne_warten']['wert'] === null && $result['exception_ohne_warten']['wert_input'] === null);
+check('blue\'Log: Logger-Typ nur unter Adresse 97 und kein anderer Typ dort — widersprüchliche Meldungen werden verworfen', $result['bluelog_Geraete_Typ_Adresse_widerspruch'] === [] && $idm('erkennung_carlo_frequenz_zu_niedrig') === null);
 check('Siemens PAC2200 wird unter Unit-ID 247 erkannt', $idm('erkennung_pac2200_Unit247') === 'siemens_pac2200' && $result['erkennung_pac2200_Unit247']['unitId'] === 247);
 check('jeder der 9 Zählertypen wird an seinem Profil erkannt (Janitza klassisch als UMG 604)', array_map($idm, array_combine(['pac','j','j8','sh','cg','ww','ph','ea','go'], ['erkennung_pac2200_Unit247','erkennung_janitza_klassisch','erkennung_janitza_umg800','erkennung_shelly_pro3em','erkennung_carlo_gavazzi','erkennung_whatwatt','erkennung_phoenix_Unit255','erkennung_eastron_sdm','erkennung_goe_controller'])) === ['pac' => 'siemens_pac2200', 'j' => 'janitza_umg604', 'j8' => 'janitza_umg800', 'sh' => 'shelly_pro3em', 'cg' => 'carlo_gavazzi_em', 'ww' => 'whatwatt', 'ph' => 'phoenix_eem375', 'ea' => 'eastron_sdm72d', 'go' => 'goe_controller']);
 check('ohne Server und bei unplausiblen Werten wird nichts erkannt', $idm('erkennung_kein_Server') === null && $idm('erkennung_frequenz_unplausibel') === null && $idm('erkennung_spannung_unplausibel') === null);

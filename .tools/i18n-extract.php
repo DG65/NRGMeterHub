@@ -10,8 +10,8 @@ $files = ['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge'];
 const GERMAN_WORDS = '/\b(der|die|das|den|dem|des|und|oder|nicht|wird|werden|ist|sind|für|mit|ein|eine|einen|einer|bitte|Zähler|Fehler|Wert|Werte|Instanz|keine|kein|noch|nur|wenn|auch|aber|beim|nach|von|zum|zur|dieser|diese|dieses|alle|aktiv|Verbindung|Leistung|Bezug|Einspeisung|Archiv|Formular|Übernehmen|Hinweis|Gerät|Variable|Variablen|Mitglieder|Zeile|Zeilen|bereits|jetzt|neu|nichts|wurde|wurden|zuerst|danach|muss|kann|im|am|auf|aus|bei|als|über|unter)\b/u';
 $out = [];
 foreach ($files as $m) {
-    $path = __DIR__ . "/../$m/module.php";
-    $tokens = token_get_all(file_get_contents($path));
+    require_once __DIR__ . '/i18n-test-support.php';
+    $tokens = token_get_all(mhub_source($m));
     $n = count($tokens);
     $sig = []; // Indizes signifikanter Tokens
     for ($i = 0; $i < $n; $i++) {

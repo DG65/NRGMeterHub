@@ -168,6 +168,7 @@
         "meter": "goe_controller",
         "label": "go-e Controller"
     },
+    "erkennung_carlo_frequenz_zu_niedrig": null,
     "erkennung_frequenz_unplausibel": null,
     "erkennung_spannung_unplausibel": null,
     "erkennung_unbelegte_Register_NaN": null,
@@ -205,6 +206,7 @@
     "bluelog_Host_bluelog_nur_RPC": true,
     "bluelog_Host_bluelog_Logger_unter_falscher_Adresse": false,
     "bluelog_Host_nichts_antwortet": false,
+    "bluelog_Geraete_Typ_Adresse_widerspruch": [],
     "bluelog_Geraete_Bündel": [
         {
             "ip": "127.0.0.1",

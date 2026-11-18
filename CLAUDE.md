@@ -215,6 +215,15 @@ Einreichung mit „Das Modul tools hat keine module.json" scheitern.
 **Regel für alles Künftige** (Skripte, Testdaten, CI): entweder mit führendem Punkt benennen
 (`.tools/`) oder unterhalb eines bestehenden Modulordners ablegen.
 
+**Ausnahme `libs/` (seit 0.39.5):** `libs/` im Wurzelverzeichnis ist der in der Symcon-Dokumentation für Hilfsklassen vorgesehene Ordnername
+(ChargerHub und InverterHub liefern so ein `libs/` durch die Store-Prüfung). Dort liegen die aus der Klasse `MeterHub` ausgelagerten Methodengruppen
+als Traits: `libs/MeterHubInexogy.php` (`MHUB_InexogyCloud`: Cloud-Anmeldung, Tresor, Archiv-Nachtrag) und `libs/MeterHubArchive.php`
+(`MHUB_ArchiveRepair`: Zählerschutz, Archiv prüfen/reparieren, Richtung, Live-Zwischenwerte, Diagnose). `MeterHub/module.php` lädt sie mit
+`require_once __DIR__ . '/../libs/…'` und bindet sie mit `use` in die Klasse ein; die Methoden wurden **wörtlich** verschoben (Prüfung: jede Zeile
+des alten Stands steht im neuen, und umgekehrt). Öffentliche Funktionen (`MHUB_…`-Funktionen, Formular-Handler) bleiben in der Klasse. Prüfstände,
+die den Quelltext lesen, nehmen `mhub_source('MeterHub')` (`.tools/i18n-test-support.php`); die Mutationsproben (`.tools/ref/mutate.php`,
+`test-iolock.php --mutations`) arbeiten in einer Kopie der Ordnerstruktur.
+
 ## Eigenständigkeit prüfen: `.tools/check-standalone.php`
 
 ```
