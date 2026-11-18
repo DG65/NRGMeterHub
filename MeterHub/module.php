@@ -3676,7 +3676,7 @@ class MHUB_BlueLogPowerControlDriver implements MHUB_MeterDriverInterface, MHUB_
 
 class MeterHub extends IPSModule
 {
-    // Ausgelagerte Methodengruppen (0.40.0), wörtlich aus dieser Klasse verschoben: libs/MeterHubInexogy.php, libs/MeterHubArchive.php
+    // Ausgelagerte Methodengruppen (0.39.5), wörtlich aus dieser Klasse verschoben: libs/MeterHubInexogy.php, libs/MeterHubArchive.php
     use MHUB_InexogyCloud;
     use MHUB_ArchiveRepair;
 
@@ -4637,7 +4637,7 @@ class MeterHub extends IPSModule
         // deaktiviert) werden NICHT mit einem veralteten Wert überbrückt —
         // lieber etwas zu wenig als erfundener Ertrag.
         $maxGap = max(300, 5 * max(1, $this->ReadPropertyInteger('IntervalFast')));
-        $invert = $this->ReadPropertyBoolean('PowerInvert');
+        $sign = $this->PowerSign();
         foreach ($map as $eIdent => $pIdent) {
             $pid = $this->FindVarByIdent($pIdent);
             $eid = $this->FindVarByIdent($this->EnergyIdentForInvert($eIdent));
@@ -4645,8 +4645,8 @@ class MeterHub extends IPSModule
                 continue;
             }
             $p = (float)GetValue($pid);
-            if ($pIdent === 'power_total' && $invert) {
-                $p = -$p; // SetVarFloat() hat invertiert — für die Rechnung zurück
+            if ($pIdent === 'power_total') {
+                $p *= $sign; // SetVarFloat() hat invertiert — für die Rechnung zurück (±1 ist seine eigene Umkehrung)
             }
             $t = (int)(IPS_GetVariable($pid)['VariableUpdated'] ?? 0);
             [$addKWh, $state[$eIdent]] = self::CalcEnergyStep($state[$eIdent] ?? null, $t, $p, $maxGap);
@@ -7358,9 +7358,9 @@ The function is still set to "none" there — deliberately, because otherwise th
             $this->SendDebug('Messwert', $ident . ': nicht verfügbar — nicht geschrieben', 0);
             return;
         }
-        // Zentraler Invers-Schalter für die Gesamt-Wirkleistung.
-        if ($ident === 'power_total' && $this->ReadPropertyBoolean('PowerInvert')) {
-            $value = -$value;
+        // Zentraler Invers-Schalter für die Gesamt-Wirkleistung (Entscheidung: PowerSign()).
+        if ($ident === 'power_total') {
+            $value *= $this->PowerSign();
         }
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
@@ -7423,9 +7423,21 @@ The function is still set to "none" there — deliberately, because otherwise th
      * (z. B. Phoenix EEM hat nur `energy_import`, keine Gegenrichtung) —
      * sonst würde der Wert ins Leere geschrieben und die Variable einfriert.
      */
+    /**
+     * Die EINE Stelle für die Vorzeichen-Hälfte der PowerInvert-Entscheidung (0.39.5): −1.0 bei gesetztem Haken, sonst +1.0.
+     * Die Ziel-Hälfte (welcher Energie-Ident ein Register aufnimmt) liegt gleich darunter in EnergyIdentForInvert().
+     * Wer ein Zählerregister schreibt, liest oder nachträgt, fragt NUR diese beiden Methoden — nie die Property selbst: Live-Pfad
+     * (SetVarFloat/SetVarEnergy…), Hochrechnung (AdvanceCalculatedEnergy), Archiv-Nachtrag und Archiv-Reparatur müssen
+     * dasselbe Ziel und dasselbe Vorzeichen verwenden, sonst mischen sich Live- und Nachtragswerte (Befund hbraun 17.11.2026).
+     */
+    private function PowerSign(): float
+    {
+        return $this->ReadPropertyBoolean('PowerInvert') ? -1.0 : 1.0;
+    }
+
     private function EnergyIdentForInvert(string $ident): string
     {
-        if (!$this->ReadPropertyBoolean('PowerInvert')) {
+        if ($this->PowerSign() > 0) {
             return $ident;
         }
         if (str_contains($ident, 'energy_import')) {

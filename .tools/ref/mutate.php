@@ -106,7 +106,7 @@ $ar = function (string $name, string $method, string $find, string $replace) use
 $ar('Energie: Tage-Obergrenze 45 entfällt', 'EnergyArchiveRepair', 'min(45, $days)', 'min(90, $days)');
 $ar('Energie: Rückwärtsschalter wirkt umgekehrt', 'EnergyArchiveRepair', "if (!\$s['zero'] && !\$withBackward) {", "if (!\$s['zero'] && \$withBackward) {");
 $ar('Energie: lange Rückschrittreihe wird doch repariert', 'EnergyArchiveRepair', "!\$s['zero'] && \$n > 3", "!\$s['zero'] && \$n > 30");
-$ar('Energie: PowerInvert-Vorzeichen bei der Leistung', 'EnergyArchiveRepair', "? -1.0 : 1.0;", "? 1.0 : 1.0;");
+$ar('Energie: PowerInvert-Vorzeichen bei der Leistung', 'EnergyArchiveRepair', '$sign = $this->PowerSign();', '$sign = 1.0;');
 $ar('Energie: Wh statt kWh bei der Leistung', 'EnergyArchiveRepair', "? 1.0 : 1000.0;", "? 1000.0 : 1000.0;");
 $ar('Energie: Leistung aus Bezug PLUS Einspeisung', 'EnergyArchiveRepair', '($dI - $dE)', '($dI + $dE)');
 $ar('Energie: Nullwerte werden nicht gelöscht', 'EnergyArchiveRepair', 'AC_DeleteVariableData($ac, $vid, $ts, $ts);', ';');

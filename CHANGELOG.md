@@ -2,6 +2,14 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.6 (2026-11-18)
+
+Interner Umbau, kein Verhalten geändert (Umbau 2 der Code-Bestandsaufnahme vom 18.11.2026, zweiter Teil): Die Entscheidung des Haken „Bezug/Einspeisung vertauscht“ (`PowerInvert`) fällt jetzt an **einer** Stelle.
+
+- Bisher fragten fünf Stellen die Einstellung selbst ab (Live-Wert, Hochrechnung, Archiv-Nachtrag, Archiv-Reparatur, Zielwahl der Zählerregister). Fehlte in einer das Vorzeichen oder die Umleitung, mischten sich Live- und Nachtragswerte (so geschehen am 17.11.2026, 0.38.6).
+- Neu: `PowerSign()` liefert das Vorzeichen (−1 bei gesetztem Haken, sonst +1), `EnergyIdentForInvert()` das Ziel. Alle Pfade fragen nur noch diese beiden Methoden.
+- **Prüfung:** Der Prüfstand `test-powerinvert.php` deckt jetzt auch die Hochrechnung aus der Leistung mit gesetztem Haken ab, die vorher ungeprüft war. Sieben Mutationsproben (`.tools/ref/mutate-invert.php`, dazu die bestehende Probe der Archiv-Reparatur) schlagen alle an; `test-backfill-invert.php` liest dafür den Modulpfad aus der Umgebung.
+
 ## 0.39.5 (2026-11-18)
 
 Interner Umbau, kein Verhalten geändert (Umbau 2 der Code-Bestandsaufnahme vom 18.11.2026, erster Teil): Zwei große Methodengruppen sind aus der Klasse `MeterHub` in Dateien unter `libs/` gewandert.

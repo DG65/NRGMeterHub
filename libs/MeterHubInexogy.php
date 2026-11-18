@@ -4,7 +4,7 @@
 // MeterHub — Inexogy-/Discovergy-Cloudzähler: Anmeldung (OAuth-Handshake, automatische Neuanmeldung über einen Tresor),
 // Archiv-Nachtrag der 15-Minuten-Werte und dessen Wasserstand.
 //
-// Ausgelagert aus MeterHub/module.php (0.40.0, Umbau 2 der Code-Bestandsaufnahme vom 18.11.2026): die Methoden stehen WÖRTLICH so
+// Ausgelagert aus MeterHub/module.php (0.39.5, Umbau 2 der Code-Bestandsaufnahme vom 18.11.2026): die Methoden stehen WÖRTLICH so
 // da wie vorher in der Klasse MeterHub, die diesen Trait einbindet (`use MHUB_InexogyCloud;`). Nichts davon ist ein eigenes Modul;
 // die Funktionen greifen weiter auf $this (Eigenschaften, Attribute, Hilfsfunktionen) der Instanz zu. Öffentliche Funktionen
 // (MHUB_InexogyLogin() usw.) bleiben in der Klasse.
@@ -569,7 +569,7 @@ trait MHUB_InexogyCloud
         $fields = [
             'energy'    => ['ident' => $this->EnergyIdentForInvert('energy_import'), 'scale' => 1e10],
             'energyOut' => ['ident' => $this->EnergyIdentForInvert('energy_export'), 'scale' => 1e10],
-            'power'     => ['ident' => 'power_total', 'scale' => $this->ReadPropertyBoolean('PowerInvert') ? -1000.0 : 1000.0],
+            'power'     => ['ident' => 'power_total', 'scale' => 1000.0 * $this->PowerSign()],
         ];
         $vids = [];
         foreach ($fields as $field => $t) {

@@ -4,7 +4,7 @@
 // MeterHub — Archiv: Zählerschutz gegen Null-/Rückwärtswerte, Energie-Archiv prüfen/reparieren, Richtung im Archiv prüfen/
 // korrigieren (PowerInvert-Altlasten), Live-Zwischenwerte bereinigen, Diagnose/Rollenprüfung und die Hilfen für Zählerpaare.
 //
-// Ausgelagert aus MeterHub/module.php (0.40.0, Umbau 2 der Code-Bestandsaufnahme vom 18.11.2026): die Methoden stehen WÖRTLICH so
+// Ausgelagert aus MeterHub/module.php (0.39.5, Umbau 2 der Code-Bestandsaufnahme vom 18.11.2026): die Methoden stehen WÖRTLICH so
 // da wie vorher in der Klasse MeterHub, die diesen Trait einbindet (`use MHUB_ArchiveRepair;`). Öffentliche Funktionen
 // (MHUB_CheckEnergyArchive() usw.) bleiben in der Klasse.
 // ===========================================================================
@@ -335,7 +335,7 @@ trait MHUB_ArchiveRepair
         $pvid = $this->FindVarByIdent('power_total');
         $powerPlan = [];
         if ($pvid && $zeroSpans && AC_GetLoggingStatus($ac, $pvid)) {
-            $sign = $this->ReadPropertyBoolean('PowerInvert') ? -1.0 : 1.0;
+            $sign = $this->PowerSign();
             $toW = $this->ReadPropertyBoolean('EnergyUnitWh') ? 1.0 : 1000.0;
             foreach ($zeroSpans as [$ta, $tb, $tsList]) {
                 $points = [];

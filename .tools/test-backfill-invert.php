@@ -87,7 +87,7 @@ function SetValueFloat($id, $v) { $GLOBALS['VAL'][$id] = $v; }
 function IPS_SetIdent($id, $i) { $GLOBALS['OBJ'][$id]['ObjectIdent'] = $i; return true; }
 function IPS_SetName($id, $n) { $GLOBALS['OBJ'][$id]['ObjectName'] = $n; return true; }
 
-require_once dirname(__DIR__) . '/MeterHub/module.php';
+require_once getenv('MHUB_MODULE') ?: dirname(__DIR__) . '/MeterHub/module.php';
 
 class FakeInexogy
 {

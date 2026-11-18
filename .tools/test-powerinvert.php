@@ -348,5 +348,33 @@ foreach ([false, true] as $inv12) {
     check("12e: eine echte 0 W wird weiterhin geschrieben (nur „nicht verfügbar“ fällt aus)$tag", GetValue($id12 + 3) === 0.0 || GetValue($id12 + 3) === -0.0);
 }
 
+echo "\n13) Hochrechnung der Energie aus der Leistung mit gesetztem Haken (PowerSign in AdvanceCalculatedEnergy, 0.39.5)\n";
+function IPS_GetVariable($id) { return ['VariableUpdated' => $GLOBALS['UPD'][$id] ?? 0]; }
+foreach ([false, true] as $inv13) {
+    $tag = $inv13 ? ' (Haken gesetzt)' : ' (ohne Haken)';
+    $id13 = $inv13 ? 1360 : 1300;
+    obj($id13, 1, 'Hochrechnung' . $tag, 0);
+    $cat13 = obj($id13 + 1, 0, 'Energie', $id13, 'cat_energy');
+    $imp13 = vari($id13 + 2, 'Bezug', $cat13, 'energy_import', 100.0);
+    vari($id13 + 4, 'Abgabe', $cat13, 'energy_export', 50.0);
+    vari($id13 + 3, 'Leistung', obj($id13 + 5, 0, 'Summe', $id13, 'cat_total'), 'power_total', 0.0);
+    $GLOBALS['PROP'][$id13]['PowerInvert'] = $inv13;
+    $h13 = new MeterHub($id13);
+    $h13->Create();
+    $adv = new ReflectionMethod('MeterHub', 'AdvanceCalculatedEnergy');
+    // Treiber meldet 3600 W Bezug; SetVarFloat() dreht bei gesetztem Haken auf −3600 W. Nach 60 s müssen 0,06 kWh
+    // dort ankommen, wo der Live-Pfad den Bezug hinschreibt (energy_import, bei gesetztem Haken energy_export).
+    $now = time();
+    $GLOBALS['UPD'][$id13 + 3] = $now - 120; $h13->SetVarFloat('power_total', 3600.0);
+    $adv->invoke($h13, ['energy_import' => 'power_total']);
+    $GLOBALS['UPD'][$id13 + 3] = $now - 60;  $h13->SetVarFloat('power_total', 3600.0);
+    $adv->invoke($h13, ['energy_import' => 'power_total']);
+    $target = $inv13 ? $id13 + 4 : $id13 + 2;      // Ziel des Bezugsregisters
+    $other  = $inv13 ? $id13 + 2 : $id13 + 4;
+    $want   = ($inv13 ? 50.0 : 100.0) + 0.06;       // 60 s × 3600 W = 0,06 kWh
+    check("13a: Bezug rechnet sich ins Ziel des Bezugsregisters hoch$tag", abs(GetValue($target) - $want) < 1e-6, 'ist ' . GetValue($target) . ', erwartet ' . $want);
+    check("13b: die Gegenrichtung bleibt unberührt$tag", abs(GetValue($other) - ($inv13 ? 100.0 : 50.0)) < 1e-9, 'ist ' . GetValue($other));
+}
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);
