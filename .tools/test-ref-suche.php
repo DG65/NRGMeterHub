@@ -207,6 +207,15 @@ $exc = $serverCall(['units' => ['1' => ['3' => [], '4' => []]], 'keepOpenOnExcep
 $result['exception_ohne_warten'] = ['wert' => $exc['wert'], 'wert_input' => $exc['wert_input'], 'schnell' => $exc['schnell']];
 $excSlow = $exc['dauer_s'];
 
+// Zeitgrenze mit Nachkommaanteil: 1,5 s darf nicht auf 1 s abgeschnitten werden und keine PHP-Meldung erzeugen (0.39.4, Fund 5)
+$timeoutCase = $serverCall(['units' => ['1' => ['3' => []]], 'silentUnits' => [1]], function ($port) use ($priv) {
+    $t = microtime(true);
+    $v = $priv('readHolding', '127.0.0.1', $port, 1, 40000, 1, 1.5);
+    return ['wert' => $v, 'dauer' => microtime(true) - $t];
+});
+$result['zeitgrenze_nachkommaanteil'] = ['wert' => $timeoutCase['wert'], 'volle_zeitgrenze_gewartet' => $timeoutCase['dauer'] >= 1.4 && $timeoutCase['dauer'] < 2.4];
+$timeoutDauer = round($timeoutCase['dauer'], 1);
+
 // Gegenseite schließt die Verbindung (unbekannte Unit-ID): die parallele Probe darf nicht bis zur Zeitgrenze mit voller CPU drehen (0.39.3, Fund 4)
 $closedCase = $serverCall(['units' => ['97' => ['3' => ['40000' => 0]]]], function ($port) use ($priv) {
     $targets = [];
@@ -294,6 +303,7 @@ foreach (array_keys($ref) as $k) { if (!array_key_exists($k, $result)) { $bad[] 
 check('Gerätesuche: ' . (count($result) - 1) . ' Fälle stimmen mit der Referenz überein', $bad === [], implode(', ', array_slice($bad, 0, 5)));
 $names = fn(string $k) => array_column($result[$k]['ergebnisse'] ?? [], 'meter');
 $idm = fn(string $k) => $result[$k]['meter'] ?? null;
+check('Fund 5: Zeitgrenze 1,5 s wird voll genutzt (' . $timeoutDauer . ' s statt abgeschnitten auf 1,0 s), keine PHP-Meldung zur Fließkomma-Umwandlung', $result['zeitgrenze_nachkommaanteil']['volle_zeitgrenze_gewartet'] === true && $result['zeitgrenze_nachkommaanteil']['wert'] === null && !preg_grep('/Implicit conversion/', $result['php_hinweise']));
 check('Fund 4: geschlossene Gegenseite in der parallelen Probe: ' . $closedCase['wand_s'] . ' s Wartezeit, ' . $closedCase['cpu_s'] . ' s CPU (vorher bis zur Zeitgrenze mit voller CPU), gemischt mit einer antwortenden Unit richtig ausgewertet', $result['parallel_geschlossene_gegenseite']['schnell'] === true && $result['parallel_geschlossene_gegenseite']['wenig_cpu'] === true && $result['parallel_geschlossene_gegenseite']['gemischt_schnell'] === true && $result['parallel_geschlossene_gegenseite']['gemischt'][0] === [0] && $result['parallel_geschlossene_gegenseite']['gemischt'][1] === null);
 check('Fund 3: eine Modbus-Exception bei offen bleibender Verbindung kostet keine Sekunde Wartezeit (zwei Proben in ' . $excSlow . ' s statt 2 × 1,0 s)', $result['exception_ohne_warten']['schnell'] === true && $result['exception_ohne_warten']['wert'] === null && $result['exception_ohne_warten']['wert_input'] === null);
 check('Siemens PAC2200 wird unter Unit-ID 247 erkannt', $idm('erkennung_pac2200_Unit247') === 'siemens_pac2200' && $result['erkennung_pac2200_Unit247']['unitId'] === 247);

@@ -166,6 +166,7 @@ $sm('Lizenzprüfung: Exception zählt nicht mehr', 'probeUnitResponds', 'strlen(
 $sm('Modbus-Lesen: Exception-Abkürzung entfällt (wartet bis zur Zeitgrenze)', 'modbusRead', "if (ord(\$response[7]) & 0x80) {\n                    break;\n                }", ';');
 $sm('Parallele Probe: geschlossene Gegenseite wird nicht erkannt (dreht bis zur Zeitgrenze)', 'probeManyParallel', "if ((\$chunk === '' || \$chunk === false) && feof(\$s)) {\n                        \$closed[\$i] = true;\n                    }", ';');
 $sm('Parallele Probe: Ergebnis der antwortenden Unit geht verloren', 'probeManyParallel', '$buffers[$i] .= $chunk;', ';');
+$sm('Zeitgrenze: Nachkommaanteil wird abgeschnitten (Fund 5)', 'setSocketTimeout', 'stream_set_timeout($sock, $sec, (int)round(((float)$timeout - $sec) * 1000000));', 'stream_set_timeout($sock, $sec);');
 $sm('Modbus-Lesen: Exception wird als Daten gelesen', 'modbusRead', '$rfc & 0x80 || $rfc !== $fc', '$rfc !== $fc');
 
 // ---- phaseCurrentIDs ------------------------------------------------------------------------------------------------

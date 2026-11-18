@@ -474,6 +474,15 @@ class MeterHubDiscovery extends IPSModule
         return implode("\n", $parts);
     }
 
+    // Zeitgrenze eines Sockets in Sekunden UND Mikrosekunden setzen. stream_set_timeout() nimmt die Sekunden als Ganzzahl: ein
+    // Fließkommawert wie 1,5 erzeugt ab PHP 8.1 die Meldung „Implicit conversion from float to int loses precision“ und wurde
+    // auf 1 s abgeschnitten (0.39.4, Fund 5 der Code-Bestandsaufnahme).
+    private function setSocketTimeout($sock, $timeout): void
+    {
+        $sec = (int)floor((float)$timeout);
+        stream_set_timeout($sock, $sec, (int)round(((float)$timeout - $sec) * 1000000));
+    }
+
     // Reine Existenzprüfung: Antwortet IRGENDETWAS auf dieser Unit-ID (auch
     // eine Modbus-Exception zählt — die Adresse ist dann trotzdem belegt),
     // im Unterschied zu modbusRead()/readHolding(), die eine Exception wie
@@ -485,7 +494,7 @@ class MeterHubDiscovery extends IPSModule
         if ($sock === false) {
             return false;
         }
-        stream_set_timeout($sock, $timeout);
+        $this->setSocketTimeout($sock, $timeout);
 
         $tid  = mt_rand(1, 65535);
         $pdu  = pack('Cnn', 0x03, 0, 1);
@@ -1884,7 +1893,7 @@ class MeterHubDiscovery extends IPSModule
         if ($sock === false) {
             return null;
         }
-        stream_set_timeout($sock, $timeout);
+        $this->setSocketTimeout($sock, $timeout);
 
         $tid  = mt_rand(1, 65535);
         $pdu  = pack('Cnn', $fc, $startReg, $count);

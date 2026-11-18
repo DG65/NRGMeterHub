@@ -2,6 +2,15 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.4 (2026-11-18)
+
+Gerätesuche: Zeitgrenzen mit Nachkommaanteil werden nicht mehr abgeschnitten und erzeugen keine PHP-Meldung mehr (Fund 5 der Code-Bestandsaufnahme vom 18.11.2026).
+
+- **Vorher:** `modbusRead()` und `probeUnitResponds()` übergaben die Zeitgrenze (z. B. 1,5 s bei den blue'Log-Textproben) als Fließkommazahl an `stream_set_timeout()`, das die Sekunden als Ganzzahl erwartet. PHP ab 8.1
+  meldet dabei „Implicit conversion from float 1.5 to int loses precision“ (zweimal je blue'Log-Gerät in der Suche), und die Zeitgrenze des Sockets wurde auf 1 s abgeschnitten.
+- **Jetzt:** Die Zeitgrenze wird in Sekunden und Mikrosekunden gesetzt (`setSocketTimeout()`): 1,5 s gelten voll, die Meldung entfällt.
+- **Prüfstand:** `test-ref-suche.php` (Server, der annimmt und nie antwortet: 1,5 s statt 1,0 s Wartezeit, keine PHP-Meldung); gegen 0.39.3 schlägt der Fall an; eine Mutationsprobe. In der Referenz fallen nur die beiden Meldungen weg, sonst ändert sich nichts.
+
 ## 0.39.3 (2026-11-18)
 
 Gerätesuche: Die parallele blue'Log-Probe dreht nicht mehr mit voller CPU, wenn die Gegenseite die Verbindung schließt (Fund 4 der Code-Bestandsaufnahme vom 18.11.2026).

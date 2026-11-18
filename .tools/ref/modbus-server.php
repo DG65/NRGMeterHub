@@ -8,7 +8,7 @@
  *   {"units": {"<Unit-ID>": {"3": {"<Adresse>": <Wort>, …}, "4": {…}}}}
  * Fehlt ein Wort des angefragten Bereichs, kommt die Exception 02 (danach wird die Verbindung geschlossen; mit
  * "keepOpenOnException": true bleibt sie offen wie bei einem echten Gerät). Eine Unit-ID ohne Eintrag bekommt keine
- * Antwort (Verbindung wird geschlossen). Mehrere Verbindungen gleichzeitig sind erlaubt.
+ * Antwort (Verbindung wird geschlossen). Units in "silentUnits" bekommen nie eine Antwort, die Verbindung bleibt offen. Mehrere Verbindungen gleichzeitig sind erlaubt.
  */
 $profile = json_decode(file_get_contents($argv[1]), true);
 $server = stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
@@ -32,6 +32,7 @@ while (true) {
             $addr = unpack('n', substr($buf[$id], 8, 2))[1];
             $qty = unpack('n', substr($buf[$id], 10, 2))[1];
             $buf[$id] = '';
+            if (in_array((string)$unit, array_map('strval', $profile['silentUnits'] ?? []), true)) { $buf[$id] = ''; break; }   // nimmt an, antwortet nie, Verbindung bleibt offen
             $words = $profile['units'][(string)$unit][(string)$fc] ?? null;
             if (!isset($profile['units'][(string)$unit])) { fclose($s); unset($clients[$id], $buf[$id]); break; }
             $ok = is_array($words);

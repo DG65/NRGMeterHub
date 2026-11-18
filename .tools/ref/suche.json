@@ -91,10 +91,7 @@
             "Fertig: 2 Zähler gefunden (von 1 offenen Ports) (davon 1 blue'Log(s) samt SCADA-Geräten)."
         ],
         "zusammenfassung": "✅ 2 Zähler gefunden (zuletzt HH:MM:SS Uhr).",
-        "warnungen": [
-            "Implicit conversion from float 1.5 to int loses precision",
-            "Implicit conversion from float 1.5 to int loses precision"
-        ]
+        "warnungen": []
     },
     "suche_Abbruch_waehrend_der_Suche": {
         "ergebnisse": [],
@@ -180,6 +177,10 @@
         "wert": null,
         "wert_input": null,
         "schnell": true
+    },
+    "zeitgrenze_nachkommaanteil": {
+        "wert": null,
+        "volle_zeitgrenze_gewartet": true
     },
     "parallel_geschlossene_gegenseite": {
         "nur_geschlossen": [
@@ -332,7 +333,6 @@
         "meldungen": []
     },
     "php_hinweise": [
-        "Implicit conversion from float 1.5 to int loses precision (module.php)",
         "fsockopen(): Unable to connect to 127.0.0.1:1 (Connection refused) (module.php)"
     ]
 }

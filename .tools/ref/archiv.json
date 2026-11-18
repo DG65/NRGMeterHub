@@ -495,8 +495,8 @@
     "A13_Luecke_ohne_gueltigen_Wert_davor": {
         "text": [
             "🔎 Probelauf, nichts geändert (6 Tage):",
-            "Bezug (#1): 18 Nullwert(e), 0 Rückschritt(e)",
-            "   • T-8610min – T-8355min (18 Punkte): ohne gültigen Stand davor — nicht repariert (evtl. Zählertausch).",
+            "Bezug (#1): N Nullwert(e), 0 Rückschritt(e)",
+            "   • T-… – T-… (N Punkte): ohne gültigen Stand davor — nicht repariert (evtl. Zählertausch).",
             "Einspeisung (#2): 0 Nullwert(e), 0 Rückschritt(e) — in Ordnung.",
             "→ Nichts zu reparieren."
         ],

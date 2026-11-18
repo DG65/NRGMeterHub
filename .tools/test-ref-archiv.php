@@ -402,7 +402,14 @@ function run(string $label, callable $setup, callable $call, array &$result): vo
     restore_error_handler();
     $files = array_map('basename', glob($GLOBALS['KERNELDIR'] . 'meterhub_sicherung_*'));
     sort($files);
-    $result[$label] = ['text' => explode("\n", normText($text, $A)), 'archiv' => archiveDiff($before, snapshot(), $A),
+    $normd = normText($text, $A);
+    if (str_starts_with($label, 'A13')) {
+        // Der Beginn des Prüfzeitraums (jetzt − 6 Tage) fällt je nach Minute des Laufs auf einen anderen Rasterpunkt: Anzahl und Anfang der
+        // Nullwerte im Zeitraum schwanken um eine Viertelstunde. Gleichbleibend ist nur die Aussage („ohne gültigen Stand davor“).
+        $normd = preg_replace('/(?<!\d)[1-9]\d* Nullwert/', 'N Nullwert', $normd);
+        $normd = preg_replace('/T-\d+min – T-\d+min \(\d+ Punkte\)/u', 'T-… – T-… (N Punkte)', $normd);
+    }
+    $result[$label] = ['text' => explode("\n", $normd), 'archiv' => archiveDiff($before, snapshot(), $A),
         'neu_aggregiert' => count($GLOBALS['REAGG']), 'doppelte_zeitstempel' => array_sum(array_map('count', $GLOBALS['DUPES'])), 'sicherungen' => array_map(fn($f) => normText($f, $A), $files),
         'protokoll' => array_map(fn($m) => normText($m, $A), $GLOBALS['LOGMSG']), 'warnungen' => $warn];
 }
