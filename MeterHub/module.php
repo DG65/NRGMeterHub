@@ -3544,6 +3544,21 @@ class MeterHub extends IPSModule
     use MHUB_SharedForm;
     use MHUB_SharedInstance;
 
+    private function txt(string $text, ...$args): string
+    {
+        return MHUB_Text::t($text, ...$args);
+    }
+
+    private function fnPrefix(): string
+    {
+        return 'MHUB';
+    }
+
+    private function siblingModuleGuid(): string
+    {
+        return self::GUID_METER;
+    }
+
     public function __construct($InstanceID)
     {
         parent::__construct($InstanceID);
@@ -3996,34 +4011,6 @@ class MeterHub extends IPSModule
         $this->PropagateDismiss('ForumHint');
     }
 
-    /**
-     * Ausblenden von "Wozu dieses Modul?"/"Was ist Neu?"/Forum-Hinweis über
-     * alle Geschwister-Instanzen dieses Moduls teilen (Dietmar 14.09.2026,
-     * SUITE.md "Ausblenden über mehrere Instanzen desselben Moduls teilen").
-     * Anlass: 54 MeterHub-Instanzen am Solarpark — ohne das hier müsste
-     * derselbe Hinweis 54-mal einzeln weggeklickt werden. Ruft bei jeder
-     * Geschwister-Instanz NUR den reinen Übernahme-Schritt auf
-     * (AdoptDismissState), nicht erneut die volle Ack-Methode — dadurch
-     * kein Ping-Pong möglich, ganz ohne Prozessmerker: AdoptDismissState()
-     * propagiert selbst nie weiter.
-     */
-    private function PropagateDismiss(string $what, string $value = ''): void
-    {
-        foreach (IPS_GetInstanceListByModuleID(self::GUID_METER) as $sib) {
-            if ($sib === $this->InstanceID) {
-                continue;
-            }
-            try {
-                MHUB_AdoptDismissState($sib, $what, $value);
-            } catch (\Throwable $e) {
-                // Eine Geschwister-Instanz mitten im Reload/Löschen darf das
-                // Ausblenden der aufrufenden Instanz nicht mitreißen — @ hält
-                // Fatals bekanntlich nicht auf (siehe CLAUDE.md, MigrationsHub-
-                // Brücke).
-            }
-        }
-    }
-
     /** Reiner Übernahme-Schritt für eine Geschwister-Instanz — siehe PropagateDismiss(). Kein $id-Parameter nötig, da nur intern von MHUB_ selbst aufgerufen (fixe Arität ab hier). */
     public function AdoptDismissState(string $what, string $value)
     {
@@ -4051,46 +4038,6 @@ class MeterHub extends IPSModule
             'forumHintGone'    => $this->ReadAttributeBoolean('ForumHintGone'),
             'seenNews'         => $this->ReadAttributeString('SeenNews'),
         ];
-    }
-
-    /**
-     * Gegenrichtung zu PropagateDismiss(): eine neu angelegte Instanz sieht
-     * beim ersten ApplyChanges() bei einer beliebigen Geschwister-Instanz
-     * nach und übernimmt deren Stand, statt "Wozu dieses Modul?"/"Was ist
-     * Neu?"/Forum-Hinweis erneut zu zeigen, obwohl der Nutzer sie an anderer
-     * Stelle schon bestätigt hat. Zieht nur vor (false→true, ältere→neuere
-     * News-Version), überschreibt nie einen schon weiter fortgeschrittenen
-     * eigenen Stand.
-     */
-    private function AdoptDismissFromSibling(): void
-    {
-        if ($this->ReadAttributeBoolean('PurposeIntroGone') && $this->ReadAttributeBoolean('ForumHintGone')
-            && $this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
-            return;
-        }
-        foreach (IPS_GetInstanceListByModuleID(self::GUID_METER) as $sib) {
-            if ($sib === $this->InstanceID) {
-                continue;
-            }
-            try {
-                $state = MHUB_GetDismissState($sib);
-            } catch (\Throwable $e) {
-                continue;
-            }
-            if (!is_array($state)) {
-                continue;
-            }
-            if (!$this->ReadAttributeBoolean('PurposeIntroGone') && !empty($state['purposeIntroGone'])) {
-                $this->WriteAttributeBoolean('PurposeIntroGone', true);
-            }
-            if (!$this->ReadAttributeBoolean('ForumHintGone') && !empty($state['forumHintGone'])) {
-                $this->WriteAttributeBoolean('ForumHintGone', true);
-            }
-            if ($this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION && ($state['seenNews'] ?? '') === self::NEWS_VERSION) {
-                $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
-            }
-            break;
-        }
     }
 
     /**
@@ -5406,53 +5353,6 @@ The function is still set to "none" there — deliberately, because otherwise th
     // Formular: Aufbau (SUITE.md 3a) — Aufklapp-Zustand, Reihenfolge und
     // Ausblenden der Fachpanels wählbar; Referenz Batteriewächter.
     // -----------------------------------------------------------------------
-
-    /** Name eines Fachpanels für die Liste im Aufbau-Panel (ohne Klammerzusatz). */
-    private function layoutPanelName(array $panel, string $key): string
-    {
-        // Der Name steht als Wert in einer Liste (nicht als Beschriftung) — die Konsole übersetzt ihn nicht, deshalb hier.
-        return trim((string)preg_replace('/\s*\(.*$/u', '', MHUB_Text::t((string)($panel['caption'] ?? $key))));
-    }
-
-    /** Wählbarer Aufbau des Formulars: je Fachpanel Aufklapp-Zustand beim Öffnen und Position. */
-    private function LayoutPanel(array $layout, array $free): array
-    {
-        $rows   = [];
-        $hidden = [];
-        foreach ($layout as $key => $l) {
-            $name = $this->layoutPanelName($free[$key], $key);
-            $rows[] = ['Key' => $key, 'Panel' => $name, 'Opened' => $l['open'] === 'open', 'Closed' => $l['open'] === 'closed',
-                'Hidden' => $l['open'] === 'hidden', 'Pos' => $l['pos']];
-            if ($l['open'] === 'hidden') {
-                $hidden[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', $name));
-            }
-        }
-        $hiddenLine = $hidden
-            ? [['type' => 'Label', 'caption' => MHUB_Text::t('🙈 Hidden: %s — to show again, clear the "Hidden" checkbox. Hidden sections keep working, only the display is missing.', implode(', ', $hidden))]]
-            : [];
-        return [
-            'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => MHUB_Text::t('🪟  Form: layout%s', $hidden ? MHUB_Text::t(' (%s hidden)', count($hidden)) : ''),
-            'items' => array_merge($hiddenLine, [
-                ['type' => 'Label', 'caption' => 'Here you decide which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing by itself, so this setting applies every time the form opens. It takes effect after “Apply” the next time the form is opened.'],
-                ['type' => 'Label', 'caption' => 'No tick means "default": as the module intends. The position is a number; with the same number the default order stays. "Hidden" takes a section out of the display without it losing anything: its settings are kept and keep working (meant for sections you rarely need). To show it again, remove the tick at "Hidden" or click "Reset to default". If several ticks are set, "Hidden" wins over "Collapsed" over "Expanded". The sections at the top (purpose, news, documentation) and at the bottom (feedback, About this module) stay where they are and cannot be hidden.'],
-                [
-                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Areas', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
-                    'loadValuesFromConfiguration' => false,
-                    'values' => $rows,
-                    'columns' => [
-                        ['caption' => 'Area', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
-                        ['caption' => 'Key', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                        ['caption' => 'Expanded', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Collapsed', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => '🙈 Hidden', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
-                    ],
-                ],
-                ['type' => 'Button', 'caption' => '↩️ Reset to default', 'onClick' => 'echo MHUB_ResetFormLayout($id);'],
-            ]),
-        ];
-    }
 
     /** Setzt Aufklapp-Zustand und Reihenfolge der Fachpanels im offenen Formular auf den Standard (gilt nach „Übernehmen“). */
     public function ResetFormLayout(): string
@@ -6933,71 +6833,6 @@ The function is still set to "none" there — deliberately, because otherwise th
             ['type' => 'NumberSpinner', 'name' => 'CompactStage3Months' . $kind, 'caption' => 'After this many months', 'minimum' => 0, 'maximum' => 120, 'suffix' => MHUB_Text::t(' month(s)')],
             ['type' => 'Select', 'name' => 'CompactStage3Type' . $kind, 'caption' => '… compact to', 'options' => $opts],
         ];
-    }
-
-    /**
-     * Verdichtungs-Staffelung aus den Formular-Einstellungen und dem
-     * bekannten Update-Intervall — konfigurierbar statt fest im Code
-     * (Dietmars Einwand 31.08.2026: „ich bin nicht der einzigste Nutzer,
-     * andere haben vielleicht andere Vorstellungen" — seine eigenen Werte
-     * bleiben nur noch die VORBELEGUNG der drei Stufen, siehe Create()).
-     * Getrennt nach Leistung/Energie (Dietmars Ergänzung, noch am selben
-     * Tag: „wir müssen zwischen Leistungswerten und Energiewerten
-     * unterscheiden"), daher `$kind` = 'Power' oder 'Energy' als Suffix der
-     * gelesenen Properties. Jede Stufe nur mit ihrer gewählten Auflösung,
-     * wenn diese tatsächlich GRÖBER ist als das Roh-Intervall — sonst wäre
-     * sie ein Leerlauf; Typ 7 (löschen) hat keine Auflösung und wird immer
-     * übernommen, wenn gewählt. Intervall bewusst aus der Instanz-eigenen
-     * Konfiguration (IntervalFast/IntervalSlow) abgeleitet statt aus der
-     * Archiv-Historie geschätzt — die ist bei einer frisch angelegten
-     * Instanz noch leer.
-     * Rückgabe: IMMER drei [MonatsVersatz, Verdichtungstyp]-Paare für
-     * `AC_SetCompaction()` — eine bewusst ausgeschaltete oder rechnerisch
-     * überflüssige Stufe bekommt Verdichtungstyp -1 statt zu fehlen (siehe
-     * SetArchive()).
-     */
-    private function CompactionPlan(int $intervalSeconds, string $kind): array
-    {
-        if (!$this->ReadPropertyBoolean('AutoCompaction' . $kind)) {
-            // Nie angewendet (neue Instanz mit Standard „aus" oder ein Bestandswert, der ohne unser
-            // Zutun auf aus steht): das Archiv NICHT anfassen. Nur der beobachtete Wechsel von an auf
-            // aus setzt zurück (Attribut CompactionApplied, siehe CommitCompactionState()).
-            if (!$this->ReadAttributeBoolean('CompactionApplied' . $kind)) {
-                return [];
-            }
-            // Aktiv zurücksetzen statt nur nichts mehr zu tun (Dietmars
-            // Entscheidung 01.09.2026, konsistent zur Einzelstufen-Regel
-            // oben): alle drei Stufen explizit auf -1, damit auch Regeln aus
-            // einem früheren "an"-Zustand verschwinden. Der Hauptschalter
-            // im Formular warnt deshalb ausdrücklich davor.
-            return [
-                [-1, -1],
-                [(int)$this->ReadPropertyInteger('CompactStage2Months' . $kind), -1],
-                [(int)$this->ReadPropertyInteger('CompactStage3Months' . $kind), -1],
-            ];
-        }
-        $plan = [];
-        $stages = [
-            [-1, (int)$this->ReadPropertyInteger('CompactDirect' . $kind)],
-            [(int)$this->ReadPropertyInteger('CompactStage2Months' . $kind), (int)$this->ReadPropertyInteger('CompactStage2Type' . $kind)],
-            [(int)$this->ReadPropertyInteger('CompactStage3Months' . $kind), (int)$this->ReadPropertyInteger('CompactStage3Type' . $kind)],
-        ];
-        foreach ($stages as [$offset, $type]) {
-            // Live verifiziert (Dietmars Fund 01.09.2026: "aus" eingestellt,
-            // aber die Monate standen weiter in der Verdichtung): jede Stufe
-            // bekommt IMMER einen AC_SetCompaction()-Aufruf, nie einfach
-            // übersprungen — Verdichtungstyp -1 löscht die Regel am
-            // jeweiligen Monats-Offset aktiv (bestätigt per AC_GetCompaction()
-            // vorher/nachher), ein reines "nichts aufrufen" ließ eine schon
-            // vorhandene Regel unangetastet stehen. Betrifft nicht nur ein
-            // bewusstes "aus", sondern auch den rechnerischen Leerlauf-Fall.
-            if ($type !== -1 && ($type === 7 || self::COMPACTION_SECONDS[$type] > $intervalSeconds)) {
-                $plan[] = [$offset, $type];
-            } else {
-                $plan[] = [$offset, -1];
-            }
-        }
-        return $plan;
     }
 
     // -----------------------------------------------------------------------

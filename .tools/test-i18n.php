@@ -69,8 +69,8 @@ foreach ($mods as $m => $p) {
         if ($skipUntil >= 0) { continue; }
         if ($t[0] === T_CONSTANT_ENCAPSED_STRING) { $lits[] = [$dec($t[1]), $t[2]]; }
         if ($t[0] === T_ENCAPSED_AND_WHITESPACE) { $lits[] = [$t[1], $t[2]]; }
-        // MHUB*_Text::t('…')
-        if ($t[0] === T_STRING && $t[1] === $p . '_Text') {
+        // MHUB*_Text::t('…') und $this->txt('…') (die gemeinsamen Bausteine in libs/MeterHubShared.php übersetzen über den Haken txt() der Klasse)
+        if ($t[0] === T_STRING && ($t[1] === $p . '_Text' || ($t[1] === 'txt' && $i > 0 && is_array($tokens[$i - 1]) && $tokens[$i - 1][0] === T_OBJECT_OPERATOR))) {
             $j = $i + 1; $seq = '';
             while ($j < $n && $j < $i + 6) { $seq .= is_array($tokens[$j]) ? ($tokens[$j][0] === T_WHITESPACE ? '' : $tokens[$j][1]) : $tokens[$j]; if (isset($tokens[$j]) && is_array($tokens[$j]) && $tokens[$j][0] === T_CONSTANT_ENCAPSED_STRING) { $tCalls[] = [$dec($tokens[$j][1]), $tokens[$j][2]]; break; } $j++; }
         }

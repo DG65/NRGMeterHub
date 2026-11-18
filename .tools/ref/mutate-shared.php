@@ -49,6 +49,22 @@ $add('Archiv-Instanz: ohne Archivfunktion nicht 0', "if (!function_exists('AC_Ge
 $add('Verdichtungsmerker: wird nicht geschrieben', "\$this->WriteAttributeBoolean('CompactionApplied' . \$kind, \$on);", ';');
 $add('Verdichtungsauswahl: Typ „löschen“ falsch', "'value' => 7", "'value' => 6");
 
+// Bausteine mit Haken der Klasse (0.39.9): Fachpanel-Aufbau, Ausblenden über Geschwister, Verdichtungsplan
+$add('Panelname: Klammerzusatz bleibt stehen', "'/\\s*\\(.*$/u'", "'/\\s*\\(zzz.*$/u'");
+$add('Aufbau-Panel: Symbole bleiben im Hinweis', "\$hidden[] = trim((string)preg_replace('/^[^\\p{L}\\p{N}]+/u', '', \$name));", "\$hidden[] = \$name;");
+$add('Aufbau-Panel: Zurücksetzen ohne Präfix der Klasse', "'echo ' . \$this->fnPrefix() . '_ResetFormLayout(\$id);'", "'echo MHUB_ResetFormLayout(\$id);'");
+$add('Aufbau-Panel: Ausgeblendet-Spalte zeigt zugeklappt', "'Hidden' => \$l['open'] === 'hidden'", "'Hidden' => \$l['open'] === 'closed'");
+$add('Ausblenden teilen: Weitergabe entfällt', "(\$this->fnPrefix() . '_AdoptDismissState')(\$sib, \$what, \$value);", ';');
+$add('Ausblenden teilen: Fehler einer Instanz reißt mit', "} catch (\\Throwable \$e) {\n                // Eine Geschwister-Instanz", "} catch (\\LogicException \$e) {\n                // Eine Geschwister-Instanz");
+$add('Übernahme: Geschwister werden nicht gefunden', "foreach (IPS_GetInstanceListByModuleID(\$this->siblingModuleGuid()) as \$sib) {\n            if (\$sib === \$this->InstanceID) {\n                continue;\n            }\n            try {\n                \$state", "foreach ([] as \$sib) {\n            if (\$sib === \$this->InstanceID) {\n                continue;\n            }\n            try {\n                \$state");
+$add('Übernahme: alle Geschwister statt der ersten', "\$this->WriteAttributeString('SeenNews', self::NEWS_VERSION);\n            }\n            break;", "\$this->WriteAttributeString('SeenNews', self::NEWS_VERSION);\n            }");
+$add('Übernahme: Frühausstieg bei bestätigtem Stand entfällt', "&& \$this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {\n            return;", "&& \$this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION) {\n            return;");
+$add('Übernahme: Nicht-Array wird nicht übersprungen', "if (!is_array(\$state)) {\n                continue;", "if (false) {\n                continue;");
+$add('Verdichtungsplan: Gleichstand zählt als gröber', "self::COMPACTION_SECONDS[\$type] > \$intervalSeconds", "self::COMPACTION_SECONDS[\$type] >= \$intervalSeconds");
+$add('Verdichtungsplan: „löschen“ hängt am Intervall', "\$type === 7 || self::COMPACTION_SECONDS", "false || self::COMPACTION_SECONDS");
+$add('Verdichtungsplan: nie angewendet setzt trotzdem zurück', "if (!\$this->ReadAttributeBoolean('CompactionApplied' . \$kind)) {\n                return [];", "if (false) {\n                return [];");
+$add('Verdichtungsplan: Zurücksetzen ohne zweite Stufe', "[(int)\$this->ReadPropertyInteger('CompactStage2Months' . \$kind), -1],\n                [(int)\$this->ReadPropertyInteger('CompactStage3Months' . \$kind), -1],", "[(int)\$this->ReadPropertyInteger('CompactStage3Months' . \$kind), -1],\n                [(int)\$this->ReadPropertyInteger('CompactStage3Months' . \$kind), -1],");
+
 $tests = array_map('basename', glob("$root/.tools/test-*.php"));
 $jobs = [];
 function copyAll(string $root, string $dest, string $target, string $content): void

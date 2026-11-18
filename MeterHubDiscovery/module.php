@@ -37,6 +37,21 @@ class MeterHubDiscovery extends IPSModule
 {
     use MHUB_SharedForm;
 
+    private function txt(string $text, ...$args): string
+    {
+        return MHUBD_Text::t($text, ...$args);
+    }
+
+    private function fnPrefix(): string
+    {
+        return 'MHUBD';
+    }
+
+    private function siblingModuleGuid(): string
+    {
+        return self::GUID_DISCOVERY;
+    }
+
     public function __construct($InstanceID)
     {
         parent::__construct($InstanceID);
@@ -244,32 +259,6 @@ class MeterHubDiscovery extends IPSModule
         $this->PropagateDismiss('ForumHint');
     }
 
-    /**
-     * Ausblenden von "Wozu dieses Modul?"/"Was ist Neu?"/Forum-Hinweis über
-     * alle Geschwister-Instanzen dieses Moduls teilen (Dietmar 14.09.2026,
-     * SUITE.md "Ausblenden über mehrere Instanzen desselben Moduls teilen").
-     * Ruft bei jeder Geschwister-Instanz NUR den reinen Übernahme-Schritt
-     * auf (AdoptDismissState), nicht erneut die volle Ack-Methode — dadurch
-     * kein Ping-Pong möglich, ganz ohne Prozessmerker: AdoptDismissState()
-     * propagiert selbst nie weiter.
-     */
-    private function PropagateDismiss(string $what, string $value = ''): void
-    {
-        foreach (IPS_GetInstanceListByModuleID(self::GUID_DISCOVERY) as $sib) {
-            if ($sib === $this->InstanceID) {
-                continue;
-            }
-            try {
-                MHUBD_AdoptDismissState($sib, $what, $value);
-            } catch (\Throwable $e) {
-                // Eine Geschwister-Instanz mitten im Reload/Löschen darf das
-                // Ausblenden der aufrufenden Instanz nicht mitreißen — @ hält
-                // Fatals bekanntlich nicht auf (siehe CLAUDE.md, MigrationsHub-
-                // Brücke).
-            }
-        }
-    }
-
     /** Reiner Übernahme-Schritt für eine Geschwister-Instanz — siehe PropagateDismiss(). */
     public function AdoptDismissState(string $what, string $value)
     {
@@ -297,44 +286,6 @@ class MeterHubDiscovery extends IPSModule
             'forumHintGone'    => $this->ReadAttributeBoolean('ForumHintGone'),
             'seenNews'         => $this->ReadAttributeString('SeenNews'),
         ];
-    }
-
-    /**
-     * Gegenrichtung zu PropagateDismiss(): eine neu angelegte Instanz sieht
-     * beim ersten ApplyChanges() bei einer beliebigen Geschwister-Instanz
-     * nach und übernimmt deren Stand, statt die Hinweise erneut zu zeigen.
-     * Zieht nur vor (false→true, ältere→neuere News-Version), überschreibt
-     * nie einen schon weiter fortgeschrittenen eigenen Stand.
-     */
-    private function AdoptDismissFromSibling(): void
-    {
-        if ($this->ReadAttributeBoolean('PurposeIntroGone') && $this->ReadAttributeBoolean('ForumHintGone')
-            && $this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
-            return;
-        }
-        foreach (IPS_GetInstanceListByModuleID(self::GUID_DISCOVERY) as $sib) {
-            if ($sib === $this->InstanceID) {
-                continue;
-            }
-            try {
-                $state = MHUBD_GetDismissState($sib);
-            } catch (\Throwable $e) {
-                continue;
-            }
-            if (!is_array($state)) {
-                continue;
-            }
-            if (!$this->ReadAttributeBoolean('PurposeIntroGone') && !empty($state['purposeIntroGone'])) {
-                $this->WriteAttributeBoolean('PurposeIntroGone', true);
-            }
-            if (!$this->ReadAttributeBoolean('ForumHintGone') && !empty($state['forumHintGone'])) {
-                $this->WriteAttributeBoolean('ForumHintGone', true);
-            }
-            if ($this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION && ($state['seenNews'] ?? '') === self::NEWS_VERSION) {
-                $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
-            }
-            break;
-        }
     }
 
     /**
@@ -773,53 +724,6 @@ class MeterHubDiscovery extends IPSModule
     // Formular: Aufbau (SUITE.md 3a) — Aufklapp-Zustand, Reihenfolge und
     // Ausblenden der Fachpanels wählbar; Referenz Batteriewächter.
     // -----------------------------------------------------------------------
-
-    /** Name eines Fachpanels für die Liste im Aufbau-Panel (ohne Klammerzusatz). */
-    private function layoutPanelName(array $panel, string $key): string
-    {
-        // Der Name steht als Wert in einer Liste (nicht als Beschriftung) — die Konsole übersetzt ihn nicht, deshalb hier.
-        return trim((string)preg_replace('/\s*\(.*$/u', '', MHUBD_Text::t((string)($panel['caption'] ?? $key))));
-    }
-
-    /** Wählbarer Aufbau des Formulars: je Fachpanel Aufklapp-Zustand beim Öffnen und Position. */
-    private function LayoutPanel(array $layout, array $free): array
-    {
-        $rows   = [];
-        $hidden = [];
-        foreach ($layout as $key => $l) {
-            $name = $this->layoutPanelName($free[$key], $key);
-            $rows[] = ['Key' => $key, 'Panel' => $name, 'Opened' => $l['open'] === 'open', 'Closed' => $l['open'] === 'closed',
-                'Hidden' => $l['open'] === 'hidden', 'Pos' => $l['pos']];
-            if ($l['open'] === 'hidden') {
-                $hidden[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', $name));
-            }
-        }
-        $hiddenLine = $hidden
-            ? [['type' => 'Label', 'caption' => MHUBD_Text::t('🙈 Hidden: %s — to show again, clear the "Hidden" checkbox. Hidden sections keep working, only the display is missing.', implode(', ', $hidden))]]
-            : [];
-        return [
-            'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => MHUBD_Text::t('🪟  Form: layout%s', $hidden ? MHUBD_Text::t(' (%s hidden)', count($hidden)) : ''),
-            'items' => array_merge($hiddenLine, [
-                ['type' => 'Label', 'caption' => 'Here you decide which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing by itself, so this setting applies every time the form opens. It takes effect after “Apply” the next time the form is opened.'],
-                ['type' => 'Label', 'caption' => 'No tick means "default": as the module intends. The position is a number; with the same number the default order stays. "Hidden" takes a section out of the display without it losing anything: its settings are kept and keep working (meant for sections you rarely need). To show it again, remove the tick at "Hidden" or click "Reset to default". If several ticks are set, "Hidden" wins over "Collapsed" over "Expanded". The sections at the top (purpose, news, documentation) and at the bottom (feedback, About this module) stay where they are and cannot be hidden.'],
-                [
-                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Areas', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
-                    'loadValuesFromConfiguration' => false,
-                    'values' => $rows,
-                    'columns' => [
-                        ['caption' => 'Area', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
-                        ['caption' => 'Key', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                        ['caption' => 'Expanded', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Collapsed', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => '🙈 Hidden', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
-                    ],
-                ],
-                ['type' => 'Button', 'caption' => '↩️ Reset to default', 'onClick' => 'echo MHUBD_ResetFormLayout($id);'],
-            ]),
-        ];
-    }
 
     /** Setzt Aufklapp-Zustand und Reihenfolge der Fachpanels im offenen Formular auf den Standard (gilt nach „Übernehmen“). */
     public function ResetFormLayout(): string

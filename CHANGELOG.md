@@ -2,6 +2,15 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.9 (2026-11-18)
+
+Interner Umbau, kein Verhalten geändert (Umbau 5 der Code-Bestandsaufnahme vom 18.11.2026): Der Rest der Formularbausteine, die in MeterHub, MeterHubVirtual und MeterHubDiscovery bisher fast gleich standen, liegt jetzt ebenfalls in `libs/MeterHubShared.php`.
+
+- **Zusätzlich in `MHUB_SharedForm`:** `layoutPanelName`, `LayoutPanel` (Panel „Formular: Aufbau“), `PropagateDismiss` und `AdoptDismissFromSibling` (Ausblenden von Hinweisen über Geschwister-Instanzen). **In `MHUB_SharedInstance`:** `CompactionPlan` (Verdichtungsplan, in MeterHub und MeterHubVirtual Zeichen für Zeichen gleich).
+- Was sich zwischen den Modulen unterschied, war nur der Name der Übersetzungsklasse, das Präfix der öffentlichen Funktionen (`MHUB`, `MHUBV`, `MHUBD`) und die GUID der Geschwister-Instanzen. Das liefert jede Klasse über drei kleine Haken (`txt()`, `fnPrefix()`, `siblingModuleGuid()`); die Bausteine sind als `abstract private` deklariert, eine Klasse ohne die Haken lässt sich nicht laden. Eine neue Verbundregel für diese Panels ändert man jetzt an einer Stelle.
+- Bewusst nicht zusammengelegt: Bausteine mit eigenem Text je Modul (`ForumHint`, `NewsBanner`, `PurposeIntro`, `ArchivingPanel`, `CompactionFields`) und alles mit unterschiedlicher Logik (`ArchivingMissing`, `EnableArchiving`).
+- **Prüfung:** `test-shared.php` deckt die verschobenen Bausteine mit den Haken ab (Panel-Aufbau, Weitergabe und Übernahme des Ausblendens, Verdichtungsplan an den Intervallgrenzen); `test-i18n.php` erkennt Texte über `$this->txt(…)`. 13 weitere Mutationsproben in `mutate-shared.php` (jetzt 38). Die erste Fassung ließ eine durch (die Abkürzung in `AdoptDismissFromSibling`, die ohne sichtbaren Unterschied im Ergebnis bleibt); der Test prüft jetzt, dass in dem Fall kein Nachbar gefragt wird.
+
 ## 0.39.8 (2026-11-18)
 
 Interner Umbau, kein Verhalten geändert (Umbau 4 der Code-Bestandsaufnahme vom 18.11.2026): Die Entscheidung „zu welcher Art gehört dieser Zählertyp“ fällt jetzt an einer Stelle.
