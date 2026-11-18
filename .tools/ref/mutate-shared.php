@@ -1,0 +1,87 @@
+<?php
+/**
+ * Mutationsproben für die gemeinsamen Bausteine in libs/MeterHubShared.php (Umbau 3, 0.39.7).
+ *
+ *   php .tools/ref/mutate-shared.php
+ *
+ * Die Traits werden von drei Modulen und zwei Modbus-Clients eingebunden und mehrere Prüfstände laden diese Module gemeinsam in einem
+ * Prozess. Darum läuft jede Mutation in einer Kopie der ganzen Arbeitsstruktur (Module, libs, .tools): der Prüfstand der Kopie
+ * lädt dann überall die veränderte Datei. Erwartet wird, dass mindestens ein Prüfstand rot wird.
+ */
+$root = dirname(__DIR__, 2);
+$target = 'libs/MeterHubShared.php';
+$orig = file_get_contents("$root/$target");
+$m = [];
+$add = function (string $name, string $find, string $replace) use (&$m) { $m[] = [$name, $find, $replace]; };
+// Registerdekodierung
+$add('Codec: u16 maskiert falsch', '$regs[$offset] & 0xFFFF', '$regs[$offset] & 0x7FFF');
+$add('Codec: u32 Wortbreite', '$this->u16($regs, $offset) << 16) | $this->u16($regs, $offset + 1)', '$this->u16($regs, $offset) << 15) | $this->u16($regs, $offset + 1)');
+$add('Codec: s32 Vorzeichengrenze', '$v > 2147483647 ? $v - 4294967296 : $v;
+    }
+
+    // 32-Bit mit getauschter', '$v > 2147483648 ? $v - 4294967296 : $v;
+    }
+
+    // 32-Bit mit getauschter');
+$add('Codec: u32sw nicht getauscht', '$this->u16($regs, $offset + 1) << 16) | $this->u16($regs, $offset)', '$this->u16($regs, $offset) << 16) | $this->u16($regs, $offset + 1)');
+$add('Codec: s32sw ohne Vorzeichen', '$v = $this->u32sw($regs, $offset);
+        return $v > 2147483647 ? $v - 4294967296 : $v;', '$v = $this->u32sw($regs, $offset);
+        return $v;');
+$add('Codec: readFloat32 ignoriert Wortreihenfolge', "if (\$this->wordSwap) {\n            \$tmp = \$w0;", "if (false) {\n            \$tmp = \$w0;");
+$add('Codec: readFloat32 Byte-Reihenfolge', "unpack('G', \$raw)", "unpack('g', \$raw)");
+$add('Codec: readDouble64 ignoriert Wortreihenfolge', '$w = array_reverse($w);', ';');
+$add('Codec: packFloat32 ignoriert Wortreihenfolge', 'return $this->wordSwap ? [$w1, $w0] : [$w0, $w1];', 'return [$w0, $w1];');
+// Fachpanels und Lizenzhinweis
+$add('Aufbau: ausgeblendet hat nicht mehr Vorrang', "!empty(\$r['Hidden']) ? 'hidden' : (!empty(\$r['Closed']) ? 'closed'", "!empty(\$r['Closed']) ? 'closed' : (!empty(\$r['Hidden']) ? 'hidden'");
+$add('Aufbau: Sortierung vertauscht Position und Reihenfolge', "[\$a['pos'], \$a['idx']] <=> [\$b['pos'], \$b['idx']]", "[\$a['idx'], \$a['pos']] <=> [\$b['idx'], \$b['pos']]");
+$add('Aufbau: Position wird nicht begrenzt', 'max(1, min(99, (int)$r[\'Pos\']))', '(int)$r[\'Pos\']');
+$add('Aufbau: ausgeblendete Panels bleiben sichtbar', "\$panel['visible'] = false;", ';');
+$add('Aufbau: Aufgeklappt-Wunsch entfällt', "if (\$l['open'] === 'open') {\n                \$panel['expanded'] = true;", "if (\$l['open'] === 'open') {\n                \$panel['expanded'] = false;");
+$add('Aufbau: gespeicherte Reihenfolge wird ignoriert', "\$saved = json_decode((string)\$this->ReadPropertyString('FormLayout'), true);", "\$saved = [];");
+$add('Lizenzhinweis: Verknüpfung zeigt auf PayPal', "\"echo '\" . self::LICENSE_URL . \"';\"", "\"echo '\" . self::PAYPAL_URL . \"';\"");
+$add('Lizenzhinweis: Panel startet aufgeklappt', "'type' => 'ExpansionPanel', 'expanded' => false,\n            'caption' => '🧡", "'type' => 'ExpansionPanel', 'expanded' => true,\n            'caption' => '🧡");
+// Instanz-Bausteine
+$add('Bereitschaft: Laufstufe wird nicht geprüft', "IPS_GetKernelRunlevel() !== KR_READY", 'false');
+$add('Bereitschaft: fehlende Instanz wird nicht erkannt', '!IPS_InstanceExists($this->InstanceID)', 'false');
+$add('Bereitschaft: Meldung der Instanz wird übersehen', "return \$e === null || !str_contains((string)(\$e['message'] ?? ''), 'InstanceInterface');", 'return true;');
+$add('Archiv-Instanz: immer 0', 'return count($ids) > 0 ? (int)$ids[0] : 0;', 'return 0;');
+$add('Archiv-Instanz: ohne Archivfunktion nicht 0', "if (!function_exists('AC_GetLoggingStatus')) {\n            return 0;\n        }", ';');
+$add('Verdichtungsmerker: wird nicht geschrieben', "\$this->WriteAttributeBoolean('CompactionApplied' . \$kind, \$on);", ';');
+$add('Verdichtungsauswahl: Typ „löschen“ falsch', "'value' => 7", "'value' => 6");
+
+$tests = array_map('basename', glob("$root/.tools/test-*.php"));
+$jobs = [];
+function copyAll(string $root, string $dest, string $target, string $content): void
+{
+    foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge', 'MeterHubMqttBridge', 'libs', '.tools', '.tools/ref'] as $dir) {
+        @mkdir("$dest/$dir", 0777, true);
+        foreach (glob("$root/$dir/*") as $f) { if (is_file($f)) { copy($f, "$dest/$dir/" . basename($f)); } }
+    }
+    file_put_contents("$dest/$target", $content);
+}
+// Kontrolle mit unveränderter Kopie
+$tree = sys_get_temp_dir() . '/mhshared_' . getmypid() . '_ctl';
+copyAll($root, $tree, $target, $orig);
+foreach ($tests as $t) {
+    $out = (string)shell_exec('cd ' . escapeshellarg($tree) . ' && php ' . escapeshellarg(".tools/$t") . ' 2>&1');
+    if (!preg_match('/ALLE PRÜFUNGEN BESTANDEN|Alle Prüfungen bestanden/u', $out)) { echo "KONTROLLE FEHLGESCHLAGEN: $t\n" . substr($out, -300) . "\n"; shell_exec('rm -rf ' . escapeshellarg($tree)); exit(2); }
+}
+shell_exec('rm -rf ' . escapeshellarg($tree));
+echo 'Kontrolle: ' . count($tests) . " Prüfstände bestehen mit unveränderter Kopie\n";
+$caught = 0; $missed = []; $na = [];
+foreach ($m as $i => [$name, $find, $replace]) {
+    if (substr_count($orig, $find) !== 1) { $na[] = $name . ' (Fundstellen: ' . substr_count($orig, $find) . ')'; continue; }
+    $tree = sys_get_temp_dir() . '/mhshared_' . getmypid() . '_' . $i;
+    copyAll($root, $tree, $target, str_replace($find, $replace, $orig));
+    $hit = null;
+    foreach ($tests as $t) {
+        $out = (string)shell_exec('cd ' . escapeshellarg($tree) . ' && php ' . escapeshellarg(".tools/$t") . ' 2>&1');
+        if (!preg_match('/ALLE PRÜFUNGEN BESTANDEN|Alle Prüfungen bestanden/u', $out)) { $hit = $t; break; }
+    }
+    shell_exec('rm -rf ' . escapeshellarg($tree));
+    if ($hit) { $caught++; echo "  erkannt ($hit)  $name\n"; } else { $missed[] = $name; echo "  NICHT ERKANNT  $name\n"; }
+}
+echo 'Mutationen: ' . (count($m) - count($na)) . " angewendet, $caught erkannt, " . count($missed) . ' nicht erkannt, ' . count($na) . " nicht anwendbar\n";
+foreach ($na as $n) { echo "  n/a: $n\n"; }
+echo ($missed || $na) ? "NICHT ALLE MUTATIONEN ERKANNT\n" : "ALLE MUTATIONEN ERKANNT\n";
+exit(($missed || $na) ? 1 : 0);

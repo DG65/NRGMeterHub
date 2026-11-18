@@ -6,8 +6,11 @@
 // charakteristischen Registers (Frequenz + Spannung als Plausibilitätsprüfung)
 // und legt auf Klick eine MeterHub-Instanz mit vorausgefüllten Werten an.
 // Eigenständige, kompakte Modbus-Hilfsfunktionen (kein Zugriff auf die Klassen
-// aus dem MeterHub-Modulordner — Module sind bewusst getrennt).
+// aus dem MeterHub-Modulordner — Module sind bewusst getrennt). Gemeinsam genutzt werden nur wortgleiche Formularbausteine
+// aus libs/MeterHubShared.php (seit 0.39.7), keine Fachlogik.
 // ---------------------------------------------------------------------------
+
+require_once __DIR__ . '/../libs/MeterHubShared.php';
 
 /**
  * Texte zur Laufzeit übersetzen (Quelltexte englisch, Deutsch in locale.json — SUITE.md Punkt 9). Die Modulklasse
@@ -32,6 +35,8 @@ class MHUBD_Text
 
 class MeterHubDiscovery extends IPSModule
 {
+    use MHUB_SharedForm;
+
     public function __construct($InstanceID)
     {
         parent::__construct($InstanceID);
@@ -330,31 +335,6 @@ class MeterHubDiscovery extends IPSModule
             }
             break;
         }
-    }
-
-    /**
-     * Lizenz-/Unterstützungs-Hinweis — Dietmars Auftrag 01.09.2026, Wortlaut
-     * ("Variante A") verbundweit als SUITE.md-Konvention festgehalten, damit
-     * alle NRG-Stack-Module denselben Text verwenden. Anders als der
-     * Forum-Hinweis bewusst NICHT wegklickbar — eine Lizenz ist kein
-     * einmaliger Hinweis, der nach dem ersten Lesen verschwinden sollte.
-     * Eingeklappt by default, aber immer im Formular vorhanden, ganz unten
-     * nach dem Forum-Hinweis.
-     */
-    private function LicenseHint(): array
-    {
-        return [
-            'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🧡  About this module',
-            'items' => [
-                ['type' => 'Label', 'caption' => 'Born out of real enthusiasm for my own energy system — and a few evenings spent typing. Still: hobby or not, this is intellectual property and real work went into it.'],
-                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private, non-commercial use; commercial use requires a separate license from the rights holder.'],
-                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => 'Commercial use or license questions? Just get in touch: dietmar@gureth.eu'],
-                ['type' => 'Label', 'caption' => 'Like the module and want to leave something anyway? A small donation is appreciated — entirely voluntary, nothing expected in return.'],
-                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
-            ],
-        ];
     }
 
     /**
@@ -794,67 +774,11 @@ class MeterHubDiscovery extends IPSModule
     // Ausblenden der Fachpanels wählbar; Referenz Batteriewächter.
     // -----------------------------------------------------------------------
 
-    /**
-     * Reihenfolge und Aufklapp-Zustand der Fachpanels aus der Einstellung „FormLayout“.
-     * Unbekannte oder fehlende Einträge fallen auf die Standardreihenfolge und „Standard“ zurück.
-     *
-     * @param string[] $keys Schlüssel der Fachpanels in Standardreihenfolge
-     * @return array key => ['open' => 'std'|'open'|'closed'|'hidden', 'pos' => int, 'idx' => int], in der anzuwendenden Reihenfolge
-     */
-    private function formLayout(array $keys): array
-    {
-        $saved = json_decode((string)$this->ReadPropertyString('FormLayout'), true);
-        $by = [];
-        foreach (is_array($saved) ? $saved : [] as $row) {
-            if (is_array($row) && isset($row['Key'])) {
-                $by[(string)$row['Key']] = $row;
-            }
-        }
-        $out = [];
-        foreach ($keys as $i => $k) {
-            $r = $by[$k] ?? [];
-            // Kontrollkästchen; Vorrang bei Widerspruch: ausgeblendet vor zugeklappt vor aufgeklappt, keines = Standard
-            $open = !empty($r['Hidden']) ? 'hidden' : (!empty($r['Closed']) ? 'closed' : (!empty($r['Opened']) ? 'open' : 'std'));
-            $out[$k] = [
-                'open' => $open,
-                'pos'  => isset($r['Pos']) ? max(1, min(99, (int)$r['Pos'])) : $i + 1,
-                'idx'  => $i,
-            ];
-        }
-        uasort($out, function ($a, $b) { return [$a['pos'], $a['idx']] <=> [$b['pos'], $b['idx']]; });
-        return $out;
-    }
-
     /** Name eines Fachpanels für die Liste im Aufbau-Panel (ohne Klammerzusatz). */
     private function layoutPanelName(array $panel, string $key): string
     {
         // Der Name steht als Wert in einer Liste (nicht als Beschriftung) — die Konsole übersetzt ihn nicht, deshalb hier.
         return trim((string)preg_replace('/\s*\(.*$/u', '', MHUBD_Text::t((string)($panel['caption'] ?? $key))));
-    }
-
-    /**
-     * Wendet den gewählten Aufbau auf die Fachpanels an.
-     *
-     * @param array $free key => Panel, in Standardreihenfolge
-     * @return array ['layout' => formLayout(), 'panels' => Panels in gewählter Reihenfolge]
-     */
-    private function ApplyFormLayout(array $free): array
-    {
-        $layout = $this->formLayout(array_keys($free));
-        $panels = [];
-        foreach ($layout as $key => $l) {
-            $panel = $free[$key];
-            if ($l['open'] === 'open') {
-                $panel['expanded'] = true;
-            } elseif ($l['open'] === 'closed') {
-                $panel['expanded'] = false;
-            } elseif ($l['open'] === 'hidden') {
-                // Nicht weglassen: die Felder bleiben im Formular, gespeicherte Werte bleiben beim „Übernehmen“ erhalten
-                $panel['visible'] = false;
-            }
-            $panels[] = $panel;
-        }
-        return ['layout' => $layout, 'panels' => $panels];
     }
 
     /** Wählbarer Aufbau des Formulars: je Fachpanel Aufklapp-Zustand beim Öffnen und Position. */

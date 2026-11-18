@@ -2765,7 +2765,7 @@ $newV = new MeterHubVirtual(8200); $newV->Create();
 $newH = new MeterHub(8201); $newH->Create();
 check('58a: neue Instanz, Standard aus: MeterHubVirtual plant nichts (Archiv unangetastet)', $plan->invoke($newV, 10, 'Power') === [] && $plan->invoke($newV, 10, 'Energy') === [], json_encode($plan->invoke($newV, 10, 'Power')));
 check('58a: neue Instanz, Standard aus: MeterHub plant nichts', $planHub->invoke($newH, 10, 'Power') === [] && $planHub->invoke($newH, 10, 'Energy') === []);
-$src58 = mhub_source('MeterHub') . file_get_contents(dirname(__DIR__) . '/MeterHubVirtual/module.php');
+$src58 = mhub_source('MeterHub') . mhub_source('MeterHubVirtual');
 check('58a: der Standard im Code ist „false" (Checkliste 9k), kein RegisterPropertyBoolean(AutoCompaction…, true) mehr', !preg_match("/RegisterPropertyBoolean\\('AutoCompaction' \\. \\$kind, true\\)/", $src58));
 
 meter(5400, 'Verdichtungs-Zähler', 100.0, 10.0);   // Leistung 5403
@@ -2974,8 +2974,8 @@ check('60d: erneuter Durchlauf ist stabil — keine neue Kategorie, Variablen bl
 $src60 = mhub_source('MeterHub');
 check('60e: Quelltext legt nirgends mehr Kategorien an (kein IPS_CreateCategory in MeterHub, MeterHubVirtual, MeterHubDiscovery, MeterHubBridge)',
     strpos($src60, 'IPS_CreateCategory') === false
-    && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubVirtual/module.php'), 'IPS_CreateCategory') === false
-    && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubDiscovery/module.php'), 'IPS_CreateCategory') === false
+    && strpos(mhub_source('MeterHubVirtual'), 'IPS_CreateCategory') === false
+    && strpos(mhub_source('MeterHubDiscovery'), 'IPS_CreateCategory') === false
     && strpos(file_get_contents(dirname(__DIR__) . '/MeterHubBridge/module.php'), 'IPS_CreateCategory') === false);
 
 echo "\n61) Store-Checkliste 19/26/27/28 (Symcon-Reviews 30.10.–06.11.2026): Archivierung nur auf Klick, UnregisterVariable, kein Geschwister-Abgleich in ApplyChanges, kein benutzerdefiniertes Profil\n";

@@ -224,6 +224,8 @@ des alten Stands steht im neuen, und umgekehrt). Öffentliche Funktionen (`MHUB_
 die den Quelltext lesen, nehmen `mhub_source('MeterHub')` (`.tools/i18n-test-support.php`); die Mutationsproben (`.tools/ref/mutate.php`,
 `test-iolock.php --mutations`) arbeiten in einer Kopie der Ordnerstruktur.
 
+**Dritter Trait-Satz `libs/MeterHubShared.php` (0.39.7):** `MHUB_ModbusCodec` (die acht Registerumwandlungen der beiden Modbus-Clients; die Klasse behält `$wordSwap` und `setWordSwap()`), `MHUB_SharedForm` (`formLayout`, `ApplyFormLayout`, `LicenseHint` für MeterHub, MeterHubVirtual, MeterHubDiscovery; die Klasse braucht `LICENSE_URL`/`PAYPAL_URL`) und `MHUB_SharedInstance` (`InstanceReady`, `ArchiveInstanceID`, `CommitCompactionState`, `CompactionTypeOptions` für MeterHub und MeterHubVirtual). **Regel:** Ein Baustein gehört nur dorthin, wenn er in allen einbindenden Klassen Zeichen für Zeichen gleich ist. Eine Abweichung eines einzelnen Moduls (anderes Text- oder Funktionspräfix, andere GUID) bleibt in der Klasse; eine Änderung in der Datei wirkt auf alle. Öffentliche Funktionen bleiben in den Klassen. Prüfung: `php .tools/ref/mutate-shared.php` (läuft in einer Kopie der ganzen Arbeitsstruktur, weil mehrere Module im selben Prozess dieselbe Datei laden).
+
 ## Eigenständigkeit prüfen: `.tools/check-standalone.php`
 
 ```

@@ -27,6 +27,8 @@
 // eigentliche Absicherung, nicht der Baum selbst.
 // ---------------------------------------------------------------------------
 
+require_once __DIR__ . '/../libs/MeterHubShared.php';
+
 /**
  * Texte zur Laufzeit übersetzen (Quelltexte englisch, Deutsch in locale.json — SUITE.md Punkt 9). Die Modulklasse
  * hinterlegt im Konstruktor ihre Translate()-Methode; auch Hilfsklassen und statische Methoden kommen so an die Übersetzung.
@@ -56,6 +58,9 @@ class MHUBV_Text
 
 class MeterHubVirtual extends IPSModule
 {
+    use MHUB_SharedForm;
+    use MHUB_SharedInstance;
+
     public function __construct($InstanceID)
     {
         parent::__construct($InstanceID);
@@ -345,31 +350,6 @@ class MeterHubVirtual extends IPSModule
             }
             break;
         }
-    }
-
-    /**
-     * Lizenz-/Unterstützungs-Hinweis — Dietmars Auftrag 01.09.2026, Wortlaut
-     * ("Variante A") verbundweit als SUITE.md-Konvention festgehalten, damit
-     * alle NRG-Stack-Module denselben Text verwenden. Anders als der
-     * Forum-Hinweis bewusst NICHT wegklickbar — eine Lizenz ist kein
-     * einmaliger Hinweis, der nach dem ersten Lesen verschwinden sollte.
-     * Eingeklappt by default, aber immer im Formular vorhanden, ganz unten
-     * nach dem Forum-Hinweis.
-     */
-    private function LicenseHint(): array
-    {
-        return [
-            'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🧡  About this module',
-            'items' => [
-                ['type' => 'Label', 'caption' => 'Born out of real enthusiasm for my own energy system — and a few evenings spent typing. Still: hobby or not, this is intellectual property and real work went into it.'],
-                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private, non-commercial use; commercial use requires a separate license from the rights holder.'],
-                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => 'Commercial use or license questions? Just get in touch: dietmar@gureth.eu'],
-                ['type' => 'Label', 'caption' => 'Like the module and want to leave something anyway? A small donation is appreciated — entirely voluntary, nothing expected in return.'],
-                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
-            ],
-        ];
     }
 
     /**
@@ -2308,21 +2288,6 @@ The previous table is backed up. From now on: add, remove and reorder members in
         $this->CommitCompactionState();
     }
 
-    /**
-     * Merkt nach einem vollständigen Registrierungsdurchlauf, ob die automatische Verdichtung je Kategorie
-     * jetzt angewendet wird. Erst damit löst ein späteres Ausschalten (an → aus) das einmalige Zurücksetzen
-     * der Regeln im Archiv aus; ein von vornherein ausgeschalteter Schalter lässt das Archiv in Ruhe.
-     */
-    private function CommitCompactionState(): void
-    {
-        foreach (['Power', 'Energy'] as $kind) {
-            $on = $this->ReadPropertyBoolean('AutoCompaction' . $kind);
-            if ($this->ReadAttributeBoolean('CompactionApplied' . $kind) !== $on) {
-                $this->WriteAttributeBoolean('CompactionApplied' . $kind, $on);
-            }
-        }
-    }
-
     // -----------------------------------------------------------------------
     // Schaltgruppe (Dietmars Entscheidung 03.09.2026, per Dashboard-Sitzung
     // adressiert: „das mit dem Schalten ... die Aufgabe von MeterHub"). Viele
@@ -2611,22 +2576,6 @@ The previous table is backed up. From now on: add, remove and reorder members in
     // Auflösung, wird in CompactionPlan() gesondert behandelt.
     private const COMPACTION_SECONDS = [0 => 60, 1 => 300, 2 => 3600, 3 => 86400, 4 => 604800, 5 => 2629746, 6 => 31556952];
 
-    /** Auswahlliste für die Verdichtungstyp-Formularfelder (auch von GetConfigurationForm() genutzt). */
-    private function CompactionTypeOptions(): array
-    {
-        return [
-            ['caption' => '— off —', 'value' => -1],
-            ['caption' => '1× per minute', 'value' => 0],
-            ['caption' => '1× per 5 minutes', 'value' => 1],
-            ['caption' => '1× per hour', 'value' => 2],
-            ['caption' => '1× per day', 'value' => 3],
-            ['caption' => '1× per week', 'value' => 4],
-            ['caption' => '1× per month', 'value' => 5],
-            ['caption' => '1× per year', 'value' => 6],
-            ['caption' => 'Delete values', 'value' => 7],
-        ];
-    }
-
     /** Sechs Formularfelder für eine Verdichtungs-Kategorie ('Power'/'Energy'), mit erklärender Zwischenüberschrift. */
     private function CompactionFields(string $kind): array
     {
@@ -2730,16 +2679,6 @@ The previous table is backed up. From now on: add, remove and reorder members in
     // -----------------------------------------------------------------------
     // Archivierung (Store-Review 30.10.2026, Checkliste 19): nur auf Klick im Formular einschalten
     // -----------------------------------------------------------------------
-
-    /** Archiv-Instanz oder 0, wenn es keine gibt. */
-    private function ArchiveInstanceID(): int
-    {
-        if (!function_exists('AC_GetLoggingStatus')) {
-            return 0;
-        }
-        $ids = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
-        return count($ids) > 0 ? (int)$ids[0] : 0;
-    }
 
     /**
      * Eigene Variablen, die archiviert werden sollen, aber (noch) nicht geloggt werden.
@@ -2898,32 +2837,6 @@ The previous table is backed up. From now on: add, remove and reorder members in
     // -----------------------------------------------------------------------
     // Berechnung
     // -----------------------------------------------------------------------
-
-    /**
-     * Rückgabe ist ein für den Formular-Knopf lesbarer Ergebnistext (Verbund-
-     * Konvention „Sichtbare Rückmeldung bei jeder Aktion", 20.08.2026) — der
-     * Aufruf über Timer/`$this->Recalc()` verwirft ihn einfach, das ist ohne
-     * Nebenwirkung.
-     */
-    /**
-     * Store-Checkliste 9c: Während Symcon ein Modul neu lädt, meldet jeder
-     * SDK-Aufruf „InstanceInterface is not available“ (live 13.09.2026 aus
-     * IsTreeMode/MemberSettingsMap/GetFunctions). Einstiegspunkte fragen das
-     * zuerst still ab. function_exists nur für die Prüfstände.
-     */
-    private function InstanceReady(): bool
-    {
-        if (function_exists('IPS_GetKernelRunlevel') && IPS_GetKernelRunlevel() !== KR_READY) {
-            return false;
-        }
-        if (function_exists('IPS_InstanceExists') && !IPS_InstanceExists($this->InstanceID)) {
-            return false;
-        }
-        error_clear_last();
-        @$this->ReadPropertyBoolean('Active');
-        $e = error_get_last();
-        return $e === null || !str_contains((string)($e['message'] ?? ''), 'InstanceInterface');
-    }
 
     public function Recalc(): string
     {
@@ -5001,67 +4914,11 @@ Skipped: %d without W/kWh profile, %d already entered, %d outputs of virtual met
     // Ausblenden der Fachpanels wählbar; Referenz Batteriewächter.
     // -----------------------------------------------------------------------
 
-    /**
-     * Reihenfolge und Aufklapp-Zustand der Fachpanels aus der Einstellung „FormLayout“.
-     * Unbekannte oder fehlende Einträge fallen auf die Standardreihenfolge und „Standard“ zurück.
-     *
-     * @param string[] $keys Schlüssel der Fachpanels in Standardreihenfolge
-     * @return array key => ['open' => 'std'|'open'|'closed'|'hidden', 'pos' => int, 'idx' => int], in der anzuwendenden Reihenfolge
-     */
-    private function formLayout(array $keys): array
-    {
-        $saved = json_decode((string)$this->ReadPropertyString('FormLayout'), true);
-        $by = [];
-        foreach (is_array($saved) ? $saved : [] as $row) {
-            if (is_array($row) && isset($row['Key'])) {
-                $by[(string)$row['Key']] = $row;
-            }
-        }
-        $out = [];
-        foreach ($keys as $i => $k) {
-            $r = $by[$k] ?? [];
-            // Kontrollkästchen; Vorrang bei Widerspruch: ausgeblendet vor zugeklappt vor aufgeklappt, keines = Standard
-            $open = !empty($r['Hidden']) ? 'hidden' : (!empty($r['Closed']) ? 'closed' : (!empty($r['Opened']) ? 'open' : 'std'));
-            $out[$k] = [
-                'open' => $open,
-                'pos'  => isset($r['Pos']) ? max(1, min(99, (int)$r['Pos'])) : $i + 1,
-                'idx'  => $i,
-            ];
-        }
-        uasort($out, function ($a, $b) { return [$a['pos'], $a['idx']] <=> [$b['pos'], $b['idx']]; });
-        return $out;
-    }
-
     /** Name eines Fachpanels für die Liste im Aufbau-Panel (ohne Klammerzusatz). */
     private function layoutPanelName(array $panel, string $key): string
     {
         // Der Name steht als Wert in einer Liste (nicht als Beschriftung) — die Konsole übersetzt ihn nicht, deshalb hier.
         return trim((string)preg_replace('/\s*\(.*$/u', '', MHUBV_Text::t((string)($panel['caption'] ?? $key))));
-    }
-
-    /**
-     * Wendet den gewählten Aufbau auf die Fachpanels an.
-     *
-     * @param array $free key => Panel, in Standardreihenfolge
-     * @return array ['layout' => formLayout(), 'panels' => Panels in gewählter Reihenfolge]
-     */
-    private function ApplyFormLayout(array $free): array
-    {
-        $layout = $this->formLayout(array_keys($free));
-        $panels = [];
-        foreach ($layout as $key => $l) {
-            $panel = $free[$key];
-            if ($l['open'] === 'open') {
-                $panel['expanded'] = true;
-            } elseif ($l['open'] === 'closed') {
-                $panel['expanded'] = false;
-            } elseif ($l['open'] === 'hidden') {
-                // Nicht weglassen: die Felder bleiben im Formular, gespeicherte Werte bleiben beim „Übernehmen“ erhalten
-                $panel['visible'] = false;
-            }
-            $panels[] = $panel;
-        }
-        return ['layout' => $layout, 'panels' => $panels];
     }
 
     /** Wählbarer Aufbau des Formulars: je Fachpanel Aufklapp-Zustand beim Öffnen und Position. */

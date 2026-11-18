@@ -111,6 +111,9 @@ function mhub_source(string $module): string
         $files = glob("$root/libs/MeterHub*.php") ?: [];
         sort($files);
         foreach ($files as $f) { $src .= "\n" . file_get_contents($f); }
+    } elseif (in_array($module, ['MeterHubVirtual', 'MeterHubDiscovery'], true)) {
+        // gemeinsame Formularbausteine (0.39.7): die Texte darin gehören zum Quelltext des einbindenden Moduls
+        $src .= "\n" . file_get_contents("$root/libs/MeterHubShared.php");
     }
     return $src;
 }

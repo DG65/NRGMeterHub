@@ -2,6 +2,16 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.39.7 (2026-11-18)
+
+Interner Umbau, kein Verhalten geändert (Umbau 3 der Code-Bestandsaufnahme vom 18.11.2026): Gleicher Code, der bisher mehrfach im Repository stand, liegt jetzt einmal in `libs/MeterHubShared.php` und wird von dort eingebunden.
+
+- **Modbus-Umwandlung (`MHUB_ModbusCodec`):** Die acht Funktionen, die Registerwerte in Zahlen umrechnen (`u16`, `u32`, `s32`, `u32sw`, `s32sw`, `readFloat32`, `readDouble64`, `packFloat32`), standen in den beiden Modbus-Clients (direkt und Gateway) Zeichen für Zeichen doppelt. Jetzt gibt es sie einmal.
+- **Formularbausteine (`MHUB_SharedForm`):** Aufbau der Fachpanels (`formLayout`, `ApplyFormLayout`) und der Lizenzhinweis kommen für MeterHub, MeterHubVirtual und MeterHubDiscovery aus derselben Stelle.
+- **Instanzbausteine (`MHUB_SharedInstance`):** Bereitschaftsprüfung beim Neuladen, Archiv-Instanz, Merker der Archiv-Verdichtung und deren Auswahlliste für MeterHub und MeterHubVirtual.
+- Insgesamt stehen rund 250 Zeilen weniger im Repository. Öffentliche Funktionen (`MHUB_AckNews()` usw.) bleiben in den Klassen, damit die von Symcon erzeugten Funktionen unverändert sind. Bausteine, bei denen sich die Module nur im Klassen- oder Funktionspräfix unterscheiden (z. B. `ForumHint`, `LayoutPanel`), bleiben vorerst getrennt.
+- **Prüfung:** Kein Code verloren (Zeilenvergleich), alle 19 Prüfstände unverändert grün, die bisherigen Mutationsproben unverändert erkannt. Neu: der Prüfstand `.tools/test-shared.php` (Randwerte der Umwandlungen, Aufbau, Bereitschaft) und `.tools/ref/mutate-shared.php` mit 24 Proben auf die gemeinsame Datei, die in einer Kopie der ganzen Arbeitsstruktur laufen. Die erste Fassung der Proben ließ neun durch, vor allem die Umwandlungen mit vertauschter Wortreihenfolge; der neue Prüfstand schließt diese Lücken.
+
 ## 0.39.6 (2026-11-18)
 
 Interner Umbau, kein Verhalten geändert (Umbau 2 der Code-Bestandsaufnahme vom 18.11.2026, zweiter Teil): Die Entscheidung des Haken „Bezug/Einspeisung vertauscht“ (`PowerInvert`) fällt jetzt an **einer** Stelle.
