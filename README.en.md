@@ -474,6 +474,45 @@ remainder is then everything not accounted for by the subordinate meters.
 Conversely, for a meter that is already integrated, the panel shows **which virtual meter it is
 part of**.
 
+### MeterHubEstimate (estimated meter)
+
+Estimates **power and energy of devices without their own measurement**: lamps, in-wall switches, smart plugs,
+speakers, routers. From the switch state, brightness and colour (or a fixed figure) it produces a power in W and a
+running energy meter in kWh — as ordinary variables that the NRG-Stack Dashboard, meter groups (MeterHubVirtual), the
+Symcon energy dashboard and the forecast can read. The contract `MHUBE_GetFunctions` is the same as for the other
+sources, but carries `measured: false` and `energyMeasured: false`, so whoever processes the values can tell them from
+real measurements.
+
+Three operating modes:
+
+- **Fixed power:** one value for "on", one for "off" (standby). For anything that either runs or does not.
+- **Linear:** the power rises with a level (brightness, fan step …) between two values; optionally with a curve
+  (gamma) for dimmed lamps.
+- **Device database (Powercalc):** search manufacturer and model, load, done. For lamps there are real measurement
+  tables (power by brightness, colour temperature and colour). The data is fetched from GitHub **only when you
+  click** and stored in the instance — no connection is needed afterwards. The calculation methods fixed, linear and
+  measurement table are supported (about 780 of 818 models as of 20 Nov 2026); models with sub-profiles or other
+  methods (composite, multi_switch …) are not offered.
+
+The meter is **event-driven**: every change of a source variable (switch, brightness, colour temperature, colour)
+recalculates at once, and the power that applied until then is counted into the energy reading up to that moment. A
+timer (default 60 s) keeps it running while nothing changes. If Symcon was not running for longer than five intervals
+(at least five minutes), the gap is **not** bridged — the meter stays where it was instead of guessing.
+
+An estimate is never as exact as a meter: the database holds typical values measured on sample devices. Summed over
+many lamps it is usually very good, for a single lamp a good indication. The module does **not** switch archiving of
+its two outputs on by itself — a notice with a button appears at the top of the form (the energy reading gets the
+aggregation type "Counter").
+
+> **Status:** new in 0.41.0. Checked in the test bench (simulated Symcon, the database connection against a local test
+> server and once against the real GitHub directory, the measurement-table calculation against Powercalc's Python
+> original). Not yet tried on a running Symcon system — feedback welcome.
+
+**Source and licence of the device database:** The calculation methods and the database come from
+[Powercalc for Home Assistant](https://github.com/bramstroker/homeassistant-powercalc) by Bram Gerritsen and
+contributors (MIT licence, Copyright (c) 2021 Bram Gerritsen). MeterHubEstimate is an independent PHP implementation
+and ships no data of the database; the test data under `.tools/fixtures/powercalc/` comes from it and carries the licence file.
+
 ## Related project: InverterHub
 
 MeterHub has a closely related sister repository:

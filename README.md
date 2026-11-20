@@ -484,6 +484,46 @@ geben: der Rest ist dann alles, was nicht auf die untergeordneten Zähler entfä
 Umgekehrt zeigt das Panel bei einem bereits eingebundenen Zähler an, **in welchem virtuellen
 Zähler er steckt**.
 
+### MeterHubEstimate (Schätzzähler)
+
+Schätzt **Leistung und Energie von Geräten ohne eigene Messung**: Lampen, Unterputzaktoren, Zwischenstecker,
+Lautsprecher, Router. Aus Schaltzustand, Helligkeit und Farbe (oder einer festen Angabe) entsteht eine
+Leistung in W und ein fortlaufender Energiezähler in kWh — als ganz normale Variablen, die das NRG-Stack
+Dashboard, Zählergruppen (MeterHubVirtual), das Symcon-Energie-Dashboard und die Prognose lesen können. Der
+Vertrag `MHUBE_GetFunctions` ist derselbe wie bei den anderen Quellen, trägt aber `measured: false` und
+`energyMeasured: false`: Wer die Werte weiterverarbeitet, kann sie von echten Messungen unterscheiden.
+
+Drei Betriebsarten:
+
+- **Feste Leistung:** ein Wert für „an“, einer für „aus“ (Standby). Für alles, was entweder läuft oder nicht.
+- **Linear:** die Leistung steigt mit einer Stufe (Helligkeit, Lüfterstufe …) zwischen zwei Werten; optional mit
+  Kurve (Gamma) für gedimmte Lampen.
+- **Gerätedatenbank (Powercalc):** Hersteller und Modell suchen, laden, fertig. Für Lampen liegen echte
+  Messtabellen vor (Leistung je Helligkeit, Farbtemperatur und Farbe). Die Daten werden **erst auf Ihren Klick**
+  von GitHub geholt und in der Instanz gespeichert — danach ist keine Verbindung mehr nötig. Unterstützt sind
+  die Rechenarten fest, linear und Messtabelle (rund 780 von 818 Modellen, Stand 20.11.2026); Modelle mit
+  Unterprofilen oder anderen Rechenarten (composite, multi_switch …) werden nicht angeboten.
+
+Der Zähler läuft **ereignisgesteuert**: jede Änderung einer Quellvariable (Schalter, Helligkeit, Farbtemperatur,
+Farbe) rechnet sofort neu, und die bis dahin geltende Leistung zählt bis zu diesem Zeitpunkt in den Energiestand.
+Ein Takt (Vorgabe 60 s) hält ihn am Laufen, solange sich nichts ändert. War Symcon länger als fünf Takte
+(mindestens fünf Minuten) nicht aktiv, wird die Lücke **nicht** überbrückt — der Zähler bleibt stehen, statt zu raten.
+
+Eine Schätzung ist nie so genau wie ein Zähler: die Datenbank enthält typische Werte, an Musterexemplaren
+gemessen. Über viele Lampen summiert ist sie meist sehr gut, bei einer einzelnen Lampe ein guter Anhaltspunkt.
+Die Archivierung der beiden Ausgaben schaltet das Modul **nicht** selbst ein — ein Hinweis mit Knopf erscheint
+oben im Formular (der Energiestand bekommt dabei den Aggregationstyp „Zähler“).
+
+> **Status:** neu in 0.41.0. Geprüft im Prüfstand (nachgebautes Symcon, die Datenbank-Anbindung gegen einen
+> lokalen Testserver und einmal gegen das echte GitHub-Verzeichnis, die Messtabellen-Rechnung gegen die
+> Python-Vorlage von Powercalc). An einer laufenden Symcon-Anlage noch nicht erprobt — Rückmeldungen willkommen.
+
+**Quelle und Lizenz der Gerätedatenbank:** Die Rechenverfahren und die Datenbank stammen aus
+[Powercalc für Home Assistant](https://github.com/bramstroker/homeassistant-powercalc) von Bram Gerritsen
+und Mitwirkenden (MIT-Lizenz, Copyright (c) 2021 Bram Gerritsen). MeterHubEstimate ist eine eigene
+PHP-Umsetzung und liefert keine Daten der Datenbank mit; die Testdaten unter `.tools/fixtures/powercalc/`
+stammen daraus und tragen die Lizenzdatei.
+
 ## Verwandtes Projekt: InverterHub
 
 MeterHub hat ein eng verwandtes Schwester-Repository:

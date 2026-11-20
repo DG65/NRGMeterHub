@@ -13,7 +13,7 @@ function check($label, $cond, $detail = '') {
     global $fails;
     if ($cond) { echo "  ok    $label\n"; } else { $GLOBALS['fails']++; echo "  FEHLT $label" . ($detail !== '' ? "  ($detail)" : '') . "\n"; }
 }
-$mods = ['MeterHub' => 'MHUB', 'MeterHubVirtual' => 'MHUBV', 'MeterHubDiscovery' => 'MHUBD', 'MeterHubBridge' => 'MHUBB', 'MeterHubMqttBridge' => 'MHUBM'];
+$mods = ['MeterHub' => 'MHUB', 'MeterHubVirtual' => 'MHUBV', 'MeterHubDiscovery' => 'MHUBD', 'MeterHubBridge' => 'MHUBB', 'MeterHubMqttBridge' => 'MHUBM', 'MeterHubEstimate' => 'MHUBE'];
 $root = dirname(__DIR__);
 $dec = function (string $tok): string {
     $q = $tok[0]; $body = substr($tok, 1, -1);

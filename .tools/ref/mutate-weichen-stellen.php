@@ -24,7 +24,7 @@ $tests = array_map('basename', glob("$root/.tools/test-*.php"));
 if (($argv[1] ?? '') === 'run') {
     [$f, $off, $len, $text, $line] = $sites[(int)$argv[2]];
     $tree = sys_get_temp_dir() . '/mhsite_' . getmypid();
-    foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge', 'MeterHubMqttBridge', 'libs', '.tools', '.tools/ref'] as $dir) {
+    foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge', 'MeterHubMqttBridge', 'MeterHubEstimate', 'libs', '.tools', '.tools/ref', '.tools/fixtures', '.tools/fixtures/powercalc'] as $dir) {
         @mkdir("$tree/$dir", 0777, true);
         foreach (glob("$root/$dir/*") as $g) { if (is_file($g)) { copy($g, "$tree/$dir/" . basename($g)); } }
     }

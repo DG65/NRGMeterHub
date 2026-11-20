@@ -1,0 +1,14 @@
+{
+  "id": "{D9F12FFD-BA63-4A91-B1DE-B1CFCB118B6D}",
+  "name": "MeterHubEstimate",
+  "type": 3,
+  "vendor": "",
+  "aliases": [
+    "NRG-Stack MeterHub Schätzzähler"
+  ],
+  "url": "https://github.com/DG65/NRGMeterHub",
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "MHUBE"
+}

@@ -102,7 +102,7 @@ $tests = array_map('basename', glob("$root/.tools/test-*.php"));
 $jobs = [];
 function copyAll(string $root, string $dest, string $target, string $content): void
 {
-    foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge', 'MeterHubMqttBridge', 'libs', '.tools', '.tools/ref'] as $dir) {
+    foreach (['MeterHub', 'MeterHubVirtual', 'MeterHubDiscovery', 'MeterHubBridge', 'MeterHubMqttBridge', 'MeterHubEstimate', 'libs', '.tools', '.tools/ref', '.tools/fixtures', '.tools/fixtures/powercalc'] as $dir) {
         @mkdir("$dest/$dir", 0777, true);
         foreach (glob("$root/$dir/*") as $f) { if (is_file($f)) { copy($f, "$dest/$dir/" . basename($f)); } }
     }
