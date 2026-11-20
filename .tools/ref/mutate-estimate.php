@@ -132,6 +132,34 @@ $add('Modul: Zweck-Hinweis wird nicht gemerkt', "\$this->WriteAttributeBoolean('
 
 $add('Modul: Forum-Hinweis ohne Verknüpfung', "['type' => 'Button', 'caption' => 'Go to the forum thread', 'onClick' => \"echo '\" . self::FORUM_THREAD_URL . \"';\", 'link' => true],\n", "", $M);
 $add('Modul: Forum-Verknüpfung zeigt auf Powercalc', "\"echo '\" . self::FORUM_THREAD_URL . \"';\"", "\"echo '\" . self::POWERCALC_URL . \"';\"", $M);
+$add('Modul: Hinweis ignoriert den Schalter', <<<'X'
+$noSwitch = $this->ReadPropertyInteger('SwitchID') <= 0;
+X, <<<'X'
+$noSwitch = true;
+X, $M);
+$add('Modul: Hinweis zaehlt Helligkeit auch bei fester Leistung', <<<'X'
+$noLevel = $this->ReadPropertyString('Mode') === 'fixed' || $this->ReadPropertyInteger('BrightnessID') <= 0;
+X, <<<'X'
+$noLevel = $this->ReadPropertyInteger('BrightnessID') <= 0;
+X, $M);
+$add('Modul: Hinweis entfaellt immer', <<<'X'
+if ($noSwitch && $noLevel) {
+X, <<<'X'
+if (false) {
+X, $M);
+$add('Modul: Hinweis kommt auch bei deaktivierter Instanz', <<<'X'
+                foreach ($this->Notes() as $note) {
+                    $checkLines[] = ['type' => 'Label', 'caption' => '⚠️ ' . $note];
+                }
+                $checkLines[] = ['type' => 'Label', 'caption' => $this->Describe()];
+            }
+X, <<<'X'
+                $checkLines[] = ['type' => 'Label', 'caption' => $this->Describe()];
+            }
+            foreach ($this->Notes() as $note) {
+                $checkLines[] = ['type' => 'Label', 'caption' => '⚠️ ' . $note];
+            }
+X, $M);
 $tests = ['test-estimate-engine.php', 'test-estimate.php', 'test-i18n.php'];
 function copyAll(string $root, string $dest, string $target, string $content): void
 {

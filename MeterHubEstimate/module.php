@@ -584,6 +584,22 @@ class MeterHubEstimate extends IPSModule
         return null;
     }
 
+    /**
+     * Hinweise, die nichts blockieren, aber täuschen könnten (Klartext). Ohne Schalter und ohne Helligkeitsquelle kann das Modul „an“ nicht erkennen
+     * und rechnet das Gerät als dauernd eingeschaltet — die grüne Vorschau sähe sonst nach einer echten Schätzung aus (live auf Privat gesehen, 20.11.2026).
+     * Bei „Feste Leistung“ zählt eine Helligkeitsvariable nicht (sie wird dort nicht ausgewertet), nur der Schalter.
+     */
+    private function Notes(): array
+    {
+        $out = [];
+        $noSwitch = $this->ReadPropertyInteger('SwitchID') <= 0;
+        $noLevel = $this->ReadPropertyString('Mode') === 'fixed' || $this->ReadPropertyInteger('BrightnessID') <= 0;
+        if ($noSwitch && $noLevel) {
+            $out[] = MHUBE_Text::t('No switch variable chosen and no brightness variable to tell "on" from "off": the device counts as always on. Choose the variables in the panel "Device".');
+        }
+        return $out;
+    }
+
     /** Was an den Einstellungen fehlt (Klartext, leer = in Ordnung). */
     private function Problems(): array
     {
@@ -961,6 +977,9 @@ class MeterHubEstimate extends IPSModule
                 $checkLines[] = ['type' => 'Label', 'caption' => '⚠️ ' . $pr];
             }
             if (!$problems && $this->ReadPropertyBoolean('Active')) {
+                foreach ($this->Notes() as $note) {
+                    $checkLines[] = ['type' => 'Label', 'caption' => '⚠️ ' . $note];
+                }
                 $checkLines[] = ['type' => 'Label', 'caption' => $this->Describe()];
             }
         }

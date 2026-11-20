@@ -2,6 +2,11 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.42.2 (2026-11-20)
+
+- **Neu (Schätzzähler): Hinweis „dauernd an“.** Ist weder ein Schalter noch (bei „Linear“ und „Gerätedatenbank“) eine Helligkeitsvariable gewählt, kann das Modul „an“ und „aus“ nicht unterscheiden und rechnet das Gerät als dauernd eingeschaltet. Bisher zeigte die Vorschau dann trotzdem ein grünes „✅ an · → 6,03 W“, das nach einer echten Schätzung aussah. Jetzt steht darüber eine Warnung mit dem Hinweis, die Variablen im Bereich „Gerät“ zu wählen. Bei „Feste Leistung“ zählt nur der Schalter. Rein anzeigend: nichts wird blockiert, kein Wert ändert sich.
+- **Prüfung:** `test-estimate.php` 6t bis 6z (mit und ohne Schalter, fest/linear, deaktiviert, Deutsch), vier neue Mutationsproben. Gefunden an der ersten echten Instanz auf Privat.
+
 ## 0.42.1 (2026-11-20)
 
 - **Neu (Schätzzähler): Forum-Hinweis mit Verknüpfung.** Im Formular von MeterHubEstimate führt der Hinweis „Feedback im Symcon-Forum“ jetzt mit einer Schaltfläche direkt zum Thread des Schätzzählers (Rückmeldungen zu Geräten und zur Genauigkeit der Schätzung sind dort willkommen). Sonst ändert sich nichts.

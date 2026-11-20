@@ -158,7 +158,8 @@
             "→ %s W": "→ %s W",
             "linear": "linear",
             " (%s hidden)": " (%s ausgeblendet)",
-            "Go to the forum thread": "Zum Forums-Thread"
+            "Go to the forum thread": "Zum Forums-Thread",
+            "No switch variable chosen and no brightness variable to tell \"on\" from \"off\": the device counts as always on. Choose the variables in the panel \"Device\".": "Kein Schalter und keine Helligkeitsvariable gewählt, an der „an“ und „aus“ erkennbar wäre: Das Gerät gilt als dauernd an. Wählen Sie die Variablen im Bereich „Gerät“."
         }
     }
 }

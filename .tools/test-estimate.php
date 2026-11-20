@@ -405,6 +405,25 @@ check('6r: Umbenennen', IPS_GetName(505) === 'Esszimmer Lampe');
 $m->AckPurposeIntro();
 check('6s: Zweck-Hinweis weg, Zustand lesbar für Geschwister', $m->GetDismissState()['purposeIntroGone'] === true);
 
+// Hinweis „dauernd an“ (live auf Privat gesehen): ohne Schalter/Helligkeitsquelle wird gewarnt, mit Quelle nicht
+$noteKey = 'No switch variable chosen and no brightness variable';
+$sw9 = boolvar(true); $b9 = numvar(50.0, VARIABLETYPE_INTEGER);
+$mA = make(['Mode' => 'fixed', 'PowerOn' => 3.0], 520);
+check('6t: ohne Schalter (fest): Hinweis „dauernd an“ im Formular', str_contains(cf($mA), $noteKey));
+$mB = make(['Mode' => 'fixed', 'PowerOn' => 3.0, 'SwitchID' => $sw9], 521);
+check('6u: mit Schalter: kein Hinweis', !str_contains(cf($mB), $noteKey));
+$mC = make(['Mode' => 'fixed', 'PowerOn' => 3.0, 'BrightnessID' => $b9], 522);
+check('6v: fest mit nur Helligkeit: Hinweis bleibt (dort zählt nur der Schalter)', str_contains(cf($mC), $noteKey));
+$mD = make(['Mode' => 'linear', 'PowerMin' => 1.0, 'PowerMax' => 9.0, 'BrightnessID' => $b9], 523);
+check('6w: linear mit Helligkeit, ohne Schalter: kein Hinweis (an = Helligkeit über 0)', !str_contains(cf($mD), $noteKey));
+$mE = make(['Mode' => 'linear', 'PowerMin' => 1.0, 'PowerMax' => 9.0], 524);
+check('6x: linear ohne jede Quelle: Hinweis', str_contains(cf($mE), $noteKey));
+$mF = make(['Mode' => 'fixed', 'PowerOn' => 3.0, 'Active' => false], 525);
+check('6y: deaktivierte Instanz: kein Hinweis (die Vorschau fehlt ebenfalls)', !str_contains(cf($mF), $noteKey));
+putenv('I18N_LANG=de');
+check('6z: Hinweis auf Deutsch', str_contains(cf($mA), 'Kein Schalter und keine Helligkeitsvariable'));
+putenv('I18N_LANG=en');
+
 echo "7: Schreibweise der Ausgaben\n";
 $o = IPS_GetObjectIDByIdent('power', 505);
 check('7a: Profil als Standarddarstellung, kein benutzerdefiniertes Profil', ($GLOBALS['VAR'][$o]['VariablePresentation']['PROFILE'] ?? '') === 'NRG.Watt' && ($GLOBALS['VAR'][$o]['VariableCustomProfile'] ?? '') === '');
