@@ -4404,6 +4404,7 @@ Skipped: %d without W/kWh profile, %d already entered, %d outputs of virtual met
                 return (int)@IPS_GetObjectIDByIdent($ident, $this->InstanceID);
             };
             $list[] = [
+                'contractType'   => 'meter',   // 1.6: Selbstbeschreibung (SUITE.md „Fremdanbindung“)
                 'slot'           => 'main',
                 'function'       => $func,
                 'label'          => IPS_GetName($this->InstanceID),
@@ -4436,7 +4437,10 @@ Skipped: %d without W/kWh profile, %d already entered, %d outputs of virtual met
             // 1.5 = energyMeasured (21.09.2026, je Zuordnung UND auf Instanz-Ebene:
             //       ein reiner Zwischenknoten ohne Funktion hat keine Zuordnung,
             //       die Verkettung braucht das Feld trotzdem).
-            'contractVersion' => '1.5',
+            // 1.6 = contractType 'meter' auf Instanz-Ebene und je Zuordnung (0.42.0, 20.11.2026, SUITE.md „Fremdanbindung“;
+            //       das Feld `meter` ist die Zählerart, nicht der Vertragstyp).
+            'contractVersion' => '1.6',
+            'contractType' => 'meter',
             'instanceID'  => $this->InstanceID,
             'meter'       => 'virtual',
             'measureMode' => 'combined',

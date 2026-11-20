@@ -311,6 +311,8 @@ wiring, the invert switch helps.
 
 ### Sign and "measured" in the contract `MHUB_GetFunctions` / `MHUBV_GetFunctions`
 
+*Since 0.42.0 (contract 1.6):* the contracts of MeterHub, the virtual meter and the estimated meter carry `contractType: 'meter'` (instance and assignment). The field `meter` is the meter type, not the contract type. If you want to connect **your own meter module**, the required fields are in the [guide](EIGENES_ZAEHLER_MODUL.en.md).
+
 For consumers (forecast, dashboard, EMS, power flow tile) this is binding, so nobody has to guess:
 
 - **`powerID`** always points to the power in **W**, after the invert switch has been applied. The

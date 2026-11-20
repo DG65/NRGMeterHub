@@ -640,7 +640,9 @@ echo "\n8) Vertragserweiterung MHUBV_GetFunctions — Funktion jetzt Instanz-Pro
 IPS_SetProperty($new, 'Function', 'house');
 $GLOBALS['MODOBJ'][$new]->ApplyChanges();
 $gf = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
-check('contractVersion = 1.5 (1.1 latency/authority/…, 1.2 archiveWatermarkTs, 1.3 members, 1.4 switchID/switchStateID, 1.5 energyMeasured)', ($gf['contractVersion'] ?? '') === '1.5', json_encode($gf['contractVersion'] ?? null));
+check('contractVersion = 1.6 (1.1 latency/authority/…, 1.2 archiveWatermarkTs, 1.3 members, 1.4 switchID/switchStateID, 1.5 energyMeasured, 1.6 contractType)', ($gf['contractVersion'] ?? '') === '1.6', json_encode($gf['contractVersion'] ?? null));
+check('1.6: contractType = meter auf Instanz-Ebene UND in der Zuordnung, `meter` bleibt \'virtual\'', ($gf['contractType'] ?? '') === 'meter' && count($gf['assignments'] ?? []) === 1
+    && ($gf['assignments'][0]['contractType'] ?? '') === 'meter' && ($gf['meter'] ?? '') === 'virtual', json_encode([$gf['contractType'] ?? null, $gf['assignments'][0]['contractType'] ?? null, $gf['meter'] ?? null]));
 check('latency = realtime',   ($gf['latency'] ?? '') === 'realtime', json_encode($gf['latency'] ?? null));
 check('authority = auxiliary', ($gf['authority'] ?? '') === 'auxiliary');
 check('pollInterval gesetzt',  ($gf['pollInterval'] ?? 0) >= 2);
@@ -1476,7 +1478,7 @@ check('32d: neue Funktionen stehen im Suchfilter "Nur Funktion X" zur Auswahl', 
 echo "\n33) MHUBV_GetFunctions 1.3: \"members\" — Mitglieder einer Formel nach außen (Dashboards Anfrage 03.09.2026, Hierarchie liegt beim Anbieter)\n";
 // $new (Block 1): Hausanschluss (+100), Wärmepumpe (−100), Wallbox (−100), Funktion 'house' seit Block 11.
 $gf33 = json_decode($GLOBALS['MODOBJ'][$new]->GetFunctions(), true);
-check('33a: contractVersion 1.5 (additive Minor-Sprünge: 1.3 members, 1.4 switchID/switchStateID, 1.5 energyMeasured)', ($gf33['contractVersion'] ?? '') === '1.5', $gf33['contractVersion'] ?? 'fehlt');
+check('33a: contractVersion 1.6 (additive Minor-Sprünge: 1.3 members, 1.4 switchID/switchStateID, 1.5 energyMeasured, 1.6 contractType)', ($gf33['contractVersion'] ?? '') === '1.6', $gf33['contractVersion'] ?? 'fehlt');
 $m33 = $gf33['assignments'][0]['members'] ?? null;
 check('33b: members je Zuordnung, alle drei Terme, Felder name/factor/powerID/energyImportID/energyExportID', is_array($m33) && count($m33) === 3 && isset($m33[0]['name'], $m33[0]['factor'], $m33[0]['powerID'], $m33[0]['energyImportID'], $m33[0]['energyExportID']), json_encode($m33));
 $factors33 = is_array($m33) ? array_map(fn($x) => (float)$x['factor'], $m33) : [];
@@ -1587,7 +1589,7 @@ check('34e: unbekannter Ident wirft (kein stiller Fehlschlag)', $threw);
 
 echo "  34f) MHUBV_GetFunctions 1.4: switchID je Mitglied (auch bei abgezogenen Zeilen) + switchID/switchStateID der Gruppe, je Zuordnung UND auf Instanzebene\n";
 $gf34 = json_decode($lichtOG->GetFunctions(), true);
-check('34f: contractVersion 1.5', ($gf34['contractVersion'] ?? '') === '1.5', $gf34['contractVersion'] ?? 'fehlt');
+check('34f: contractVersion 1.6', ($gf34['contractVersion'] ?? '') === '1.6', $gf34['contractVersion'] ?? 'fehlt');
 $heizMember = null;
 foreach ($gf34['members'] ?? [] as $m) { if ($m['name'] === 'Heizstab') { $heizMember = $m; } }
 check('34f: Heizstab (abgezogen) hat trotzdem sein switchID — einzeln bleibt er schaltbar', ($heizMember['switchID'] ?? 0) === 3033, json_encode($heizMember));
@@ -2607,7 +2609,7 @@ IPS_SetProperty($measIid, 'Function', 'house');
 IPS_SetProperty($measIid, 'Nodes', json_encode([['Name' => 'Zähler', 'Factor' => 100, 'PowerID' => 64001, 'EnergyImportID' => 64002, 'EnergyExportID' => 0]]));
 IPS_ApplyChanges($measIid);
 $e = $emOf($measIid);
-check('51b: nur gemessene Terme → energyMeasured=true, an Instanz UND Zuordnung, Vertrag 1.5', ($e['energyMeasured'] ?? null) === true && ($e['assignments'][0]['energyMeasured'] ?? null) === true && ($e['contractVersion'] ?? '') === '1.5', json_encode([$e['energyMeasured'] ?? 'fehlt', $e['assignments'][0]['energyMeasured'] ?? 'fehlt', $e['contractVersion'] ?? '']));
+check('51b: nur gemessene Terme → energyMeasured=true, an Instanz UND Zuordnung, Vertrag 1.6', ($e['energyMeasured'] ?? null) === true && ($e['assignments'][0]['energyMeasured'] ?? null) === true && ($e['contractVersion'] ?? '') === '1.6', json_encode([$e['energyMeasured'] ?? 'fehlt', $e['assignments'][0]['energyMeasured'] ?? 'fehlt', $e['contractVersion'] ?? '']));
 // 51c: Term aus einem echten MeterHub, der die Variable als hochgerechnet meldet (MHUB_GetFunctions 1.4 calculatedEnergyIDs)
 obj(64010, 1, 'Logger-Instanz', 10);
 $GLOBALS['INSTMOD'][64010] = G_METER;

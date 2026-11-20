@@ -98,6 +98,17 @@ $add('Brücke: alter Server wird nicht abgemeldet', "if (\$before > 0 && \$befor
 $add('Brücke: Kernel bereit wird ignoriert', "if (\$Message === IPS_KERNELMESSAGE && (\$Data[0] ?? null) === KR_READY) {", "if (false) {", $B);
 $add('Brücke: Status der Meldung wird ignoriert', "(\$parentStatus ?? \$s['parentStatus']) === 102", "\$s['parentStatus'] === 102", $B);
 $add('Brücke: gelöschte Instanz verarbeitet noch', "if (!IPS_InstanceExists(\$this->InstanceID)) {\n            return;\n        }\n        if (\$Message === IPS_KERNELMESSAGE", "if (false) {\n            return;\n        }\n        if (\$Message === IPS_KERNELMESSAGE", $B);
+// Vertrag 1.6 contractType (0.42.0)
+$M = 'MeterHub/module.php';
+$E = 'MeterHubEstimate/module.php';
+$add('contractType: MeterHub-Zuordnung ohne Typ', "                'contractType'    => 'meter',   // 1.6: Selbstbeschreibung (SUITE.md „Fremdanbindung“)\n", '', $M);
+$add('contractType: MeterHub-Instanz ohne Typ', "            'contractVersion' => '1.6',\n            'contractType' => 'meter',\n", "            'contractVersion' => '1.6',\n", $M);
+$add('contractType: MeterHub verwechselt Typ mit Zählerart', "            'contractType' => 'meter',\n            'instanceID'  => \$this->InstanceID,\n            'meter'       => \$this->ReadPropertyString('Meter'),", "            'contractType' => \$this->ReadPropertyString('Meter'),\n            'instanceID'  => \$this->InstanceID,\n            'meter'       => \$this->ReadPropertyString('Meter'),", $M);
+$add('contractType: virtueller Zähler Zuordnung ohne Typ', "                'contractType'   => 'meter',   // 1.6: Selbstbeschreibung (SUITE.md „Fremdanbindung“)\n", '', $V);
+$add('contractType: virtueller Zähler Instanz ohne Typ', "            'contractType' => 'meter',\n            'instanceID'  => \$this->InstanceID,\n            'meter'       => 'virtual',", "            'instanceID'  => \$this->InstanceID,\n            'meter'       => 'virtual',", $V);
+$add('contractType: Schätzzähler Zuordnung ohne Typ', "                'contractType'   => 'meter',   // 1.6: Selbstbeschreibung (SUITE.md „Fremdanbindung“)\n", '', $E);
+$add('contractType: Schätzzähler Instanz ohne Typ', "            'contractType'    => 'meter',\n            'instanceID'      => \$this->InstanceID,", "            'instanceID'      => \$this->InstanceID,", $E);
+$add('contractType: Version bleibt 1.5', "            'contractVersion' => '1.6',\n            'contractType'    => 'meter',", "            'contractVersion' => '1.5',\n            'contractType'    => 'meter',", $E);
 $tests = array_map('basename', glob("$root/.tools/test-*.php"));
 $jobs = [];
 function copyAll(string $root, string $dest, string $target, string $content): void

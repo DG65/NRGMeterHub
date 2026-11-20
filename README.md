@@ -319,6 +319,8 @@ oder Verdrahtung nicht, hilft der Invers-Schalter.
 
 ### Vorzeichen und „gemessen" im Vertrag `MHUB_GetFunctions` / `MHUBV_GetFunctions`
 
+*Seit 0.42.0 (Vertrag 1.6):* Die Verträge von MeterHub, virtuellem Zähler und Schätzzähler tragen `contractType: 'meter'` (Instanz und Zuordnung). Das Feld `meter` ist die Zählerart, nicht der Vertragstyp. Wer ein **eigenes Zähler-Modul** anbinden möchte, findet die Pflichtfelder in der [Anleitung](EIGENES_ZAEHLER_MODUL.md).
+
 Für Konsumenten (Prognose, Dashboard, EMS, Stromflusskachel) ist das verbindlich, damit niemand raten muss:
 
 - **`powerID`** zeigt immer auf die Leistung in **W**, nach Anwendung des Invers-Schalters. Die Richtung

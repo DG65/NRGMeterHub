@@ -1075,6 +1075,10 @@ Auftrag von Dietmar über die Sitzung „Symcon zu HA Abwanderung“ („Powerca
 - **Prüfung:** `php .tools/test-estimate-engine.php`, `php .tools/test-estimate.php` (startet einen lokalen `php -S` als Datenbank-Ersatz), `php .tools/ref/mutate-estimate.php` (94 Proben; gleichwertige Mutanten stehen im Kopf der Datei begründet). Echter GitHub-Abruf einmal von Hand geprüft (Suche ikea/philips/fritz/shelly/sonos, Laden von Zwischenstecker und Lampe).
 - **Offen / nie live gelaufen:** Verhalten in einer echten Symcon-Instanz (Formular, `UpdateFormField` auf benannte Labels/Panels, `SelectVariable`), Variablenprofil-Erkennung der Helligkeit (`BrightnessScale: auto`), Farbtemperatur-Einheitserkennung (< 1000 = Mired).
 
+## Vertrag 1.6: `contractType: 'meter'` (0.42.0, 20.11.2026, Verbundregel „Fremdanbindung“)
+
+Auftrag von EMS (Rundschreiben 20.11.), von Dietmar entschieden („Fremdanbindung komplett für alle Elemente“). `MHUB_`, `MHUBV_` und `MHUBE_GetFunctions` tragen `contractType: 'meter'` auf Instanz-Ebene UND in jeder Zuordnung, `contractVersion` 1.6, rein additiv. **Das Instanzfeld `meter` (Zählerart/Treiber) ist NICHT der Vertragstyp** (SUITE.md Regel 9) — nie vermischen. Die ready=false-Antwort beim Neuladen trägt bewusst weder Typ noch Version (Konsumenten behalten ihren letzten Stand). `deviceSerial` (optional, Regel 8) liefern die eigenen Module nicht: ein Zähler kennt seine Seriennummer nicht (nur Inexogy hat eine Meter-UID, das ist keine Seriennummer); nur ergänzen, wo ein Gerät sie wirklich meldet, nie erfinden. `lastSeenAt` ist für Zähler nicht nötig (Frische über `VariableUpdated`, Regel 8). Geschätzte Werte (`measured`/`energyMeasured` false, MeterHubEstimate) werden nie geregelt (Regel 7). Öffentliche Anleitung: `EIGENES_ZAEHLER_MODUL.md` (+ `.en.md`) **in der Repo-Wurzel, nicht in `docs/`** (die Store-Prüfung meldet jeden Wurzelordner ohne module.json, SUITE.md 5g), Vorbild ChargerHub `docs/EIGENES_WALLBOX_MODUL.md`; bei Vertragsänderungen beide Sprachen und das Beispiel mitpflegen.
+
 ## Zweige und Veröffentlichung (seit 27.10.2026)
 
 Dietmar hat im Symcon-Store alle Betas auf Stable umgestellt (27.10.2026, ausgenommen

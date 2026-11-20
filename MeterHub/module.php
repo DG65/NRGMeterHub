@@ -6417,6 +6417,7 @@ The function is still set to "none" there — deliberately, because otherwise th
         $list = [];
         foreach ($this->FunctionAssignments() as $a) {
             $list[] = [
+                'contractType'    => 'meter',   // 1.6: Selbstbeschreibung (SUITE.md „Fremdanbindung“)
                 'slot'            => $a['slot'],
                 'function'        => $a['key'],
                 'label'           => $a['label'],
@@ -6454,7 +6455,11 @@ The function is still set to "none" there — deliberately, because otherwise th
             // Variablen-IDs mit hochgerechnetem Zählerstand, auch ohne Funktion.
             // 1.5 = phaseCurrentIDs je Zuordnung (0.39.0, 18.11.2026): [L1, L2, L3] der echt gemessenen Phasenströme in A,
             // nur an der Netzanschluss-Zuordnung im kombinierten Modus; fehlt, wenn der Zähler keine Phasenströme liefert.
-            'contractVersion' => '1.5',
+            // 1.6 = contractType 'meter' auf Instanz-Ebene und je Zuordnung (0.42.0, 20.11.2026, SUITE.md „Fremdanbindung“): Selbstbeschreibung,
+            // damit Konsumenten den Vertrag auch ohne bekannte Modul-GUID erkennen. NICHT zu verwechseln mit dem Feld `meter`
+            // (Zählerart/Treiber, z. B. 'siemens_pac2200'): das ist kein Vertragstyp.
+            'contractVersion' => '1.6',
+            'contractType' => 'meter',
             'instanceID'  => $this->InstanceID,
             'meter'       => $this->ReadPropertyString('Meter'),
             'measureMode' => $this->IsPerPhaseMode() ? 'perphase' : 'combined',

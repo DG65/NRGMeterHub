@@ -311,7 +311,8 @@ $a = hub([]);
 $g = gf($a);
 $ids = [ident($a, 'i_l1'), ident($a, 'i_l2'), ident($a, 'i_l3')];
 check('1a: Netzzähler (grid) mit Gruppe „Strom je Phase“: phaseCurrentIDs = [i_l1, i_l2, i_l3]', ($g['assignments'][0]['phaseCurrentIDs'] ?? null) === $ids && !in_array(0, $ids, true), json_encode([$g['assignments'][0]['phaseCurrentIDs'] ?? 'fehlt', $ids]));
-check('1b: Vertragsversion 1.5', ($g['contractVersion'] ?? '') === '1.5', $g['contractVersion'] ?? 'fehlt');
+check('1b: Vertragsversion 1.6', ($g['contractVersion'] ?? '') === '1.6', $g['contractVersion'] ?? 'fehlt');
+check('1b2: contractType = meter (Instanz und Zuordnungen)', ($g['contractType'] ?? '') === 'meter' && count($g['assignments'] ?? []) > 0 && array_filter($g['assignments'] ?? [], fn($a) => ($a['contractType'] ?? '') !== 'meter') === []);
 check('1c: die drei IDs sind verschieden und gehören zu Phasenstrom-Variablen (Profil Ampere)', count(array_unique($ids)) === 3 && ($GLOBALS['VAR'][$ids[0]]['VariablePresentation']['PROFILE'] ?? '') === 'NRG.Ampere');
 
 $b = hub(['FuncTotal' => 'house']);

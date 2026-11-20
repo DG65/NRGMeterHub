@@ -2,6 +2,12 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.42.0 (2026-11-20)
+
+- **Neu (Vertrag): Selbstbeschreibung `contractType: 'meter'`, Vertragsversion 1.6.** `MHUB_GetFunctions` (MeterHub), `MHUBV_GetFunctions` (virtueller Zähler) und `MHUBE_GetFunctions` (Schätzzähler) tragen jetzt `contractType: 'meter'` auf Instanz-Ebene und in jeder Zuordnung (`assignments`). Damit erkennen Konsumenten wie das EMS einen Zähler-Vertrag, auch wenn sie das Präfix oder die Modul-GUID nicht kennen (Verbundregel „Fremdanbindung“, SUITE.md). Rein additiv: nichts Bestehendes ändert sich, auch das Feld `meter` (Zählerart, z. B. `'virtual'`) bleibt, wie es war, und ist ausdrücklich nicht der Vertragstyp.
+- **Neu: Anleitung „Eigenes Zähler-Modul an den NRG-Stack anbinden“** (`EIGENES_ZAEHLER_MODUL.md`, englisch `EIGENES_ZAEHLER_MODUL.en.md`) für Entwickler fremder Zähler-Module: Pflichtfelder, Vorzeichen-Konvention, kumulative Zählerstände, geschätzte Werte (`measured: false` wird nie geregelt), Frische, Beispiel und Checkliste.
+- **Prüfung:** Die Vertragsprüfungen in `test-auto-backfill.php`, `test-virtual.php`, `test-phasecurrent.php` und `test-estimate.php` erwarten 1.6 und prüfen `contractType` an Instanz und Zuordnung (und dass `meter` unverändert die Zählerart bleibt). Ein Seriennummernfeld `deviceSerial` liefert MeterHub bewusst nicht: die Zähler kennen ihre Seriennummer nicht, erfunden wird sie nicht.
+
 ## 0.41.0 (2026-11-20)
 
 - **Neu: Modul MeterHubEstimate („Schätzzähler“).** Schätzt Leistung (W) und Energie (kWh) von Geräten ohne eigene Messung — Lampen, Unterputzaktoren, Zwischenstecker, Lautsprecher, Router. Betriebsarten: feste Leistung (an/Standby), linear aus einer Stufe (mit Kurve) oder ein Modell aus der Powercalc-Gerätedatenbank (Messtabellen für Helligkeit, Farbtemperatur und Farbe; Suche nach Hersteller/Modell, Laden auf Klick von GitHub, danach lokal gespeichert). Der Energiezähler läuft ereignisgesteuert mit der jeweils geltenden Leistung; Lücken über fünf Takte (mindestens fünf Minuten) werden nicht überbrückt. Der Vertrag `MHUBE_GetFunctions` entspricht den anderen Quellen, trägt aber `measured: false` und `energyMeasured: false`. Die Archivierung schaltet das Modul nicht selbst ein.

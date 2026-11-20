@@ -874,6 +874,7 @@ class MeterHubEstimate extends IPSModule
         $list = [];
         if ($func !== '' && $func !== 'none' && isset(self::FUNCTIONS[$func])) {
             $list[] = [
+                'contractType'   => 'meter',   // 1.6: Selbstbeschreibung (SUITE.md „Fremdanbindung“)
                 'slot'           => 'main',
                 'function'       => $func,
                 'label'          => IPS_GetName($this->InstanceID),
@@ -894,7 +895,9 @@ class MeterHubEstimate extends IPSModule
             ];
         }
         return (string)json_encode([
-            'contractVersion' => '1.5',
+            // 1.6 = contractType 'meter' (SUITE.md „Fremdanbindung“); `meter` ist die Zählerart, nicht der Vertragstyp.
+            'contractVersion' => '1.6',
+            'contractType'    => 'meter',
             'instanceID'      => $this->InstanceID,
             'meter'           => 'estimate',
             'measureMode'     => 'combined',

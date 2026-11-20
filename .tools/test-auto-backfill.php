@@ -203,7 +203,9 @@ echo "\n9) GetFunctions() meldet den Wasserstand als archiveWatermarkTs (Dashboa
 $wm9 = time() - 12 * 60;
 $GLOBALS['ARCHIVE_LATEST'] = [701 => $wm9, 702 => $wm9, 703 => $wm9];
 $gf = json_decode($h700->GetFunctions(), true);
-check('contractVersion = 1.5 (1.3 energyMeasured, 1.4 calculatedEnergyIDs, 1.5 phaseCurrentIDs)', ($gf['contractVersion'] ?? '') === '1.5', (string) ($gf['contractVersion'] ?? ''));
+check('contractVersion = 1.6 (1.3 energyMeasured, 1.4 calculatedEnergyIDs, 1.5 phaseCurrentIDs, 1.6 contractType)', ($gf['contractVersion'] ?? '') === '1.6', (string) ($gf['contractVersion'] ?? ''));
+check('1.6: contractType = meter auf Instanz-Ebene UND in jeder Zuordnung (und `meter` bleibt die Zählerart)', ($gf['contractType'] ?? '') === 'meter'
+    && array_filter($gf['assignments'], fn($a) => ($a['contractType'] ?? '') !== 'meter') === [] && ($gf['meter'] ?? 'meter') !== 'meter', json_encode([$gf['contractType'] ?? null, $gf['meter'] ?? null]));
 check('gemessener Zähler meldet energyMeasured = true in jeder Zuordnung', array_filter($gf['assignments'] ?? [], fn($a) => ($a['energyMeasured'] ?? null) !== true) === [], json_encode($gf['assignments'] ?? []));
 check('archiveWatermarkTs auf oberster Ebene gesetzt', abs(($gf['archiveWatermarkTs'] ?? 0) - $wm9) <= 2, json_encode($gf['archiveWatermarkTs'] ?? null));
 
