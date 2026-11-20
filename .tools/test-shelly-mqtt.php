@@ -9,7 +9,7 @@ require_once __DIR__ . '/i18n-test-support.php';
  * NotifyFullStatus, status/<Komponente>, online) — NICHT von einem echten Gerät aufgezeichnet.
  */
 const VARIABLETYPE_BOOLEAN = 0; const VARIABLETYPE_INTEGER = 1; const VARIABLETYPE_FLOAT = 2; const VARIABLETYPE_STRING = 3;
-const KR_READY = 10103;
+const KR_READY = 10103; const IPS_KERNELMESSAGE = 10100; const IM_CHANGESTATUS = 10505;
 
 class IPSModule
 {
@@ -23,6 +23,12 @@ class IPSModule
     public function SetReceiveDataFilter($f) { $this->filter = $f; }
     public function SetStatus($s) { $this->status = $s; }
     public function SendDebug($a, $b, $c) {}
+    public $applied = 0;
+    public function RegisterMessage($sender, $msg) { $GLOBALS['MSG'][$this->InstanceID][] = ['reg', $sender, $msg]; }
+    public function UnregisterMessage($sender, $msg) { $GLOBALS['MSG'][$this->InstanceID][] = ['unreg', $sender, $msg]; }
+    public function RegisterAttributeInteger($n, $v) { $GLOBALS['ATTR'][$this->InstanceID][$n] = $GLOBALS['ATTR'][$this->InstanceID][$n] ?? $v; }
+    public function ReadAttributeInteger($n) { return (int)($GLOBALS['ATTR'][$this->InstanceID][$n] ?? 0); }
+    public function WriteAttributeInteger($n, $v) { $GLOBALS['ATTR'][$this->InstanceID][$n] = $v; }
     public function GetBuffer($k) { return $GLOBALS['BUF'][$this->InstanceID][$k] ?? ''; }
     public function SetBuffer($k, $v) { $GLOBALS['BUF'][$this->InstanceID][$k] = $v; }
 }
@@ -227,6 +233,53 @@ check('6b: Treiber und Client veröffentlichen nichts (kein Publish/PacketType i
 check('6c: Brücke veröffentlicht nichts', !preg_match('/SendDataToParent|PacketType.{0,4}=>\s*3/', file_get_contents(dirname(__DIR__) . '/MeterHubMqttBridge/module.php')));
 $form = json_decode((new MeterHubMqttBridge(700))->GetConfigurationForm(), true);
 check('6d: Brückenformular hat Statuszeile, Gerätetabelle und Doku', count($form['elements']) === 4 && $form['elements'][2]['type'] === 'List' && $form['elements'][3]['type'] === 'ExpansionPanel');
+
+
+// 7) Status der Brücke folgt dem MQTT-Server (0.40.3, Forum Dirk 20.11.2026: nach Symcon-Neustart blieb „kein aktiver MQTT-Server“ stehen) ---------
+echo "7) Status folgt dem MQTT-Server\n";
+$GLOBALS['MSG'] = []; $GLOBALS['ATTR'] = [];
+$GLOBALS['INST'][700]['ConnectionID'] = 701;
+$GLOBALS['INST'][701]['InstanceStatus'] = 101;           // Server startet noch
+$b = new MeterHubMqttBridge(700);
+$b->Create();
+check('7a: Create meldet sich für die Kernel-Meldung an (KR_READY nach dem Start)', in_array(['reg', 0, IPS_KERNELMESSAGE], $GLOBALS['MSG'][700], true));
+$b->ApplyChanges();
+check('7b: Server noch nicht aktiv beim Start → Brücke inaktiv (104)', $b->status === 104);
+check('7c: ApplyChanges meldet sich für die Statusmeldungen des Servers an', in_array(['reg', 701, IM_CHANGESTATUS], $GLOBALS['MSG'][700], true));
+$b->MessageSink(0, 701, IM_CHANGESTATUS, [102]);
+check('7d: Server wird aktiv → Brücke wird aktiv (102), ohne ApplyChanges', $b->status === 102);
+$b->MessageSink(0, 701, IM_CHANGESTATUS, [104]);
+check('7e: Server wird inaktiv → Brücke wieder 104', $b->status === 104);
+$b->MessageSink(0, 701, IM_CHANGESTATUS, [102]);
+$b->MessageSink(0, 999, IM_CHANGESTATUS, [104]);
+check('7f: Meldung eines anderen Absenders wird ignoriert', $b->status === 102);
+$b->MessageSink(0, 701, 99999, [104]);
+check('7g: andere Meldungsart vom Server wird ignoriert', $b->status === 102);
+$GLOBALS['INST'][701]['InstanceStatus'] = 102;
+$b->status = 0;
+$b->MessageSink(0, 0, IPS_KERNELMESSAGE, [KR_READY]);
+check('7h: Kernel bereit → Status wird aus dem Zustand des Servers neu bestimmt', $b->status === 102);
+$b->status = 0;
+$b->MessageSink(0, 0, IPS_KERNELMESSAGE, [10102]);
+check('7i: andere Kernel-Meldung tut nichts', $b->status === 0);
+$GLOBALS['INST'][702] = ['module' => 'mqtt', 'ConnectionID' => 0, 'InstanceStatus' => 102];
+$GLOBALS['INST'][700]['ConnectionID'] = 702;
+$GLOBALS['MSG'][700] = [];
+$b->ApplyChanges();
+check('7j: anderer MQTT-Server gewählt → alte Anmeldung gelöst, neue gesetzt', $GLOBALS['MSG'][700] === [['unreg', 701, IM_CHANGESTATUS], ['reg', 702, IM_CHANGESTATUS]], json_encode($GLOBALS['MSG'][700]));
+$GLOBALS['INST'][700]['ConnectionID'] = 0;
+$GLOBALS['MSG'][700] = [];
+$b->ApplyChanges();
+check('7k: ohne Server → inaktiv (104), alte Anmeldung gelöst, nichts Neues angemeldet', $b->status === 104 && $GLOBALS['MSG'][700] === [['unreg', 702, IM_CHANGESTATUS]], json_encode($GLOBALS['MSG'][700]));
+$b->MessageSink(0, 702, IM_CHANGESTATUS, [102]);
+check('7l: Meldung eines nicht mehr gewählten Servers ändert nichts', $b->status === 104);
+$GLOBALS['INST'][700]['ConnectionID'] = 701;
+$GLOBALS['ATTR'][700]['Parent'] = 701;   // die Brücke beobachtet den Server noch
+unset($GLOBALS['INST'][700]);
+$b->status = 0;
+$b->MessageSink(0, 701, IM_CHANGESTATUS, [102]);
+check('7m: gelöschte Instanz: keine Verarbeitung mehr', $b->status === 0);
+$GLOBALS['INST'][700] = ['module' => '{EF16A82F-4B66-4722-91C7-CB9518E2F807}', 'ConnectionID' => 701, 'InstanceStatus' => 102];
 
 echo $fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n";
 exit($fails === 0 ? 0 : 1);

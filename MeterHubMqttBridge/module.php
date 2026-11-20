@@ -59,14 +59,59 @@ class MeterHubMqttBridge extends IPSModule
     public function Create()
     {
         parent::Create();
+        // Welchen MQTT-Server diese Brücke beobachtet (für das Lösen der Anmeldung bei einer Umstellung).
+        $this->RegisterAttributeInteger('Parent', 0);
+        // Beim Neustart von Symcon läuft ApplyChanges() oft, bevor der MQTT-Server aktiv ist; der Kern meldet danach KR_READY.
+        $this->RegisterMessage(0, IPS_KERNELMESSAGE);
     }
 
     public function ApplyChanges()
     {
         parent::ApplyChanges();
+        $this->WatchParent();
         $this->Refresh();
+        $this->UpdateStatus();
+    }
+
+    /**
+     * Der Status der Brücke folgt dem des MQTT-Servers (0.40.3, Forum Dirk 20.11.2026): Bisher wurde er nur in ApplyChanges() gesetzt. Nach einem
+     * Symcon-Neustart ist der Server dann oft noch nicht aktiv, die Brücke stand auf „kein aktiver MQTT-Server“ und blieb dort, obwohl längst
+     * Nachrichten ankamen. Muster wie ESPHomeHub/RoboHub (IM_CHANGESTATUS des Elternteils, live bestätigt).
+     */
+    private function WatchParent(): void
+    {
+        $parent = (int)(IPS_GetInstance($this->InstanceID)['ConnectionID'] ?? 0);
+        $before = $this->ReadAttributeInteger('Parent');
+        if ($before > 0 && $before !== $parent) {
+            $this->UnregisterMessage($before, IM_CHANGESTATUS);
+        }
+        $this->WriteAttributeInteger('Parent', $parent);
+        if ($parent > 0) {
+            $this->RegisterMessage($parent, IM_CHANGESTATUS);
+        }
+    }
+
+    /** Setzt 102/104 aus dem Zustand des MQTT-Servers; $parentStatus ist der neue Status aus der Meldung (der Kern liefert ihn mit). */
+    private function UpdateStatus(?int $parentStatus = null): void
+    {
         $s = $this->State();
-        $this->SetStatus($s['connected'] && $s['parentActive'] ? 102 : 104);
+        $active = $s['connected'] && ($parentStatus ?? $s['parentStatus']) === 102;
+        $this->SetStatus($active ? 102 : 104);
+    }
+
+    public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
+    {
+        // Meldungen können noch eintreffen, wenn die Instanz gerade gelöscht wurde.
+        if (!IPS_InstanceExists($this->InstanceID)) {
+            return;
+        }
+        if ($Message === IPS_KERNELMESSAGE && ($Data[0] ?? null) === KR_READY) {
+            $this->ApplyChanges();
+            return;
+        }
+        if ($Message === IM_CHANGESTATUS && $SenderID === $this->ReadAttributeInteger('Parent')) {
+            $this->UpdateStatus((int)($Data[0] ?? 0));
+        }
     }
 
     // -----------------------------------------------------------------------

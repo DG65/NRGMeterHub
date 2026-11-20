@@ -89,6 +89,15 @@ $add('Monotone Ausgabe: auch der erste Lauf wird gehalten', "if (!\$hadState || 
 $add('Monotone Ausgabe: Zustand wird im Durchlauf immer als vorhanden gewertet', "\$hadState = isset(\$cont[\$ident]['sig']);", "\$hadState = true;", $V);
 $add('Monotone Ausgabe: Schalter wird ignoriert (immer an)', "if (\$this->ReadPropertyBoolean('MonotoneOutput')) {", "if (true) {", $V);
 $add('Monotone Ausgabe: Schalter wird ignoriert (immer aus)', "if (\$this->ReadPropertyBoolean('MonotoneOutput')) {", "if (false) {", $V);
+// MQTT-Brücke folgt dem Status des Servers (0.40.3)
+$B = 'MeterHubMqttBridge/module.php';
+$add('Brücke: keine Anmeldung für die Statusmeldungen des Servers', "\$this->RegisterMessage(\$parent, IM_CHANGESTATUS);", ';', $B);
+$add('Brücke: Status aus dem alten Zustand statt aus der Meldung', "\$this->UpdateStatus((int)(\$Data[0] ?? 0));", "\$this->UpdateStatus();", $B);
+$add('Brücke: Meldungen anderer Absender werden verarbeitet', "\$Message === IM_CHANGESTATUS && \$SenderID === \$this->ReadAttributeInteger('Parent')", "\$Message === IM_CHANGESTATUS", $B);
+$add('Brücke: alter Server wird nicht abgemeldet', "if (\$before > 0 && \$before !== \$parent) {", "if (false) {", $B);
+$add('Brücke: Kernel bereit wird ignoriert', "if (\$Message === IPS_KERNELMESSAGE && (\$Data[0] ?? null) === KR_READY) {", "if (false) {", $B);
+$add('Brücke: Status der Meldung wird ignoriert', "(\$parentStatus ?? \$s['parentStatus']) === 102", "\$s['parentStatus'] === 102", $B);
+$add('Brücke: gelöschte Instanz verarbeitet noch', "if (!IPS_InstanceExists(\$this->InstanceID)) {\n            return;\n        }\n        if (\$Message === IPS_KERNELMESSAGE", "if (false) {\n            return;\n        }\n        if (\$Message === IPS_KERNELMESSAGE", $B);
 $tests = array_map('basename', glob("$root/.tools/test-*.php"));
 $jobs = [];
 function copyAll(string $root, string $dest, string $target, string $content): void
