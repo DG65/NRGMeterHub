@@ -2,6 +2,11 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.42.1 (2026-11-20)
+
+- **Neu (Schätzzähler): Forum-Hinweis mit Verknüpfung.** Im Formular von MeterHubEstimate führt der Hinweis „Feedback im Symcon-Forum“ jetzt mit einer Schaltfläche direkt zum Thread des Schätzzählers (Rückmeldungen zu Geräten und zur Genauigkeit der Schätzung sind dort willkommen). Sonst ändert sich nichts.
+- **Prüfung:** `test-estimate.php` prüft die Verknüpfung im Formular, zwei neue Mutationsproben in `mutate-estimate.php`.
+
 ## 0.42.0 (2026-11-20)
 
 - **Neu (Vertrag): Selbstbeschreibung `contractType: 'meter'`, Vertragsversion 1.6.** `MHUB_GetFunctions` (MeterHub), `MHUBV_GetFunctions` (virtueller Zähler) und `MHUBE_GetFunctions` (Schätzzähler) tragen jetzt `contractType: 'meter'` auf Instanz-Ebene und in jeder Zuordnung (`assignments`). Damit erkennen Konsumenten wie das EMS einen Zähler-Vertrag, auch wenn sie das Präfix oder die Modul-GUID nicht kennen (Verbundregel „Fremdanbindung“, SUITE.md). Rein additiv: nichts Bestehendes ändert sich, auch das Feld `meter` (Zählerart, z. B. `'virtual'`) bleibt, wie es war, und ist ausdrücklich nicht der Vertragstyp.

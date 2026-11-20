@@ -157,7 +157,8 @@
             "off": "aus",
             "→ %s W": "→ %s W",
             "linear": "linear",
-            " (%s hidden)": " (%s ausgeblendet)"
+            " (%s hidden)": " (%s ausgeblendet)",
+            "Go to the forum thread": "Zum Forums-Thread"
         }
     }
 }

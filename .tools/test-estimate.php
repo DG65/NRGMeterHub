@@ -387,6 +387,8 @@ check('6j: Wechsel auf „Datenbank“ blendet um', $GLOBALS['FORMFIELDS']['Mode
 check('6k: Powercalc-Hinweis (Quelle, MIT) im Formular', str_contains(cf($m), 'MIT license') || str_contains(cf($m), 'MIT-Lizenz'));
 $GLOBALS['INSTMOD'][900] = G_ARCHIVE;
 $json = cf($m);
+$jsonPlain = str_replace('\\/', '/', $json);
+check('6l0: Forum-Hinweis mit Verknüpfung zum Thread (145001) im Formular', str_contains($jsonPlain, 'community.symcon.de/t/beta-modul-nrg-stack-meterhub-schaetzzaehler') && str_contains($jsonPlain, '/145001') && str_contains($json, 'Go to the forum thread'));
 check('6l: Hinweis „Archivierung fehlt“ erscheint, bis geklickt wird', str_contains($json, 'PanelLogging'));
 check('6m: die Instanz schaltet das Logging nie von selbst ein', $GLOBALS['ARCHIVED'] === []);
 $before = $GLOBALS['ARCHIVED'];

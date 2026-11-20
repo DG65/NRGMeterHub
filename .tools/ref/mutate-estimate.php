@@ -130,6 +130,8 @@ $add('Modul: Kernelstart wendet nicht an', "if (IPS_InstanceExists(\$this->Insta
 $add('Modul: Umbenennen', "IPS_SetName(\$this->InstanceID, \$name);\n        }\n    }", ";\n        }\n    }", $M);
 $add('Modul: Zweck-Hinweis wird nicht gemerkt', "\$this->WriteAttributeBoolean('PurposeIntroGone', true);\n        \$this->UpdateFormField('PurposeIntroPanel', 'visible', false);\n        \$this->PropagateDismiss('PurposeIntro');", "\$this->UpdateFormField('PurposeIntroPanel', 'visible', false);\n        \$this->PropagateDismiss('PurposeIntro');", $M);
 
+$add('Modul: Forum-Hinweis ohne Verknüpfung', "['type' => 'Button', 'caption' => 'Go to the forum thread', 'onClick' => \"echo '\" . self::FORUM_THREAD_URL . \"';\", 'link' => true],\n", "", $M);
+$add('Modul: Forum-Verknüpfung zeigt auf Powercalc', "\"echo '\" . self::FORUM_THREAD_URL . \"';\"", "\"echo '\" . self::POWERCALC_URL . \"';\"", $M);
 $tests = ['test-estimate-engine.php', 'test-estimate.php', 'test-i18n.php'];
 function copyAll(string $root, string $dest, string $target, string $content): void
 {

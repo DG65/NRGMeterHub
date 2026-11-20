@@ -62,6 +62,7 @@ class MeterHubEstimate extends IPSModule
     private const GUID_ESTIMATE = '{D9F12FFD-BA63-4A91-B1DE-B1CFCB118B6D}';
     private const LICENSE_URL = 'https://github.com/DG65/NRGMeterHub/blob/main/LICENSE';
     private const PAYPAL_URL = 'https://paypal.me/DietmarGureth';
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-modul-nrg-stack-meterhub-schaetzzaehler-leistung-und-energie-fuer-lampen-zwischenstecker-und-co-ohne-eigene-messung-powercalc-fuer-symcon/145001';
     private const POWERCALC_URL = 'https://github.com/bramstroker/homeassistant-powercalc';
     private const NEWS_VERSION = '0.41.0';
 
@@ -168,6 +169,7 @@ class MeterHubEstimate extends IPSModule
             'caption' => '💬  Feedback in the Symcon forum',
             'items' => [
                 ['type' => 'Label', 'caption' => 'Feedback is welcome in the Symcon forum — especially which devices you estimate and how close the estimate comes to a real measurement.'],
+                ['type' => 'Button', 'caption' => 'Go to the forum thread', 'onClick' => "echo '" . self::FORUM_THREAD_URL . "';", 'link' => true],
                 ['type' => 'Button', 'caption' => 'Got it – don\'t show again', 'onClick' => 'MHUBE_AckForumHint($id);'],
             ],
         ];
