@@ -200,5 +200,30 @@ $hub = new MeterHub($id6); $hub->Create();
 $msg = $hub->TestConnection();
 check('Modbus-Zähler ohne Host: allgemeiner Hinweis „Host/Port/Unit-ID prüfen“', str_contains($msg, '❌') && (str_contains($msg, 'Unit-ID') || str_contains($msg, 'unit ID')), $msg);
 
+// 7) Jeder Zählertyp mit Treiber muss im Formular auswählbar sein (0.42.3). Seit der Einführung der schreibenden blue'Log-Typen
+//    fehlten bluelog_rpc und bluelog_powercontrol im Auswahlfeld „Zählertyp“: Treiber vorhanden, aber in der Konsole nicht wählbar.
+echo "\n7) Alle Zählertypen aus DRIVERS stehen im Auswahlfeld des Formulars (und kein unbekannter Wert)\n";
+$id7 = 700; $GLOBALS['PROP'][$id7]['Meter'] = 'siemens_pac2200';
+$hub7 = new MeterHub($id7); $hub7->Create();
+$form7 = json_decode($hub7->GetConfigurationForm(), true);
+$findSelect = function ($nodes) use (&$findSelect) {
+    foreach ($nodes as $e) {
+        if (!is_array($e)) { continue; }
+        if (($e['name'] ?? '') === 'Meter' && ($e['type'] ?? '') === 'Select') { return $e; }
+        if (isset($e['items']) && ($r = $findSelect($e['items']))) { return $r; }
+    }
+    return null;
+};
+$sel7 = $findSelect($form7['elements'] ?? []);
+check('Auswahlfeld „Zählertyp“ im Formular gefunden', $sel7 !== null);
+$optValues = array_column($sel7['options'] ?? [], 'value');
+foreach ($drivers as $k) {
+    check("Zählertyp $k ist im Auswahlfeld wählbar", in_array($k, $optValues, true));
+}
+foreach ($optValues as $v) {
+    check("Auswahlwert $v hat einen Treiber", in_array($v, $drivers, true));
+}
+check('Keine doppelten Auswahlwerte', count($optValues) === count(array_unique($optValues)));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

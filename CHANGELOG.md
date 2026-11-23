@@ -2,6 +2,11 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.42.3 (2026-11-23)
+
+- **Fix: Die Zählertypen „blue'Log RPC“ und „blue'Log Power Control“ lassen sich im Formular wieder auswählen.** Beide Typen gab es als Treiber seit dem ersten Schreibzugriff (September), aber sie standen nie in der Auswahlliste „Zählertyp“. Wer sie brauchte, konnte sie in der Konsole nicht wählen; ein von Hand gesetzter Wert zeigte nur die Meldung „Aktueller Wert … ist nicht verfügbar“. Die README beschreibt beide Typen als „von Hand anlegen“, das ging bisher nur über ein Skript. Jetzt stehen „Meteocontrol blue'Log RPC (Direktvermarkter, ⚠️ schreibend)“ und „Meteocontrol blue'Log Power Control (Netzbetreiber, ⚠️ schreibend)“ am Ende der Liste. Das Schreiben beginnt wie bisher erst mit „Kommunikation aktiv“. Bestehende Instanzen ändern sich nicht. Gefunden beim Anlegen eines blue'Log ohne SCADA-Lizenz auf Geschäft (Fehlerbild: SCADA-Typ gewählt, keine Werte, Gerätetyp 65535).
+- **Prüfung:** `test-meter-groups.php` Abschnitt 7 prüft, dass jeder Zählertyp mit Treiber im Auswahlfeld des Formulars steht, dass jeder Auswahlwert einen Treiber hat und keiner doppelt vorkommt. Ohne den Fix schlagen zwei Prüfungen an (RPC und Power Control fehlen).
+
 ## 0.42.2 (2026-11-20)
 
 - **Neu (Schätzzähler): Hinweis „dauernd an“.** Ist weder ein Schalter noch (bei „Linear“ und „Gerätedatenbank“) eine Helligkeitsvariable gewählt, kann das Modul „an“ und „aus“ nicht unterscheiden und rechnet das Gerät als dauernd eingeschaltet. Bisher zeigte die Vorschau dann trotzdem ein grünes „✅ an · → 6,03 W“, das nach einer echten Schätzung aussah. Jetzt steht darüber eine Warnung mit dem Hinweis, die Variablen im Bereich „Gerät“ zu wählen. Bei „Feste Leistung“ zählt nur der Schalter. Rein anzeigend: nichts wird blockiert, kein Wert ändert sich.

@@ -5140,6 +5140,10 @@ The function is still set to "none" there — deliberately, because otherwise th
                         ['caption' => 'Meteocontrol blue\'Log SCADA – inverter (SCADA address = unit ID)', 'value' => 'bluelog_scada_inverter'],
                         ['caption' => 'Meteocontrol blue\'Log SCADA – meter (SCADA address = unit ID)', 'value' => 'bluelog_scada_meter'],
                         ['caption' => 'Meteocontrol blue\'Log SCADA – data logger, total of all inverters (unit ID 97)', 'value' => 'bluelog_scada_logger'],
+                        // Die beiden schreibenden Typen fehlten hier seit ihrer Einführung (0.26.x): der Treiber war da, aber nicht auswählbar.
+                        // Dieselben englischen Quelltexte wie in METER_LABELS, damit eine Übersetzung genügt.
+                        ['caption' => 'Meteocontrol blue\'Log RPC (direct marketer, ⚠️ write access)', 'value' => 'bluelog_rpc'],
+                        ['caption' => 'Meteocontrol blue\'Log Power Control (grid operator, ⚠️ write access)', 'value' => 'bluelog_powercontrol'],
                     ],
                 ],
                 [
