@@ -225,5 +225,45 @@ foreach ($optValues as $v) {
 }
 check('Keine doppelten Auswahlwerte', count($optValues) === count(array_unique($optValues)));
 
+// 8) Nur-lesen-Schalter im Formular (0.42.5): Auswahl und Statuszeile, Statuszeile folgt der Stellung und dem Bestand
+echo "\n8) Formular: Auswahl „Sollwert schreiben“ und Statuszeile\n";
+$id8 = 800; $GLOBALS['PROP'][$id8]['Meter'] = 'bluelog_rpc'; $GLOBALS['PROP'][$id8]['SetpointWrite'] = 'auto';
+$hub8 = new MeterHub($id8); $hub8->Create();
+$find8 = function ($nodes, $name) use (&$find8) { foreach ($nodes as $e) { if (!is_array($e)) { continue; } if (($e['name'] ?? '') === $name) { return $e; } if (isset($e['items']) && ($r = $find8($e['items'], $name))) { return $r; } } return null; };
+$f8 = json_decode($hub8->GetConfigurationForm(), true);
+$sel8 = $find8($f8['elements'] ?? [], 'SetpointWrite');
+check('8a: Auswahl „Sollwert schreiben“ mit drei Stellungen auto/on/off', $sel8 !== null && array_column($sel8['options'], 'value') === ['auto', 'on', 'off']);
+$hub8->WriteAttributeString('WriteLegacy', '1');
+$st8 = $find8(json_decode($hub8->GetConfigurationForm(), true)['elements'] ?? [], 'SetpointWriteStatus');
+check('8b: Bestand + Automatik: Statuszeile nennt das Weiterschreiben', $st8 !== null && preg_match('/SCHREIBT|WRITES/u', $st8['caption']) === 1, (string)($st8['caption'] ?? ''));
+$hub8->WriteAttributeString('WriteLegacy', '0');
+$st8 = $find8(json_decode($hub8->GetConfigurationForm(), true)['elements'] ?? [], 'SetpointWriteStatus');
+check('8c: neue Instanz + Automatik: Statuszeile sagt „nur lesen“', $st8 !== null && preg_match('/liest nur|reads only/u', $st8['caption']) === 1, (string)($st8['caption'] ?? ''));
+$GLOBALS['PROP'][$id8]['SetpointWrite'] = 'off';
+$st8 = $find8(json_decode($hub8->GetConfigurationForm(), true)['elements'] ?? [], 'SetpointWriteStatus');
+check('8d: „Nur lesen“: Statuszeile bestätigt es', $st8 !== null && preg_match('/Nur lesen|Read only/u', $st8['caption']) === 1, (string)($st8['caption'] ?? ''));
+$GLOBALS['PROP'][$id8]['SetpointWrite'] = 'on';
+$st8 = $find8(json_decode($hub8->GetConfigurationForm(), true)['elements'] ?? [], 'SetpointWriteStatus');
+check('8e: „Schreiben“: Statuszeile warnt', $st8 !== null && preg_match('/SCHREIBT|WRITES/u', $st8['caption']) === 1, (string)($st8['caption'] ?? ''));
+
+// 8f–8i: Sichtbarkeit der Sollwert-Felder beim Öffnen des Formulars (bisher blieben sie bei einer gespeicherten RPC-Instanz versteckt,
+//        sie erschienen erst nach einem Wechsel des Zählertyps)
+$visOf = function (string $meter) use ($find8, $id8, $hub8) {
+    $GLOBALS['PROP'][$id8]['Meter'] = $meter;
+    $els = json_decode($hub8->GetConfigurationForm(), true)['elements'] ?? [];
+    $o = [];
+    foreach (['SetpointWrite', 'SetpointMode', 'TargetSetpoint', 'BtnWriteNow', 'WriteWarningPanel', 'WriteWarningGridop', 'RpcValidTimeMin'] as $n) {
+        $e = $find8($els, $n); $o[$n] = $e === null ? null : ($e['visible'] ?? true);
+    }
+    return $o;
+};
+$vRpc = $visOf('bluelog_rpc');
+check('8f: gespeicherte RPC-Instanz: Sollwert-Felder beim Öffnen sichtbar', $vRpc['SetpointWrite'] === true && $vRpc['SetpointMode'] === true && $vRpc['TargetSetpoint'] === true && $vRpc['BtnWriteNow'] === true && $vRpc['WriteWarningPanel'] === true, json_encode($vRpc));
+check('8g: ... Gültigkeitszeit nur bei RPC, Netzbetreiber-Hinweis nicht', $vRpc['RpcValidTimeMin'] === true && $vRpc['WriteWarningGridop'] === false, json_encode($vRpc));
+$vPc = $visOf('bluelog_powercontrol');
+check('8h: Power Control: Netzbetreiber-Hinweis sichtbar, keine Gültigkeitszeit', $vPc['WriteWarningGridop'] === true && $vPc['RpcValidTimeMin'] === false && $vPc['SetpointWrite'] === true, json_encode($vPc));
+$vOther = $visOf('siemens_pac2200');
+check('8i: anderer Zählertyp: alle Sollwert-Felder versteckt', !in_array(true, array_values($vOther), true), json_encode($vOther));
+
 echo "\n" . ($fails === 0 ? "ALLE PRÜFUNGEN BESTANDEN\n" : "$fails PRÜFUNG(EN) FEHLGESCHLAGEN\n");
 exit($fails === 0 ? 0 : 1);

@@ -3769,6 +3769,8 @@ class MeterHub extends IPSModule
         $this->RegisterPropertyString('SetpointMode', 'rel'); // 'rel' (%) oder 'abs' (W)
         $this->RegisterPropertyFloat('TargetSetpoint', 100.0);
         $this->RegisterPropertyString('FailsafeMode', 'hold'); // 'hold' oder 'default'
+        // Nur-lesen-Schalter (0.42.5): 'auto' = bestehende Instanzen schreiben wie bisher, neue lesen nur; 'on' = schreiben; 'off' = nur lesen.
+        $this->RegisterPropertyString('SetpointWrite', 'auto');
         $this->RegisterPropertyFloat('FailsafeDefaultPercent', 100.0);
         // Nur RPC: Gültigkeitszeit in Minuten (Register 5006). Power Control
         // hat laut Herstellerdoku keinen vergleichbaren Mechanismus.
@@ -3854,6 +3856,8 @@ class MeterHub extends IPSModule
         // 'off'), siehe SyncInvertLayout(); Prüfzeitraum der Archiv-Korrektur;
         // zwischengespeicherte Richtungsprüfung (GetDiagnostics()).
         $this->RegisterAttributeString('InvertLayout', '');
+        // '' = noch nicht entschieden, '1' = Bestandsinstanz mit schreibendem Zählertyp (schreibt bei 'auto' weiter), '0' = neu / nicht schreibend
+        $this->RegisterAttributeString('WriteLegacy', '');
         $this->RegisterPropertyInteger('DirectionRepairDays', 60);
         $this->RegisterAttributeString('DirectionDiag', '');
         // Wartende Neuberechnungen der Verdichtung (0.27.7), siehe ReAggregate().
@@ -4074,6 +4078,7 @@ class MeterHub extends IPSModule
         $this->CreateProfiles();
         // Vor RegisterVariables(): die tauscht danach Namen/Positionen passend
         // zu den neuen Idents mit.
+        $this->DecideWriteLegacy();
         $this->SyncInvertLayout();
         // Richtungsprüfung neu rechnen lassen: nach Übernehmen (z. B. PowerInvert
         // umgeschaltet) und nach einem Modul-Update wäre der Zwischenspeicher
@@ -4115,16 +4120,8 @@ class MeterHub extends IPSModule
             // bis zu 10 Minuten auf das blue'Log-eigene Ablaufen der
             // Gültigkeitszeit zu warten. "Letzten Sollwert halten" tut hier
             // bewusst nichts weiter.
-            $driver = $this->GetDriver();
-            if ($ready && $driver instanceof MHUB_WritableMeterDriverInterface && $this->FailsafeMode() === 'default') {
-                // Auch der Rückfallwert ist ein Schreibzugriff: unter der Sperre (Stolperstein 31).
-                $this->RunLocked(self::LOCK_WAIT_WRITE_MS, true, function () use ($driver) {
-                    $mb = $this->GetTransport();
-                    $driver->writeFailsafe($mb, $this);
-                    if (method_exists($mb, 'close')) {
-                        $mb->close();
-                    }
-                });
+            if ($ready) {
+                $this->WriteFailsafeOnDeactivate();
             }
             $this->SetStatus(104);
             $this->SetTimerInterval('FastTimer', 0);
@@ -4157,7 +4154,7 @@ class MeterHub extends IPSModule
             // Zielwert (siehe Klassenkommentar MHUB_BlueLogRpcDriver: das
             // Nachschreiben IST das Sicherheitsnetz gegen das Ablaufen der
             // Gültigkeitszeit am blue'Log).
-            if ($driver instanceof MHUB_WritableMeterDriverInterface) {
+            if ($driver instanceof MHUB_WritableMeterDriverInterface && $this->SetpointWritingEnabled()) {
                 $this->WriteSetpointChecked($driver, $mb, 'setpoint');
                 $this->FlushTransportNotices($mb);
             }
@@ -4279,6 +4276,22 @@ class MeterHub extends IPSModule
             }
         }
         return true;
+    }
+
+    /** Rückfallwert beim Deaktivieren (Ausfallverhalten „Default-Sollwert“). Auch das ist ein Schreibzugriff: nie bei „Nur lesen“, unter der Sperre (Stolperstein 31). */
+    private function WriteFailsafeOnDeactivate(): void
+    {
+        $driver = $this->GetDriver();
+        if (!($driver instanceof MHUB_WritableMeterDriverInterface) || !$this->SetpointWritingEnabled() || $this->FailsafeMode() !== 'default') {
+            return;
+        }
+        $this->RunLocked(self::LOCK_WAIT_WRITE_MS, true, function () use ($driver) {
+            $mb = $this->GetTransport();
+            $driver->writeFailsafe($mb, $this);
+            if (method_exists($mb, 'close')) {
+                $mb->close();
+            }
+        });
     }
 
     /**
@@ -4545,6 +4558,9 @@ class MeterHub extends IPSModule
         $driver = $this->GetDriver();
         if (!($driver instanceof MHUB_WritableMeterDriverInterface)) {
             return MHUB_Text::t('❌ This meter type does not support setpoint write access.');
+        }
+        if (!$this->SetpointWritingEnabled()) {
+            return MHUB_Text::t('❌ Read only: this instance does not write setpoints. Set "Write setpoint" to "Write" in the panel "Setpoint write access" first.');
         }
         IPS_SetProperty($this->InstanceID, 'TargetSetpoint', $value);
         IPS_ApplyChanges($this->InstanceID);
@@ -5174,13 +5190,24 @@ The function is still set to "none" there — deliberately, because otherwise th
                         [
                             'type' => 'Label', 'name' => 'WriteWarningPanel',
                             'caption' => '⚠️ This instance WRITES a setpoint to a real control interface. It collides with any other system already serving the same channel — before enabling, make sure no second writer (script, EMS, third-party system) accesses the same slave ID of the same blue\'Log.',
-                            'visible' => false,
+                            'visible' => $this->IsWritableMeter(),
                         ],
                         [
                             'type' => 'Label', 'name' => 'WriteWarningGridop',
                             'caption' => '⚠️ Power Control role: this instance presents itself to the blue\'Log as GRID OPERATOR. Enable only if this role actually applies. No watchdog/validity-time mechanism — a value that has been set stays until it is actively overwritten.',
-                            'visible' => false,
+                            'visible' => $this->IsWritableMeter() && $this->ReadPropertyString('Meter') === 'bluelog_powercontrol',
                         ],
+                        [
+                            'type' => 'Select', 'name' => 'SetpointWrite', 'caption' => 'Write setpoint',
+                            'options' => [
+                                ['caption' => 'Automatic (existing instances keep writing, new ones read only)', 'value' => 'auto'],
+                                ['caption' => 'Write', 'value' => 'on'],
+                                ['caption' => 'Read only (never write)', 'value' => 'off'],
+                            ],
+                            'onChange' => 'MHUB_OnChangeSetpointWrite($id, $SetpointWrite);',
+                            'visible' => $this->IsWritableMeter(),
+                        ],
+                        ['type' => 'Label', 'name' => 'SetpointWriteStatus', 'caption' => $this->SetpointWriteStatusLine(), 'visible' => $this->IsWritableMeter()],
                         [
                             'type' => 'Select', 'name' => 'SetpointMode', 'caption' => 'Setpoint mode',
                             'options' => [
@@ -5188,20 +5215,20 @@ The function is still set to "none" there — deliberately, because otherwise th
                                 ['caption' => 'Absolute (watts)',                    'value' => 'abs'],
                             ],
                             'onChange' => 'MHUB_OnChangeSetpointMode($id, $SetpointMode);',
-                            'visible' => false,
+                            'visible' => $this->IsWritableMeter(),
                         ],
-                        ['type' => 'NumberSpinner', 'name' => 'TargetSetpoint', 'caption' => MHUB_Text::t('Target value (%, relative)'), 'digits' => 3, 'visible' => false],
+                        ['type' => 'NumberSpinner', 'name' => 'TargetSetpoint', 'caption' => MHUB_Text::t('Target value (%, relative)'), 'digits' => 3, 'visible' => $this->IsWritableMeter()],
                         [
                             'type' => 'Select', 'name' => 'FailsafeMode', 'caption' => 'Failure behavior (on deactivation)',
                             'options' => [
                                 ['caption' => 'Write default setpoint', 'value' => 'default'],
                                 ['caption' => 'Hold last setpoint',    'value' => 'hold'],
                             ],
-                            'visible' => false,
+                            'visible' => $this->IsWritableMeter(),
                         ],
-                        ['type' => 'NumberSpinner', 'name' => 'FailsafeDefaultPercent', 'caption' => 'Default setpoint (%, always relative)', 'digits' => 1, 'minimum' => 0, 'maximum' => 125, 'visible' => false],
-                        ['type' => 'NumberSpinner', 'name' => 'RpcValidTimeMin', 'caption' => 'Validity time (minutes, RPC only)', 'minimum' => 1, 'maximum' => 255, 'visible' => false],
-                        ['type' => 'Button', 'name' => 'BtnWriteNow', 'caption' => '▶  Write target value now', 'onClick' => 'echo MHUB_SetBlueLogTarget($id, $TargetSetpoint);', 'visible' => false],
+                        ['type' => 'NumberSpinner', 'name' => 'FailsafeDefaultPercent', 'caption' => 'Default setpoint (%, always relative)', 'digits' => 1, 'minimum' => 0, 'maximum' => 125, 'visible' => $this->IsWritableMeter()],
+                        ['type' => 'NumberSpinner', 'name' => 'RpcValidTimeMin', 'caption' => 'Validity time (minutes, RPC only)', 'minimum' => 1, 'maximum' => 255, 'visible' => $this->HasRpcValidTime()],
+                        ['type' => 'Button', 'name' => 'BtnWriteNow', 'caption' => '▶  Write target value now', 'onClick' => 'echo MHUB_SetBlueLogTarget($id, $TargetSetpoint);', 'visible' => $this->IsWritableMeter()],
                     ],
                 ],
                 'func' => [
@@ -5419,7 +5446,7 @@ The function is still set to "none" there — deliberately, because otherwise th
         $isWritable = $this->IsWritableMeter($meter);
         $this->UpdateFormField('WriteWarningPanel', 'visible', $isWritable);
         $this->UpdateFormField('WriteWarningGridop', 'visible', $meter === 'bluelog_powercontrol');
-        foreach (['SetpointMode', 'TargetSetpoint', 'FailsafeMode', 'FailsafeDefaultPercent', 'BtnWriteNow'] as $f) {
+        foreach (['SetpointWrite', 'SetpointWriteStatus', 'SetpointMode', 'TargetSetpoint', 'FailsafeMode', 'FailsafeDefaultPercent', 'BtnWriteNow'] as $f) {
             $this->UpdateFormField($f, 'visible', $isWritable);
         }
         $this->UpdateFormField('RpcValidTimeMin', 'visible', $this->HasRpcValidTime($meter));
@@ -5830,6 +5857,63 @@ The function is still set to "none" there — deliberately, because otherwise th
     // Für die schreibenden blue'Log-Treiber (MHUB_WritableMeterDriverInterface)
     // — öffentliche Wrapper nach demselben Muster wie InexogyMeterId() oben,
     // da Treiberklassen nur auf PUBLIC Methoden von $hub zugreifen können.
+    /**
+     * Schreibt diese Instanz Sollwerte (0.42.5)? 'on' ja, 'off' nein; 'auto': Bestandsinstanzen (beim ersten Übernehmen nach dem Update schon
+     * mit Variablen und schreibendem Zählertyp) schreiben wie bisher, alle anderen lesen nur. Unentschieden ('') gilt wie Bestand, damit ein
+     * Lesezyklus vor dem ersten Übernehmen nie eine laufende Regelung unterbricht.
+     */
+    public function SetpointWritingEnabled(): bool
+    {
+        $mode = $this->ReadPropertyString('SetpointWrite');
+        if ($mode === 'on') {
+            return true;
+        }
+        if ($mode === 'off') {
+            return false;
+        }
+        return $this->ReadAttributeString('WriteLegacy') !== '0';
+    }
+
+    /** Einmalig je Instanz: Bestand mit schreibendem Zählertyp und schon vorhandenen Variablen bleibt bei 'auto' schreibend. */
+    private function DecideWriteLegacy(): void
+    {
+        if ($this->ReadAttributeString('WriteLegacy') !== '') {
+            return;
+        }
+        $legacy = false;
+        if ($this->IsWritableMeter()) {
+            foreach (IPS_GetChildrenIDs($this->InstanceID) as $cid) {
+                $o = IPS_GetObject($cid);
+                if (is_array($o) && ($o['ObjectType'] ?? 0) === 2) {
+                    $legacy = true;
+                    break;
+                }
+            }
+        }
+        $this->WriteAttributeString('WriteLegacy', $legacy ? '1' : '0');
+    }
+
+    /** Statuszeile zum Schreib-Schalter: sagt, ob diese Instanz gerade Sollwerte schreibt und warum. */
+    private function SetpointWriteStatusLine(?string $mode = null): string
+    {
+        $mode = $mode ?? $this->ReadPropertyString('SetpointWrite');
+        if ($mode === 'on') {
+            return MHUB_Text::t('⚠️ This instance WRITES setpoints (as soon as "Communication active" is on).');
+        }
+        if ($mode === 'off') {
+            return MHUB_Text::t('✅ Read only: nothing is written to the blue\'Log, only measured values are read.');
+        }
+        return $this->ReadAttributeString('WriteLegacy') === '0'
+            ? MHUB_Text::t('✅ Automatic: this is a new instance, so it reads only and writes nothing. Choose "Write" to enable setpoint writing.')
+            : MHUB_Text::t('⚠️ Automatic: this instance existed before the switch and keeps WRITING setpoints, as before. Choose "Read only" to stop writing.');
+    }
+
+    /** Live-Anzeige beim Umschalten des Schreib-Schalters. */
+    public function OnChangeSetpointWrite(string $mode)
+    {
+        $this->UpdateFormField('SetpointWriteStatus', 'caption', $this->SetpointWriteStatusLine($mode));
+    }
+
     public function SetpointMode(): string        { return $this->ReadPropertyString('SetpointMode'); }
     public function TargetSetpoint(): float       { return $this->ReadPropertyFloat('TargetSetpoint'); }
     public function FailsafeMode(): string         { return $this->ReadPropertyString('FailsafeMode'); }

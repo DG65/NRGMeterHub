@@ -105,6 +105,16 @@ if (in_array('--mutations', $argv ?? [], true)) {
         'TestConnection ohne Sperre' => ["\$ran = \$this->RunLocked(self::LOCK_WAIT_READ_MS, false, function () use (&\$mb, &\$ok) {", "\$ran = (function (\$w, \$m, \$fn) { \$fn(); return true; })(0, false, function () use (&\$mb, &\$ok) {"],
         'SetBlueLogTarget ohne Sperre' => ["\$this->RunLocked(self::LOCK_WAIT_WRITE_MS, true, function () use (\$driver, &\$ok) {", "(function (\$w, \$m, \$fn) { \$fn(); return true; })(0, true, function () use (\$driver, &\$ok) {"],
         'SetBlueLogTarget ohne Schreibstatus/Wiederholversuch' => ["\$ok = \$this->WriteSetpointChecked(\$driver, \$mb, 'setpoint');\n            \$this->FlushTransportNotices(\$mb);\n            if (method_exists(\$mb, 'close')) {", "\$ok = (bool)\$driver->writeSetpoint(\$mb, \$this);\n            \$this->FlushTransportNotices(\$mb);\n            if (method_exists(\$mb, 'close')) {"],
+        'Schreib-Schalter: ReadFast schreibt immer' => ["if (\$driver instanceof MHUB_WritableMeterDriverInterface && \$this->SetpointWritingEnabled()) {", "if (\$driver instanceof MHUB_WritableMeterDriverInterface) {"],
+        'Schreib-Schalter: SetBlueLogTarget schreibt immer' => ["if (!\$this->SetpointWritingEnabled()) {\n            return MHUB_Text::t('❌ Read only:", "if (false) {\n            return MHUB_Text::t('❌ Read only:"],
+        'Schreib-Schalter: Rückfallwert schreibt immer' => ["|| !\$this->SetpointWritingEnabled() || \$this->FailsafeMode() !== 'default') {", "|| \$this->FailsafeMode() !== 'default') {"],
+        'Schreib-Schalter: „Nur lesen“ wirkt nicht' => ["if (\$mode === 'off') {\n            return false;\n        }\n        return \$this->ReadAttributeString('WriteLegacy') !== '0';", "return \$this->ReadAttributeString('WriteLegacy') !== '0';"],
+        'Schreib-Schalter: „Schreiben“ wirkt nicht' => ["if (\$mode === 'on') {\n            return true;\n        }\n        if (\$mode === 'off') {", "if (\$mode === 'off') {"],
+        'Schreib-Schalter: Automatik schreibt nie' => ["return \$this->ReadAttributeString('WriteLegacy') !== '0';\n    }\n\n    /** Einmalig je Instanz", "return false;\n    }\n\n    /** Einmalig je Instanz"],
+        'Schreib-Schalter: Automatik liest nie nur' => ["return \$this->ReadAttributeString('WriteLegacy') !== '0';\n    }\n\n    /** Einmalig je Instanz", "return true;\n    }\n\n    /** Einmalig je Instanz"],
+        'Schreib-Schalter: Bestand ohne Variablen gilt als Bestand' => ["if (is_array(\$o) && (\$o['ObjectType'] ?? 0) === 2) {\n                    \$legacy = true;", "if (true) {\n                    \$legacy = true;"],
+        'Schreib-Schalter: nicht schreibender Typ gilt als Bestand' => ["        if (\$this->IsWritableMeter()) {\n            foreach (IPS_GetChildrenIDs(\$this->InstanceID) as \$cid) {", "        if (true) {\n            foreach (IPS_GetChildrenIDs(\$this->InstanceID) as \$cid) {"],
+        'Schreib-Schalter: Entscheidung nicht einmalig' => ["if (\$this->ReadAttributeString('WriteLegacy') !== '') {\n            return;\n        }\n        \$legacy = false;", "\$legacy = false;"],
     ];
     $procs = [];
     $survived = 0;
@@ -438,6 +448,93 @@ $before = serverConns($srv);
 $msg = $hub->SetBlueLogTarget(61.0);
 check('4k: SetBlueLogTarget schreibt bei hängendem Lesezyklus trotzdem (Sollwert nicht verlieren)', serverConns($srv) === $before + 1 && strpos($msg, '✅') !== false, $msg);
 check('4l: ... und warnt im Protokoll', lastLogContains('trotzdem geschrieben'));
+
+// ---------------------------------------------------------------------------
+echo "\n5) Nur-lesen-Schalter (0.42.5): SetpointWrite auto/on/off\n";
+$GLOBALS['PROP'][ID]['Meter'] = 'bluelog_rpc';
+$GLOBALS['PROP'][ID]['Port'] = $srv[1];
+$hubW = new MeterHub(ID);
+$modes = [
+    ['off',  '',  false, '5a: „Nur lesen“ liest, schreibt aber nichts'],
+    ['on',   '0', true,  '5b: „Schreiben“ schreibt (auch bei neuer Instanz)'],
+    ['auto', '',  true,  '5c: Automatik, noch unentschieden: schreibt wie bisher (laufende Regelung nie unterbrechen)'],
+    ['auto', '1', true,  '5d: Automatik, Bestandsinstanz: schreibt weiter'],
+    ['auto', '0', false, '5e: Automatik, neue Instanz: liest nur'],
+    ['off',  '1', false, '5f: „Nur lesen“ gilt auch bei einer Bestandsinstanz'],
+];
+foreach ($modes as [$mode, $legacy, $expectWrite, $label]) {
+    resetWorld(); setVars(0, 0, '', 0);
+    $GLOBALS['PROP'][ID]['SetpointWrite'] = $mode;
+    $hubW->WriteAttributeString('WriteLegacy', $legacy);
+    $before = serverConns($srv);
+    $hubW->ReadFast();
+    $read = serverConns($srv) === $before + 1;
+    $wrote = GetValue(113) > 0;
+    check($label, $read && $wrote === $expectWrite, "Verbindungen +" . (serverConns($srv) - $before) . ', geschrieben: ' . var_export($wrote, true));
+}
+check('5g: SetpointWritingEnabled() antwortet je Stellung', (function () use ($hubW) {
+    $r = [];
+    foreach ([['on', '0', true], ['off', '1', false], ['auto', '1', true], ['auto', '0', false], ['auto', '', true]] as [$m, $l, $want]) {
+        $GLOBALS['PROP'][ID]['SetpointWrite'] = $m; $hubW->WriteAttributeString('WriteLegacy', $l);
+        $r[] = $hubW->SetpointWritingEnabled() === $want;
+    }
+    return !in_array(false, $r, true);
+})());
+
+// SetBlueLogTarget: bei „Nur lesen“ keine Verbindung, kein Schreiben, Zielwert bleibt unverändert
+resetWorld(); setVars(0, 0, '', 0);
+$GLOBALS['PROP'][ID]['SetpointWrite'] = 'off';
+$GLOBALS['PROP'][ID]['TargetSetpoint'] = 80.0;
+$before = serverConns($srv);
+$msg = $hubW->SetBlueLogTarget(42.0);
+check('5h: SetBlueLogTarget bei „Nur lesen“ lehnt ab, ohne Verbindung', strpos($msg, '❌') !== false && serverConns($srv) === $before && GetValue(113) === 0, $msg);
+check('5i: ... und lässt den gespeicherten Zielwert unverändert', (float)$GLOBALS['PROP'][ID]['TargetSetpoint'] === 80.0);
+$GLOBALS['PROP'][ID]['SetpointWrite'] = 'on';
+$msg = $hubW->SetBlueLogTarget(43.0);
+check('5j: bei „Schreiben“ geht SetBlueLogTarget wie bisher', strpos($msg, '✅') !== false, $msg);
+
+// Rückfallwert beim Deaktivieren ist auch ein Schreibzugriff
+resetWorld(); setVars(0, 0, '', 0);
+$GLOBALS['PROP'][ID]['FailsafeMode'] = 'default';
+$GLOBALS['PROP'][ID]['Active'] = false;
+$GLOBALS['PROP'][ID]['SetpointWrite'] = 'off';
+$before = serverConns($srv);
+priv($hubW, 'WriteFailsafeOnDeactivate');
+check('5k: Deaktivieren bei „Nur lesen“ schreibt keinen Rückfallwert', serverConns($srv) === $before, (string)(serverConns($srv) - $before));
+$GLOBALS['PROP'][ID]['SetpointWrite'] = 'on';
+$before = serverConns($srv);
+priv($hubW, 'WriteFailsafeOnDeactivate');
+check('5l: ... bei „Schreiben“ schon (wie bisher)', serverConns($srv) === $before + 1, (string)(serverConns($srv) - $before));
+$GLOBALS['PROP'][ID]['Active'] = true;
+$GLOBALS['PROP'][ID]['FailsafeMode'] = 'hold';
+
+// Entscheidung „Bestand“ einmalig beim ersten Übernehmen
+$mkHub = function (int $id, string $meter, bool $withVar) {
+    obj($id, 1, 'Test ' . $id, 0);
+    if ($withVar) { vari($id + 1000, 'Wert', $id, 'power_total', VARIABLETYPE_FLOAT, 1.0); }
+    $GLOBALS['PROP'][$id] = ['Meter' => $meter, 'Host' => '127.0.0.1', 'Port' => 1, 'UnitId' => 10, 'Active' => false, 'ConnectionMode' => 'direct'];
+    return new MeterHub($id);
+};
+$hNew = $mkHub(200, 'bluelog_rpc', false);
+priv($hNew, 'DecideWriteLegacy');
+check('5m: neue schreibende Instanz ohne Variablen: Automatik liest nur', $hNew->ReadAttributeString('WriteLegacy') === '0' && $hNew->SetpointWritingEnabled() === false);
+$hCat = $mkHub(230, 'bluelog_rpc', false);
+obj(1230, 0, 'Kategorie', 230);   // ein Kind, das keine Variable ist, macht die Instanz nicht zum Bestand
+priv($hCat, 'DecideWriteLegacy');
+check('5m2: nur ein Nicht-Variablen-Kind: keine Bestandsinstanz', $hCat->ReadAttributeString('WriteLegacy') === '0');
+$hOld = $mkHub(210, 'bluelog_rpc', true);
+priv($hOld, 'DecideWriteLegacy');
+check('5n: Bestand (schreibender Typ, Variablen vorhanden): Automatik schreibt weiter', $hOld->ReadAttributeString('WriteLegacy') === '1' && $hOld->SetpointWritingEnabled() === true);
+$hOther = $mkHub(220, 'siemens_pac2200', true);
+priv($hOther, 'DecideWriteLegacy');
+check('5o: nicht schreibender Zählertyp: entschieden auf „0“', $hOther->ReadAttributeString('WriteLegacy') === '0');
+$GLOBALS['PROP'][220]['Meter'] = 'bluelog_rpc';
+priv($hOther, 'DecideWriteLegacy');
+check('5p: später auf RPC umgestellt: bleibt „0“ (einmal entschieden, nie nachträglich Bestand)', $hOther->ReadAttributeString('WriteLegacy') === '0' && $hOther->SetpointWritingEnabled() === false);
+$GLOBALS['PROP'][210]['Meter'] = 'siemens_pac2200';
+priv($hOld, 'DecideWriteLegacy');
+check('5q: Entscheidung ist einmalig (zweiter Aufruf ändert nichts)', $hOld->ReadAttributeString('WriteLegacy') === '1');
+
 stopServer($srv);
 
 // Verbindungsfehler: Wiederholversuch + Fehlergrund

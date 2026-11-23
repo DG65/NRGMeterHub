@@ -2,6 +2,12 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.42.5 (2026-11-23)
+
+- **Neu: Nur-lesen-Schalter für blue'Log RPC und Power Control.** Im Panel „Sollwert-Schreibzugriff“ gibt es die Auswahl „Sollwert schreiben“ mit drei Stellungen: **Nur lesen** misst und schreibt nie, weder im Lesezyklus noch beim Rückfallwert nach dem Deaktivieren, und der Knopf „Zielwert jetzt schreiben“ lehnt ab. **Schreiben** schreibt wie bisher. **Automatisch** (Vorgabe) lässt eine bestehende Instanz mit schreibendem Zählertyp **weiterschreiben** und lässt neue Instanzen nur lesen; entschieden wird einmal beim ersten Übernehmen nach dem Update (Instanz hat schon Variablen und einen schreibenden Typ). Eine laufende Regelung wird durch das Update also nie unterbrochen, eine neu angelegte schreibt nie ungefragt. Eine Statuszeile im Panel sagt, was gerade gilt.
+- **Fix: Das Sollwert-Panel war beim Öffnen einer gespeicherten RPC- oder Power-Control-Instanz komplett versteckt** (Warnhinweis, Modus, Zielwert, Rückfallverhalten, Gültigkeitszeit, Knopf). Die Felder erschienen erst, wenn man den Zählertyp wechselte. Jetzt sind sie beim Öffnen sichtbar, wenn der Zählertyp schreibt.
+- **Prüfung:** `test-iolock.php` Abschnitt 5 (alle Stellungen gegen einen echten Testserver: schreibt oder schreibt nicht, Rückfallwert, Knopf, einmalige Entscheidung für Bestand) mit zehn neuen Mutationsproben (alle erkannt), `test-meter-groups.php` Abschnitt 8 (Auswahl, Statuszeile, Sichtbarkeit je Zählertyp).
+
 ## 0.42.4 (2026-11-23)
 
 - **Fix (virtueller Zähler): Variablen mit reiner Darstellungs-Vorlage werden in der Suche erkannt.** Viele Variablen tragen als Darstellung nur eine Vorlage (`TEMPLATE`), etwa Leistung, Energie, Spannung oder Strom aus KNX- und anderen Modulen. Die Einheit steht dann nicht im Profil und nicht als Suffix in der Darstellung, sondern erst in der aufgelösten Vorlage. Die Suche las sie bisher nicht und übersah solche Variablen. Jetzt fragt sie bei Variablen mit Vorlage die aufgelöste Darstellung (`IPS_GetVariablePresentation`) und nimmt das Suffix daraus (W, kW, Wh, kWh). Gemessen auf Privat (Symcon 9.1): 82 von 3567 Zahl-Variablen haben nur eine Vorlage. Kerne ohne die Funktion und Vorlagen ohne Einheit (Aufzählungen, Temperatur) ändern nichts. Der namensbasierte Weg der Geräte-Familien bleibt, denn Bezug oder Einspeisung, „Hauptzähler" und „Zwischenzähler" stehen nur im Namen. Anlass: Hinweis der Verschattungs-Sitzung über EMS.

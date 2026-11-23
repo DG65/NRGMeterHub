@@ -665,7 +665,16 @@
             "Counts the setpoint writes that did not arrive (after both attempts), since the variable was created": "Zählt die Sollwert-Schreibvorgänge, die (nach beiden Versuchen) nicht angekommen sind, seit die Variable angelegt wurde",
             "Time of the last setpoint write that did not arrive": "Zeitpunkt des letzten Sollwert-Schreibvorgangs, der nicht angekommen ist",
             "Reason of the last failure (connection error with errno/errstr)": "Grund des letzten Fehlers (Verbindungsfehler mit errno/errstr)",
-            "Time of the last setpoint write that went through": "Zeitpunkt des letzten Sollwert-Schreibvorgangs, der angekommen ist"
+            "Time of the last setpoint write that went through": "Zeitpunkt des letzten Sollwert-Schreibvorgangs, der angekommen ist",
+            "Write setpoint": "Sollwert schreiben",
+            "Automatic (existing instances keep writing, new ones read only)": "Automatisch (bestehende Instanzen schreiben weiter, neue lesen nur)",
+            "Write": "Schreiben",
+            "Read only (never write)": "Nur lesen (nie schreiben)",
+            "⚠️ This instance WRITES setpoints (as soon as \"Communication active\" is on).": "⚠️ Diese Instanz SCHREIBT Sollwerte (sobald „Kommunikation aktiv“ an ist).",
+            "✅ Read only: nothing is written to the blue'Log, only measured values are read.": "✅ Nur lesen: Es wird nichts an den blue'Log geschrieben, nur Messwerte werden gelesen.",
+            "✅ Automatic: this is a new instance, so it reads only and writes nothing. Choose \"Write\" to enable setpoint writing.": "✅ Automatisch: Das ist eine neue Instanz, sie liest nur und schreibt nichts. „Schreiben“ wählen, um das Schreiben von Sollwerten zu aktivieren.",
+            "⚠️ Automatic: this instance existed before the switch and keeps WRITING setpoints, as before. Choose \"Read only\" to stop writing.": "⚠️ Automatisch: Diese Instanz gab es schon vor dem Schalter und SCHREIBT Sollwerte weiter, wie bisher. „Nur lesen“ wählen, um das Schreiben zu beenden.",
+            "❌ Read only: this instance does not write setpoints. Set \"Write setpoint\" to \"Write\" in the panel \"Setpoint write access\" first.": "❌ Nur lesen: Diese Instanz schreibt keine Sollwerte. Zuerst im Panel „Sollwert-Schreibzugriff“ bei „Sollwert schreiben“ auf „Schreiben“ stellen."
         }
     }
 }
