@@ -2,6 +2,11 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.42.4 (2026-11-23)
+
+- **Fix (virtueller Zähler): Variablen mit reiner Darstellungs-Vorlage werden in der Suche erkannt.** Viele Variablen tragen als Darstellung nur eine Vorlage (`TEMPLATE`), etwa Leistung, Energie, Spannung oder Strom aus KNX- und anderen Modulen. Die Einheit steht dann nicht im Profil und nicht als Suffix in der Darstellung, sondern erst in der aufgelösten Vorlage. Die Suche las sie bisher nicht und übersah solche Variablen. Jetzt fragt sie bei Variablen mit Vorlage die aufgelöste Darstellung (`IPS_GetVariablePresentation`) und nimmt das Suffix daraus (W, kW, Wh, kWh). Gemessen auf Privat (Symcon 9.1): 82 von 3567 Zahl-Variablen haben nur eine Vorlage. Kerne ohne die Funktion und Vorlagen ohne Einheit (Aufzählungen, Temperatur) ändern nichts. Der namensbasierte Weg der Geräte-Familien bleibt, denn Bezug oder Einspeisung, „Hauptzähler" und „Zwischenzähler" stehen nur im Namen. Anlass: Hinweis der Verschattungs-Sitzung über EMS.
+- **Prüfung:** `test-virtual.php` 6c2 (Vorlage mit W und kWh gefunden, °C und Aufzählung nicht, Abfrage nur für Variablen mit Vorlage, Kern ohne die Funktion). Ohne den Fix schlagen drei Prüfungen an.
+
 ## 0.42.3 (2026-11-23)
 
 - **Fix: Die Zählertypen „blue'Log RPC“ und „blue'Log Power Control“ lassen sich im Formular wieder auswählen.** Beide Typen gab es als Treiber seit dem ersten Schreibzugriff (September), aber sie standen nie in der Auswahlliste „Zählertyp“. Wer sie brauchte, konnte sie in der Konsole nicht wählen; ein von Hand gesetzter Wert zeigte nur die Meldung „Aktueller Wert … ist nicht verfügbar“. Die README beschreibt beide Typen als „von Hand anlegen“, das ging bisher nur über ein Skript. Jetzt stehen „Meteocontrol blue'Log RPC (Direktvermarkter, ⚠️ schreibend)“ und „Meteocontrol blue'Log Power Control (Netzbetreiber, ⚠️ schreibend)“ am Ende der Liste. Das Schreiben beginnt wie bisher erst mit „Kommunikation aktiv“. Bestehende Instanzen ändern sich nicht. Gefunden beim Anlegen eines blue'Log ohne SCADA-Lizenz auf Geschäft (Fehlerbild: SCADA-Typ gewählt, keine Werte, Gerätetyp 65535).

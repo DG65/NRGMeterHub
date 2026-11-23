@@ -77,6 +77,11 @@ function IPS_SetIdent($id, $i)    { $GLOBALS['OBJ'][$id]['ObjectIdent'] = $i; }
 function IPS_SetPosition($id, $p) { $GLOBALS['OBJ'][$id]['ObjectPosition'] = $p; }
 function IPS_SetInfo($id, $text)  { $GLOBALS['OBJ'][$id]['ObjectInfo'] = $text; }
 function IPS_GetVariableList()    { return array_keys($GLOBALS['VAR']); }
+function IPS_GetVariablePresentation($id) {
+    if (!empty($GLOBALS['PRES_THROWS'])) { throw new \Error('Funktion nicht verfügbar'); }
+    $GLOBALS['PRES_CALLS'] = ($GLOBALS['PRES_CALLS'] ?? 0) + 1;
+    return $GLOBALS['PRES_RESOLVED'][$id] ?? [];
+}
 function GetValue($id)            { return $GLOBALS['VAL'][$id] ?? 0; }
 function SetValueFloat($id, $v)   { $GLOBALS['VAL'][$id] = $v; }
 function SetValueInteger($id, $v) { $GLOBALS['VAL'][$id] = (int)$v; }
@@ -599,6 +604,42 @@ $presScan = $foundNames($run(0, '', false, false));
 check('Darstellung mit SUFFIX " W" gefunden', in_array('KNX Aktor Neu', $presScan, true), implode(' | ', $presScan));
 check('Darstellung mit PROFILE-Referenz (kWh) gefunden', in_array('Shelly Neu', $presScan, true), implode(' | ', $presScan));
 check('Darstellung mit °C-Suffix NICHT gefunden', !in_array('Thermostat Neu', $presScan, true), implode(' | ', $presScan));
+
+echo "\n6c2) Reine Vorlage (TEMPLATE) ohne SUFFIX — Einheit über IPS_GetVariablePresentation (0.42.4, EMS-Hinweis der Verschattung 23.11.2026)\n";
+// Gemessen auf Privat (Symcon 9.1): 106 von 5201 Variablen tragen nur {"TEMPLATE":…,"PRESENTATION":…}; aufgelöst steht dort SUFFIX " W" / " kWh" …
+$tplDev1 = obj(950, 0, 'KNX Vorlage Leistung', 10);
+vari(951, 'Wirkleistung', $tplDev1, '', '', 800.0);
+$GLOBALS['VAR'][951]['VariableCustomPresentation'] = ['TEMPLATE' => '{2FED3D39-073D-6037-901B-2586A1AB5569}', 'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}'];
+$GLOBALS['PRES_RESOLVED'][951] = ['SUFFIX' => ' W', 'DIGITS' => 0, 'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}'];
+$tplDev2 = obj(960, 0, 'Zähler Vorlage Energie', 10);
+vari(961, 'Wirkarbeit', $tplDev2, '', '', 1234.5);
+$GLOBALS['VAR'][961]['VariableCustomPresentation'] = ['TEMPLATE' => '{F712D804-7E47-481B-EC82-CEA89DF1DDC1}', 'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}'];
+$GLOBALS['PRES_RESOLVED'][961] = ['SUFFIX' => ' kWh', 'DIGITS' => 3, 'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}'];
+// Gegenproben: Vorlage mit fremder Einheit (°C) und Vorlage, die gar nichts auflöst (Aufzählung)
+$tplDev3 = obj(970, 0, 'Thermostat Vorlage', 10);
+vari(971, 'Temperatur', $tplDev3, '', '', 20.0);
+$GLOBALS['VAR'][971]['VariableCustomPresentation'] = ['TEMPLATE' => '{3C00E3AD-5403-12D4-0C30-A41C85011C85}', 'PRESENTATION' => '{6B9CAEEC-5958-C223-30F7-BD36569FC57A}'];
+$GLOBALS['PRES_RESOLVED'][971] = ['SUFFIX' => ' °C'];
+$tplDev4 = obj(980, 0, 'Modus Vorlage', 10);
+vari(981, 'Heizen/Kühlen', $tplDev4, '', '', 1.0);
+$GLOBALS['VAR'][981]['VariableCustomPresentation'] = ['TEMPLATE' => '{2C9B3DBC-4CCD-4C03-097F-7E759D6DB234}', 'PRESENTATION' => '{52D9E126-D7D2-2CBB-5E62-4CF7BA7C5D82}'];
+$GLOBALS['PRES_RESOLVED'][981] = ['OPTIONS' => '[]'];
+$GLOBALS['PRES_CALLS'] = 0;
+$tplScan = $foundNames($run(0, '', false, false));
+check('Vorlage Leistung (aufgelöst " W") gefunden', in_array('KNX Vorlage Leistung', $tplScan, true), implode(' | ', $tplScan));
+check('Vorlage Energie (aufgelöst " kWh") gefunden', in_array('Zähler Vorlage Energie', $tplScan, true), implode(' | ', $tplScan));
+check('Vorlage mit °C NICHT gefunden', !in_array('Thermostat Vorlage', $tplScan, true), implode(' | ', $tplScan));
+check('Vorlage ohne Einheit (Aufzählung) NICHT gefunden', !in_array('Modus Vorlage', $tplScan, true), implode(' | ', $tplScan));
+check('IPS_GetVariablePresentation nur für Variablen mit Vorlage gefragt (nicht für alle)', ($GLOBALS['PRES_CALLS'] ?? 0) > 0 && $GLOBALS['PRES_CALLS'] <= 8, 'Aufrufe: ' . ($GLOBALS['PRES_CALLS'] ?? 0));
+// Kern ohne die Funktion (oder Fehler beim Aufruf): keine Einheit, Suchlauf läuft trotzdem weiter und findet die klassischen Fälle
+$GLOBALS['PRES_THROWS'] = true;
+$tplScanOld = $foundNames($run(0, '', false, false));
+$GLOBALS['PRES_THROWS'] = false;
+check('Ohne auflösbare Vorlage: Vorlagen-Variable nicht gefunden, aber kein Absturz', !in_array('KNX Vorlage Leistung', $tplScanOld, true), implode(' | ', $tplScanOld));
+check('Ohne auflösbare Vorlage: klassische Darstellung (SUFFIX) weiter gefunden', in_array('KNX Aktor Neu', $tplScanOld, true), implode(' | ', $tplScanOld));
+// Variablen räumen, damit spätere Blöcke unverändert rechnen (der Suchlauf hätte sie sonst als Funde)
+foreach ([950, 951, 960, 961, 970, 971, 980, 981] as $rid) { unset($GLOBALS['OBJ'][$rid], $GLOBALS['VAR'][$rid], $GLOBALS['VAL'][$rid]); }
+$GLOBALS['PRES_RESOLVED'] = [];
 
 echo "\n6d) Kreuz-Instanz-Prüfung: schon in einer ANDEREN virtuellen Instanz verwendete Datenpunkte (Dietmars Anregung 31.08.2026)\n";
 // Ein zweiter, unabhängiger virtueller Zähler benutzt "Steckdose Küche" (Var.

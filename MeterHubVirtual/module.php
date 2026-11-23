@@ -2129,6 +2129,26 @@ The previous table is backed up. From now on: add, remove and reorder members in
         if ($pp !== '' && IPS_VariableProfileExists($pp)) {
             return trim(IPS_GetVariableProfile($pp)['Suffix']);
         }
+        // Reine Vorlage (0.42.4): {"TEMPLATE":"{GUID}","PRESENTATION":"{GUID}"} ohne SUFFIX — so stehen Leistung, Energie, Spannung
+        // und Strom bei vielen Variablen (live auf Privat, Symcon 9.1: 106 von 5201 Variablen, darunter KNX- und Modul-Variablen).
+        // IPS_GetVariablePresentation() löst die Vorlage in ihre Einzelwerte auf (SUFFIX " W", " kWh" …); gemessen, nicht angenommen.
+        // Nur für Variablen mit Vorlage gefragt, ältere Kerne ohne die Funktion fallen auf '' zurück.
+        if (isset($pres['TEMPLATE']) && function_exists('IPS_GetVariablePresentation')) {
+            try {
+                $resolved = @IPS_GetVariablePresentation($vid);
+            } catch (\Throwable $e) {
+                $resolved = null;
+            }
+            if (is_array($resolved)) {
+                if (trim((string) ($resolved['SUFFIX'] ?? '')) !== '') {
+                    return trim((string) $resolved['SUFFIX']);
+                }
+                $rp = (string) ($resolved['PROFILE'] ?? '');
+                if ($rp !== '' && IPS_VariableProfileExists($rp)) {
+                    return trim(IPS_GetVariableProfile($rp)['Suffix']);
+                }
+            }
+        }
         return '';
     }
 
