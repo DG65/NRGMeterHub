@@ -31,6 +31,7 @@ $GLOBALS['SEM_RELEASE_ON_WAIT'] = false; // true: der fremde Halter gibt währen
 function obj($id, $type, $name, $parent, $ident = '') { $GLOBALS['OBJ'][$id] = ['ObjectType' => $type, 'ObjectIdent' => $ident, 'ObjectName' => $name, 'ParentID' => $parent]; return $id; }
 function vari($id, $name, $parent, $ident, $type, $value) { obj($id, 2, $name, $parent, $ident); $GLOBALS['VARINFO'][$id] = ['VariableType' => $type]; $GLOBALS['VAL'][$id] = $value; return $id; }
 function IPS_GetObject($id)       { return $GLOBALS['OBJ'][$id] ?? null; }
+function IPS_GetName($id)         { return $GLOBALS['OBJ'][$id]['ObjectName'] ?? ('#' . $id); }
 function IPS_GetVariable($id)     { return $GLOBALS['VARINFO'][$id] ?? ['VariableType' => 2]; }
 function IPS_GetChildrenIDs($id)  { $o = []; foreach ($GLOBALS['OBJ'] as $k => $x) { if ($x['ParentID'] == $id) { $o[] = $k; } } return $o; }
 function IPS_LogMessage($s, $m)   { $GLOBALS['LOG'][] = $m; }
@@ -115,6 +116,13 @@ if (in_array('--mutations', $argv ?? [], true)) {
         'Schreib-Schalter: Bestand ohne Variablen gilt als Bestand' => ["if (is_array(\$o) && (\$o['ObjectType'] ?? 0) === 2) {\n                    \$legacy = true;", "if (true) {\n                    \$legacy = true;"],
         'Schreib-Schalter: nicht schreibender Typ gilt als Bestand' => ["        if (\$this->IsWritableMeter()) {\n            foreach (IPS_GetChildrenIDs(\$this->InstanceID) as \$cid) {", "        if (true) {\n            foreach (IPS_GetChildrenIDs(\$this->InstanceID) as \$cid) {"],
         'Schreib-Schalter: Entscheidung nicht einmalig' => ["if (\$this->ReadAttributeString('WriteLegacy') !== '') {\n            return;\n        }\n        \$legacy = false;", "\$legacy = false;"],
+        'RPC: Register 0 wird nicht gelesen' => ["\$hub->SetVarFloat('power_inverters', \$mb->readFloat32(\$r, 0));  // 0", ";"],
+        'RPC: Register 0 und 2 vertauscht' => ["\$hub->SetVarFloat('power_inverters', \$mb->readFloat32(\$r, 0));  // 0", "\$hub->SetVarFloat('power_inverters', \$mb->readFloat32(\$r, 2));  // 0"],
+        'RPC: Erzeugung vorzeichenverkehrt' => ["\$hub->SetVarFloat('power_inverters', \$mb->readFloat32(\$r, 0));  // 0", "\$hub->SetVarFloat('power_inverters', -\$mb->readFloat32(\$r, 0));  // 0"],
+        'RPC: PV-Zuordnung nimmt weiter den Netzübergabepunkt' => ["? 'power_inverters' : 'power_total';", "? 'power_total' : 'power_total';"],
+        'RPC: PV-Zuordnung auch für andere Zählertypen' => ["&& \$this->ReadPropertyString('Meter') === 'bluelog_rpc' && \$this->FindVarByIdent('power_inverters'))", "&& \$this->FindVarByIdent('power_inverters'))"],
+        'RPC: PV-Zuordnung auch ohne die Variable' => ["&& \$this->ReadPropertyString('Meter') === 'bluelog_rpc' && \$this->FindVarByIdent('power_inverters'))", "&& \$this->ReadPropertyString('Meter') === 'bluelog_rpc')"],
+        'RPC: jede Funktion nimmt die Wechselrichter-Summe' => ["\$totalPower = (\$this->ReadPropertyString('FuncTotal') === 'pv' && ", "\$totalPower = (true && "],
     ];
     $procs = [];
     $survived = 0;
@@ -534,6 +542,52 @@ check('5p: später auf RPC umgestellt: bleibt „0“ (einmal entschieden, nie n
 $GLOBALS['PROP'][210]['Meter'] = 'siemens_pac2200';
 priv($hOld, 'DecideWriteLegacy');
 check('5q: Entscheidung ist einmalig (zweiter Aufruf ändert nichts)', $hOld->ReadAttributeString('WriteLegacy') === '1');
+
+
+// ---------------------------------------------------------------------------
+echo "\n6) blue'Log RPC: Netzübergabepunkt (Register 2) und Wechselrichter-Summe (Register 0) sind getrennte Variablen (0.42.6)\n";
+class CannedClient
+{
+    public $regs; private $real;
+    public function __construct(array $regs) { $this->regs = $regs; $this->real = new MHUB_ModbusTcpClient('127.0.0.1', 1, 1); }
+    public function setWordSwap($b) { $this->real->setWordSwap($b); }
+    public function readHolding($start, $count) { return $this->regs; }
+    public function readFloat32($regs, $i) { return $this->real->readFloat32($regs, $i); }
+}
+class RecordingHub
+{
+    public $f = []; public $b = [];
+    public function SetVarFloat($i, $v) { $this->f[$i] = $v; }
+    public function SetVarBool($i, $v) { $this->b[$i] = $v; }
+}
+$packF = function (float $v): array { $u = unpack('n2', pack('G', $v)); return [$u[2], $u[1]]; };   // Float32, Wortpaar vertauscht (CDAB)
+$regs = array_fill(0, 44, 0);
+foreach ([[0, 31979.5], [2, -176.5], [8, 100.0], [42, 49.98]] as [$at, $val]) { [$regs[$at], $regs[$at + 1]] = $packF($val); }
+$rh = new RecordingHub();
+(new MHUB_BlueLogRpcDriver())->readFast(new CannedClient($regs), $rh);
+check('6a: Register 0 -> power_inverters (Erzeugung, positiv, unverändert)', isset($rh->f['power_inverters']) && abs($rh->f['power_inverters'] - 31979.5) < 0.01, json_encode($rh->f));
+check('6b: Register 2 -> power_total (Netzübergabepunkt, Vorzeichen für + = Bezug gedreht)', isset($rh->f['power_total']) && abs($rh->f['power_total'] - 176.5) < 0.01, json_encode($rh->f));
+check('6c: die beiden Werte sind nicht vertauscht', abs($rh->f['power_inverters'] - $rh->f['power_total']) > 1000);
+check('6d: Sollwert (Register 8) und Frequenz (Register 42) unverändert', abs($rh->f['active_setpoint_rel'] - 100.0) < 0.01 && abs($rh->f['frequency'] - 49.98) < 0.01, json_encode($rh->f));
+$idents6 = array_column((new MHUB_BlueLogRpcDriver())->getBaseVars(), 0);
+check('6e: Treiber legt power_inverters an (und power_total bleibt)', in_array('power_inverters', $idents6, true) && in_array('power_total', $idents6, true));
+check('6f: Power Control legt power_inverters NICHT an (keine belegte Quelle)', !in_array('power_inverters', array_column((new MHUB_BlueLogPowerControlDriver())->getBaseVars(), 0), true));
+
+// Funktionszuordnung „PV-Erzeugung“: nur bei RPC, nur mit vorhandener Variable, sonst wie bisher power_total
+$powerIdent = function (string $meter, string $func, bool $withVar) {
+    static $n = 300;
+    $id = $n++;
+    obj($id, 1, 'Test ' . $id, 0);
+    if ($withVar) { vari($id + 1000, 'Wechselrichter-Summe', $id, 'power_inverters', VARIABLETYPE_FLOAT, 1.0); }
+    $GLOBALS['PROP'][$id] = ['Meter' => $meter, 'FuncTotal' => $func, 'FuncTotalLabel' => '', 'MeasureMode' => 'combined'];
+    $h = new MeterHub($id);
+    foreach (priv($h, 'FunctionAssignments') as $a) { if ($a['slot'] === 'total') { return $a['power']; } }
+    return null;
+};
+check('6g: RPC mit Funktion „PV-Erzeugung“: Leistung = Wechselrichter-Summe', $powerIdent('bluelog_rpc', 'pv', true) === 'power_inverters');
+check('6h: RPC mit Funktion „Netzanschluss“: weiter der Netzübergabepunkt', $powerIdent('bluelog_rpc', 'grid', true) === 'power_total');
+check('6i: RPC „PV-Erzeugung“, Variable noch nicht angelegt: Rückfall auf power_total', $powerIdent('bluelog_rpc', 'pv', false) === 'power_total');
+check('6j: anderer Zählertyp mit „PV-Erzeugung“ bleibt bei power_total', $powerIdent('bluelog_powercontrol', 'pv', true) === 'power_total' && $powerIdent('siemens_pac2200', 'pv', true) === 'power_total');
 
 stopServer($srv);
 

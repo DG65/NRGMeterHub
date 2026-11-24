@@ -3407,7 +3407,10 @@ class MHUB_BlueLogRpcDriver implements MHUB_MeterDriverInterface, MHUB_WritableM
     public function getBaseVars()
     {
         return [
-            ['power_total',        'Feed-in power (actual)',        'F', 'NRG.Watt', true,  'total', 'FC3 2 (PPC_P_AC_FEED_IN)'],
+            // Register 2 (PPC_P_AC) ist die Wirkleistung am NETZÜBERGABEPUNKT (Netzanalyse), nicht die PV-Erzeugung. Die Erzeugung (Summe der
+            // Wechselrichter-Wirkleistung) steht in Register 0 (PPC_P_AC_INV), seit 0.42.6 als eigene Variable.
+            ['power_total',        'Active power (actual, grid connection point)', 'F', 'NRG.Watt', true,  'total', 'FC3 2 (PPC_P_AC)'],
+            ['power_inverters',    'Inverter active power (sum)',   'F', 'NRG.Watt', true,  'total', 'FC3 0 (PPC_P_AC_INV)'],
             ['active_setpoint_rel', 'Effective setpoint (actual, %)',    'F', 'NRG.Percent', false, 'total', 'FC3 8 (PPC_P_SET_RPC_REL)'],
             ['frequency',          'Grid frequency',                   'F', 'MHB.Hz',   false, 'total', 'FC3 42 (PPC_F_AC)'],
             ['connected',          'Connection',                     'B', '~Alert.Reversed', false, 'errors', ''],
@@ -3439,6 +3442,8 @@ class MHUB_BlueLogRpcDriver implements MHUB_MeterDriverInterface, MHUB_WritableM
         // (der ist für Verdrahtungsfehler gedacht, nicht für eine pro
         // Schnittstelle fest umgekehrte Herstellerkonvention).
         $hub->SetVarFloat('power_total', -$mb->readFloat32($r, 2));   // 2
+        // Summe der Wechselrichter-Wirkleistung (Register 0, PPC_P_AC_INV): Erzeugung, positiv — im Fenster 0..43 schon enthalten.
+        $hub->SetVarFloat('power_inverters', $mb->readFloat32($r, 0));  // 0
         $hub->SetVarFloat('active_setpoint_rel', $mb->readFloat32($r, 8)); // 8
         $hub->SetVarFloat('frequency', $mb->readFloat32($r, 42));     // 42
         return true;
@@ -6195,10 +6200,14 @@ The function is still set to "none" there — deliberately, because otherwise th
                 $n++;
             }
         } else {
+            // blue'Log RPC: „power_total“ ist der Netzübergabepunkt, die Erzeugung steht in „power_inverters“. Eine Zuordnung „PV-Erzeugung“
+            // bekommt deshalb die Wechselrichter-Summe (0.42.6; vorher bekam sie den Netzübergabepunkt, also etwa 0 statt der PV-Leistung).
+            $totalPower = ($this->ReadPropertyString('FuncTotal') === 'pv' && $this->ReadPropertyString('Meter') === 'bluelog_rpc' && $this->FindVarByIdent('power_inverters'))
+                ? 'power_inverters' : 'power_total';
             $mk('total',
                 $this->ReadPropertyString('FuncTotal'),
                 $this->ReadPropertyString('FuncTotalLabel'),
-                'power_total', 'energy_import', 'energy_export');
+                $totalPower, 'energy_import', 'energy_export');
         }
         return $out;
     }

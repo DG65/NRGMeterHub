@@ -230,7 +230,6 @@
             "Failure behavior (on deactivation)": "Ausfallverhalten (bei Deaktivieren)",
             "Fast interval (instantaneous values, seconds)": "Schnell-Intervall (Momentanwerte, Sekunden)",
             "Feed-in": "Einspeisung",
-            "Feed-in power (actual)": "Einspeiseleistung (Ist)",
             "Feedback, especially on the 🔧/🧪 marked meter types, is explicitly welcome in the community thread.": "Rückmeldungen, gerade zu den 🔧/🧪 markierten Zählertypen, sind ausdrücklich willkommen im Community-Thread.",
             "Field for the active power in W (empty = automatic)": "Feld für die Wirkleistung in W (leer = automatisch)",
             "Field for the energy export (empty = automatic)": "Feld für die Energieabgabe (leer = automatisch)",
@@ -674,7 +673,8 @@
             "✅ Read only: nothing is written to the blue'Log, only measured values are read.": "✅ Nur lesen: Es wird nichts an den blue'Log geschrieben, nur Messwerte werden gelesen.",
             "✅ Automatic: this is a new instance, so it reads only and writes nothing. Choose \"Write\" to enable setpoint writing.": "✅ Automatisch: Das ist eine neue Instanz, sie liest nur und schreibt nichts. „Schreiben“ wählen, um das Schreiben von Sollwerten zu aktivieren.",
             "⚠️ Automatic: this instance existed before the switch and keeps WRITING setpoints, as before. Choose \"Read only\" to stop writing.": "⚠️ Automatisch: Diese Instanz gab es schon vor dem Schalter und SCHREIBT Sollwerte weiter, wie bisher. „Nur lesen“ wählen, um das Schreiben zu beenden.",
-            "❌ Read only: this instance does not write setpoints. Set \"Write setpoint\" to \"Write\" in the panel \"Setpoint write access\" first.": "❌ Nur lesen: Diese Instanz schreibt keine Sollwerte. Zuerst im Panel „Sollwert-Schreibzugriff“ bei „Sollwert schreiben“ auf „Schreiben“ stellen."
+            "❌ Read only: this instance does not write setpoints. Set \"Write setpoint\" to \"Write\" in the panel \"Setpoint write access\" first.": "❌ Nur lesen: Diese Instanz schreibt keine Sollwerte. Zuerst im Panel „Sollwert-Schreibzugriff“ bei „Sollwert schreiben“ auf „Schreiben“ stellen.",
+            "Inverter active power (sum)": "Wechselrichter-Wirkleistung (Summe)"
         }
     }
 }

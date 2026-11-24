@@ -2,6 +2,12 @@
 
 Ältere Versionen: [CHANGELOG-Archiv.md](https://github.com/DG65/NRGMeterHub/blob/beta/CHANGELOG-Archiv.md)
 
+## 0.42.6 (2026-11-24)
+
+- **Fix: blue'Log RPC liefert jetzt auch die PV-Erzeugung.** Der RPC-Treiber las bisher nur Register 2 („Aktuelle Wirkleistung“, PPC_P_AC), das ist die Leistung am **Netzübergabepunkt** (Netzanalyse), und nannte sie „Einspeiseleistung“. Die **Summe der Wechselrichter-Wirkleistung** (Register 0, PPC_P_AC_INV, die Erzeugung) las er nicht, obwohl sein Lesefenster sie schon enthielt. Ein als „PV-Erzeugung“ zugeordneter RPC-Zähler zeigte deshalb den Netzübergabepunkt (auf Geschäft etwa 0,1 kW statt 32 kW). Jetzt gibt es die Variable **„Wechselrichter-Wirkleistung (Summe)“** (`power_inverters`, in W, positiv = Erzeugung). Eine RPC-Instanz mit der Funktion „PV-Erzeugung“ nimmt in der Funktionszuordnung (`MHUB_GetFunctions`) diese Variable; alle anderen Funktionen und alle anderen Zählertypen bleiben unverändert beim Netzübergabepunkt (`power_total`, Vorzeichen wie bisher + = Bezug). Die Variable erscheint nach dem Update beim ersten Übernehmen oder Neuladen der Instanz.
+- **Beschriftung:** `power_total` heißt bei neu angelegten RPC-Variablen „Wirkleistung (Ist, Netzübergabepunkt)“ statt „Einspeiseleistung (Ist)“. Bestehende Variablen behalten ihren Namen.
+- **Prüfung:** `test-iolock.php` Abschnitt 6 (Register 0 und 2 getrennt und nicht vertauscht, Vorzeichen, Zuordnung nur bei RPC mit Funktion „PV-Erzeugung“ und vorhandener Variable) mit sieben Mutationsproben.
+
 ## 0.42.5 (2026-11-23)
 
 - **Neu: Nur-lesen-Schalter für blue'Log RPC und Power Control.** Im Panel „Sollwert-Schreibzugriff“ gibt es die Auswahl „Sollwert schreiben“ mit drei Stellungen: **Nur lesen** misst und schreibt nie, weder im Lesezyklus noch beim Rückfallwert nach dem Deaktivieren, und der Knopf „Zielwert jetzt schreiben“ lehnt ab. **Schreiben** schreibt wie bisher. **Automatisch** (Vorgabe) lässt eine bestehende Instanz mit schreibendem Zählertyp **weiterschreiben** und lässt neue Instanzen nur lesen; entschieden wird einmal beim ersten Übernehmen nach dem Update (Instanz hat schon Variablen und einen schreibenden Typ). Eine laufende Regelung wird durch das Update also nie unterbrochen, eine neu angelegte schreibt nie ungefragt. Eine Statuszeile im Panel sagt, was gerade gilt.
